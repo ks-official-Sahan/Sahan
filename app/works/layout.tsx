@@ -1,20 +1,19 @@
 import { PageMetadata } from "@/config/site";
 import type { Metadata } from "next";
+import { Suspense } from "react";
 
 export const metadata: Metadata = {
-    ...PageMetadata.works
+  ...PageMetadata.works,
 };
 
 export default function WorksLayout({
-    children,
+  children,
 }: Readonly<{
-    children: React.ReactNode;
+  children: React.ReactNode;
 }>) {
-    return (
-
-        <div>
-            {children}
-        </div>
-
-    );
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <div>{children}</div>
+    </Suspense>
+  );
 }

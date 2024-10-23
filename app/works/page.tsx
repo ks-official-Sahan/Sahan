@@ -37,24 +37,14 @@ const Works = () => {
   }, [theme]);
 
   useEffect(() => {
-    const getLocalCategory = () => {
-      const wt = searchParams.get("wt");
-
-      if (wt === null) {
-        localStorage.setItem("wt", "des");
-      }
-
-      setWorkType(
-        wt === "des" ? "design" : wt === "pro" ? "projects" : "design"
-      );
-
-      if (wt) {
-        router.replace("/works?wt=" + wt);
-      } else {
-        router.replace("/works?wt=des");
-      }
-    };
-    getLocalCategory();
+    const wt = searchParams.get("wt");
+    if (!wt) {
+      localStorage.setItem("wt", "des");
+      router.replace("/works?wt=des");
+    } else {
+      setWorkType(wt === "des" ? "design" : "projects");
+      router.replace("/works?wt=" + wt);
+    }
   }, [path, router]);
 
   return (

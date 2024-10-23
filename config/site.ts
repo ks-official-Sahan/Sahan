@@ -50,4 +50,8 @@ export const PageMetadata = {
     title: "Contact | Sahan",
     description: "Let's connect and discuss your next big idea!",
   },
+  blog: {
+    title: "Blog | Sahan",
+    description: "Read my Blog",
+  },
 };
