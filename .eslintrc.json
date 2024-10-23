@@ -1,8 +1,6 @@
 {
   "extends": ["next/core-web-vitals", "next/typescript"],
-  "plugins": ["prettier"],
   "rules": {
-    "prettier/prettier": ["error", { "endOfLine": "auto" }],
     "no-console": "off",
     "no-unused-vars": "off"
   }
