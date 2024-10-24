@@ -1,5 +1,5 @@
-"use client";
-/* eslint-disable @typescript-eslint/no-unused-vars */
+"use client"; // Ensure this is required for your use case
+
 import WrapperBody from "@/components/wrappers/WrapperBody";
 import { Site, SiteMetadata } from "@/config/site";
 import { righteous } from "@/lib/fonts";
@@ -16,39 +16,33 @@ import ParticlesX from "@/components/animations/ParticlesX";
 import { PinContainer } from "@/components/ui/3d-pin";
 import SkillCard from "@/components/common/SkillCard";
 
-
 const About = () => {
-  const [sprite, setSprite] = useState(1);
   const { theme } = useTheme();
   const [color, setColor] = useState("#ffffff");
-
-  const run = () => {
-    if (sprite === 8) {
-      setSprite(1);
-    } else {
-      setSprite((prev) => prev + 1);
-    }
-  };
 
   useEffect(() => {
     setColor(theme === "dark" ? "#ffffff" : "#000000");
   }, [theme]);
 
+  const [sprite, setSprite] = useState(1);
+
+  const run = () => {
+    setSprite((prev) => (prev === 8 ? 1 : prev + 1));
+  };
+
   useLayoutEffect(() => {
     const intervalId = setInterval(run, 56);
-
     return () => clearInterval(intervalId);
-  });
+  }, []);
 
   return (
     <div className="w-full min-h-screen flex flex-col font-medium pb-[60px] overflow-hidden">
       {/* HERO SECTION */}
-      <section className="w-full  flex flex-col items-center pt-[111px]">
+      <section className="w-full flex flex-col items-center pt-[111px]">
         <div className="w-full">
           <WrapperBody>
             <div className="border rounded-[12px]">
               <motion.div className="w-full h-[200px] from-[#fafafa] to-white dark:from-[#101010] dark:to-black bg-gradient-to-t rounded-[12px] relative flex flex-col items-center">
-                {/* BACKGROUND PARTICLES */}
                 <ParticlesX
                   vx={-0.8}
                   className="absolute inset-0"
@@ -57,32 +51,26 @@ const About = () => {
                   color={color}
                   refresh
                 />
-
-                {/* RUN SPRITE */}
                 <div className="absolute bottom-0 left-[20px]">
                   <Image
                     src={`/gm/s1/run-${sprite}.png`}
-                    alt={"Sprite"}
+                    alt="Sprite"
                     width={80}
                     height={80}
                     className="object-cover"
                   />
                 </div>
-
-                {/* TARGET */}
                 <div className="absolute bottom-[-96px] right-[-100px]">
                   <PinContainer
                     title="Destination!"
                     href="https://evisionit.lk"
                     className="absolute bottom-0 right-[20px]"
                   >
-                    <div className=" bg-transparent"></div>
+                    <div className="bg-transparent"></div>
                   </PinContainer>
                 </div>
-
-                {/* PROFILE IMAGE */}
                 <div className="absolute bottom-[-100px]">
-                  <div className="w-[212px] h-[212px] border-x border-t rounded-full relative  bg-[#00000013] backdrop-blur-sm flex justify-center items-center">
+                  <div className="w-[212px] h-[212px] border-x border-t rounded-full relative bg-[#00000013] backdrop-blur-sm flex justify-center items-center">
                     <BorderBeam size={120} duration={6} delay={8} />
                     <NextUiImage
                       src="/me/sahan.webp"
@@ -98,23 +86,13 @@ const About = () => {
 
             {/* NAME, USERNAME, TAGLINE */}
             <div className="pt-[120px] flex flex-col items-center text-center">
-              {/* NAME */}
-              <div
-                className={cn(
-                  righteous.className,
-                  "uppercase text-[2rem] leading-[32px]"
-                )}
-              >
+              <div className={cn(righteous.className, "uppercase text-[2rem] leading-[32px]")}>
                 {SiteMetadata.legalName}
               </div>
-
-              {/* USERNAME */}
-              <div className={"pt-[10px] text-secondaryT pb-[2px]"}>
+              <div className="pt-[10px] text-secondaryT pb-[2px]">
                 {Site.gitHubUser}
               </div>
-
-              {/* TAGLINE */}
-              <AnimatedShinyText className="inline-flex items-center justify-center  py-1 transition ease-out hover:text-neutral-600 hover:duration-300 hover:dark:text-neutral-400">
+              <AnimatedShinyText className="inline-flex items-center justify-center py-1 transition ease-out hover:text-neutral-600 hover:duration-300 hover:dark:text-neutral-400">
                 <span>{Site.tagline}</span>
               </AnimatedShinyText>
             </div>

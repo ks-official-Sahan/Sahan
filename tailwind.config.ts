@@ -20,39 +20,48 @@ const config = {
   prefix: "",
   theme: {
     screens: {
-      "2xl": "1400px",
-      mobile: {
-        max: "760px",
-      },
-      mobileH: {
-        min: "520px",
-        max: "760px",
-      },
-      mid: {
-        min: "760px",
-        max: "992px",
-      },
-      tab: {
-        min: "760px",
-        max: "1280px",
-      },
-      desktop: {
-        min: "1280px",
-      },
-      wide: {
-        min: "1480px",
-      },
+      xs: { max: "479px" }, // Very small/old mobile phones (e.g., iPhone 5, older Android phones)
+      sm: { max: "767px" }, // Small tablets, large phones in landscape
+      md: { min: "768px", max: "1023px" }, // Tablets and small laptops (e.g., iPad Pro, smaller Chromebooks)
+      lg: "1024px", // Laptops and small desktops (e.g., MacBook Pro, 13" laptops)
+      xl: "1536px", // Larger desktops, 4K monitors
     },
+    // screens: {
+    //   // 1. Old low-end mobile devices
+    //   xs: { max: "359px" }, // Very small/old mobile phones (e.g., iPhone 5, older Android phones)
+    //   // 2. Low-end modern mobile devices
+    //   mobile: { min: "360px", max: "479px" }, // Modern budget mobile phones (e.g., older iPhones, budget Android phones)
+    //   // 3. High-end mobile devices in portrait mode
+    //   mobileH: { min: "480px", max: "639px" }, // High-end mobiles in portrait mode (e.g., iPhone 16 Pro Max, Galaxy S24 Ultra)
+    //   // 4. Large phones in landscape and small tablets
+    //   sm: { min: "640px", max: "767px" }, // Small tablets, large phones in landscape
+    //   // 5. Tablets and smaller laptops
+    //   md: { min: "768px", max: "1023px" }, // Tablets and small laptops (e.g., iPad Pro, smaller Chromebooks)
+    //   // 6. Laptops and small desktops
+    //   lg: { min: "1024px", max: "1279px" }, // Laptops and small desktops (e.g., MacBook Pro, 13" laptops)
+    //   // 7. Large desktops and high-resolution displays
+    //   xl: { min: "1280px", max: "1535px" }, // Large desktops and high-resolution monitors
+    //   // 8. Extra-large desktops and 4K monitors
+    //   xxl: { min: "1536px", max: "1919px" }, // Larger desktops, 4K monitors
+    //   // 9. Ultra-wide screens for immersive displays
+    //   wide: { min: "1920px", max: "2559px" }, // Ultra-wide monitors (21:9, 32:9), large desktop monitors
+    //   // 10. Ultra-high-resolution screens (4K+)
+    //   "4k": { min: "2560px" }, // Ultra-high-end and 4K resolution displays
+    // },
     container: {
       center: true,
       padding: "2rem",
       screens: {
-        "2xl": "1400px",
+        xl: "1400px",
       },
     },
     extend: {
+      screens: {
+        portrait: { raw: "(orientation: portrait)" },
+        landscape: { raw: "(orientation: landscape)" },
+      },
       backgroundImage: {
-        imcroxBro: "var(--imcrox-gd-bro)",
+        evisionBro: "var(--evision-gd-bro)",
       },
       colors: {
         "color-1": "hsl(var(--color-1))",
@@ -61,7 +70,7 @@ const config = {
         "color-4": "hsl(var(--color-4))",
         "color-5": "hsl(var(--color-5))",
         secondaryT: "var(--text-secondary)",
-        border: "var(--imcrox-br)",
+        border: "var(--evision-br)",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
         background: "hsl(var(--background))",

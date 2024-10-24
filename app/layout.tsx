@@ -1,12 +1,11 @@
 import type { Metadata } from "next";
 import "@/style/globals.css";
-import '@mantine/core/styles.css';
-import { ThemeProvider } from '@/components/theme/ThemeProvider'
+import "@mantine/core/styles.css";
+import { ThemeProvider } from "@/components/theme/ThemeProvider";
 
-import { ColorSchemeScript, MantineProvider } from '@mantine/core';
+import { ColorSchemeScript, MantineProvider } from "@mantine/core";
 import { poppins } from "@/lib/fonts";
 import { SiteMetadata } from "@/config/site";
-import Navbar from "@/components/nav/Navbar";
 import Footer from "@/components/foo/Footer";
 import { theme } from "@/config/mantine-theme";
 import FloatingAudioSwitch from "@/components/common/FloatingAudioSwitch";
@@ -14,13 +13,13 @@ import FloatingAudioSwitch from "@/components/common/FloatingAudioSwitch";
 import { gsap } from "gsap";
 import { useGSAP } from "@gsap/react";
 import ShoelaceSetup from "@/components/animations/shoelace/shoelace-setup";
-
+import Navigation from "@/components/nav/Navigation";
+import { AudioProvider } from "@/context/AudioContext";
 
 gsap.registerPlugin(useGSAP);
 
-
 export const metadata: Metadata = {
-  ...SiteMetadata
+  ...SiteMetadata,
 };
 
 export default function RootLayout({
@@ -28,31 +27,25 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-
-
   return (
     <html lang="en">
       <head>
         {/* Mantine Color Scheme */}
         <ColorSchemeScript defaultColorScheme="dark" />
-
-
       </head>
-      <body className={`${poppins.className} antialiased  relative`}>
-
-        <ThemeProvider
-          enableSystem
-          attribute='class'
-          defaultTheme='dark'
-
-        >
+      <body className={`${poppins.className} antialiased relative`}>
+        <ThemeProvider enableSystem attribute="class" defaultTheme="dark">
           <MantineProvider defaultColorScheme="dark" theme={theme}>
-            <ShoelaceSetup>
-              <Navbar />
-              <FloatingAudioSwitch />
-              {children}
-              <Footer />
-            </ShoelaceSetup>
+            <AudioProvider>
+              <ShoelaceSetup>
+                <main className="flex flex-col min-h-screen w-full overflow-x-hidden">
+                  <Navigation />
+                  <FloatingAudioSwitch />
+                  <div className="pb-[300px]">{children}</div>
+                  <Footer />
+                </main>
+              </ShoelaceSetup>
+            </AudioProvider>
           </MantineProvider>
         </ThemeProvider>
       </body>

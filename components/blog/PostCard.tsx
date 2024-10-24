@@ -3,7 +3,7 @@ import { Button } from '@nextui-org/react'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import React from 'react'
-import { ReadTimeBadge, RecentBadge } from '../common/Badges'
+import { ReadTimeBadge } from '../common/Badges'
 
 const PostCard = ({ ...post }: RecentPostProps) => {
 

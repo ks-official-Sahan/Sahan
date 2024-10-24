@@ -25,10 +25,13 @@ export default function Home() {
 
   return (
     <div>
-      {/* HERO => #0d0d0d */}
+      {/* HERO */}
       <section
         id="hero"
-        className="w-full min-h-[832px] pb-[60px] relative dark:from-black dark:to-[#0d0d0d] bg-gradient-to-b flex flex-col items-center pt-[160px]"
+        className="w-full min-h-[832px] pb-[60px] relative 
+        pt-[160px] md:pt-24 sm:pt-32
+        dark:from-black dark:to-[#0d0d0d] bg-gradient-to-b 
+        flex flex-col items-center"
       >
         <Particles
           className="absolute inset-0"
@@ -38,6 +41,7 @@ export default function Home() {
           refresh
         />
 
+        {/* Header */}
         <motion.div className="text-[2rem] font-bold">
           Hello, I&apos;m {Site.author}
         </motion.div>
@@ -57,36 +61,40 @@ export default function Home() {
           animate={{ y: 0, opacity: 1 }}
           transition={{ type: "spring", duration: 1 }}
           id="bento"
-          className="w-full h-auto flex flex-col items-center pt-[80px]"
+          className="w-full h-auto flex flex-col justify-center items-center pt-[80px] md:pt-[60px]"
         >
-          <div className="flex gap-[32px] items-center">
-            <motion.div
-              initial={{ rotate: 0 }}
-              animate={{ rotate: -5 }}
-              transition={{ type: "spring", duration: 0.5, delay: 0.5 }}
-            >
-              <BackgroundBeamsWithCollision>
-                <div className="w-[364px] min-h-[288px] rounded-[24px] border bg-[#f7f7f7] dark:bg-[#00000052] px-[40px] py-[50px]">
-                  <div className="text-center font-bold text-[2rem]">
-                    <span className="text-secondaryT">About</span>{" "}
-                    <span className="text-[#19cf31] dark:text-[#91FF00]">
-                      Me
-                    </span>
-                  </div>
-                  <div className="text-center font-medium text-secondaryT pt-[40px]">
-                    I create innovative solutions that transform{" "}
-                    <strong>ideas</strong> into <strong>reality</strong>.
-                  </div>
-                </div>
-              </BackgroundBeamsWithCollision>
-            </motion.div>
-
-            <div className="flex flex-col gap-[28px]">
+          <div className="flex gap-[32px] justify-center items-center">
+            <div className="flex gap-[28px] p-2 sm:flex-col md:flex-col">
               {/* ROW 1 */}
-              <div className="flex items-end gap-[62px]">
+              <div className="flex justify-center order-1 sm:order-2 md:order-2">
+                {/* CARD 1 = ABOUT */}
+                <motion.div
+                  initial={{ rotate: 30 }}
+                  animate={{ rotate: 0 }}
+                  transition={{ type: "spring", duration: 1.5, delay: 0.5 }}
+                >
+                  <BackgroundBeamsWithCollision>
+                    <div className="w-[288px] min-h-[288px] rounded-[24px] border bg-[#f7f7f7] dark:bg-[#00000052] px-[40px] py-[50px]">
+                      <div className="text-center font-bold text-[2rem]">
+                        <span className="text-secondaryT">About</span>{" "}
+                        <span className="text-[#19cf31] dark:text-[#91FF00]">
+                          Me
+                        </span>
+                      </div>
+                      <div className="text-center font-medium text-secondaryT pt-[40px]">
+                        I create innovative solutions that transform{" "}
+                        <strong>ideas</strong> into <strong>reality</strong>.
+                      </div>
+                    </div>
+                  </BackgroundBeamsWithCollision>
+                </motion.div>
+              </div>
+
+              {/* ROW 2 */}
+              <div className="flex flex-col items-center gap-[28px] order-2 sm:order-1 md:order-1">
                 {/* CARD 1 = ME */}
                 <RubberBandElement>
-                  <div className="w-[406px] h-[362px] rounded-[24px] border  relative flex flex-col items-center">
+                  <div className="w-[406px] h-[362px] rounded-[24px] border relative flex flex-col items-center">
                     <div className="w-full h-full absolute rounded-[24px] from-[#f0f0f0] to-white dark:from-[#1B1C1D] dark:to-[#000000] bg-gradient-to-b opacity-65"></div>
 
                     <Image
@@ -94,6 +102,7 @@ export default function Home() {
                       fill
                       alt={Site.author}
                       className=""
+                      priority
                     />
 
                     <div className="px-[16px] py-[6px] rounded-[10px] border  absolute bottom-[40px] bg-[#ffffff68] dark:bg-[#00000068] backdrop-blur-sm">
@@ -106,10 +115,10 @@ export default function Home() {
 
                 {/* CARD 2 = MY COMPANY */}
                 <motion.div
-                  initial={{ y: 0 }}
-                  animate={{ y: -40 }}
-                  transition={{ type: "spring", duration: 0.5, delay: 0.5 }}
-                  className="w-[268px] min-h-[220px] pt-[30px] pb-[20px] rounded-[24px] border bg-[#f7f7f7] dark:bg-[#00000052] flex flex-col items-center justify-center box-border px-[25px]"
+                  initial={{ y: -40 }}
+                  animate={{ y: 0 }}
+                  transition={{ type: "spring", duration: 1.5, delay: 0.5 }}
+                  className="w-[288px] min-h-[220px] pt-[30px] pb-[20px] rounded-[24px] border bg-[#f7f7f7] dark:bg-[#00000052] flex flex-col items-center justify-center box-border px-[25px]"
                 >
                   <div className="w-[80px] h-[80px] rounded-full bg-black dark:bg-white flex justify-center items-center pt-[3px]">
                     <EVISIONIT_ICON
@@ -122,7 +131,7 @@ export default function Home() {
                     Founder & CEO of Evision IT
                   </div>
 
-                  <a
+                  <Link
                     href={Site.orgUrl}
                     target="_blank"
                     rel="noopener noreferrer"
@@ -133,20 +142,20 @@ export default function Home() {
                         <VIP_ICON className="fill-[#FFB84D]" />
                       </div>
                       <span
-                        className={`${righteous.className} text-[14px] bg-imcroxBro text-center w-full bg-clip-text text-transparent`}
+                        className={`${righteous.className} text-[14px] bg-evisionBro text-center w-full bg-clip-text text-transparent`}
                       >
                         www.evisionit.lk
                       </span>
                     </Button>
-                  </a>
+                  </Link>
                 </motion.div>
               </div>
 
-              {/* ROW 2 */}
-              <div className="flex gap-[20px] h-[180px]  cursor-pointer">
+              {/* ROW 3 */}
+              <div className="flex flex-col justify-center items-center gap-[28px] cursor-pointer order-3">
                 {/* CARD 3 = CONTACT ME */}
-                <Link href={"/contact"}>
-                  <Button className="w-[288px] h-full  rounded-[24px] border relative group bg-transparent">
+                <Link href={"/contact"} className="h-[200px]">
+                  <Button className="w-[288px] h-full rounded-[24px] border relative group bg-transparent">
                     <div className="z-10 w-full h-full absolute rounded-[24px] from-[#ffdfd4] dark:from-[#3C231A] dark:to-[#060606] bg-gradient-to-b opacity-50"></div>
 
                     <Image
@@ -172,7 +181,7 @@ export default function Home() {
                 </Link>
 
                 {/* CARD 4 = RANDOM SERVICE OR SKILL */}
-                <div className="flex-1 h-full border rounded-[24px]"></div>
+                {/* <div className="h-[200px] w-[288px] border rounded-[24px]"></div> */}
               </div>
             </div>
           </div>

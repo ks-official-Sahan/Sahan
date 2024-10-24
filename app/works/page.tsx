@@ -45,15 +45,15 @@ const Works = () => {
       setWorkType(wt === "des" ? "design" : "projects");
       router.replace("/works?wt=" + wt);
     }
-  }, [path, router]);
+  }, [path, router, searchParams]);
 
   return (
     <div className="w-full flex flex-col items-center min-h-screen">
       {/* HERO */}
       <section
         className={cn(
-          "w-full min-h-[565px] box-border border-b from-[#000000] bg-gradient-to-b pt-[151px] relative",
-          workType === "design" ? "to-[#311309]" : "to-[#092A31]"
+          "w-full min-h-[565px] box-border border-b from-[#22c55e69] bg-gradient-to-b pt-[151px] relative",
+          workType === "design" ? "to-[#1a9145]" : "to-[#092A31]"
         )}
       >
         <Particles
@@ -66,7 +66,7 @@ const Works = () => {
 
         <WrapperBody>
           <div className="w-full">
-            <div className="text-center flex flex-col items-center gap-[12px]">
+            <div className="text-center text-white flex flex-col items-center gap-[12px]">
               <div className={cn(righteous.className, "text-[40px] uppercase")}>
                 {WorksContent.title}
               </div>
@@ -114,16 +114,11 @@ const Works = () => {
                     }}
                     className="w-full h-full border rounded-[24px] backdrop-blur-[33px] "
                   >
-                    <div className="flex flex-col pl-[85px] pt-[30px]">
+                    <div className="flex flex-col pl-[85px] pt-[30px] text-white">
                       <div
                         style={{
                           color:
-                            workType === "design"
-                              ? theme === "dark"
-                                ? WorksContent.workTypes.design.colors.dark.text
-                                : WorksContent.workTypes.design.colors.light
-                                    .text
-                              : "",
+                            WorksContent.workTypes.design.colors.light.text,
                         }}
                         className={cn(
                           righteous.className,
@@ -223,17 +218,11 @@ const Works = () => {
                     }}
                     className="w-full h-full border rounded-[24px] bg-[#00000013] backdrop-blur-[33px]"
                   >
-                    <div className="flex flex-col pl-[30px] pt-[30px]">
+                    <div className="flex flex-col pl-[30px] pt-[30px] text-white">
                       <div
                         style={{
                           color:
-                            workType === "projects"
-                              ? theme === "dark"
-                                ? WorksContent.workTypes.project.colors.dark
-                                    .text
-                                : WorksContent.workTypes.project.colors.light
-                                    .text
-                              : "",
+                            WorksContent.workTypes.project.colors.light.text,
                         }}
                         className={cn(
                           righteous.className,

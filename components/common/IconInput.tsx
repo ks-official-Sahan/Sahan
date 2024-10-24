@@ -43,7 +43,7 @@ interface IconInputProps {
 const IconInput: React.FC<IconInputProps> = ({
   className,
   placeholder,
-  type = 'text',
+  type = "text",
   inputType = "text",
   disabled,
   value,
@@ -53,10 +53,11 @@ const IconInput: React.FC<IconInputProps> = ({
   onFocus,
   icon = <User size={16} />,
   iconClassName,
-  iconPosition = 'left',
+  iconPosition = "left",
   size = 16,
   error,
   success,
+  /* eslint-disable @typescript-eslint/no-unused-vars */
   loading,
   autoComplete,
   autoFocus,
@@ -79,7 +80,7 @@ const IconInput: React.FC<IconInputProps> = ({
   return (
     <div className={`relative w-full ${className}`}>
       {/* Render Icon based on position */}
-      {icon && iconPosition === 'left' && (
+      {icon && iconPosition === "left" && (
         <div
           className={`w-[32px] h-[32px] flex justify-center items-center text-[#969696] border bg-white dark:bg-[#232323] rounded-[8px] absolute left-[8px] top-[-18px] ${iconClassName}`}
         >
@@ -87,7 +88,7 @@ const IconInput: React.FC<IconInputProps> = ({
         </div>
       )}
 
-      {icon && iconPosition === 'right' && (
+      {icon && iconPosition === "right" && (
         <div
           className={`w-[32px] h-[32px] flex justify-center items-center text-[#969696] border bg-white dark:bg-[#232323] rounded-[8px] absolute right-[8px] top-[-18px] ${iconClassName}`}
         >
@@ -96,7 +97,7 @@ const IconInput: React.FC<IconInputProps> = ({
       )}
 
       {/* Render Input, Select, or Textarea based on type */}
-      {type === 'text' && (
+      {type === "text" && (
         <Input
           type={inputType}
           placeholder={placeholder}
@@ -124,8 +125,7 @@ const IconInput: React.FC<IconInputProps> = ({
         />
       )}
 
-      {type === 'select' && options && (
-
+      {type === "select" && options && (
         <Select
           disabled={disabled}
           value={value}
@@ -133,26 +133,29 @@ const IconInput: React.FC<IconInputProps> = ({
           name={name}
           required={required}
         >
-          <SelectTrigger className={`w-full h-[56px] px-[24px] placeholder:font-medium rounded-[12px] border-[#0000001f] dark:border-[#ffffff1f] bg-[#f7f7f7] dark:bg-[#1A1A1A] focus:ring-[#19cf31] dark:focus:ring-[#91FF00] ${className}`}
+          <SelectTrigger
+            className={`w-full h-[56px] px-[24px] placeholder:font-medium rounded-[12px] border-[#0000001f] dark:border-[#ffffff1f] bg-[#f7f7f7] dark:bg-[#1A1A1A] focus:ring-[#19cf31] dark:focus:ring-[#91FF00] ${className}`}
           >
-            <SelectValue placeholder={placeholder} className='placeholder:font-medium placeholder:opacity-65'/>
+            <SelectValue
+              placeholder={placeholder}
+              className="placeholder:font-medium placeholder:opacity-65"
+            />
           </SelectTrigger>
-          <SelectContent
-          className='dark:bg-[#1A1A1A]'
-          >
+          <SelectContent className="dark:bg-[#1A1A1A]">
             <SelectGroup>
               <SelectLabel>{optionTitle}</SelectLabel>
 
               {options.map((option, index) => (
-                <SelectItem value={option} key={index}>{option}</SelectItem>
+                <SelectItem value={option} key={index}>
+                  {option}
+                </SelectItem>
               ))}
             </SelectGroup>
           </SelectContent>
         </Select>
-
       )}
 
-      {type === 'textarea' && (
+      {type === "textarea" && (
         <textarea
           placeholder={placeholder}
           disabled={disabled}

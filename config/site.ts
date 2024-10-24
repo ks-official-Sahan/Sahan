@@ -38,10 +38,10 @@ export const PageMetadata = {
     title: "Works | Sahan",
     description: "Explore my projects and professional achievements.",
   },
-  // blog: {
-  //     title: "Blog | Sahan",
-  //     description: "Read my insights and stories that may inspire you."
-  // },
+  blog: {
+      title: "Blog | Sahan",
+      description: "Read my insights and stories that may inspire you."
+  },
   updates: {
     title: "Updates | Sahan",
     description: "Read my daily updates and m",
@@ -49,9 +49,5 @@ export const PageMetadata = {
   contact: {
     title: "Contact | Sahan",
     description: "Let's connect and discuss your next big idea!",
-  },
-  blog: {
-    title: "Blog | Sahan",
-    description: "Read my Blog",
   },
 };

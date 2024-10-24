@@ -31,6 +31,7 @@ export const Cover = ({
       );
       setBeamPositions(positions);
     }
+    /* eslint-disable react-hooks/exhaustive-deps */
   }, [ref.current]);
 
   return (
@@ -210,6 +211,7 @@ export const Beam = ({
   );
 };
 
+/* eslint-disable @typescript-eslint/no-unused-vars */
 export const CircleIcon = ({
   className,
   delay,

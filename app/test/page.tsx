@@ -1,9 +1,10 @@
 "use client";
 
-import { useRef } from 'react';
-import { useGSAP } from '@gsap/react';
-import gsap from 'gsap';
-import ScrollTrigger from 'gsap/dist/ScrollTrigger';
+import { useRef, useEffect } from "react";
+/* eslint-disable @typescript-eslint/no-unused-vars */
+import { useGSAP } from "@gsap/react";
+import gsap from "gsap";
+import ScrollTrigger from "gsap/dist/ScrollTrigger";
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -11,12 +12,18 @@ const Works = () => {
   const scrollSectionRef = useRef<HTMLDivElement | null>(null);
   const horizontalScrollRef = useRef<HTMLDivElement | null>(null);
 
-  useGSAP(() => {
+  useEffect(() => {
     if (scrollSectionRef.current && horizontalScrollRef.current) {
       const horizontalScrollWidth = horizontalScrollRef.current.scrollWidth;
 
-      gsap.to(horizontalScrollRef.current, {
-        x: () => -(horizontalScrollWidth - scrollSectionRef.current.offsetWidth),
+      const scrollAnimation = gsap.to(horizontalScrollRef.current, {
+        x: () =>
+          -(
+            horizontalScrollWidth -
+            (scrollSectionRef.current
+              ? scrollSectionRef.current.offsetWidth
+              : 0)
+          ),
         ease: "none",
         scrollTrigger: {
           trigger: scrollSectionRef.current,
@@ -24,16 +31,24 @@ const Works = () => {
           end: () => `+=${horizontalScrollWidth}`, // End after horizontal scroll is complete
           pin: true, // Pin the section while scrolling horizontally
           scrub: 1, // Smooth scrolling
+          invalidateOnRefresh: true, // Ensure it recalculates on resize
         },
       });
+
+      return () => {
+        scrollAnimation.kill(); // Clean up the animation on unmount
+        ScrollTrigger.getAll().forEach((trigger) => trigger.kill()); // Clean up all triggers
+      };
     }
-  });
+  }, []); // Empty dependency array to run on mount and unmount
 
   return (
     <div className="relative min-h-screen">
       {/* Other sections before horizontal scroll */}
       <div className="min-h-screen bg-green-500 flex items-center justify-center">
-        <h1 className="text-4xl text-white">Scroll Down to Horizontal Scroll</h1>
+        <h1 className="text-4xl text-white">
+          Scroll Down to Horizontal Scroll
+        </h1>
       </div>
 
       {/* Horizontal Scroll Section */}
