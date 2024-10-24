@@ -57,7 +57,7 @@ const FooterNav = ({ className }: { className?: string }) => {
 
   return (
     <>
-      <div className={`w-fit h-fit border rounded-[12px] flex items-center`}>
+      <div className={`${className} w-fit h-fit border rounded-[12px] flex items-center`}>
         <div className="flex flex-col">
           <div className="flex items-center">
             <Button

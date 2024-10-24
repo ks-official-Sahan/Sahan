@@ -1,9 +1,9 @@
 "use client";
 import React from "react";
-import { CanvasRevealEffect } from "../ui/canvas-reveal-effect";
 import { AnimatePresence, motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 
+/* eslint-disable @typescript-eslint/no-unused-vars */
 interface SkillCardProps {
   isBorderTop?: boolean;
   isBoderBottom?: boolean;

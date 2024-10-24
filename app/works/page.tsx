@@ -66,6 +66,7 @@ const Works = () => {
 
         <WrapperBody>
           <div className="w-full">
+            {/* Header */}
             <div className="text-center text-white flex flex-col items-center gap-[12px]">
               <div className={cn(righteous.className, "text-[40px] uppercase")}>
                 {WorksContent.title}
@@ -75,7 +76,9 @@ const Works = () => {
               </div>
             </div>
 
+            {/* Cards */}
             <div className="flex justify-center gap-[30px] items-end">
+              {/* Card 1 */}
               <motion.div
                 initial={{ opacity: 0, y: 40, rotate: 0 }}
                 animate={{
@@ -165,6 +168,7 @@ const Works = () => {
                 </motion.div>
               </motion.div>
 
+              {/* Card 2 */}
               <motion.div
                 initial={{ opacity: 0, y: 40 }}
                 animate={{ opacity: 1, y: 19 }}
@@ -180,6 +184,7 @@ const Works = () => {
                 />
               </motion.div>
 
+              {/* Card 3 */}
               <motion.div
                 initial={{ opacity: 0, y: 40, rotate: 0 }}
                 animate={{
@@ -276,7 +281,7 @@ const Works = () => {
 
       {/* CATEGORY */}
       {/* <section className='min-h-[385px] w-full from-[#000000] to-[#111111] bg-gradient-to-b'> */}
-      <section className=" w-full pt-[80px] pb-[40px]">
+      <section className=" w-full pt-[50px] pb-[40px] bg-opacity-10">
         <WrapperBody>
           <div className="flex items-center gap-5">
             {WorksContent.categories.map((category, index) => (
@@ -293,7 +298,7 @@ const Works = () => {
 
       {/* WORKS */}
       <section className="border-y w-full">
-        <div className="flex flex-col w-full items-center relative min-h-screen  from-[#23181C] via-[#322D47] to-[#952340] bg-gradient-to-b">
+        <div className="flex flex-col w-full items-center relative min-h-screen   via-[#22c55e69] from-[#1a9145] to-[#092A31]  bg-gradient-to-b">
           <WrapperBody>
             <div className="flex flex-col items-center">
               {/* BOTTOM FLOATING BAR */}
