@@ -2,7 +2,6 @@
 
 import React from "react";
 import { motion } from "framer-motion";
-import { BackgroundBeamsWithCollision } from "@/components/ui/background-beams-with-collision";
 import { Site } from "@/config/site";
 
 const Loading = () => {
