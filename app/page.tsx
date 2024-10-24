@@ -42,10 +42,20 @@ export default function Home() {
         />
 
         {/* Header */}
-        <motion.div className="text-[2rem] font-bold">
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ type: "spring", duration: 2, delay: 0.1 }}
+          className="text-[2rem] font-bold"
+        >
           Hello, I&apos;m {Site.author}
         </motion.div>
-        <motion.div className="text-center opacity-65 pt-[12px] flex flex-col items-center">
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ type: "spring", duration: 2, delay: 0.2 }}
+          className="text-center opacity-65 pt-[12px] flex flex-col items-center"
+        >
           <motion.div>
             A Passionate Full-Stack{" "}
             <span className="font-semibold">Software Engineer</span>
@@ -66,11 +76,11 @@ export default function Home() {
           <div className="flex gap-[32px] justify-center items-center">
             <div className="flex gap-[28px] p-2 sm:flex-col md:flex-col">
               {/* ROW 1 */}
-              <div className="flex justify-center order-1 sm:order-2 md:order-2">
+              <div className="flex flex-col justify-center items-center gap-[28px] order-1 sm:order-2 md:order-2">
                 {/* CARD 1 = ABOUT */}
                 <motion.div
-                  initial={{ rotate: 30 }}
-                  animate={{ rotate: 0 }}
+                  initial={{ rotate: 10, x: 400 }}
+                  animate={{ rotate: 0, x: 0 }}
                   transition={{ type: "spring", duration: 1.5, delay: 0.5 }}
                 >
                   <BackgroundBeamsWithCollision>
@@ -103,6 +113,7 @@ export default function Home() {
                       alt={Site.author}
                       className=""
                       priority
+                      quality={80}
                     />
 
                     <div className="px-[16px] py-[6px] rounded-[10px] border  absolute bottom-[40px] bg-[#ffffff68] dark:bg-[#00000068] backdrop-blur-sm">
@@ -115,7 +126,7 @@ export default function Home() {
 
                 {/* CARD 2 = MY COMPANY */}
                 <motion.div
-                  initial={{ y: -40 }}
+                  initial={{ y: -260 }}
                   animate={{ y: 0 }}
                   transition={{ type: "spring", duration: 1.5, delay: 0.5 }}
                   className="w-[288px] min-h-[220px] pt-[30px] pb-[20px] rounded-[24px] border bg-[#f7f7f7] dark:bg-[#00000052] flex flex-col items-center justify-center box-border px-[25px]"
@@ -154,31 +165,38 @@ export default function Home() {
               {/* ROW 3 */}
               <div className="flex flex-col justify-center items-center gap-[28px] cursor-pointer order-3">
                 {/* CARD 3 = CONTACT ME */}
-                <Link href={"/contact"} className="h-[200px]">
-                  <Button className="w-[288px] h-full rounded-[24px] border relative group bg-transparent">
-                    <div className="z-10 w-full h-full absolute rounded-[24px] from-[#ffdfd4] dark:from-[#3C231A] dark:to-[#060606] bg-gradient-to-b opacity-50"></div>
+                <motion.div
+                  initial={{ rotate: -10, x: -400 }}
+                  animate={{ rotate: 0, x: 0 }}
+                  transition={{ type: "spring", duration: 1.5, delay: 0.5 }}
+                  className="h-[200px]"
+                >
+                  <Link href={"/contact"}>
+                    <Button className="w-[288px] h-full rounded-[24px] border relative group bg-transparent">
+                      <div className="z-10 w-full h-full absolute rounded-[24px] from-[#ffdfd4] dark:from-[#3C231A] dark:to-[#060606] bg-gradient-to-b opacity-50"></div>
 
-                    <Image
-                      src={"/av/little-tiger.svg"}
-                      width={121}
-                      height={121}
-                      alt={Site.author}
-                      className="z-20 absolute bottom-[-5px] left-[12px]"
-                    />
-
-                    <div className="z-50 absolute top-[26px] left-[26px] font-semibold text-[1.5rem]">
-                      <span className="text-secondaryT">Contact</span>{" "}
-                      <span className="text-[#FF8C00]">Me</span>
-                    </div>
-
-                    <div className="z-50 absolute w-[46px] h-[46px] rounded-full border-2  bottom-[24px] right-[24px] flex justify-center items-center group-hover:border-black dark:group-hover:border-white">
-                      <ArrowUpRight
-                        size={31}
-                        className="opacity-45 group-hover:opacity-100"
+                      <Image
+                        src={"/av/little-tiger.svg"}
+                        width={121}
+                        height={121}
+                        alt={Site.author}
+                        className="z-20 absolute bottom-[-5px] left-[12px]"
                       />
-                    </div>
-                  </Button>
-                </Link>
+
+                      <div className="z-50 absolute top-[26px] left-[26px] font-semibold text-[1.5rem]">
+                        <span className="text-secondaryT">Contact</span>{" "}
+                        <span className="text-[#FF8C00]">Me</span>
+                      </div>
+
+                      <div className="z-50 absolute w-[46px] h-[46px] rounded-full border-2  bottom-[24px] right-[24px] flex justify-center items-center group-hover:border-black dark:group-hover:border-white">
+                        <ArrowUpRight
+                          size={31}
+                          className="opacity-45 group-hover:opacity-100"
+                        />
+                      </div>
+                    </Button>
+                  </Link>
+                </motion.div>
 
                 {/* CARD 4 = RANDOM SERVICE OR SKILL */}
                 {/* <div className="h-[200px] w-[288px] border rounded-[24px]"></div> */}

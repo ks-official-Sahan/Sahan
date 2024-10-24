@@ -5,6 +5,7 @@ export const Site = {
   tagline: "✨ Never Give Up Until I Make a Difference!",
   gitHubUrl: "https://github.com/ks-official-sahan",
   author: "Sahan",
+  authorFullName: "Sahan Sachintha",
   authorPortfolio: "#",
   org: "Evision IT",
   orgUrl: "https://evisionit.lk",
@@ -39,8 +40,8 @@ export const PageMetadata = {
     description: "Explore my projects and professional achievements.",
   },
   blog: {
-      title: "Blog | Sahan",
-      description: "Read my insights and stories that may inspire you."
+    title: "Blog | Sahan",
+    description: "Read my insights and stories that may inspire you.",
   },
   updates: {
     title: "Updates | Sahan",
