@@ -6,7 +6,7 @@ import { motion } from "framer-motion";
 import { useDisclosure } from "@mantine/hooks";
 import { Site } from "@/config/site";
 import SideBar from "./SideBar";
-import NavBar from "./NavBar";
+import NavBar from "./Nav";
 
 const Navigation = () => {
   const [currentPath, setCurrentPath] = useState("");
