@@ -67,11 +67,11 @@ export const TextHoverEffect = ({
 
           // example for a smoother animation below
 
-          //   transition={{
-          //     type: "spring",
-          //     stiffness: 300,
-          //     damping: 50,
-          //   }}
+          // transition={{
+          //   type: "spring",
+          //   stiffness: 800,
+          //   damping: 100,
+          // }}
         >
           <stop offset="0%" stopColor="white" />
           <stop offset="100%" stopColor="black" />
@@ -91,9 +91,9 @@ export const TextHoverEffect = ({
         y="50%"
         textAnchor="middle"
         dominantBaseline="middle"
-        strokeWidth="0.3"
+        strokeWidth="0.8"
         className="font-[helvetica] font-bold stroke-neutral-200 dark:stroke-neutral-800 fill-transparent text-7xl  "
-        style={{ opacity: hovered ? 0.7 : 0 }}
+        style={{ opacity: hovered ? 0.9 : 0.4 }}
       >
         {text}
       </text>

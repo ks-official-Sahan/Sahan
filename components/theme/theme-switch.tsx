@@ -3,16 +3,23 @@
 import { useMantineColorScheme } from "@mantine/core";
 import { Monitor, Moon, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
-import React from "react";
+import React, { useEffect, useState } from "react";
 
 type themeProps = {
   t: "light" | "dark" | "system";
 };
+
 const ThemeSwitch = () => {
   const { theme, setTheme } = useTheme();
   const { setColorScheme } = useMantineColorScheme({
     keepTransitions: true,
   });
+
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const handleChangeTheme = ({ t }: themeProps) => {
     if (t === "light") {
@@ -27,8 +34,10 @@ const ThemeSwitch = () => {
     }
   };
 
+  if (!mounted) return null;
+
   return (
-    <div className="h-[41px]  backdrop-blur-sm flex items-center px-[6px] py-[4px] rounded-full border border-evision_border_primary w-fit">
+    <div className="h-[41px] backdrop-blur-sm flex items-center px-[6px] py-[4px] rounded-full border border-evision_border_primary w-fit">
       <div
         onClick={() => handleChangeTheme({ t: "light" })}
         className={`w-[28px] h-[28px] rounded-full flex justify-center items-center cursor-pointer ${

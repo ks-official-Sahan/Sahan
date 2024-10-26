@@ -15,6 +15,7 @@ import { useTheme } from "next-themes";
 import ParticlesX from "@/components/animations/ParticlesX";
 import { PinContainer } from "@/components/ui/3d-pin";
 import SkillCard from "@/components/common/SkillCard";
+import GridCardWrap from "@/components/custom/about/GridCardWrap";
 
 const About = () => {
   const { theme } = useTheme();
@@ -108,11 +109,11 @@ const About = () => {
       {/* BENTO GRID */}
       <section className="w-full flex flex-col items-center pt-[60px]">
         <WrapperBody>
-          <div className="w-full grid grid-cols-3 gap-[10px]">
+          <div className="w-full grid lg:grid-cols-3 sm:grid-cols-1 gap-[10px]">
             {/* COL1 */}
-            <div className="w-full flex flex-col gap-[10px] broder-3 border-white">
-              {/* ROW 1 */}
-              <div className="w-full h-[255px] bg-[#f7f7f7] dark:bg-[#1A1A1A] border rounded-[12px] py-[24px] px-[24px]">
+            <div className="w-full flex flex-col md:flex-row gap-[10px] broder-3 border-white">
+              {/* CARD 1 */}
+              <GridCardWrap>
                 <AnimatedShinyText className="inline-flex items-center justify-center  py-1 transition ease-out hover:text-purple-600 hover:duration-500 hover:dark:text-purple-500">
                   <span className="text-[26px] font-semibold">
                     {AboutContent.bento.B1.title}
@@ -122,19 +123,24 @@ const About = () => {
                 <div className="text-[14px] font-medium opacity-80 pt-3">
                   {AboutContent.bento.B1.description}
                 </div>
-              </div>
+              </GridCardWrap>
 
-              {/* ROW2 */}
-              <div className="w-full h-[255px] bg-[#f7f7f7] dark:bg-[#1A1A1A] border rounded-[12px]"></div>
+              {/* CARD 4 */}
+              <GridCardWrap></GridCardWrap>
             </div>
 
             {/* COL2 */}
-            <div className="w-full bg-[#f7f7f7] dark:bg-[#1A1A1A] flex-1 rounded-[12px] border"></div>
+            <div className="w-full flex flex-col md:flex-row gap-[10px]">
+              {/* CARD 2 */}
+              <GridCardWrap></GridCardWrap>
+            </div>
 
             {/* COL3 */}
-            <div className="w-full flex flex-col gap-[10px]">
-              <div className="w-full h-[255px] bg-[#f7f7f7] dark:bg-[#1A1A1A] border rounded-[12px]"></div>
-              <div className="w-full h-[255px] bg-[#f7f7f7] dark:bg-[#1A1A1A] border rounded-[12px]"></div>
+            <div className="w-full flex flex-col md:flex-row gap-[10px]">
+              {/* CARD 3 */}
+              <GridCardWrap></GridCardWrap>
+              {/* CARD 5 */}
+              <GridCardWrap></GridCardWrap>
             </div>
           </div>
         </WrapperBody>

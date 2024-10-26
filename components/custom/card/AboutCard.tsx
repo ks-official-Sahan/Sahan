@@ -8,7 +8,7 @@ const AboutCard = ({
   height = 288,
   initial = { rotate: 10, x: 400 },
   animate = { rotate: 0, x: 0 },
-  transition = { type: "spring", duration: 1.5, delay: 0.5 },
+  transition = { type: "spring", duration: 1.5, delay: 0.2 },
 }) => {
   return (
     <motion.div

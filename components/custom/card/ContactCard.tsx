@@ -12,7 +12,7 @@ const ContactCard = ({
   height = 200,
   initial = { rotate: -20, y: -400 },
   animate = { rotate: 0, y: 0 },
-  transition = { type: "spring", duration: 1.5, delay: 0.5 },
+  transition = { type: "spring", duration: 1.5, delay: 0.2 },
 }) => {
   return (
     <motion.div

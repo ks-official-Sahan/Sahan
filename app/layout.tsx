@@ -37,14 +37,14 @@ export default function RootLayout({
         <ThemeProvider enableSystem attribute="class" defaultTheme="dark">
           <MantineProvider defaultColorScheme="dark" theme={theme}>
             <AudioProvider>
-              <ShoelaceSetup>
-                <main className="flex flex-col min-h-screen w-full overflow-x-hidden">
+              <main className="flex flex-col min-h-screen w-full overflow-x-hidden">
+                <ShoelaceSetup>
                   <Navigation />
                   <FloatingAudioSwitch />
                   <div className="pb-[300px]">{children}</div>
                   <Footer />
-                </main>
-              </ShoelaceSetup>
+                </ShoelaceSetup>
+              </main>
             </AudioProvider>
           </MantineProvider>
         </ThemeProvider>

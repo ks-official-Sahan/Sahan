@@ -13,7 +13,7 @@ const CompanyCard = ({
   height = 220,
   initial = { x: -400 },
   animate = { x: 0 },
-  transition = { type: "spring", duration: 1.5, delay: 0.5 },
+  transition = { type: "spring", duration: 1.5, delay: 0.2 },
 }) => {
   return (
     <motion.div

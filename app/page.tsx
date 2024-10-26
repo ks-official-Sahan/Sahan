@@ -1,6 +1,5 @@
 "use client";
 import Particles from "@/components/magicui/particles";
-import { useTheme } from "next-themes";
 import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import UserCard from "@/components/custom/card/UserCard";
@@ -9,15 +8,30 @@ import ContactCard from "@/components/custom/card/ContactCard";
 import AboutCard from "@/components/custom/card/AboutCard";
 import Header from "@/components/custom/home/Header";
 import ServiceCard from "@/components/custom/card/ServiceCard";
+import { useTheme } from "next-themes";
 
 export default function Home() {
-  const { theme } = useTheme();
-  const [color, setColor] = useState("#ffffff");
+    const { theme } = useTheme();
+    const [mounted, setMounted] = useState(false);
+    const [color, setColor] = useState("#ffffff");
 
-  useEffect(() => {
-    setColor(theme === "dark" ? "#ffffff" : "#000000");
-  }, [theme]);
+    useEffect(() => {
+      setMounted(true);
+    }, []);
 
+    useEffect(() => {
+      if (mounted) {
+        setColor(
+          theme === "dark"
+            ? "#ffffff"
+            : theme === "system"
+            ? "#19cf31"
+            : "#000000"
+        );
+      }
+    }, [theme, mounted]);
+
+    if (!mounted) return null;
   return (
     <div>
       {/* HERO */}
@@ -29,9 +43,11 @@ export default function Home() {
         flex flex-col items-center"
       >
         <Particles
-          className="absolute inset-0"
-          quantity={100}
-          ease={80}
+          className="absolute h-full inset-0"
+          quantity={300}
+          ease={30}
+          size={0.5}
+          // color={"#19cf31"}
           color={color}
           refresh
         />
@@ -41,9 +57,9 @@ export default function Home() {
 
         {/* HERO BENTO */}
         <motion.div
-          initial={{ y: 500, opacity: 0 }}
+          initial={{ y: 0, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
-          transition={{ type: "spring", duration: 3 }}
+          transition={{ type: "spring", duration: 7 }}
           id="bento"
           className="w-full h-auto flex flex-col justify-center items-center pt-[80px] md:pt-[60px] xs:px-2 sm:px-2 md:px-4 lg:px-6 xl:px-12"
         >
@@ -80,15 +96,13 @@ export default function Home() {
             <div className="flex gap-[28px] p-2 sm:flex-col md:flex-col flex-wrap justify-center items-center">
               {/* CARD 5 = RANDOM SERVICE OR SKILL */}
               <ServiceCard
-                title={"Web"}
+                title={"Web Dev"}
                 description={"Integrating latest technologies"}
               />
               <ServiceCard width={300} height={250} />
               <ServiceCard
                 title={"Mobile"}
-                description={
-                  "Crafting best experience"
-                }
+                description={"Crafting best experience"}
               />
             </div>
           </div>
