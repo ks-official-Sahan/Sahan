@@ -146,3 +146,35 @@
 .ct-box {
   box-shadow: var(--ct-shadow);
 }
+
+/* services-container */
+/* align-items: stretch; */
+/* Ensures all cards stretch to the same height */
+
+/* services-card */
+/* align-self: stretch */
+/* to adjust height to full */
+/* flex: 1 1 288px; */
+/* Grow and shrink as needed, with a min width of 288px */
+
+/* .services-container {
+  display: flex;
+  gap: 28px;
+  padding: 8px;
+  justify-content: center;
+  align-items: stretch;
+  flex-wrap: wrap;
+}
+
+.service-card {
+  align-self: stretch
+  flex: 1 1 288px;
+  min-height: 200px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 16px;
+  border: 1px solid #ccc;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  background-color: white;
+} */

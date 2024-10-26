@@ -14,9 +14,9 @@ const Footer = () => {
             <SAHAN_ICON className="fill-black dark:fill-white" />
             <div className="text-[12px] font-medium  pt-[60px]">
               <span className="opacity-65">Design & Developed By</span>{" "}
-              <span className="text-[#19cf31] dark:text-[#91FF00]">
+              <p className="text-[#19cf31] dark:text-[#91FF00]">
                 @ks-official.sahan
-              </span>
+              </p>
             </div>
           </div>
 

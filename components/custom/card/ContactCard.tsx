@@ -6,17 +6,25 @@ import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import { Site } from "@/config/site";
 
-
-const ContactCard = () => {
+const ContactCard = ({
+  className = "flex ",
+  width = 288,
+  height = 200,
+  initial = { rotate: -20, y: -400 },
+  animate = { rotate: 0, y: 0 },
+  transition = { type: "spring", duration: 1.5, delay: 0.5 },
+}) => {
   return (
     <motion.div
-      initial={{ rotate: -10, x: -400 }}
-      animate={{ rotate: 0, x: 0 }}
-      transition={{ type: "spring", duration: 1.5, delay: 0.5 }}
-      className="h-[200px]"
+      initial={initial}
+      animate={animate}
+      transition={transition}
+      className={`${className} h-[${height}px]`}
     >
       <Link href={"/contact"}>
-        <Button className="w-[288px] h-full rounded-[24px] border relative group bg-transparent">
+        <Button
+          className={`w-[${width}px] h-full rounded-[24px] border relative group bg-transparent`}
+        >
           <div className="z-10 w-full h-full absolute rounded-[24px] from-[#2cac5b6b] dark:from-[#1a914677] dark:to-[#060606] bg-gradient-to-b opacity-50"></div>
 
           <Image

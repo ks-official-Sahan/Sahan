@@ -86,7 +86,12 @@ const About = () => {
 
             {/* NAME, USERNAME, TAGLINE */}
             <div className="pt-[120px] flex flex-col items-center text-center">
-              <div className={cn(righteous.className, "uppercase text-[2rem] leading-[32px]")}>
+              <div
+                className={cn(
+                  righteous.className,
+                  "uppercase text-[2rem] leading-[32px]"
+                )}
+              >
                 {SiteMetadata.legalName}
               </div>
               <div className="pt-[10px] text-secondaryT pb-[2px]">
@@ -105,7 +110,7 @@ const About = () => {
         <WrapperBody>
           <div className="w-full grid grid-cols-3 gap-[10px]">
             {/* COL1 */}
-            <div className="w-full flex flex-col gap-[10px] ">
+            <div className="w-full flex flex-col gap-[10px] broder-3 border-white">
               {/* ROW 1 */}
               <div className="w-full h-[255px] bg-[#f7f7f7] dark:bg-[#1A1A1A] border rounded-[12px] py-[24px] px-[24px]">
                 <AnimatedShinyText className="inline-flex items-center justify-center  py-1 transition ease-out hover:text-purple-600 hover:duration-500 hover:dark:text-purple-500">

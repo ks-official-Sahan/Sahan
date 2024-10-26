@@ -7,13 +7,22 @@ import { motion } from "framer-motion";
 import Link from "next/link";
 import React from "react";
 
-const CompanyCard = () => {
+const CompanyCard = ({
+  className = "flex ",
+  width = 288,
+  height = 220,
+  initial = { x: -400 },
+  animate = { x: 0 },
+  transition = { type: "spring", duration: 1.5, delay: 0.5 },
+}) => {
   return (
     <motion.div
-      initial={{ y: -260 }}
-      animate={{ y: 0 }}
-      transition={{ type: "spring", duration: 1.5, delay: 0.5 }}
-      className="w-[288px] min-h-[220px] pt-[30px] pb-[20px] rounded-[24px] border bg-[#f7f7f7] dark:bg-[#00000052] flex flex-col items-center justify-center box-border px-[25px]"
+      initial={initial}
+      animate={animate}
+      transition={transition}
+      className={`${className} w-[${width}px] min-h-[${height}px] 
+      flex-col items-center justify-center box-border 
+      px-[25px] pt-[30px] pb-[20px] rounded-[24px] border bg-[#f7f7f7] dark:bg-[#00000052]`}
     >
       <div className="w-[80px] h-[80px] rounded-full bg-black dark:bg-white flex justify-center items-center pt-[3px]">
         <EVISIONIT_ICON

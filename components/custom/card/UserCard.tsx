@@ -10,7 +10,7 @@ const UserCard = ({ className = "flex ", width = 406, height = 362 }) => {
       <div
         className={`${className} w-[${width}px] h-[${height}px] rounded-[24px] border relative flex-col items-center`}
       >
-        <div className="w-full h-full absolute rounded-[24px] from-[#f0f0f0] to-white dark:from-[#1B1C1D] dark:to-[#000000] bg-gradient-to-b opacity-65"></div>
+        <div className="w-full h-full absolute rounded-[24px] from-[#f0f0f0] to-white dark:from-[#1B1C1D] dark:to-[#000000] bg-gradient-to-b opacity-55"></div>
 
         <Image
           src={"/me/sahan.svg"}
