@@ -24,11 +24,11 @@ import Link from "next/link";
 const Contact = () => {
   return (
     <div className="w-full min-h-screen ">
-      <section className="w-full from-[#f7f7f7] to-white dark:from-[#11111112] dark:to-[#00000012] pt-[171px] min-h-[720px] border-b  bg-gradient-to-b ct-box">
+      <section className="w-full from-[#f7f7f7] to-white dark:from-[#11111112] dark:to-[#00000012] pt-[171px] pb-20 min-h-[720px] border-b  bg-gradient-to-b ct-box">
         <WrapperBody>
-          <div className="w-full flex justify-between">
+          <div className="w-full flex sm:flex-col md:flex-col items-center justify-between gap-[80px]">
             {/* LEFT */}
-            <div className="flex flex-col">
+            <div className="flex flex-col justify-center items-center">
               <div className="text-[40px] font-bold">Let’s Collaborate!</div>
               <div className="flex flex-col text-secondaryT pt-3">
                 <div>Got a question or a project in mind? </div>
@@ -60,8 +60,8 @@ const Contact = () => {
             </div>
 
             {/* RIGHT */}
-            <div className="w-full max-w-[556px] flex flex-col gap-[48px]">
-              <div className="flex items-center gap-[20px] w-full">
+            <div className="w-full max-w-[556px] flex flex-col gap-[48px] px-5 justify-center items-center">
+              <div className="flex sm:flex-col items-center gap-[20px] w-full">
                 <IconInput
                   icon={<User size={16} />}
                   placeholder="Your First Name"
@@ -71,7 +71,7 @@ const Contact = () => {
                   placeholder="Your Last Name"
                 />
               </div>
-              <div className="flex items-center gap-[20px] w-full">
+              <div className="flex sm:flex-col items-center gap-[20px] w-full">
                 <IconInput
                   inputType="email"
                   icon={<Mail size={16} />}
@@ -85,7 +85,7 @@ const Contact = () => {
                   optionTitle="Topic"
                 />
               </div>
-              <div className="flex flex-col gap-[30px]">
+              <div className="flex w-full flex-col gap-[30px]">
                 <IconInput
                   type="textarea"
                   icon={<MessageCircle size={16} />}
@@ -107,7 +107,7 @@ const Contact = () => {
         className="w-full"
       >
         <WrapperBody>
-          <div className="w-full min-h-[270px] rounded-[24px] pl-[60px] pr-[80px] box-border flex justify-between items-center border from-white to-[#f7f7f7] dark:from-[#000000] dark:to-[#0F0F0F] bg-gradient-to-r">
+          <div className="w-full min-h-[270px] rounded-[24px] py-5 px-[60px] box-border flex sm:flex-col justify-between items-center border from-white to-[#f7f7f7] dark:from-[#000000] dark:to-[#0F0F0F] bg-gradient-to-r">
             <div>
               <div className="text-[36px] font-bold">
                 Reach Me on Social Media
@@ -116,8 +116,8 @@ const Contact = () => {
                 Get know about me with my social media profiles
               </div>
             </div>
-            <div className="flex items-center gap-[14px]">
-              <div className="flex flex-col gap-[14px]">
+            <div className="flex items-center gap-[14px] mt-5 mb-3">
+              <div className="flex flex-col sm:flex-row gap-[14px]">
                 <Link
                   href={"https://github.com/ks-official-Sahan"}
                   target="_blank"

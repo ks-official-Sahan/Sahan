@@ -11,6 +11,7 @@ import { ArrowDownLeft, ArrowDownRight } from "lucide-react";
 import { useTheme } from "next-themes";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Particles from "@/components/magicui/particles";
+import HeaderCard from "@/components/custom/work/HeaderCard";
 
 const Works = () => {
   const { theme } = useTheme();
@@ -33,7 +34,9 @@ const Works = () => {
   };
 
   useEffect(() => {
-    setColor(theme === "dark" ? "#ffffff" : "#000000");
+    setColor(
+      theme === "dark" ? "#ffffff" : theme === "system" ? "#a855f7" : "#000000"
+    );
   }, [theme]);
 
   useEffect(() => {
@@ -48,18 +51,34 @@ const Works = () => {
   }, [path, router, searchParams]);
 
   return (
-    <div className="w-full flex flex-col items-center min-h-screen">
+    <div
+      className={cn(
+        "w-full flex flex-col items-center min-h-screen box-border border-b from-green-200 dark:from-gray-900 bg-gradient-to-b pt-[151px] relative",
+        workType === "design"
+          ? "to-[#46b66f] dark:to-green-800"
+          : "to-blue-500 dark:to-cyan-950"
+      )}
+    >
       {/* HERO */}
+      <Particles
+        className="absolute inset-0"
+        quantity={550}
+        ease={50}
+        size={0.8}
+        color={color}
+        refresh
+      />
+
       <section
         className={cn(
-          "w-full min-h-[565px] box-border border-b from-[#22c55e69] bg-gradient-to-b pt-[151px] relative",
-          workType === "design" ? "to-[#1a9145]" : "to-[#092A31]"
+          "w-full min-h-[565px] box-border border-b pt-[151px] relative",
         )}
       >
         <Particles
           className="absolute inset-0"
-          quantity={100}
-          ease={80}
+          quantity={200}
+          ease={50}
+          size={0.6}
           color={color}
           refresh
         />
@@ -67,7 +86,7 @@ const Works = () => {
         <WrapperBody>
           <div className="w-full">
             {/* Header */}
-            <div className="text-center text-white flex flex-col items-center gap-[12px]">
+            <div className="text-center dark:text-white flex flex-col items-center gap-[12px]">
               <div className={cn(righteous.className, "text-[40px] uppercase")}>
                 {WorksContent.title}
               </div>
@@ -77,18 +96,9 @@ const Works = () => {
             </div>
 
             {/* Cards */}
-            <div className="flex justify-center gap-[30px] items-end">
+            <div className="flex sm:flex-col justify-center gap-[30px] items-center">
               {/* Card 1 */}
-              <motion.div
-                initial={{ opacity: 0, y: 40, rotate: 0 }}
-                animate={{
-                  opacity: 1,
-                  y: 19,
-                  rotate: workType === "design" ? -5 : 0,
-                }}
-                transition={{ duration: 1, type: "spring" }}
-                className="relative"
-              >
+              <HeaderCard workType={workType} title="design" rotate={-7.5}>
                 <Button
                   onClick={() => {
                     setWorkType("design");
@@ -117,7 +127,7 @@ const Works = () => {
                     }}
                     className="w-full h-full border rounded-[24px] backdrop-blur-[33px] "
                   >
-                    <div className="flex flex-col pl-[85px] pt-[30px] text-white">
+                    <div className="flex flex-col pl-[85px] pt-[30px] text-gray-900 dark:text-gray-400">
                       <div
                         style={{
                           color:
@@ -142,7 +152,7 @@ const Works = () => {
                       </div>
 
                       <div className="flex items-center gap-[10px] pt-4">
-                        <div className="text-[12px] font-medium px-[16px] py-[6px] h-[30px] border rounded-[10px] bg-[#00000060] backdrop-blur-sm flex justify-center items-center w-fit">
+                        <div className="text-[13px] font-medium px-[16px] py-[6px] h-[30px] border rounded-[10px] bg-[#00000075] backdrop-blur-sm flex justify-center items-center w-fit text-gray-200">
                           <span className="opacity-65">Explore Now...</span>
                         </div>
                         <div className="w-[30px] h-[30px] rounded-full border bg-[#00000060] backdrop-blur-sm flex justify-center items-center text-secondaryT">
@@ -166,14 +176,14 @@ const Works = () => {
                     className="object-cover"
                   />
                 </motion.div>
-              </motion.div>
+              </HeaderCard>
 
               {/* Card 2 */}
               <motion.div
                 initial={{ opacity: 0, y: 40 }}
                 animate={{ opacity: 1, y: 19 }}
                 transition={{ duration: 1, type: "spring" }}
-                className=""
+                className="sm:hidden"
               >
                 <Image
                   src={"/av/c3.svg"}
@@ -185,16 +195,7 @@ const Works = () => {
               </motion.div>
 
               {/* Card 3 */}
-              <motion.div
-                initial={{ opacity: 0, y: 40, rotate: 0 }}
-                animate={{
-                  opacity: 1,
-                  y: 19,
-                  rotate: workType === "projects" ? 5 : 0,
-                }}
-                transition={{ duration: 1, type: "spring" }}
-                className=""
-              >
+              <HeaderCard workType={workType} title="projects" rotate={7.5}>
                 <Button
                   onClick={() => {
                     setWorkType("projects");
@@ -223,7 +224,7 @@ const Works = () => {
                     }}
                     className="w-full h-full border rounded-[24px] bg-[#00000013] backdrop-blur-[33px]"
                   >
-                    <div className="flex flex-col pl-[30px] pt-[30px] text-white">
+                    <div className="flex flex-col pl-[30px] pt-[30px] text-gray-900 dark:text-gray-400">
                       <div
                         style={{
                           color:
@@ -251,7 +252,7 @@ const Works = () => {
                         <div className="w-[30px] h-[30px] rounded-full border bg-[#00000060] backdrop-blur-sm flex justify-center items-center text-secondaryT">
                           <ArrowDownLeft size={16} />
                         </div>
-                        <div className="text-[12px] font-medium px-[16px] py-[6px] h-[30px] border rounded-[10px] bg-[#00000060] backdrop-blur-sm flex justify-center items-center w-fit">
+                        <div className="text-[13px] font-medium px-[16px] py-[6px] h-[30px] border rounded-[10px] bg-[#00000075] backdrop-blur-sm flex justify-center items-center w-fit text-gray-200">
                           <span className="opacity-65">Explore Now...</span>
                         </div>
                       </div>
@@ -273,7 +274,7 @@ const Works = () => {
                     className="object-cover"
                   />
                 </motion.div>
-              </motion.div>
+              </HeaderCard>
             </div>
           </div>
         </WrapperBody>
@@ -281,7 +282,7 @@ const Works = () => {
 
       {/* CATEGORY */}
       {/* <section className='min-h-[385px] w-full from-[#000000] to-[#111111] bg-gradient-to-b'> */}
-      <section className=" w-full pt-[50px] pb-[40px] bg-opacity-10">
+      <section className=" w-full pt-[40px] pb-[30px] bg-opacity-/0">
         <WrapperBody>
           <div className="flex items-center gap-5">
             {WorksContent.categories.map((category, index) => (
@@ -298,17 +299,17 @@ const Works = () => {
 
       {/* WORKS */}
       <section className="border-y w-full">
-        <div className="flex flex-col w-full items-center relative min-h-screen   via-[#22c55e69] from-[#1a9145] to-[#092A31]  bg-gradient-to-b">
+        <div className="flex flex-col w-full items-center relative min-h-screen bg-opacity-50">
           <WrapperBody>
             <div className="flex flex-col items-center">
               {/* BOTTOM FLOATING BAR */}
               <div className="w-full max-w-[940px] h-[80px] flex rounded-full border bg-black/30 backdrop-blur-sm absolute bottom-[40px]">
                 {/* LEFT */}
                 <div className="py-[12px] pl-[12px] border-l pr-[30px] bg-black/30 backdrop-blur-sm h-full rounded-l-full flex items-center gap-[14px]">
-                  <div className="w-[56px] h-[56px] border rounded-full bg-black/30 backdrop-blur-sm "></div>
+                  <div className="w-[56px] h-[56px] border rounded-full dark:bg-white/30 bg-green-400/40 backdrop-blur-sm"></div>
                   <div
                     className={cn(
-                      "leading-[19px] uppercase",
+                      "leading-[19px] uppercase text-white",
                       righteous.className
                     )}
                   >

@@ -34,7 +34,7 @@ export const WorksContent = {
             colors: {
                 light: {
                     main: "#0088FF",
-                    text: "#9CDCFF"
+                    text: "#ECDC00"
                 },
                 dark: {
                     main: "#0088FF",

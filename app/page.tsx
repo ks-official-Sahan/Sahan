@@ -11,27 +11,28 @@ import ServiceCard from "@/components/custom/card/ServiceCard";
 import { useTheme } from "next-themes";
 
 export default function Home() {
-    const { theme } = useTheme();
-    const [mounted, setMounted] = useState(false);
-    const [color, setColor] = useState("#ffffff");
+  const { theme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+  const [color, setColor] = useState("#ffffff");
 
-    useEffect(() => {
-      setMounted(true);
-    }, []);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
-    useEffect(() => {
-      if (mounted) {
-        setColor(
-          theme === "dark"
-            ? "#ffffff"
-            : theme === "system"
-            ? "#19cf31"
-            : "#000000"
-        );
-      }
-    }, [theme, mounted]);
+  useEffect(() => {
+    if (mounted) {
+      setColor(
+        theme === "dark"
+          ? "#ffffff"
+          : theme === "system"
+          ? "#19cf31"
+          : "#000000"
+      );
+    }
+  }, [theme, mounted]);
 
-    if (!mounted) return null;
+  if (!mounted) return null;
+
   return (
     <div>
       {/* HERO */}

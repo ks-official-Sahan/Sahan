@@ -1,7 +1,6 @@
 import Link from "next/link";
 import React from "react";
 import { motion } from "framer-motion";
-import RetroGrid from "@/components/ui/retro-grid";
 
 const ServiceCard = ({
   title = "Service",
