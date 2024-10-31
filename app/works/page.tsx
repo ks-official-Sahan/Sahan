@@ -47,7 +47,7 @@ const Works = () => {
   return (
     <div
       className={cn(
-        "w-full flex flex-col items-center min-h-screen box-border border-b from-green-200 dark:from-gray-900 bg-gradient-to-b pt-[151px] relative",
+        "w-full flex flex-col items-center min-h-screen box-border border-b from-green-200 dark:from-gray-900 bg-gradient-to-b pt-[100px] lg:pt-[151px] relative",
         workType === "design"
           ? "to-[#46b66f] dark:to-green-800"
           : "to-blue-500 dark:to-cyan-950"
@@ -58,7 +58,7 @@ const Works = () => {
 
       <section
         className={cn(
-          "w-full min-h-[565px] box-border border-b pt-[100px] sm:pt-[50px] lg:pt-[151px] relative"
+          "w-full min-h-[565px] box-border border-b pt-[40px] sm:pt-0 lg:pt-[120px] relative"
         )}
       >
         <Particals quantity={200} />
@@ -76,7 +76,7 @@ const Works = () => {
             </div>
 
             {/* Cards */}
-            <div className="flex sm:flex-col justify-center gap-[30px] items-center">
+            <div className="flex sm:flex-col justify-center gap-[30px] items-center pt-[25px] pb-[40px]">
               {/* Card 1 */}
               <HeaderCard workType={workType} title="design" rotate={-7.5}>
                 <Button
