@@ -20,7 +20,7 @@ const GridCardWrap = ({
   height = 255,
   initial = { x: -400 },
   animate = { x: 0 },
-  transition = { type: "spring", duration: 1.5, delay: 0.5 },
+  transition = { type: "spring", duration: 1.2 },
 }: GridCardWrapProps) => {
   return (
     <motion.div

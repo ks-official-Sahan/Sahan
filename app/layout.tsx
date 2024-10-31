@@ -16,6 +16,8 @@ import ShoelaceSetup from "@/components/animations/shoelace/shoelace-setup";
 import Navigation from "@/components/nav/Navigation";
 import { AudioProvider } from "@/context/AudioContext";
 
+import { SpeedInsights } from "@vercel/speed-insights/next";
+
 gsap.registerPlugin(useGSAP);
 
 export const metadata: Metadata = {
@@ -43,6 +45,7 @@ export default function RootLayout({
                   <FloatingAudioSwitch />
                   <div className="pb-[300px]">{children}</div>
                   <Footer />
+                  <SpeedInsights />
                 </ShoelaceSetup>
               </main>
             </AudioProvider>

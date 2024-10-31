@@ -9,13 +9,12 @@ import { GitHubLogoIcon } from "@radix-ui/react-icons";
 import LINKEDIN_ICON from "@/components/icons/Linkedin";
 import X_ICON from "@/components/icons/twitter-X";
 
-
 const SocialMedia = () => {
   return (
     <motion.section
       initial={{ y: 0, opacity: 0 }}
       animate={{ y: -40, opacity: 1 }}
-      transition={{ type: "spring", duration: 0.5, delay: 1 }}
+      transition={{ type: "spring", duration: 0.7, delay: 0.4 }}
       className="w-full"
     >
       <WrapperBody>
