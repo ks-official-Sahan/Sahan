@@ -58,7 +58,7 @@ const Works = () => {
 
       <section
         className={cn(
-          "w-full min-h-[565px] box-border border-b pt-[151px] relative"
+          "w-full min-h-[565px] box-border border-b pt-[100px] sm:pt-[50px] lg:pt-[151px] relative"
         )}
       >
         <Particals quantity={200} />
