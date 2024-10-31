@@ -1,9 +1,10 @@
+"use client";
+
 import { RubberBandElement } from "@/components/animations/shoelace/rubber-band";
-import { Site, SiteMetadata } from "@/config/site";
-import Image from "next/image";
+import { SiteMetadata } from "@/config/site";
 import React from "react";
 import { motion } from "framer-motion";
-
+import UserCardImage from "./UserCardImage";
 
 const UserCard = ({
   className = "flex ",
@@ -24,15 +25,7 @@ const UserCard = ({
       >
         <div className="w-full h-full absolute rounded-[24px] from-[#f0f0f0] to-white dark:from-[#1B1C1D] dark:to-[#000000] bg-gradient-to-b opacity-55"></div>
 
-        <Image
-          src={"/me/sahan.svg"}
-          // fill
-          width={width - 20}
-          height={height - 40}
-          alt={Site.author}
-          quality={70}
-          priority
-        />
+        <UserCardImage width={width} height={height} />
 
         <div className="px-[16px] py-[6px] rounded-[10px] border  absolute bottom-[40px] bg-[#ffffff68] dark:bg-[#00000068] backdrop-blur-sm">
           <div className="text-[14px] font-medium opacity-65">

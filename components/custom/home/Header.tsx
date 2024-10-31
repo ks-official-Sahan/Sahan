@@ -1,7 +1,8 @@
+"use client";
+
 import React from "react";
 import { motion } from "framer-motion";
 import { Site } from "@/config/site";
-
 
 const Header = () => {
   return (

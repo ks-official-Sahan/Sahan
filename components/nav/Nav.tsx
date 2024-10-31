@@ -1,3 +1,5 @@
+"use client";
+
 import React from "react";
 import ThemeSwitch from "../theme/theme-switch";
 import Link from "next/link";

@@ -1,41 +1,19 @@
-"use client"; // Ensure this is required for your use case
-
 import WrapperBody from "@/components/wrappers/WrapperBody";
 import { Site, SiteMetadata } from "@/config/site";
 import { righteous } from "@/lib/fonts";
 import { cn } from "@/lib/utils";
-import Image from "next/image";
-import React, { useEffect, useState, useLayoutEffect } from "react";
+import React from "react";
 import { Image as NextUiImage } from "@nextui-org/react";
 import { AboutContent } from "@/contents/about";
 import { BorderBeam } from "@/components/ui/border-beam";
 import AnimatedShinyText from "@/components/ui/animated-shiny-text";
-import { motion } from "framer-motion";
-import { useTheme } from "next-themes";
-import ParticlesX from "@/components/animations/ParticlesX";
 import { PinContainer } from "@/components/ui/3d-pin";
 import SkillCard from "@/components/common/SkillCard";
 import GridCardWrap from "@/components/custom/about/GridCardWrap";
+import Runner from "@/components/custom/about/Runner";
+import Particals from "@/components/custom/Particals";
 
 const About = () => {
-  const { theme } = useTheme();
-  const [color, setColor] = useState("#ffffff");
-
-  useEffect(() => {
-    setColor(theme === "dark" ? "#ffffff" : "#000000");
-  }, [theme]);
-
-  const [sprite, setSprite] = useState(1);
-
-  const run = () => {
-    setSprite((prev) => (prev === 8 ? 1 : prev + 1));
-  };
-
-  useLayoutEffect(() => {
-    const intervalId = setInterval(run, 56);
-    return () => clearInterval(intervalId);
-  }, []);
-
   return (
     <div className="w-full min-h-screen flex flex-col font-medium pb-[60px] overflow-hidden">
       {/* HERO SECTION */}
@@ -43,23 +21,10 @@ const About = () => {
         <div className="w-full">
           <WrapperBody>
             <div className="border rounded-[12px]">
-              <motion.div className="w-full h-[200px] from-[#fafafa] to-white dark:from-[#101010] dark:to-black bg-gradient-to-t rounded-[12px] relative flex flex-col items-center">
-                <ParticlesX
-                  vx={-0.8}
-                  className="absolute inset-0"
-                  quantity={100}
-                  ease={80}
-                  color={color}
-                  refresh
-                />
+              <div className="w-full h-[200px] from-[#fafafa] to-white dark:from-[#101010] dark:to-black bg-gradient-to-t rounded-[12px] relative flex flex-col items-center">
+                <Particals />
                 <div className="absolute bottom-0 left-[20px]">
-                  <Image
-                    src={`/gm/s1/run-${sprite}.png`}
-                    alt="Sprite"
-                    width={80}
-                    height={80}
-                    className="object-cover"
-                  />
+                  <Runner />
                 </div>
                 <div className="absolute bottom-[-96px] right-[-100px]">
                   <PinContainer
@@ -82,7 +47,7 @@ const About = () => {
                     />
                   </div>
                 </div>
-              </motion.div>
+              </div>
             </div>
 
             {/* NAME, USERNAME, TAGLINE */}

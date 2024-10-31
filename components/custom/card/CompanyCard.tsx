@@ -1,3 +1,5 @@
+"use client";
+
 import EVISIONIT_ICON from "@/components/icons/EvisionIT";
 import VIP_ICON from "@/components/icons/VIP";
 import { Site } from "@/config/site";

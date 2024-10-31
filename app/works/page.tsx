@@ -1,4 +1,5 @@
 "use client";
+
 import WrapperBody from "@/components/wrappers/WrapperBody";
 import { WorksContent } from "@/contents/works";
 import { righteous } from "@/lib/fonts";
@@ -10,14 +11,13 @@ import { Button } from "@nextui-org/react";
 import { ArrowDownLeft, ArrowDownRight } from "lucide-react";
 import { useTheme } from "next-themes";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import Particles from "@/components/magicui/particles";
 import HeaderCard from "@/components/custom/work/HeaderCard";
+import Particals from "@/components/custom/Particals";
 
 const Works = () => {
   const { theme } = useTheme();
 
   const [workType, setWorkType] = useState("design");
-  const [color, setColor] = useState("#ffffff");
 
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -32,12 +32,6 @@ const Works = () => {
     const newUrl = `${window.location.pathname}?${newParams.toString()}`;
     window.history.replaceState(null, "", newUrl);
   };
-
-  useEffect(() => {
-    setColor(
-      theme === "dark" ? "#ffffff" : theme === "system" ? "#a855f7" : "#000000"
-    );
-  }, [theme]);
 
   useEffect(() => {
     const wt = searchParams.get("wt");
@@ -60,28 +54,14 @@ const Works = () => {
       )}
     >
       {/* HERO */}
-      <Particles
-        className="absolute inset-0"
-        quantity={550}
-        ease={50}
-        size={0.8}
-        color={color}
-        refresh
-      />
+      <Particals quantity={550} />
 
       <section
         className={cn(
-          "w-full min-h-[565px] box-border border-b pt-[151px] relative",
+          "w-full min-h-[565px] box-border border-b pt-[151px] relative"
         )}
       >
-        <Particles
-          className="absolute inset-0"
-          quantity={200}
-          ease={50}
-          size={0.6}
-          color={color}
-          refresh
-        />
+        <Particals quantity={200} />
 
         <WrapperBody>
           <div className="w-full">

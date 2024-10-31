@@ -1,38 +1,14 @@
-"use client";
-import Particles from "@/components/magicui/particles";
-import React, { useEffect, useState } from "react";
-import { motion } from "framer-motion";
+import React from "react";
 import UserCard from "@/components/custom/card/UserCard";
 import CompanyCard from "@/components/custom/card/CompanyCard";
 import ContactCard from "@/components/custom/card/ContactCard";
 import AboutCard from "@/components/custom/card/AboutCard";
 import Header from "@/components/custom/home/Header";
 import ServiceCard from "@/components/custom/card/ServiceCard";
-import { useTheme } from "next-themes";
+import Particals from "@/components/custom/Particals";
+import AnimatedWrapper from "@/components/custom/home/AnimatedWrapper";
 
 export default function Home() {
-  const { theme } = useTheme();
-  const [mounted, setMounted] = useState(false);
-  const [color, setColor] = useState("#ffffff");
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  useEffect(() => {
-    if (mounted) {
-      setColor(
-        theme === "dark"
-          ? "#ffffff"
-          : theme === "system"
-          ? "#19cf31"
-          : "#000000"
-      );
-    }
-  }, [theme, mounted]);
-
-  if (!mounted) return null;
-
   return (
     <div>
       {/* HERO */}
@@ -43,27 +19,13 @@ export default function Home() {
         dark:from-black dark:to-[#0d0d0d] bg-gradient-to-b 
         flex flex-col items-center"
       >
-        <Particles
-          className="absolute h-full inset-0"
-          quantity={300}
-          ease={30}
-          size={0.5}
-          // color={"#19cf31"}
-          color={color}
-          refresh
-        />
+        <Particals quantity={300} size={0.5} />
 
         {/* Header */}
         <Header />
 
         {/* HERO BENTO */}
-        <motion.div
-          initial={{ y: 0, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ type: "spring", duration: 7 }}
-          id="bento"
-          className="w-full h-auto flex flex-col justify-center items-center pt-[80px] md:pt-[60px] xs:px-2 sm:px-2 md:px-4 lg:px-6 xl:px-12"
-        >
+        <AnimatedWrapper className="w-full h-auto flex flex-col justify-center items-center pt-[80px] md:pt-[60px] xs:px-2 sm:px-2 md:px-4 lg:px-6 xl:px-12">
           <div className="flex flex-col gap-[32px] justify-center items-center">
             {/* COL 1 */}
             <div className="flex gap-[28px] p-2 sm:flex-col md:flex-col">
@@ -107,7 +69,7 @@ export default function Home() {
               />
             </div>
           </div>
-        </motion.div>
+        </AnimatedWrapper>
       </section>
 
       {/* WHAT I DO */}

@@ -28,9 +28,9 @@ export const PinContainer = ({
   //   setTransform("translate(-50%,-50%) rotateX(0deg) scale(1)");
   // };
 
-  useEffect(()=>{
+  useEffect(() => {
     setTransform("translate(-50%,-50%) rotateX(40deg) scale(0.8)");
-  },[])
+  }, []);
 
   return (
     <Link
@@ -41,6 +41,7 @@ export const PinContainer = ({
       // onMouseEnter={onMouseEnter}
       // onMouseLeave={onMouseLeave}
       href={href || "/"}
+      target={"_blank"}
     >
       <div
         style={{
@@ -58,33 +59,25 @@ export const PinContainer = ({
           <div className={cn(" relative z-50 ", className)}>{children}</div>
         </div>
       </div>
-      <PinPerspective title={title} href={href} />
+      <PinPerspective title={title} />
     </Link>
   );
 };
 
-export const PinPerspective = ({
-  title,
-  href,
-}: {
-  title?: string;
-  href?: string;
-}) => {
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
+export const PinPerspective = ({ title }: { title?: string }) => {
   return (
     <motion.div className="pointer-events-none  w-96 h-[220px] flex items-center justify-center  opacity-100 z-[60] transition duration-500">
       <div className=" w-full h-full -mt-7 flex-none  inset-0">
         <div className="absolute top-0 inset-x-0  flex justify-center">
-          <a
-            href={href}
-            target={"_blank"}
-            className="relative flex space-x-3 items-center z-10 rounded-full bg-[#f7f7f7] dark:bg-zinc-950 py-0.5 px-4 ring-1 ring-black/10 dark:ring-white/10 "
-          >
+          <div className="relative flex space-x-3 items-center z-10 rounded-full bg-[#f7f7f7] dark:bg-zinc-950 py-0.5 px-4 ring-1 ring-black/10 dark:ring-white/10 ">
             <span className="relative z-20 opacity-65 text-[12px] font-medium inline-block py-0.5">
               {title}
             </span>
 
             <span className="absolute -bottom-0 left-[1.125rem] h-px w-[calc(100%-2.25rem)] bg-gradient-to-r from-emerald-400/0 via-lime-400/90 to-emerald-400/0 transition-opacity duration-500 group-hover/btn:opacity-40"></span>
-          </a>
+          </div>
         </div>
 
         <div

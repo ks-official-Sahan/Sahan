@@ -22,15 +22,17 @@ const ThemeSwitch = () => {
   }, []);
 
   const handleChangeTheme = ({ t }: themeProps) => {
-    if (t === "light") {
-      setTheme("light");
-      setColorScheme("light");
-    } else if (t === "dark") {
-      setTheme("dark");
-      setColorScheme("dark");
-    } else if (t === "system") {
-      setTheme("system");
-      setColorScheme("auto");
+    if (mounted) {
+      if (t === "light") {
+        setTheme("light");
+        setColorScheme("light");
+      } else if (t === "dark") {
+        setTheme("dark");
+        setColorScheme("dark");
+      } else if (t === "system") {
+        setTheme("system");
+        setColorScheme("auto");
+      }
     }
   };
 
