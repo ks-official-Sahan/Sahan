@@ -35,9 +35,14 @@
     --chart-3: 197 37% 24%;
     --chart-4: 43 74% 66%;
     --chart-5: 27 87% 67%;
-    --evision-br: #0000001F;
-    --evision-gd-bro: linear-gradient(to right, #0085ff 0%, #ff3370 52%, #ffaa33 100%);
-    --text-secondary: #9C9C9C;
+    --evision-br: #0000001f;
+    --evision-gd-bro: linear-gradient(
+      to right,
+      #0085ff 0%,
+      #ff3370 52%,
+      #ffaa33 100%
+    );
+    --text-secondary: #9c9c9c;
     --ct-shadow: inset 0px -6px 8px 0px rgba(0, 0, 0, 0.112);
   }
 
@@ -66,9 +71,14 @@
     --chart-3: 30 80% 55%;
     --chart-4: 280 65% 60%;
     --chart-5: 340 75% 55%;
-    --evision-br: #FFFFFF1F;
-    --evision-gd-bro: linear-gradient(to right, #0085ff 0%, #ff3370 52%, #ffaa33 100%);
-    --text-secondary: #9C9C9C;
+    --evision-br: #ffffff1f;
+    --evision-gd-bro: linear-gradient(
+      to right,
+      #0085ff 0%,
+      #ff3370 52%,
+      #ffaa33 100%
+    );
+    --text-secondary: #9c9c9c;
     --ct-shadow: inset 0px -12px 14px 0px rgba(0, 0, 0, 0.3);
   }
 }
@@ -145,6 +155,128 @@
 
 .ct-box {
   box-shadow: var(--ct-shadow);
+}
+
+.stroke-animation path {
+  stroke: white;
+  stroke-width: 2;
+  fill: none;
+  stroke-dasharray: 1000;
+  stroke-dashoffset: 1000;
+  animation: draw-fill-reverse 1s ease-in-out infinite;
+}
+
+/* .stroke-animation path {
+  stroke: white;
+  stroke-width: 2;
+  fill: none;
+  stroke-dasharray: 1000;
+  stroke-dashoffset: 1000;
+  animation: draw-fill-reverse 1s ease-in-out infinite;
+} */
+
+@keyframes draw {
+  0% {
+    stroke-dashoffset: 1000;
+    fill: none;
+  }
+  50% {
+    stroke-dashoffset: 0;
+    fill: none;
+  }
+  55% {
+    fill: white;
+  }
+  90% {
+    stroke-dashoffset: 0;
+    fill: white;
+  }
+  100% {
+    stroke-dashoffset: 1000;
+    fill: none;
+  }
+}
+
+@keyframes draw-fill-reverse {
+  0%,
+  100% {
+    stroke-dashoffset: 1000;
+    fill: none;
+  }
+  50% {
+    stroke-dashoffset: 0;
+    fill: none;
+  }
+  55%,
+  95% {
+    fill: white;
+    stroke-dashoffset: 0;
+  }
+}
+
+/* .stroke-loading path {
+  stroke: black;
+  stroke-width: 2;
+  fill: none;
+  stroke-dasharray: 1000;
+  stroke-dashoffset: 1000;
+  animation: draw-erase 4s linear infinite;
+}
+
+@keyframes draw-erase {
+  0% {
+    stroke-dashoffset: 1000;
+  }
+  50% {
+    stroke-dashoffset: 0;
+  }
+  100% {
+    stroke-dashoffset: -1000;
+  }
+} */
+
+.stroke-loading path {
+  stroke: white;
+  stroke-width: 2;
+  fill: none;
+  stroke-dasharray: 300;
+  stroke-dashoffset: 300;
+  animation: draw-erase 4s linear infinite;
+}
+
+/* .stroke-loading path {
+  stroke: white;
+  stroke-width: 2;
+  fill: none;
+  stroke-dasharray: 300;
+  stroke-dashoffset: 300;
+  animation: draw-erase 4s linear infinite;
+} */
+
+@keyframes draw-erase {
+  0% {
+    stroke-dashoffset: 300;
+  }
+  50% {
+    stroke-dashoffset: 0;
+  }
+  100% {
+    stroke-dashoffset: -300;
+  }
+}
+
+@keyframes bounce {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+.transition-transform {
+  transition: transform 2s ease-in-out;
 }
 
 /* services-container */

@@ -6,20 +6,26 @@ import React from "react";
 import { motion } from "framer-motion";
 import UserCardImage from "./UserCardImage";
 
+/* eslint-disable @typescript-eslint/no-unused-vars */ 
+
 const UserCard = ({
   className = "flex ",
   width = 406,
   height = 362,
-  initial = { y: 200 },
-  animate = { y: 0 },
-  transition = { type: "spring", duration: 1.5, delay: 0.2 },
+  // initial = { y: 200 },
+  initial = { opacity: -3, y: 150 },
+  inView = { opacity: 1, y: 0 },
+
+  // animate = { y: 0 },
+  transition = { type: "spring", duration: 1.5, delay: 0.35 },
 }) => {
   //   alert(className + " " + width + " " + height);
   return (
     <RubberBandElement>
       <motion.div
         initial={initial}
-        animate={animate}
+        // animate={animate}
+        whileInView={inView}
         transition={transition}
         className={`${className} w-[${width}px] h-[${height}px] rounded-[24px] border relative flex-col items-center`}
       >

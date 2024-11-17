@@ -4,19 +4,24 @@ import React from "react";
 import { motion } from "framer-motion";
 import { BackgroundBeamsWithCollision } from "@/components/ui/background-beams-with-collision";
 
+/* eslint-disable @typescript-eslint/no-unused-vars */ 
+
 const AboutCard = ({
   className = "flex ",
   width = 288,
   height = 288,
-  initial = { rotate: 10, x: 400 },
-  animate = { rotate: 0, x: 0 },
-  transition = { type: "spring", duration: 1.5, delay: 0.2 },
+  initial = { opacity: -3, y: 150 },
+  inView = { opacity: 1, y: 0 },
+  // initial = { rotate: 10, x: 400 },
+  // animate = { rotate: 0, x: 0 },
+  transition = { type: "spring", duration: 1.5, delay: 0.35 },
 }) => {
   return (
     <motion.div
       initial={initial}
-      animate={animate}
+      // animate={animate}
       transition={transition}
+      whileInView={inView}
       className={`${className}`}
     >
       <BackgroundBeamsWithCollision>

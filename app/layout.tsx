@@ -17,6 +17,7 @@ import Navigation from "@/components/nav/Navigation";
 import { AudioProvider } from "@/context/AudioContext";
 
 import { SpeedInsights } from "@vercel/speed-insights/next";
+import LoadingScreen from "@/components/animations/LoadingScreen";
 
 gsap.registerPlugin(useGSAP);
 
@@ -41,6 +42,7 @@ export default function RootLayout({
             <AudioProvider>
               <main className="flex flex-col min-h-screen w-full overflow-x-hidden">
                 <ShoelaceSetup>
+                  <LoadingScreen />
                   <Navigation />
                   <FloatingAudioSwitch />
                   <div className="pb-[300px]">{children}</div>

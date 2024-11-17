@@ -4,6 +4,8 @@ import Link from "next/link";
 import React from "react";
 import { motion } from "framer-motion";
 
+/* eslint-disable @typescript-eslint/no-unused-vars */ 
+
 const ServiceCard = ({
   title = "Service",
   description = "",
@@ -11,14 +13,17 @@ const ServiceCard = ({
   className = "flex",
   width = 288,
   height = 200,
-  initial = { rotate: -720, y: -400 },
-  animate = { rotate: 0, y: 0 },
-  transition = { type: "spring", duration: 1.5, delay: 0.2 },
+  // initial = { rotate: -720, y: -400 },
+  initial = { opacity: -3, y: 150 },
+  inView = { opacity: 1, y: 0 },
+  // animate = { rotate: 0, y: 0 },
+  transition = { type: "spring", duration: 1.5, delay: 0.35 },
 }) => {
   return (
     <motion.div
       initial={initial}
-      animate={animate}
+      // animate={animate}
+      whileInView={inView}
       transition={transition}
       className={`${className} border rounded-[24px] justify-center items-center p-4 max-h-full max-w-full self-stretch backdrop-blur-xl
       `}

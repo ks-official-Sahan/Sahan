@@ -165,6 +165,22 @@ const config = {
             "background-position": "calc(100% + var(--shiny-width)) 0",
           },
         },
+        aurora: {
+          from: {
+            backgroundPosition: "50% 50%, 50% 50%",
+          },
+          to: {
+            backgroundPosition: "350% 50%, 350% 50%",
+          },
+        },
+        marquee: {
+          from: { transform: "translateX(0)" },
+          to: { transform: "translateX(calc(-100% - var(--gap)))" },
+        },
+        "marquee-vertical": {
+          from: { transform: "translateY(0)" },
+          to: { transform: "translateY(calc(-100% - var(--gap)))" },
+        },
         meteor: {
           "0%": { transform: "rotate(215deg) translateX(0)", opacity: "1" },
           "70%": { opacity: "1" },
@@ -215,6 +231,9 @@ const config = {
         "border-beam": "border-beam calc(var(--duration)*1s) infinite linear",
         grid: "grid 15s linear infinite",
         "shiny-text": "shiny-text 8s infinite",
+        aurora: "aurora 60s linear infinite",
+        marquee: "marquee var(--duration) linear infinite",
+        "marquee-vertical": "marquee-vertical var(--duration) linear infinite",
         meteor: "meteor 5s linear infinite",
         "meteor-effect": "meteor 5s linear infinite",
         first: "moveVertical 30s ease infinite",

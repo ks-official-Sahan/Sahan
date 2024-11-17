@@ -8,18 +8,23 @@ import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import { Site } from "@/config/site";
 
+/* eslint-disable @typescript-eslint/no-unused-vars */ 
+
 const ContactCard = ({
   className = "flex ",
   width = 288,
   height = 200,
-  initial = { rotate: -20, y: -400 },
-  animate = { rotate: 0, y: 0 },
-  transition = { type: "spring", duration: 1.5, delay: 0.2 },
+  // initial = { rotate: -20, y: -400 },
+  initial = { opacity: -3, y: 150 },
+  inView = { opacity: 1, y: 0 },
+  // animate = { rotate: 0, y: 0 },
+  transition = { type: "spring", duration: 1.5, delay: 0.35 },
 }) => {
   return (
     <motion.div
       initial={initial}
-      animate={animate}
+      // animate={animate}
+      whileInView={inView}
       transition={transition}
       className={`${className} h-[${height}px]`}
     >

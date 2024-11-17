@@ -9,18 +9,23 @@ import { motion } from "framer-motion";
 import Link from "next/link";
 import React from "react";
 
+/* eslint-disable @typescript-eslint/no-unused-vars */ 
+
 const CompanyCard = ({
   className = "flex ",
   width = 288,
   height = 220,
-  initial = { x: -400 },
-  animate = { x: 0 },
-  transition = { type: "spring", duration: 1.5, delay: 0.2 },
+  // initial = { x: -400 },
+  initial = { opacity: -3, y: 150 },
+  inView = { opacity: 1, y: 0 },
+  // animate = { x: 0 },
+  transition = { type: "spring", duration: 1.5, delay: 0.35 },
 }) => {
   return (
     <motion.div
       initial={initial}
-      animate={animate}
+      // animate={animate}
+      whileInView={inView}
       transition={transition}
       className={`${className} w-[${width}px] min-h-[${height}px] 
       flex-col items-center justify-center box-border 

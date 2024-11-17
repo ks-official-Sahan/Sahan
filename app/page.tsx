@@ -28,7 +28,7 @@ export default function Home() {
         <AnimatedWrapper className="w-full h-auto flex flex-col justify-center items-center pt-[80px] md:pt-[60px] xs:px-2 sm:px-2 md:px-4 lg:px-6 xl:px-12">
           <div className="flex flex-col gap-[32px] justify-center items-center">
             {/* COL 1 */}
-            <div className="flex gap-[28px] p-2 sm:flex-col md:flex-col">
+            <section className="flex gap-[28px] p-2 sm:flex-col md:flex-col">
               {/* ROW 1 */}
               <div className="flex flex-col md:flex-row justify-center items-center gap-[28px] order-1 sm:order-2 md:order-2">
                 {/* CARD 1 */}
@@ -53,10 +53,10 @@ export default function Home() {
                 <CompanyCard className="hidden lg:flex" height={288} />
                 <ContactCard className="flex lg:hidden" />
               </div>
-            </div>
+            </section>
 
             {/* COL 2 */}
-            <div className="flex gap-[28px] p-2 sm:flex-col md:flex-col flex-wrap justify-center items-center">
+            <section className="flex gap-[28px] p-2 sm:flex-col md:flex-col flex-wrap justify-center items-center">
               {/* CARD 5 = RANDOM SERVICE OR SKILL */}
               <ServiceCard
                 title={"Web Dev"}
@@ -67,7 +67,7 @@ export default function Home() {
                 title={"Mobile"}
                 description={"Crafting best experience"}
               />
-            </div>
+            </section>
           </div>
         </AnimatedWrapper>
       </section>
