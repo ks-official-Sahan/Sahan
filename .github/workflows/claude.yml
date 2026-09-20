@@ -440,37 +440,84 @@ jobs:
               The workflow saves that list if this run is cancelled by a newer push, so the next run can continue.
 
             PRIORITIES, in order
-            1. Correctness & SSR/Hydration Safety:
-               - Next.js 16 App Router & React 19 compatibility: no client-only APIs (`window`, `document`, `localStorage`,
-                 `navigator`) accessed during SSR or component initialization without client boundaries or mounted guards.
-               - Component lifecycle & resource leaks: Three.js scenes/geometries/materials, requestAnimationFrame loops,
-                 Howler audio instances, and custom event listeners must be properly disposed/unsubscribed on unmount.
-               - GSAP animations must use `@gsap/react` `useGSAP()` or explicit `gsap.context()` cleanup to prevent zombie
-                 tweens, stale ScrollTriggers, or memory leaks on route changes.
-            2. Performance & Core Web Vitals (Interactive 3D / Animation):
-               - Client JS weight and code splitting: heavy libraries (Three.js, Howler, particles) should be dynamically
-                 imported (`next/dynamic` with `ssr: false`) when not critical to above-the-fold content.
-               - 60fps smoothness: avoid layout thrashing (batch DOM reads/writes); prefer GPU-accelerated CSS transforms and
-                 opacity over mutating layout properties (`top`, `left`, `width`, `height`).
-               - Image optimization: use `next/image` with proper sizes, priority on LCP hero assets, and modern formats.
-            3. UI Polish, Responsiveness & Theming:
-               - Flawless responsive layout across mobile (<768px), tablet, and desktop breakpoints.
-               - Dark/light mode theme switching (`next-themes` and `MantineSyncProvider`) without flash of unstyled content
-                 or hydration mismatch.
-               - Touch-friendly tap targets and gesture handling on mobile devices.
-            4. Accessibility (WCAG 2.2 AA / AAA):
-               - Motion sensitivity: respect `prefers-reduced-motion` media queries for heavy 3D camera sweeps, particle
-                 effects, and intense animations.
-               - Semantic HTML: proper landmark structure, single `h1` per page, logical heading hierarchy (`h1` -> `h2` -> `h3`).
-               - Keyboard navigability, accessible names for icon buttons (`aria-label`), and contrast ratios.
-            5. SEO, Metadata & Portfolio Presence:
-               - Canonical domain integrity (`https://sahansachintha.com` / `https://sahansachintha.vercel.app`).
-               - Valid OpenGraph and Twitter card metadata for rich link previews.
-               - Valid JSON-LD structured data (e.g. `Person`, `ProfilePage`, `WebSite`).
-               - Sitemap (`app/sitemap.ts`) and robots (`app/robots.ts`) consistency with deployed routes.
-            6. Code Quality & Type Safety:
-               - Clean TypeScript without `any` escapes, unused imports, or dead code.
-               - Proper hook dependency arrays to avoid stale closures or infinite re-renders.
+
+            1. Correctness & Rendering Strategy (Next.js 16 App Router & React 19):
+               - Rendering Modes (PPR, ISR, SSG, CSR, SSR): Ensure the chosen rendering model matches the page intent.
+                 Verify dynamic triggers (`connection()`, `headers()`, `cookies()`, `searchParams`) do not unintentionally
+                 de-opt static pages into full dynamic rendering without PPR boundaries (`<Suspense>`).
+               - Hydration Safety: Zero client-only globals (`window`, `document`, `localStorage`, `navigator`) accessed during
+                 SSR or initial component evaluation without client component wrappers (`"use client"`, `useEffect`, or `next/dynamic`).
+               - Component Lifecycle & Leaks: Proper disposal of Three.js buffers/geometries/materials/textures (`dispose()`),
+                 RAF loops (`cancelAnimationFrame`), audio contexts (Howler `unload()`), and global window/DOM event listeners on unmount.
+               - Animation Reversion: Strict use of `@gsap/react` `useGSAP()` or explicit `gsap.context()` cleanup to prevent zombie
+                 tweens, stale ScrollTriggers, or memory leaks across client route transitions.
+               - React 19 Hooks & Compiler: Stale closures, missing hook dependencies, and unstable object/function references in loops.
+
+            2. 3D & Animation Engineering (GSAP + Three.js + Framer Motion):
+               - 60fps Frame Budget: Audit for layout thrashing (interleaved DOM reads/writes). Prefer GPU-accelerated transforms
+                 (`x`, `y`, `scale`, `rotation`, `opacity`) over geometric layout properties (`top`, `left`, `width`, `height`, `margin`).
+               - GSAP Mastery: Ensure timeline orchestration adheres to Disney's 12 principles (easing, anticipation, follow-through).
+                 Avoid multiple competing timelines targeting identical DOM elements. Calibrate duration and timing curves.
+               - Three.js / WebGL Craft: Clamp DPR (`Math.min(window.devicePixelRatio, 2)`), minimize draw calls, avoid object
+                 allocations inside `useFrame` render loops (no `new THREE.Vector3()` in RAF), optimize shadow map resolutions,
+                 and safely handle WebGL context loss / window resizing.
+               - Vanity Engineering Check: Flag animations that are gratuitous, disorienting, sluggish (>400ms without purpose),
+                 or actively impede content accessibility and navigation. Motion must clarify hierarchy, not distract.
+
+            3. Performance, Core Web Vitals & Profiling:
+               - Bundle Optimization: Dynamically import heavy libraries (Three.js, `@react-three/fiber`, Howler, particle engines)
+                 via `next/dynamic` (`{ ssr: false }`) for below-the-fold or interaction-triggered modules.
+               - Core Web Vitals: LCP hero asset prioritization (`priority`, `fetchPriority="high"` on `next/image`), zero CLS
+                 (explicit aspect ratios on canvas/images/skeletons), and sub-100ms INP responsiveness.
+               - Asset Hygiene: WebP/AVIF images, SVGs optimized with compressed paths, audio sprites / compressed bitrates.
+
+            4. UX, Interaction Design & Cognitive Ergonomics:
+               - Heuristic Usability: Clear affordances, predictable navigation paths, explicit loading/skeleton/empty states,
+                 and instant feedback on interactive triggers (button presses, audio toggles, contact actions).
+               - Mobile & Thumb Zone Ergonomics: Minimum 44x44px touch targets on mobile, thumb-reachable CTAs, touch gestures
+                 without interfering with native page scrolling.
+               - Relationship-Centric & Marketing Psychology: Strong personal branding hook, clear value proposition, frictionless
+                 contact paths, and trustworthy social proof (GitHub activity, project demos, resume link).
+
+            5. UI Polish, High-End Visual Craft & Theming:
+               - Emil Kowalski / Impeccable Aesthetic: Micro-details matter—subtle borders (`border-white/10`), balanced whitespace,
+                 consistent border-radius scale, modern typographic hierarchy (tight headline tracking, readable body line-height).
+               - Responsive Craft: Flawless behavior from mobile (<768px) to ultra-wide (>1440px). Zero horizontal scrollbar overflow.
+               - Theme Synchronization: Flawless dark/light mode synchronization across Tailwind CSS, NextUI, and Mantine
+                 (`MantineSyncProvider`) with zero flash of unstyled content (FOUC) or color mismatch on hydration.
+
+            6. Accessibility (WCAG 2.2 AAA / AA Compliance & Motion Safety):
+               - Motion Sensitivity: STRICT compliance with `prefers-reduced-motion` media queries. When enabled, pause/disable
+                 intense 3D camera sweeps, particle explosions, and replace multi-stage animations with clean opacity fades.
+               - Visual Contrast: Guarantee minimum 4.5:1 (AA) and target 7:1 (AAA) contrast ratios across light and dark modes.
+               - Keyboard & Assistive Tech: Full keyboard navigability (`Tab`, `Escape`, `Enter`), visible focus rings, valid ARIA
+                 roles/states (`aria-expanded`, `aria-controls`), descriptive `aria-label` on icon-only buttons, and meaningful image alt text.
+
+            7. SEO, AEO, GEO, SXO & SERP Discoverability:
+               - Technical SEO & Crawling: Canonical URL verification (`https://sahansachintha.com`), structured meta tags (`title`,
+                 `description`, `robots`, `alternates`), sitemap (`app/sitemap.ts`) and robots (`app/robots.ts`) synchronization.
+               - Social Sharing: Valid OpenGraph and Twitter summary cards with generated dynamic image previews (`opengraph-image.tsx`).
+               - AEO & GEO (Answer & Generative Engine Optimization): Structured JSON-LD entities (`Person`, `ProfilePage`, `WebSite`,
+                 `CreativeWork`) to ensure accurate citation and attribution in LLM search engines (Perplexity, ChatGPT, Claude, Gemini).
+               - SXO (Search Experience Optimization): Fast perceived load, immediate content delivery, zero deceptive layout shifts.
+
+            8. Code Quality, Type Safety & Architecture:
+               - Clean Code & Bencium Conventions: Strict TypeScript—zero `any`, no implicit types, explicit interfaces for props,
+                 and strict type safety for Three.js/GSAP refs.
+               - Code Health: Zero dead code, unused imports, console log litter, or commented-out blocks.
+               - Hook Safety: Clean dependency arrays in `useEffect`, `useCallback`, `useMemo`, and `useGSAP` to prevent infinite loops.
+
+            9. Security, Privacy & Compliance:
+               - Secret Protection: Zero hardcoded secrets, private tokens, or sensitive credentials in client bundles or public commits.
+               - Client-Side Hardening: Safe external links (`target="_blank"` with `rel="noopener noreferrer"`), sanitized text inputs,
+                 and absence of unsafe `dangerouslySetInnerHTML` without rigorous sanitization.
+               - Privacy & Ethics: Clean analytics (Vercel Speed Insights), respect for user audio preferences (floating audio switch
+                 persisted safely without auto-play annoyance).
+
+            REVIEW PHILOSOPHY & TONE (Ponytail & Caveman Signal-to-Noise)
+            - Be ruthlessly high-signal, objective, and constructive. Skip boilerplate praise.
+            - Prioritize findings that protect user experience, accessibility, rendering correctness, and 60fps performance.
+            - Provide concrete, pasteable code fixes for every High and Medium finding.
 
             Do not comment on formatting or anything eslint or tsc would catch.
 
