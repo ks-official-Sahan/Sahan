@@ -59,7 +59,7 @@ const FooterNav = ({ className }: { className?: string }) => {
       <div className="flex flex-col">
         <div className="flex items-center">
           <Button
-            onClick={() => handleNavigation("home")}
+            onPress={() => handleNavigation("home")}
             aria-label="Home"
             aria-current={currentPath === "home" ? "page" : undefined}
             className={`min-w-[50px] w-[50px] h-[50px] border-b border-r rounded-tl-[12px] rounded-r-none rounded-b-none
@@ -75,7 +75,7 @@ const FooterNav = ({ className }: { className?: string }) => {
             </div>
           </Button>
           <Button
-            onClick={() => handleNavigation("about")}
+            onPress={() => handleNavigation("about")}
             aria-label="About"
             aria-current={currentPath === "about" ? "page" : undefined}
             className={`min-w-[50px] w-[50px] h-[50px] border-b border-r bg-transparent rounded-none
@@ -93,7 +93,7 @@ const FooterNav = ({ className }: { className?: string }) => {
         </div>
         <div className="flex items-center">
           <Button
-            onClick={() => handleNavigation("works")}
+            onPress={() => handleNavigation("works")}
             aria-label="Works"
             aria-current={currentPath === "works" ? "page" : undefined}
             className={`min-w-[50px] w-[50px] h-[50px] border-r rounded-bl-[12px] bg-transparent rounded-r-none rounded-t-none
@@ -109,7 +109,7 @@ const FooterNav = ({ className }: { className?: string }) => {
             </div>
           </Button>
           <Button
-            onClick={() => handleNavigation("updates")}
+            onPress={() => handleNavigation("updates")}
             aria-label="Updates"
             aria-current={currentPath === "updates" ? "page" : undefined}
             className={`min-w-[50px] w-[50px] h-[50px] border-r bg-transparent rounded-none
@@ -127,7 +127,7 @@ const FooterNav = ({ className }: { className?: string }) => {
         </div>
       </div>
       <Button
-        onClick={() => handleNavigation("contact")}
+        onPress={() => handleNavigation("contact")}
         aria-label="Contact"
         aria-current={currentPath === "contact" ? "page" : undefined}
         className={`min-w-[50px] w-[50px] h-[100px] rounded-r-[12px] bg-transparent rounded-l-none

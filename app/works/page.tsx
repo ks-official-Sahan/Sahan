@@ -181,8 +181,10 @@ const Works = () => {
                   src={"/av/c3.svg"}
                   width={277}
                   height={277}
-                  alt=""
+                  alt="Works illustration"
                   className="object-cover"
+                  loading="eager"
+                  priority
                 />
               </motion.div>
 

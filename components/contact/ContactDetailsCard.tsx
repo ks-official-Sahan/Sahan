@@ -50,7 +50,7 @@ const ContactDetailsCard = ({
 
       {copy && (
         <Button
-          onClick={handleCopy}
+          onPress={handleCopy}
           aria-label={`Copy ${title.toLowerCase()}`}
           className="w-[34px] group min-w-[34px] flex justify-center items-center h-[30px] border rounded-[12px] bg-[#fafafa] dark:bg-[#232323] absolute top-[10px] right-[10px]"
         >
