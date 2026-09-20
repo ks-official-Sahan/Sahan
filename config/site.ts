@@ -18,41 +18,32 @@ export const Site = {
 };
 
 export const SiteMetadata = {
-  title: "Sahan",
-  description: "An Entrepreneur & Full-Stack Software Engineer.",
+  title: "Sahan Sachintha",
+  description:
+    "Full-Stack Software Engineer building cross-platform products, dashboards, and web experiences.",
   author: "Sahan Sachintha",
-  image: "@/app/favicon.ico",
-  siteUrl: "https://SahanSachintha.com",
+  siteUrl: "https://sahansachintha.com",
   githubUsername: "ks-official-sahan",
-
   twitterUsername: "@SahanSubasingha",
-  ogSiteName: "Sahan",
-  ogTitle: "Sahan",
-  ogDescription: "An Entrepreneur & Full-Stack Software Engineer.",
-  ogImage: "/favicon.ico",
-  icon: "@/app/favicon.ico",
+  ogSiteName: "Sahan Sachintha",
   legalName: "Sahan Sachintha",
 };
 
 export const PageMetadata = {
   about: {
-    title: "About | Sahan",
+    title: "About",
     description: "Learn more about my journey and professional background.",
   },
   works: {
-    title: "Works | Sahan",
+    title: "Works",
     description: "Explore my projects and professional achievements.",
   },
-  blog: {
-    title: "Blog | Sahan",
-    description: "Read my insights and stories that may inspire you.",
-  },
   updates: {
-    title: "Updates | Sahan",
-    description: "Read my daily updates and m",
+    title: "Updates",
+    description: "Read my daily updates and progress notes.",
   },
   contact: {
-    title: "Contact | Sahan",
+    title: "Contact",
     description: "Let's connect and discuss your next big idea!",
   },
 };

@@ -5,7 +5,7 @@ import { ThemeProvider } from "@/components/theme/ThemeProvider";
 
 import { MantineSyncProvider } from "@/components/theme/MantineSyncProvider";
 import { poppins } from "@/lib/fonts";
-import { SiteMetadata } from "@/config/site";
+import { Site, SiteMetadata } from "@/config/site";
 import Footer from "@/components/foo/Footer";
 import FloatingAudioSwitch from "@/components/common/FloatingAudioSwitch";
 
@@ -17,11 +17,53 @@ import { AudioProvider } from "@/context/AudioContext";
 
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import LoadingScreen from "@/components/animations/LoadingScreen";
+import JsonLd from "@/components/seo/JsonLd";
 
 gsap.registerPlugin(useGSAP);
 
 export const metadata: Metadata = {
-  ...SiteMetadata,
+  metadataBase: new URL(SiteMetadata.siteUrl),
+  title: {
+    default: `${SiteMetadata.title} | ${Site.myRole}`,
+    template: `%s | ${SiteMetadata.title}`,
+  },
+  description: SiteMetadata.description,
+  authors: [{ name: SiteMetadata.author, url: SiteMetadata.siteUrl }],
+  creator: SiteMetadata.author,
+  keywords: [
+    "Sahan Sachintha",
+    "Full-Stack Software Engineer",
+    "Next.js Developer",
+    "React Native Developer",
+    "Software Engineer Sri Lanka",
+    "Datalake Creative",
+  ],
+  alternates: {
+    canonical: SiteMetadata.siteUrl,
+  },
+  openGraph: {
+    type: "website",
+    url: SiteMetadata.siteUrl,
+    siteName: SiteMetadata.ogSiteName,
+    title: SiteMetadata.title,
+    description: SiteMetadata.description,
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: SiteMetadata.title,
+    description: SiteMetadata.description,
+    creator: SiteMetadata.twitterUsername,
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
+  },
 };
 
 export default function RootLayout({
@@ -31,6 +73,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        <JsonLd />
+      </head>
       <body className={`${poppins.className} antialiased relative`}>
         <ThemeProvider enableSystem attribute="class" defaultTheme="dark">
           <MantineSyncProvider>

@@ -151,7 +151,7 @@ const Works = () => {
                 >
                   <Image
                     src={"/av/c1.svg"}
-                    alt="C2"
+                    alt=""
                     width={126}
                     height={203}
                     className="object-cover"
@@ -170,7 +170,7 @@ const Works = () => {
                   src={"/av/c3.svg"}
                   width={277}
                   height={277}
-                  alt="C3"
+                  alt=""
                   className="object-cover"
                 />
               </motion.div>
@@ -249,7 +249,7 @@ const Works = () => {
                 >
                   <Image
                     src={"/av/c2.svg"}
-                    alt="C2"
+                    alt=""
                     width={110}
                     height={203}
                     className="object-cover"
