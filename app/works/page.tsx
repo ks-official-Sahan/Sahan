@@ -10,7 +10,7 @@ import { motion } from "framer-motion";
 import { Button } from "@nextui-org/react";
 import { ArrowDownLeft, ArrowDownRight } from "lucide-react";
 import { useTheme } from "next-themes";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import HeaderCard from "@/components/custom/work/HeaderCard";
 import Particals from "@/components/custom/Particals";
 import ProjectGrid from "@/components/works/ProjectGrid";
@@ -25,8 +25,6 @@ const Works = () => {
   const [filter, setFilter] = useState<FilterValue>("freelance");
 
   const searchParams = useSearchParams();
-  const router = useRouter();
-  const path = usePathname();
 
   const handleTypeChange = (type: "des" | "pro") => {
     localStorage.setItem("wt", type);
@@ -38,17 +36,24 @@ const Works = () => {
     window.history.replaceState(null, "", newUrl);
   };
 
+  // Seed state from the URL once on mount — never write back via router.replace
+  // (that would update searchParams → re-trigger this effect → infinite loop).
+  // Use window.history.replaceState for the initial default so the URL is clean
+  // without causing a React navigation event.
   useEffect(() => {
-    const wt = searchParams.get("wt");
-    if (!wt) {
-      localStorage.setItem("wt", "des");
-      router.replace("/works?wt=des");
-    } else {
-      setWorkType(wt === "des" ? "design" : "projects");
-      setFilter(wt === "des" ? "freelance" : "product");
-      router.replace("/works?wt=" + wt);
+    const wt = searchParams.get("wt") ?? localStorage.getItem("wt") ?? "des";
+    const normalised = wt === "pro" ? "pro" : "des";
+
+    setWorkType(normalised === "des" ? "design" : "projects");
+    setFilter(normalised === "des" ? "freelance" : "product");
+    localStorage.setItem("wt", normalised);
+
+    // Only patch the URL if it is missing — no router call, no re-render.
+    if (!searchParams.get("wt")) {
+      window.history.replaceState(null, "", `/works?wt=${normalised}`);
     }
-  }, [path, router, searchParams]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // intentionally empty — run once on mount only
 
   return (
     <div
@@ -86,7 +91,7 @@ const Works = () => {
               {/* Card 1 */}
               <HeaderCard workType={workType} title="design" rotate={-7.5}>
                 <Button
-                  onClick={() => {
+                  onPress={() => {
                     setWorkType("design");
                     setFilter("freelance");
                     handleTypeChange("des");
@@ -184,7 +189,7 @@ const Works = () => {
               {/* Card 3 */}
               <HeaderCard workType={workType} title="projects" rotate={7.5}>
                 <Button
-                  onClick={() => {
+                  onPress={() => {
                     setWorkType("projects");
                     setFilter("product");
                     handleTypeChange("pro");
