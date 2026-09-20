@@ -7,6 +7,11 @@ import Header from "@/components/custom/home/Header";
 import ServiceCard from "@/components/custom/card/ServiceCard";
 import Particals from "@/components/custom/Particals";
 import AnimatedWrapper from "@/components/custom/home/AnimatedWrapper";
+import WelcomeSection from "@/components/home/WelcomeSection";
+import ServiceOverviewSection from "@/components/home/ServiceOverviewSection";
+import FeaturedWorksSection from "@/components/home/FeaturedWorksSection";
+import FAQSection from "@/components/home/FAQSection";
+import FaqJsonLd from "@/components/seo/FaqJsonLd";
 
 export default function Home() {
   return (
@@ -71,6 +76,19 @@ export default function Home() {
           </div>
         </AnimatedWrapper>
       </section>
+
+      {/* WELCOME */}
+      <WelcomeSection />
+
+      {/* SERVICE OVERVIEW */}
+      <ServiceOverviewSection />
+
+      {/* FEATURED WORKS */}
+      <FeaturedWorksSection />
+
+      {/* FAQs */}
+      <FAQSection />
+      <FaqJsonLd />
     </div>
   );
 }

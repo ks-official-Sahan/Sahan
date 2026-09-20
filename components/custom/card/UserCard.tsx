@@ -27,7 +27,11 @@ const UserCard = ({
         // animate={animate}
         whileInView={inView}
         transition={transition}
-        className={`${className} w-[${width}px] h-[${height}px] rounded-[24px] border relative flex-col items-center`}
+        className={`${className} rounded-[24px] border relative flex-col items-center overflow-hidden`}
+        style={{
+          width: `${width}px`,
+          height: `${height}px`,
+        }}
       >
         <div className="w-full h-full absolute rounded-[24px] from-[#f0f0f0] to-white dark:from-[#1B1C1D] dark:to-[#000000] bg-gradient-to-b opacity-55"></div>
 

@@ -12,7 +12,10 @@ import { Projects } from "@/contents/projects";
 import { BorderBeam } from "@/components/ui/border-beam";
 import AnimatedShinyText from "@/components/ui/animated-shiny-text";
 import { PinContainer } from "@/components/ui/3d-pin";
-import SkillCard from "@/components/common/SkillCard";
+import CTACard from "@/components/common/CTACard";
+import AvailableCard from "@/components/about/AvailableCard";
+import ServiceSection from "@/components/about/ServiceSection";
+import SkillSection from "@/components/about/SkillSection";
 import GridCardWrap from "@/components/custom/about/GridCardWrap";
 import Runner from "@/components/custom/about/Runner";
 import Particals from "@/components/custom/Particals";
@@ -129,6 +132,10 @@ const AboutPageClient = ({ githubStats }: { githubStats: GitHubStats }) => {
               <GridCardWrap>
                 <GitHubStatsCard stats={githubStats} />
               </GridCardWrap>
+              {/* CARD 6: availability */}
+              <GridCardWrap>
+                <AvailableCard />
+              </GridCardWrap>
             </div>
 
             {/* COL3 */}
@@ -155,51 +162,17 @@ const AboutPageClient = ({ githubStats }: { githubStats: GitHubStats }) => {
         </WrapperBody>
       </section>
 
-      {/* KNOWLADGE BASE */}
-      <section className="flex flex-col items-center pt-[80px] ">
-        <WrapperBody>
-          <div className="flex flex-col items-center ">
-            {/* TITLE */}
-            <div className="flex flex-col items-center text-center pb-[60px]">
-              <div className="text-[26px] font-semibold">
-                {AboutContent.KB.title}
-              </div>
-              <div className="text-[15px] font-medium text-secondaryT">
-                {AboutContent.KB.description}
-              </div>
-            </div>
+      {/* SERVICES */}
+      <ServiceSection />
 
-            {/* SKILLS GRID */}
-            <div className="flex flex-wrap justify-center">
-              {AboutContent.KB.skills.dev.map((skill, index) => {
-                const IconComponent = skill.icon;
-                const isStroke = skill.variant === "stroke";
-                return (
-                  <SkillCard
-                    key={index}
-                    title={skill.title}
-                    bgColors={skill.bgColors}
-                    colors={skill.colors}
-                    icon={
-                      isStroke ? (
-                        <IconComponent
-                          size={40}
-                          className="text-black dark:text-white group-hover/canvas-card:text-white"
-                        />
-                      ) : (
-                        <IconComponent className="fill-black dark:fill-white group-hover/canvas-card:fill-white" />
-                      )
-                    }
-                  />
-                );
-              })}
-            </div>
-          </div>
-        </WrapperBody>
-      </section>
+      {/* KNOWLADGE BASE (tabs / grid) */}
+      <SkillSection />
 
       {/* WORK EXPERIENCE */}
       <ExperienceSection />
+
+      {/* CTA */}
+      <CTACard />
     </div>
   );
 };
