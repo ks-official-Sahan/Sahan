@@ -62,5 +62,9 @@
     "postcss-simple-vars": "^7.0.1",
     "tailwindcss": "^3.4.14",
     "typescript": "^5.6.3"
-  }
+  },
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "packageManager": "pnpm@12.5.1"
 }

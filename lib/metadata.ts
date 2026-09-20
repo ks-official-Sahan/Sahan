@@ -12,11 +12,15 @@ export function pageMetadata(
     description,
     alternates: { canonical: url },
     openGraph: {
+      type: "website",
+      siteName: SiteMetadata.ogSiteName,
       url,
       title,
       description,
     },
     twitter: {
+      card: "summary_large_image",
+      creator: SiteMetadata.twitterUsername,
       title,
       description,
     },

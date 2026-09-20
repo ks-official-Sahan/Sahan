@@ -8,6 +8,7 @@ export interface GitHubStats {
 }
 
 const GITHUB_USERNAME = "ks-official-sahan";
+const REQUEST_TIMEOUT_MS = 5000;
 
 /**
  * Fetches lightweight GitHub stats for the profile card.
@@ -66,6 +67,7 @@ async function getStatsViaGraphql(
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ query, variables: { login: GITHUB_USERNAME } }),
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       next: { revalidate: 3600 },
     });
     if (!res.ok) return null;
@@ -120,6 +122,7 @@ async function fetchJson(url: string) {
   try {
     const res = await fetch(url, {
       headers: { Accept: "application/vnd.github+json" },
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       next: { revalidate: 3600 },
     });
     if (!res.ok) return null;

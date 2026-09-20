@@ -32,14 +32,14 @@ const ProjectCard = ({ project }: { project: Project }) => {
             size={18}
             className="mt-1 shrink-0 opacity-50 transition-opacity group-hover:opacity-100"
           />
-        ) : (
+        ) : project.private ? (
           <span
             title="Private / proprietary project"
             className="mt-1 shrink-0 opacity-50"
           >
             <Lock size={16} />
           </span>
-        )}
+        ) : null}
       </div>
 
       <p className="text-[13px] leading-relaxed opacity-75">

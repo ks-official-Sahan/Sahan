@@ -20,16 +20,20 @@ const ContactDetailsCard = ({
   icon,
   copy = false,
 }: ContactDetailsCardProps) => {
-  const handleCopy = async (event: React.MouseEvent<HTMLButtonElement>) => {
+  const handleCopy = async (event: any) => {
+    const rect = event?.currentTarget?.getBoundingClientRect?.();
     try {
       await copyToClipboard(value);
-      const rect = event.currentTarget.getBoundingClientRect();
-      confetti({
-        origin: {
-          x: (rect.left + rect.width / 2) / window.innerWidth,
-          y: (rect.top + rect.height / 2) / window.innerHeight,
-        },
-      });
+      if (rect) {
+        confetti({
+          origin: {
+            x: (rect.left + rect.width / 2) / window.innerWidth,
+            y: (rect.top + rect.height / 2) / window.innerHeight,
+          },
+        });
+      } else {
+        confetti();
+      }
     } catch (err) {
       alert("Failed to copy text to clipboard." + err);
     }

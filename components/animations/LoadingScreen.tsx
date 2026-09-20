@@ -14,12 +14,13 @@ const LoadingScreen: React.FC = () => {
 
   return (
     <div
-      className={`fixed inset-0 bg-black flex justify-center items-center z-[9999] transition-opacity duration-[1500ms] pb-[40px] ${
+      style={{ transitionDuration: "1500ms" }}
+      className={`fixed inset-0 bg-black flex justify-center items-center z-[9999] transition-opacity pb-[40px] ${
         loading ? "opacity-100" : "opacity-0 pointer-events-none"
       }`}
     >
       <div
-        className={`relative flex flex-col items-center transition-transform duration-[1000ms] ${
+        className={`relative flex flex-col items-center transition-transform duration-1000 ${
           loading ? "scale-100" : "scale-50"
         }`}
       >

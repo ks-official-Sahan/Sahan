@@ -4,3 +4,4 @@ packages:
 allowBuilds:
   '@tsparticles/engine': true
   sharp: true
+  unrs-resolver: true

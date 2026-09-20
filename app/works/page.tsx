@@ -7,7 +7,6 @@ import { cn } from "@/lib/utils";
 import React, { useEffect, useState } from "react";
 import Image from "next/image";
 import { motion } from "framer-motion";
-import { Button } from "@nextui-org/react";
 import { ArrowDownLeft, ArrowDownRight } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useSearchParams } from "next/navigation";
@@ -15,6 +14,7 @@ import HeaderCard from "@/components/custom/work/HeaderCard";
 import Particals from "@/components/custom/Particals";
 import ProjectGrid from "@/components/works/ProjectGrid";
 import { ProjectFilters } from "@/contents/projects";
+import { Button } from "@nextui-org/react";
 
 type FilterValue = (typeof ProjectFilters)[number]["value"];
 

@@ -9,15 +9,22 @@ export const Meteors = ({
   number?: number;
   className?: string;
 }) => {
-  const meteors = useMemo(
-    () =>
-      new Array(number || 20).fill(true).map(() => ({
-        left: Math.floor(Math.random() * (400 - -400) + -400) + "px",
-        animationDelay: Math.random() * (0.8 - 0.2) + 0.2 + "s",
-        animationDuration: Math.floor(Math.random() * (10 - 2) + 2) + "s",
-      })),
-    [number]
-  );
+  const meteors = useMemo(() => {
+    const count = number || 20;
+    return Array.from({ length: count }, (_, idx) => {
+      // Deterministic generation derived from index to ensure SSR and hydration match
+      const seed = (idx * 9301 + 49297) % 233280;
+      const factor = seed / 233280;
+      const left = Math.floor(factor * (400 - -400) + -400) + "px";
+      const animationDelay = (0.2 + ((idx * 0.17) % 0.6)).toFixed(2) + "s";
+      const animationDuration = Math.floor(2 + (idx % 8)) + "s";
+      return {
+        left,
+        animationDelay,
+        animationDuration,
+      };
+    });
+  }, [number]);
 
   return (
     <>
