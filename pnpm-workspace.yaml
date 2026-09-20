@@ -1,6 +1,9 @@
 packages:
   - '.'
 
+publicHoistPattern:
+  - '*@nextui-org/*'
+
 allowBuilds:
   '@tsparticles/engine': true
   sharp: true
