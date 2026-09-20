@@ -8,8 +8,8 @@ export const WorksContent = {
                 line2: "Works"
             },
             subtitle: {
-                line1: "My Creative Works.",
-                line2: "UI/UX and Brand Designs"
+                line1: "Freelance Client Work.",
+                line2: "Websites & Brand Presence"
             },
             colors: {
                 light: {
@@ -28,8 +28,8 @@ export const WorksContent = {
                 line2: "Projects"
             },
             subtitle: {
-                line1: "My Technical Projects.",
-                line2: "Full-stack development"
+                line1: "Product Engineering.",
+                line2: "Cross-platform full-stack development"
             },
             colors: {
                 light: {
@@ -42,29 +42,6 @@ export const WorksContent = {
                 }
 
             }
-        }
-    },
-    categories:[
-        {
-            name:"All",
-            code:"A"
-        },
-        {
-            name:"Web Development",
-            code:"WEB"
-        },
-        {
-            name:"App Development",
-            code:"APP"
-        },
-        {
-            name:"UI/UX",
-            code:"UX"
-        },
-    ],
-    screen:{
-        flo:{
-           
         }
     }
 }

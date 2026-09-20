@@ -14,11 +14,15 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import HeaderCard from "@/components/custom/work/HeaderCard";
 import Particals from "@/components/custom/Particals";
 import ProjectGrid from "@/components/works/ProjectGrid";
+import { ProjectFilters } from "@/contents/projects";
+
+type FilterValue = (typeof ProjectFilters)[number]["value"];
 
 const Works = () => {
   const { theme } = useTheme();
 
   const [workType, setWorkType] = useState("design");
+  const [filter, setFilter] = useState<FilterValue>("freelance");
 
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -41,6 +45,7 @@ const Works = () => {
       router.replace("/works?wt=des");
     } else {
       setWorkType(wt === "des" ? "design" : "projects");
+      setFilter(wt === "des" ? "freelance" : "product");
       router.replace("/works?wt=" + wt);
     }
   }, [path, router, searchParams]);
@@ -83,6 +88,7 @@ const Works = () => {
                 <Button
                   onClick={() => {
                     setWorkType("design");
+                    setFilter("freelance");
                     handleTypeChange("des");
                   }}
                   className="bg-transparent w-[268px] h-[211px] rounded-[24px] p-0 m-0 backdrop-blur-[33px]"
@@ -180,6 +186,7 @@ const Works = () => {
                 <Button
                   onClick={() => {
                     setWorkType("projects");
+                    setFilter("product");
                     handleTypeChange("pro");
                   }}
                   className="bg-transparent w-[268px] h-[211px] rounded-[24px] p-0 m-0 backdrop-blur-[33px]"
@@ -265,7 +272,7 @@ const Works = () => {
       <section className="border-y w-full">
         <div className="flex flex-col w-full items-center bg-opacity-50 py-[60px]">
           <WrapperBody>
-            <ProjectGrid />
+            <ProjectGrid filter={filter} onFilterChange={setFilter} />
           </WrapperBody>
         </div>
       </section>

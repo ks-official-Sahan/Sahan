@@ -3,13 +3,17 @@
 import { Projects, ProjectFilters } from "@/contents/projects";
 import ProjectCard from "@/components/works/ProjectCard";
 import { cn } from "@/lib/utils";
-import React, { useMemo, useState } from "react";
+import React, { useMemo } from "react";
 
-const ProjectGrid = () => {
-  const [filter, setFilter] = useState<(typeof ProjectFilters)[number]["value"]>(
-    "all"
-  );
+type FilterValue = (typeof ProjectFilters)[number]["value"];
 
+const ProjectGrid = ({
+  filter,
+  onFilterChange,
+}: {
+  filter: FilterValue;
+  onFilterChange: (value: FilterValue) => void;
+}) => {
   const filtered = useMemo(
     () =>
       filter === "all"
@@ -25,7 +29,7 @@ const ProjectGrid = () => {
           <button
             key={item.value}
             type="button"
-            onClick={() => setFilter(item.value)}
+            onClick={() => onFilterChange(item.value)}
             className={cn(
               "rounded-full border px-[20px] py-[6px] text-[13px] font-medium transition-colors",
               filter === item.value
