@@ -12,8 +12,8 @@ name: Claude
 #   Comment on a PR   "@claude-code review"  (also "@claude-code please review", "@claude-code, review this ...").
 #                     The comment must START with the mention. Text after the word "review" (first line, up to
 #                     400 characters) is passed along as extra focus, e.g. "@claude-code review focus on caching".
-#   Follow-ups        Once a PR has been reviewed, every new push is reviewed automatically (incrementally).
-#                     Set the repository variable CLAUDE_REVIEW_ALL_PRS=true to review every new PR from the start.
+#   Follow-ups        Comment "@claude-code review" again anytime to review new commits incrementally from
+#                     the last reviewed commit. Reviews will NOT run automatically on push.
 #   Manual            gh workflow run claude.yml -f pr_number=123
 #   Anything else     "@claude-code <task>" on an issue or PR runs the generic assistant.
 #
@@ -55,8 +55,6 @@ on:
     types: [submitted]
   issues:
     types: [opened, assigned]
-  pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
     inputs:
       pr_number:
@@ -73,11 +71,6 @@ jobs:
     name: Route request
     if: |
       github.event_name == 'workflow_dispatch' || (
-        github.event_name == 'pull_request' &&
-        github.event.pull_request.head.repo.full_name == github.repository &&
-        !github.event.pull_request.draft &&
-        github.actor != 'dependabot[bot]'
-      ) || (
         github.event_name == 'issue_comment' &&
         github.event.comment.user.type != 'Bot' &&
         contains(github.event.comment.body, '@claude-code') &&
@@ -135,9 +128,6 @@ jobs:
           case "$EVENT" in
             workflow_dispatch)
               mode=review; kind=manual ;;
-            pull_request)
-              # Follow-up reviews only for PRs that were already reviewed (or when explicitly enabled for all PRs).
-              if [ "${REVIEW_ALL:-}" = "true" ] || has_state; then mode=review; kind=push; fi ;;
             issues)
               mode=assist ;;
             *)
@@ -274,7 +264,7 @@ jobs:
           esac
 
       - name: Checkout pull request head
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
         with:
           # refs/pull/N/head exists on the base repo for same-repo and fork PRs.
           ref: refs/pull/${{ needs.route.outputs.pr }}/head
@@ -607,7 +597,7 @@ jobs:
           [ "$PREV_CONT" = 0 ] || STATS="$STATS · Continuation rounds: **${PREV_CONT}**"
 
           JSON=$(jq -cn --arg rs "$HEAD_SHA" '{v:1, reviewed_sha:$rs, continuations:0}')
-          BANNER="✅ **Review complete** ([view run](${RUN_URL})). New pushes are reviewed incrementally from \`${HEAD_SHA:0:7}\`; comment \`@claude-code review\` to force a full re-review."
+          BANNER="✅ **Review complete** ([view run](${RUN_URL})). Comment \`@claude-code review\` anytime to review new commits incrementally from \`${HEAD_SHA:0:7}\`."
           BANNER="$BANNER"$'\n\n'"$STATS"
           annotate_run_comment "$GITHUB_RUN_ID" "$BANNER" "$JSON" > /dev/null \
             || echo "::warning title=Tracking comment not found::Review completed but the tracking comment for this run could not be annotated."
