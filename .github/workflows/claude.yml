@@ -2,20 +2,20 @@ name: Claude
 
 # One workflow, three jobs:
 #
-#   route   Cheap trust gate + classifier. Decides whether the event is a PR review, a general "@claude <task>"
+#   route   Cheap trust gate + classifier. Decides whether the event is a PR review, a general "@claude-code <task>"
 #           request, or nothing. This is the single place that decides, so one event can never start two runs
 #           (the old two-file setup relied on the word "review" appearing in a comment, which is fragile).
 #   review  Incremental, resumable pull request review (details below).
-#   assist  Generic "@claude <task>" responder for issues and PR comments.
+#   assist  Generic "@claude-code <task>" responder for issues and PR comments.
 #
 # HOW TO USE
-#   Comment on a PR   "@claude review"  (also "@claude please review", "@claude, review this ...").
+#   Comment on a PR   "@claude-code review"  (also "@claude-code please review", "@claude-code, review this ...").
 #                     The comment must START with the mention. Text after the word "review" (first line, up to
-#                     400 characters) is passed along as extra focus, e.g. "@claude review focus on caching".
+#                     400 characters) is passed along as extra focus, e.g. "@claude-code review focus on caching".
 #   Follow-ups        Once a PR has been reviewed, every new push is reviewed automatically (incrementally).
 #                     Set the repository variable CLAUDE_REVIEW_ALL_PRS=true to review every new PR from the start.
 #   Manual            gh workflow run claude.yml -f pr_number=123
-#   Anything else     "@claude <task>" on an issue or PR runs the generic assistant.
+#   Anything else     "@claude-code <task>" on an issue or PR runs the generic assistant.
 #
 # HOW THE REVIEW BEHAVES
 #   * One comment per run, always: Claude's own tracking comment (from track_progress) is the only thing posted
@@ -29,7 +29,7 @@ name: Claude
 #     are already on the PR. A force-push that drops the last reviewed commit falls back to a full review.
 #   * Large PRs finish on their own: if a run is cut off after reaching its turn limit, the workflow dispatches
 #     a follow-up run automatically (up to CLAUDE_REVIEW_MAX_CONTINUATIONS times, default 7) that picks up from
-#     the saved checklist - no need to comment "@claude review" again for a PR with 200-300 changed files.
+#     the saved checklist - no need to comment "@claude-code review" again for a PR with 200-300 changed files.
 #   * Never silent: if the review fails, is cancelled, or "succeeds" without posting a review, the tracking
 #     comment says so with a link to the run, the job fails loudly, and the agent's execution log is uploaded
 #     as an artifact.
@@ -38,7 +38,7 @@ name: Claude
 #   * `issue_comment` workflows always run the version on the DEFAULT branch (main); changes to this file only
 #     take effect for comment triggers once merged. `pull_request` runs use the PR's own copy.
 #   * Only OWNER / MEMBER / COLLABORATOR can trigger anything. Fork PRs and Dependabot never get an automatic
-#     review (no secrets); a maintainer can still ask for one with "@claude review".
+#     review (no secrets); a maintainer can still ask for one with "@claude-code review".
 #   * Everything that touches the PR checkout is read-only, and no script is ever executed from the checkout:
 #     all logic lives in this file (trusted), never in the PR being reviewed.
 #   * Why the concurrency group is on the job and not the workflow: workflow-level concurrency is applied when a run
@@ -80,22 +80,22 @@ jobs:
       ) || (
         github.event_name == 'issue_comment' &&
         github.event.comment.user.type != 'Bot' &&
-        contains(github.event.comment.body, '@claude') &&
+        contains(github.event.comment.body, '@claude-code') &&
         contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association)
       ) || (
         github.event_name == 'pull_request_review_comment' &&
         github.event.comment.user.type != 'Bot' &&
-        contains(github.event.comment.body, '@claude') &&
+        contains(github.event.comment.body, '@claude-code') &&
         contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association)
       ) || (
         github.event_name == 'pull_request_review' &&
         github.event.review.user.type != 'Bot' &&
-        contains(github.event.review.body, '@claude') &&
+        contains(github.event.review.body, '@claude-code') &&
         contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.review.author_association)
       ) || (
         github.event_name == 'issues' &&
         github.event.issue.user.type != 'Bot' &&
-        (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude')) &&
+        (contains(github.event.issue.body, '@claude-code') || contains(github.event.issue.title, '@claude-code')) &&
         contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.issue.author_association)
       )
     runs-on: ubuntu-latest
@@ -130,7 +130,7 @@ jobs:
               | sed -n '1p' | grep -q .
           }
 
-          re='^[[:space:]]*@claude[[:space:],:]+(please[[:space:]]+)?review([^[:alnum:]_-]|$)'
+          re='^[[:space:]]*@claude-code[[:space:],:]+(please[[:space:]]+)?review([^[:alnum:]_-]|$)'
           shopt -s nocasematch
           case "$EVENT" in
             workflow_dispatch)
@@ -145,7 +145,7 @@ jobs:
                 mode=review; kind=comment
                 rest="${BODY:${#BASH_REMATCH[0]}}"
                 focus=$(printf '%s' "$rest" | tr -d '\r' | sed -n '1p' | cut -c1-400)
-              elif [[ $BODY == *@claude* ]]; then
+              elif [[ $BODY == *@claude-code* ]]; then
                 mode=assist
               fi ;;
           esac
@@ -161,7 +161,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     concurrency:
-      # One review per PR. A newer request (new push, new "@claude review") cancels the running one; the state
+      # One review per PR. A newer request (new push, new "@claude-code review") cancels the running one; the state
       # marker on the tracking comment carries the progress over. Runs that do not review get their own unique group.
       group: ${{ needs.route.outputs.mode == 'review' && format('claude-review-{0}', needs.route.outputs.pr) || format('claude-noop-{0}', github.run_id) }}
       cancel-in-progress: true
@@ -605,7 +605,7 @@ jobs:
           [ "$PREV_CONT" = 0 ] || STATS="$STATS · Continuation rounds: **${PREV_CONT}**"
 
           JSON=$(jq -cn --arg rs "$HEAD_SHA" '{v:1, reviewed_sha:$rs, continuations:0}')
-          BANNER="✅ **Review complete** ([view run](${RUN_URL})). New pushes are reviewed incrementally from \`${HEAD_SHA:0:7}\`; comment \`@claude review\` to force a full re-review."
+          BANNER="✅ **Review complete** ([view run](${RUN_URL})). New pushes are reviewed incrementally from \`${HEAD_SHA:0:7}\`; comment \`@claude-code review\` to force a full re-review."
           BANNER="$BANNER"$'\n\n'"$STATS"
           annotate_run_comment "$GITHUB_RUN_ID" "$BANNER" "$JSON" > /dev/null \
             || echo "::warning title=Tracking comment not found::Review completed but the tracking comment for this run could not be annotated."
@@ -615,7 +615,7 @@ jobs:
       # timeout, "success" without a review), say so on the one tracking comment and keep the progress for the
       # next run. A run cut off specifically by its turn limit is not a real failure - it means the diff is big
       # (a 200-300 file PR won't fit in one run's turn budget) - so that case dispatches its own continuation
-      # instead of waiting on a human to comment "@claude review" again.
+      # instead of waiting on a human to comment "@claude-code review" again.
       - name: Record progress and report an unfinished review
         if: >-
           always() && steps.context.outcome == 'success' && steps.context.outputs.skip != 'true' &&
@@ -665,7 +665,7 @@ jobs:
           S=$(state_json); [ -n "$S" ] || S='{}'
           REVIEWED=$(jq -r '.reviewed_sha // empty' <<< "$S")
           PREV_CONT=$(jq -r '.continuations // 0' <<< "$S")
-          # A human explicitly asking again ("@claude review") gets a fresh continuation budget, even if an
+          # A human explicitly asking again ("@claude-code review") gets a fresh continuation budget, even if an
           # earlier auto-continuation chain had already used it up.
           [ "$KIND" = comment ] && PREV_CONT=0
           if [ -z "$CHK" ]; then
@@ -690,9 +690,9 @@ jobs:
           elif [ "$DO_CONTINUE" = true ]; then
             BANNER="⏳ **Reached its turn limit on this large diff** ([view run](${RUN_URL})). Continuing automatically - round ${CONT}/${MAX_CONTINUATIONS}."
           elif [ "$MAXTURNS" = true ]; then
-            BANNER="⚠️ **Reached its turn limit ${MAX_CONTINUATIONS} times in a row** and stopped auto-continuing ([view run](${RUN_URL})). Comment \`@claude review\` to keep going; progress is kept."
+            BANNER="⚠️ **Reached its turn limit ${MAX_CONTINUATIONS} times in a row** and stopped auto-continuing ([view run](${RUN_URL})). Comment \`@claude-code review\` to keep going; progress is kept."
           else
-            BANNER="⚠️ **Review ${REASON}** ([view run](${RUN_URL})). Findings posted above may be incomplete. Comment \`@claude review\` to continue; progress is kept and only unreviewed changes are covered."
+            BANNER="⚠️ **Review ${REASON}** ([view run](${RUN_URL})). Findings posted above may be incomplete. Comment \`@claude-code review\` to continue; progress is kept and only unreviewed changes are covered."
           fi
           BANNER="$BANNER"$'\n\n'"$STATS"
 
