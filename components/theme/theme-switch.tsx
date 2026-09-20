@@ -1,6 +1,5 @@
 "use client";
 
-import { useMantineColorScheme } from "@mantine/core";
 import { Monitor, Moon, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
 import React, { useEffect, useState } from "react";
@@ -11,9 +10,6 @@ type themeProps = {
 
 const ThemeSwitch = () => {
   const { theme, setTheme } = useTheme();
-  const { setColorScheme } = useMantineColorScheme({
-    keepTransitions: true,
-  });
 
   const [mounted, setMounted] = useState(false);
 
@@ -23,16 +19,7 @@ const ThemeSwitch = () => {
 
   const handleChangeTheme = ({ t }: themeProps) => {
     if (mounted) {
-      if (t === "light") {
-        setTheme("light");
-        setColorScheme("light");
-      } else if (t === "dark") {
-        setTheme("dark");
-        setColorScheme("dark");
-      } else if (t === "system") {
-        setTheme("system");
-        setColorScheme("auto");
-      }
+      setTheme(t);
     }
   };
 

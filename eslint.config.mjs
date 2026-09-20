@@ -3,9 +3,6 @@ import nextConfig from "eslint-config-next";
 const eslintConfig = [
   ...nextConfig,
   {
-    ignores: ["extras/**"],
-  },
-  {
     // React Compiler alignment rules (new in eslint-plugin-react-hooks v7).
     // This project doesn't enable the React Compiler, and several components
     // intentionally manage imperative browser APIs (Audio, WebGL, canvas

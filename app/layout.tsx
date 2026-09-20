@@ -3,11 +3,10 @@ import "@/style/globals.css";
 import "@mantine/core/styles.css";
 import { ThemeProvider } from "@/components/theme/ThemeProvider";
 
-import { ColorSchemeScript, MantineProvider } from "@mantine/core";
+import { MantineSyncProvider } from "@/components/theme/MantineSyncProvider";
 import { poppins } from "@/lib/fonts";
 import { SiteMetadata } from "@/config/site";
 import Footer from "@/components/foo/Footer";
-import { theme } from "@/config/mantine-theme";
 import FloatingAudioSwitch from "@/components/common/FloatingAudioSwitch";
 
 import { gsap } from "gsap";
@@ -31,14 +30,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <head>
-        {/* Mantine Color Scheme */}
-        <ColorSchemeScript defaultColorScheme="dark" />
-      </head>
+    <html lang="en" suppressHydrationWarning>
       <body className={`${poppins.className} antialiased relative`}>
         <ThemeProvider enableSystem attribute="class" defaultTheme="dark">
-          <MantineProvider defaultColorScheme="dark" theme={theme}>
+          <MantineSyncProvider>
             <AudioProvider>
               <main className="flex flex-col min-h-screen w-full overflow-x-hidden">
                 <ShoelaceSetup>
@@ -51,7 +46,7 @@ export default function RootLayout({
                 </ShoelaceSetup>
               </main>
             </AudioProvider>
-          </MantineProvider>
+          </MantineSyncProvider>
         </ThemeProvider>
       </body>
     </html>

@@ -31,7 +31,7 @@ const About = () => {
                 <div className="absolute bottom-[-96px] right-[-100px]">
                   <PinContainer
                     title="Destination!"
-                    href="https://evisionit.lk"
+                    href={Site.orgUrl}
                     className="absolute bottom-0 right-[20px]"
                   >
                     <div className="bg-transparent"></div>

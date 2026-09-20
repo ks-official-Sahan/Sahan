@@ -71,10 +71,6 @@ export default function Home() {
           </div>
         </AnimatedWrapper>
       </section>
-
-      {/* WHAT I DO */}
-
-      {/* <Explore /> */}
     </div>
   );
 }

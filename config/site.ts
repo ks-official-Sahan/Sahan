@@ -7,10 +7,14 @@ export const Site = {
   author: "Sahan",
   authorFullName: "Sahan Sachintha",
   authorPortfolio: "#",
-  org: "Evision IT",
-  orgUrl: "https://evisionit.lk",
-  myRole: "Full-Stack Software Engineer & Entrepreneur",
-  companyRole: "Founder & CEO of Evision IT",
+  email: "ks.official.sahan@gmail.com",
+  phone: "+94768701148",
+  phoneDisplay: "+94 76-870-1148",
+  location: "Sri Lanka - Available for Remote Work",
+  org: "Datalake Creative",
+  orgUrl: "https://datalakecreative.com",
+  myRole: "Full-Stack Software Engineer",
+  companyRole: "Software Engineer at Datalake Creative Ltd",
 };
 
 export const SiteMetadata = {
