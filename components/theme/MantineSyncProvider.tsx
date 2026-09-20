@@ -29,13 +29,11 @@ export function MantineSyncProvider({
     setMounted(true);
   }, []);
 
-  if (!mounted) {
-    return <>{children}</>;
-  }
+  const colorScheme = mounted && resolvedTheme === "light" ? "light" : "dark";
 
   return (
     <MantineProvider
-      forceColorScheme={resolvedTheme === "light" ? "light" : "dark"}
+      forceColorScheme={colorScheme}
       theme={theme}
     >
       {children}

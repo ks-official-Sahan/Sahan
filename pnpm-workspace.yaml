@@ -4,7 +4,7 @@ packages:
 publicHoistPattern:
   - '*@nextui-org/*'
 
-onlyBuiltDependencies:
-  - '@tsparticles/engine'
-  - sharp
-  - unrs-resolver
+allowBuilds:
+  '@tsparticles/engine': true
+  sharp: true
+  unrs-resolver: true
