@@ -61,8 +61,10 @@
     --b-card-shade: #f2f2f2;
     --b-card-shade-bold: #ebebeb;
     --b-chip-selected: #15803d;
-    --b-icon: #15803d;
-    --b-icon-fade: #15803d1f;
+    /* #166534 on the tinted chip is 6.3:1; the old #15803d was 4.19:1 and
+       failed WCAG AA for 14px text. */
+    --b-icon: #166534;
+    --b-icon-fade: #1665341f;
   }
 
   .dark {
@@ -149,6 +151,129 @@
 
   .responsive-container {
     @apply w-full px-3 xs:w-full xs:px-3 sm:px-4 sm:box-border sm:w-[90%] md:w-[85%] lg:w-[80%] xl:w-[70%] portrait:w-[95%] landscape:w-[85%];
+  }
+}
+
+/* Home motion + interaction primitives.
+   Rules: only transform/opacity, UI under 300ms (entrances are the exception,
+   they run once), strong ease-out, hover gated to real pointers, and reduced
+   motion swaps movement for a plain fade instead of removing feedback. */
+:root {
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+html {
+  /* Keep focused and anchored content clear of the sticky nav (WCAG 2.4.11). */
+  scroll-padding-top: 6rem;
+}
+
+@keyframes home-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes home-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes home-ping {
+  0% {
+    transform: scale(1);
+    opacity: 0.6;
+  }
+  80%,
+  100% {
+    transform: scale(2.4);
+    opacity: 0;
+  }
+}
+
+@layer utilities {
+  /* Hero entrance: staggered by --i, plays once on load. `both` keeps the
+     element visible if the animation never runs. */
+  .hero-rise {
+    animation: home-rise 600ms var(--ease-out) both;
+    animation-delay: calc(var(--i, 0) * 70ms);
+  }
+
+  /* Availability dot: a soft ring that says "live" without moving layout. */
+  .status-ping::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 9999px;
+    background: currentColor;
+    animation: home-ping 2.2s var(--ease-out) infinite;
+  }
+
+  /* Press feedback for every tappable card and button. */
+  .press {
+    transition: transform 160ms var(--ease-out);
+  }
+  .press:active {
+    transform: scale(0.97);
+  }
+
+  /* Hover lift, only on devices that can actually hover. */
+  @media (hover: hover) and (pointer: fine) {
+    .lift {
+      transition:
+        transform 200ms var(--ease-out),
+        border-color 200ms ease;
+    }
+    .lift:hover {
+      transform: translateY(-3px);
+      border-color: var(--b-icon);
+    }
+    .arrow-nudge:hover .arrow-nudge-icon,
+    .arrow-nudge:focus-visible .arrow-nudge-icon {
+      transform: translate(2px, -2px);
+    }
+  }
+  .arrow-nudge-icon {
+    transition: transform 200ms var(--ease-out);
+  }
+
+  /* Scroll reveal, driven by the compositor where supported. Content is fully
+     visible by default, so browsers without scroll timelines lose nothing. */
+  @supports (animation-timeline: view()) {
+    .reveal {
+      animation: home-rise linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 25%;
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-rise {
+    animation-name: home-fade;
+    animation-duration: 300ms;
+    animation-delay: 0ms;
+  }
+  .reveal {
+    animation-name: home-fade;
+  }
+  .status-ping::after,
+  .animate-border-beam {
+    animation: none;
+  }
+  .press:active {
+    transform: none;
+  }
+  .lift:hover {
+    transform: none;
   }
 }
 

@@ -1,6 +1,6 @@
-import TitleBlock from "@/components/common/TitleBlock";
+import HomeSection from "@/components/home/HomeSection";
+import SectionHeading from "@/components/home/SectionHeading";
 import ProjectCard from "@/components/works/ProjectCard";
-import WrapperBody from "@/components/wrappers/WrapperBody";
 import { HomeContent } from "@/contents/home";
 import { Projects } from "@/contents/projects";
 import { ArrowUpRight } from "lucide-react";
@@ -10,44 +10,37 @@ import React from "react";
 const featuredProjects = Projects.filter((project) => project.featured);
 
 const FeaturedWorksSection = () => {
-  const { works } = HomeContent;
+  const { home, works } = HomeContent;
 
   return (
-    <section id="works" className="flex flex-col items-center pt-[100px]">
-      <WrapperBody>
-        <div className="grid grid-cols-3 gap-5 md:grid-cols-2 sm:grid-cols-1">
-          <div className="flex flex-col justify-between gap-8 md:col-span-2 sm:col-span-1">
-            <TitleBlock
-              isBadge
-              isSubtitle
-              titleAs="h2"
-              icon={<span aria-hidden="true">{works.icon}</span>}
-              title={works.title}
-              subtitle={works.subtitle}
-              label={works.label}
-              titleClass="text-[2rem] font-bold uppercase pt-[12px]"
+    <HomeSection id="works" labelledBy="works-title">
+      <SectionHeading
+        id="works-title"
+        title={home.works.title}
+        description={home.works.subtitle}
+        action={
+          <Link
+            href="/works"
+            className="press arrow-nudge inline-flex min-h-11 items-center gap-2 rounded-full border border-bBORDERFADE bg-bCARD px-5 text-sm font-semibold"
+          >
+            {works.buttonTitle}
+            <ArrowUpRight
+              size={16}
+              aria-hidden="true"
+              className="arrow-nudge-icon"
             />
+          </Link>
+        }
+      />
 
-            <Link
-              href="/works"
-              className="flex w-fit items-center gap-4 rounded-full border border-bBORDERFADE bg-bFCARD py-3 pl-8 pr-4 text-[13px] font-semibold uppercase opacity-80 transition-opacity hover:opacity-100"
-            >
-              {works.buttonTitle}
-              <span
-                aria-hidden="true"
-                className="flex h-10 w-10 items-center justify-center rounded-[14px] bg-bCHIP"
-              >
-                <ArrowUpRight size={22} />
-              </span>
-            </Link>
+      <div className="mt-10 grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-2">
+        {featuredProjects.map((project) => (
+          <div key={project.slug} className="reveal">
+            <ProjectCard project={project} />
           </div>
-
-          {featuredProjects.map((project) => (
-            <ProjectCard key={project.slug} project={project} />
-          ))}
-        </div>
-      </WrapperBody>
-    </section>
+        ))}
+      </div>
+    </HomeSection>
   );
 };
 

@@ -106,12 +106,64 @@ const questions: FAQItem[] = [
 ];
 
 export const HomeContent = {
-  welcome: {
-    title: "welcome to my space",
+  hero: {
+    status: "Open to freelance projects",
+    title: "I build web and mobile products from first sketch to production.",
+    subtitle: `${Site.myRole} at ${Site.org}, working remotely from Sri Lanka.`,
+    primary: { label: "View my work", href: "#works" },
+    secondary: { label: "Get in touch", href: "/contact" },
+  },
+  proof: {
+    label: "Track record",
+  },
+  home: {
+    works: {
+      title: "Selected work",
+      subtitle:
+        "Products and client sites I have built and shipped. Open any of them to see the details.",
+    },
+    services: {
+      title: "What I can build for you",
+      subtitle: "Web, mobile and backend work, handled from design to deployment.",
+    },
+    process: {
+      title: "How a project runs",
+      subtitle: "Four steps, and you know where things stand at each one.",
+    },
+    toolbox: {
+      title: "Tools I work with every day",
+      subtitle: "The stack behind the products above.",
+    },
+    faq: {
+      title: "Questions, answered",
+      subtitle: "The things people usually ask before we start.",
+    },
+  },
+  process: [
+    {
+      title: "Talk it through",
+      body: "Send a short description of what you want to build. I reply with questions and a rough scope.",
+    },
+    {
+      title: "Agree the plan",
+      body: "We settle scope, screens and stack before any code is written, so there are no surprises later.",
+    },
+    {
+      title: "Build in the open",
+      body: "You see working builds early and often, not one big reveal at the end.",
+    },
+    {
+      title: "Ship and support",
+      body: "I deploy it, hand over the code, and stay available for fixes and next steps.",
+    },
+  ],
+  finalCta: {
+    title: "Have something you need built?",
     subtitle:
-      "It's very nice to have you here! Feel free to explore around and get to know me.",
-    label: "Hello",
-    icon: "👋",
+      "Tell me what you are working on. We can talk through scope, timing and the best way to build it.",
+    primary: { label: "Start a project", href: "/contact" },
+    copyLabel: "Copy email",
+    copiedLabel: "Email copied",
   },
   service: {
     title: "Services I Offer",
