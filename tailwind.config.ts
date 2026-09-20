@@ -23,8 +23,16 @@ const config = {
       xs: { max: "479px" }, // Very small/old mobile phones (e.g., iPhone 5, older Android phones)
       sm: { max: "767px" }, // Small tablets, large phones in landscape
       md: { min: "768px", max: "1023px" }, // Tablets and small laptops (e.g., iPad Pro, smaller Chromebooks)
+      // Plain min-width steps for mobile-first layouts. Tailwind's arbitrary
+      // `min-[..]` variants are not generated when the screens above mix in
+      // max-width entries, and the order here must stay ascending so a wider
+      // rule always overrides a narrower one.
+      s480: "480px",
+      s640: "640px",
+      s768: "768px",
       lg: "1024px", // Laptops and small desktops (e.g., MacBook Pro, 13" laptops)
       xl: "1536px", // Larger desktops, 4K monitors
+      s1920: "1920px", // Wide and ultrawide monitors
     },
     // screens: {
     //   // 1. Old low-end mobile devices

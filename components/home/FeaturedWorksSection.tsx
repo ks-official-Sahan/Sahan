@@ -1,5 +1,6 @@
 import HomeSection from "@/components/home/HomeSection";
 import SectionHeading from "@/components/home/SectionHeading";
+import SnapRow from "@/components/home/SnapRow";
 import ProjectCard from "@/components/works/ProjectCard";
 import { HomeContent } from "@/contents/home";
 import { Projects } from "@/contents/projects";
@@ -33,12 +34,15 @@ const FeaturedWorksSection = () => {
         }
       />
 
-      <div className="mt-10 grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-2">
-        {featuredProjects.map((project) => (
-          <div key={project.slug} className="reveal">
-            <ProjectCard project={project} />
-          </div>
-        ))}
+      <div className="mt-10">
+        <SnapRow
+          label="Featured projects"
+          gridClassName="s768:grid-cols-2 s768:gap-5 lg:grid-cols-[1.35fr_1fr]"
+        >
+          {featuredProjects.map((project) => (
+            <ProjectCard key={project.slug} project={project} />
+          ))}
+        </SnapRow>
       </div>
     </HomeSection>
   );

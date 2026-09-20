@@ -116,6 +116,28 @@ export const HomeContent = {
   proof: {
     label: "Track record",
   },
+  // Words for the "I'm a ..." card. Every one is backed by the Works and
+  // Experience pages.
+  iam: {
+    prefix: "I'm a",
+    words: [
+      "Full-stack engineer",
+      "Next.js builder",
+      "Mobile app developer",
+      "Dashboard maker",
+      "API designer",
+      "Remote teammate",
+    ],
+    hint: "Tap for another",
+  },
+  // Direct lines. Hrefs come from Site so there is one place to edit them.
+  channels: {
+    title: "Say hello",
+    whatsApp: { label: "WhatsApp", detail: "Chat now" },
+    telegram: { label: "Telegram", detail: "Message me" },
+    email: { label: "Email", detail: Site.email },
+    newTab: "(opens in a new tab)",
+  },
   home: {
     works: {
       title: "Selected work",

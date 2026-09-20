@@ -49,7 +49,7 @@ const ToolboxSection = () => {
         }
       />
 
-      <div className="mt-10 grid grid-cols-1 gap-4 lg:grid-cols-2">
+      <div className="mt-10 grid grid-cols-1 gap-4 s768:grid-cols-2 xl:grid-cols-3">
         {categories.map((category) => (
           <div
             key={category.id}

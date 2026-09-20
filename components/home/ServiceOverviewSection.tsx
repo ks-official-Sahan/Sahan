@@ -1,6 +1,7 @@
+import ServiceCard from "@/components/about/ServiceCard";
 import HomeSection from "@/components/home/HomeSection";
 import SectionHeading from "@/components/home/SectionHeading";
-import ServiceCard from "@/components/about/ServiceCard";
+import SnapRow from "@/components/home/SnapRow";
 import { HomeContent } from "@/contents/home";
 import { MyServices } from "@/contents/service";
 import { ArrowUpRight } from "lucide-react";
@@ -33,12 +34,15 @@ const ServiceOverviewSection = () => {
         }
       />
 
-      <div className="mt-10 grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
-        {featuredServices.map((item) => (
-          <div key={item.id} className="reveal">
-            <ServiceCard service={item} />
-          </div>
-        ))}
+      <div className="mt-10">
+        <SnapRow
+          label="Services"
+          gridClassName="s768:grid-cols-2 s768:gap-5 s768:[&>div:last-child:nth-child(odd)]:col-span-2 lg:grid-cols-3 lg:[&>div:last-child:nth-child(odd)]:col-span-1"
+        >
+          {featuredServices.map((item) => (
+            <ServiceCard key={item.id} service={item} />
+          ))}
+        </SnapRow>
       </div>
     </HomeSection>
   );

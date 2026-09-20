@@ -159,7 +159,7 @@
    they run once), strong ease-out, hover gated to real pointers, and reduced
    motion swaps movement for a plain fade instead of removing feedback. */
 :root {
-  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1); /* shared by all home motion */
 }
 
 html {
@@ -256,7 +256,92 @@ html {
   }
 }
 
+/* Hero atmosphere. Three quiet layers: an accent glow, a masked grid, and a
+   pointer spotlight that only exists on devices with a real hover pointer. */
+.hero-glow {
+  background:
+    radial-gradient(
+      50% 60% at 82% 18%,
+      color-mix(in srgb, var(--b-icon) 22%, transparent),
+      transparent 70%
+    ),
+    radial-gradient(
+      40% 50% at 8% 88%,
+      color-mix(in srgb, var(--b-icon) 10%, transparent),
+      transparent 70%
+    );
+  animation: glow-drift 22s var(--ease-out) infinite alternate;
+}
+
+.hero-grid {
+  background-image:
+    linear-gradient(to right, var(--b-border-fade) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--b-border-fade) 1px, transparent 1px);
+  background-size: 56px 56px;
+  mask-image: radial-gradient(70% 60% at 60% 35%, #000 20%, transparent 75%);
+  -webkit-mask-image: radial-gradient(
+    70% 60% at 60% 35%,
+    #000 20%,
+    transparent 75%
+  );
+}
+
+.hero-spotlight {
+  opacity: 0;
+  background: radial-gradient(
+    460px circle at var(--mx, 50%) var(--my, 30%),
+    color-mix(in srgb, var(--b-icon) 14%, transparent),
+    transparent 65%
+  );
+  transition: opacity 300ms ease;
+}
+@media (hover: hover) and (pointer: fine) {
+  .hero-root:hover .hero-spotlight {
+    opacity: 1;
+  }
+}
+
+@keyframes glow-drift {
+  from {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  to {
+    transform: translate3d(-2%, 3%, 0) scale(1.06);
+  }
+}
+
+/* Word swap in the "I'm a ..." card. A touch of blur hides the seam between
+   the old and new word (Emil: blur bridges a crossfade). */
+@keyframes home-swap {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+    filter: blur(3px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: blur(0);
+  }
+}
+.swap-in {
+  animation: home-swap 240ms var(--ease-out) both;
+}
+
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .hero-glow {
+    animation: none;
+  }
+  .swap-in {
+    animation-name: home-fade;
+  }
   .hero-rise {
     animation-name: home-fade;
     animation-duration: 300ms;

@@ -1,5 +1,5 @@
 import CountUp from "@/components/home/CountUp";
-import WrapperBody from "@/components/wrappers/WrapperBody";
+import { HomeContainer } from "@/components/home/HomeSection";
 import { Projects } from "@/contents/projects";
 import { MySkills } from "@/contents/skills";
 import React from "react";
@@ -21,27 +21,24 @@ const stats = [
 ];
 
 const ProofStrip = () => (
-  <section
-    aria-label="Track record"
-    className="flex w-full flex-col items-center pt-8"
-  >
-    <WrapperBody>
-      <dl className="reveal grid grid-cols-2 gap-px overflow-hidden rounded-[16px] border border-bBORDERFADE bg-bBORDERFADE lg:grid-cols-4">
+  <section aria-label="Track record" className="w-full mt-12">
+    <HomeContainer>
+      <dl className="reveal grid grid-cols-2 gap-px overflow-hidden rounded-[16px] border border-bBORDERFADE bg-bBORDERFADE s768:grid-cols-4">
         {stats.map((stat) => (
           <div
             key={stat.label}
-            className="flex flex-col gap-1 bg-bCARD px-6 py-6"
+            className="flex flex-col gap-1 bg-bCARD px-5 py-6 lg:px-8 lg:py-8"
           >
             {/* dt stays first in the DOM (required by dl); flex order puts the
                 number visually above its label. */}
             <dt className="order-2 text-sm opacity-70">{stat.label}</dt>
-            <dd className="order-1 text-[length:clamp(2rem,4vw,2.75rem)] font-semibold leading-none tracking-[-0.02em] tabular-nums">
+            <dd className="order-1 text-[length:clamp(2rem,1.2rem+2.4vw,3.5rem)] font-semibold leading-none tracking-[-0.02em] tabular-nums">
               <CountUp to={stat.value} />
             </dd>
           </div>
         ))}
       </dl>
-    </WrapperBody>
+    </HomeContainer>
   </section>
 );
 
