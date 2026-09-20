@@ -105,6 +105,7 @@ const IconInput: React.FC<IconInputProps> = ({
         <Input
           type={inputType}
           placeholder={placeholder}
+          aria-label={placeholder}
           disabled={disabled}
           value={value}
           onChange={onChange}
@@ -138,6 +139,7 @@ const IconInput: React.FC<IconInputProps> = ({
           required={required}
         >
           <SelectTrigger
+            aria-label={placeholder}
             className={`w-full h-[56px] px-[24px] placeholder:font-medium rounded-[12px] border-[#0000001f] dark:border-[#ffffff1f] bg-[#f7f7f7] dark:bg-[#1A1A1A] focus:ring-[#19cf31] dark:focus:ring-[#91FF00] ${className}`}
           >
             <SelectValue
@@ -162,6 +164,7 @@ const IconInput: React.FC<IconInputProps> = ({
       {type === "textarea" && (
         <textarea
           placeholder={placeholder}
+          aria-label={placeholder}
           disabled={disabled}
           value={value}
           onChange={onChange}

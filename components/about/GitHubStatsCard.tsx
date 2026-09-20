@@ -38,7 +38,7 @@ const GitHubStatsCard = ({ stats }: { stats: GitHubStats }) => {
         <Stat label="Followers" value={stats.followers} />
       </div>
 
-      <div className="text-[11px] opacity-50">
+      <div className="text-[11px] opacity-70">
         Contributions counted over the last year
       </div>
     </Link>

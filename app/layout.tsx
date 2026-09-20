@@ -77,6 +77,12 @@ export default function RootLayout({
         <JsonLd />
       </head>
       <body className={`${poppins.className} antialiased relative`}>
+        <a
+          href="#main-content"
+          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[2000] focus:rounded-full focus:bg-[#91FF00] focus:px-4 focus:py-2 focus:text-black focus:outline-none"
+        >
+          Skip to content
+        </a>
         <ThemeProvider enableSystem attribute="class" defaultTheme="dark">
           <MantineSyncProvider>
             <AudioProvider>
@@ -85,7 +91,9 @@ export default function RootLayout({
                   <LoadingScreen />
                   <Navigation />
                   <FloatingAudioSwitch />
-                  <div className="pb-[300px]">{children}</div>
+                  <div id="main-content" className="pb-[300px]">
+                    {children}
+                  </div>
                   <Footer />
                   <SpeedInsights />
                 </ShoelaceSetup>

@@ -21,7 +21,7 @@ const ExperienceSection = () => {
       <div className="flex flex-col gap-2">
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-lg font-semibold">{entry.role}</span>
-          <span className="opacity-50">@</span>
+          <span className="opacity-70">@</span>
           {entry.companyUrl ? (
             <Link
               href={entry.companyUrl}
@@ -39,7 +39,7 @@ const ExperienceSection = () => {
             {typeLabels[entry.type] ?? entry.type}
           </span>
           {entry.current && (
-            <span className="rounded-full bg-[#91FF00]/20 px-2 py-0.5 text-[11px] font-medium text-[#3fae4c]">
+            <span className="rounded-full bg-[#91FF00] px-2 py-0.5 text-[11px] font-semibold text-black">
               Current
             </span>
           )}

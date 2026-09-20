@@ -117,7 +117,7 @@ const AboutPageClient = ({ githubStats }: { githubStats: GitHubStats }) => {
                 <div className="text-center text-[13px] opacity-70">
                   @ {currentRole?.company}
                 </div>
-                <div className="pt-2 text-center text-[11px] uppercase tracking-wide opacity-50">
+                <div className="pt-2 text-center text-[11px] uppercase tracking-wide opacity-70">
                   {currentRole?.period}
                 </div>
               </GridCardWrap>

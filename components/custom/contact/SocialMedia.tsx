@@ -2,7 +2,6 @@
 
 import React from "react";
 import { motion } from "framer-motion";
-import { Button } from "@nextui-org/react";
 import Link from "next/link";
 import WrapperBody from "@/components/wrappers/WrapperBody";
 import { GitHubLogoIcon } from "@radix-ui/react-icons";
@@ -33,29 +32,29 @@ const SocialMedia = () => {
                 href={"https://github.com/ks-official-Sahan"}
                 target="_blank"
                 rel="noopener noreferrer"
+                aria-label="Sahan's GitHub profile"
+                className="w-[80px] h-[80px] border rounded-[16px] bg-[#fafafa] dark:bg-[#00000035] backdrop-blur-sm flex items-center justify-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lime-500"
               >
-                <Button className="w-[80px] h-[80px] border  rounded-[16px] bg-[#fafafa] dark:bg-[#00000035] backdrop-blur-sm flex items-center justify-center">
-                  <GitHubLogoIcon width={33} height={33} />
-                </Button>
+                <GitHubLogoIcon width={33} height={33} />
               </Link>
               <Link
                 href={"https://www.linkedin.com/in/sahan-sachintha"}
                 target="_blank"
                 rel="noopener noreferrer"
+                aria-label="Sahan's LinkedIn profile"
+                className="w-[80px] h-[80px] border rounded-[16px] bg-[#006adc] dark:bg-[#00409A35] backdrop-blur-sm flex items-center justify-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lime-500"
               >
-                <Button className="w-[80px] h-[80px] border  rounded-[16px] bg-[#006adc] dark:bg-[#00409A35] backdrop-blur-sm flex items-center justify-center">
-                  <LINKEDIN_ICON className="fill-white" />
-                </Button>
+                <LINKEDIN_ICON className="fill-white" />
               </Link>
             </div>
             <Link
               href={"https://x.com/SahanSubasingha"}
               target="_blank"
               rel="noopener noreferrer"
+              aria-label="Sahan's X (Twitter) profile"
+              className="w-[80px] h-[80px] border rounded-[16px] bg-[#fafafa] dark:bg-[#00000035] backdrop-blur-sm flex items-center justify-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lime-500"
             >
-              <Button className="w-[80px] h-[80px] border rounded-[16px] bg-[#fafafa] dark:bg-[#00000035] backdrop-blur-sm flex items-center justify-center">
-                <X_ICON className="fill-black dark:fill-white" />
-              </Button>
+              <X_ICON className="fill-black dark:fill-white" />
             </Link>
           </div>
         </div>

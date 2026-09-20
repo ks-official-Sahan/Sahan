@@ -25,9 +25,12 @@ const FloatingAudioSwitch = () => {
             {isPlaying ? "ON" : "OFF"}
           </motion.span>
         </motion.div>
-        <div
+        <button
+          type="button"
           onClick={toggleAudio}
-          className="cursor-pointer relative rounded-full overflow-hidden border backdrop-blur-sm hover:shadow-[inset_0_0_8px_4px_rgba(132,204,22,0.4)] hover:border-lime-500 hover:scale-[98%] transition-shadow duration-300"
+          aria-label={isPlaying ? "Pause background audio" : "Play background audio"}
+          aria-pressed={isPlaying}
+          className="cursor-pointer relative rounded-full overflow-hidden border backdrop-blur-sm hover:shadow-[inset_0_0_8px_4px_rgba(132,204,22,0.4)] hover:border-lime-500 hover:scale-[98%] transition-shadow duration-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lime-500"
         >
           {/* Motion div for the inner glow */}
           <motion.div
@@ -53,7 +56,7 @@ const FloatingAudioSwitch = () => {
               points: 3,
             }}
           />
-        </div>
+        </button>
       </div>
     </div>
   );
