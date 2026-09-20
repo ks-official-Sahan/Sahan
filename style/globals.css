@@ -340,6 +340,14 @@ html {
   animation: home-swap 240ms var(--ease-out) both;
 }
 
+/* Detail dialogs (works page): lock the page behind an open modal. */
+body:has(dialog[open]) {
+  overflow: hidden;
+}
+.project-dialog {
+  overscroll-behavior: contain;
+}
+
 .no-scrollbar {
   scrollbar-width: none;
 }
