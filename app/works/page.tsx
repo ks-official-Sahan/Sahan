@@ -13,6 +13,7 @@ import { useTheme } from "next-themes";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import HeaderCard from "@/components/custom/work/HeaderCard";
 import Particals from "@/components/custom/Particals";
+import ProjectGrid from "@/components/works/ProjectGrid";
 
 const Works = () => {
   const { theme } = useTheme();
@@ -260,47 +261,11 @@ const Works = () => {
         </WrapperBody>
       </section>
 
-      {/* CATEGORY */}
-      {/* <section className='min-h-[385px] w-full from-[#000000] to-[#111111] bg-gradient-to-b'> */}
-      <section className=" w-full pt-[40px] pb-[30px] bg-opacity-/0">
-        <WrapperBody>
-          <div className="flex items-center gap-5">
-            {WorksContent.categories.map((category, index) => (
-              <div
-                key={index}
-                className="px-[20px] py-[6px] border rounded-full"
-              >
-                {category.name}
-              </div>
-            ))}
-          </div>
-        </WrapperBody>
-      </section>
-
       {/* WORKS */}
       <section className="border-y w-full">
-        <div className="flex flex-col w-full items-center relative min-h-screen bg-opacity-50">
+        <div className="flex flex-col w-full items-center bg-opacity-50 py-[60px]">
           <WrapperBody>
-            <div className="flex flex-col items-center">
-              {/* BOTTOM FLOATING BAR */}
-              <div className="w-full max-w-[940px] h-[80px] flex rounded-full border bg-black/30 backdrop-blur-sm absolute bottom-[40px]">
-                {/* LEFT */}
-                <div className="py-[12px] pl-[12px] border-l pr-[30px] bg-black/30 backdrop-blur-sm h-full rounded-l-full flex items-center gap-[14px]">
-                  <div className="w-[56px] h-[56px] border rounded-full dark:bg-white/30 bg-green-400/40 backdrop-blur-sm"></div>
-                  <div
-                    className={cn(
-                      "leading-[19px] uppercase text-white",
-                      righteous.className
-                    )}
-                  >
-                    <div>{WorksContent.workTypes.design.title.line1}</div>
-                    <div className="text-[20px]">
-                      {WorksContent.workTypes.design.title.line2}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
+            <ProjectGrid />
           </WrapperBody>
         </div>
       </section>
