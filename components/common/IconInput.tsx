@@ -57,7 +57,7 @@ const IconInput: React.FC<IconInputProps> = ({
   size = 16,
   error,
   success,
-  /* eslint-disable @typescript-eslint/no-unused-vars */
+   
   loading,
   autoComplete,
   autoFocus,

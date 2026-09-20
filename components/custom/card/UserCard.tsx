@@ -6,7 +6,7 @@ import React from "react";
 import { motion } from "framer-motion";
 import UserCardImage from "./UserCardImage";
 
-/* eslint-disable @typescript-eslint/no-unused-vars */ 
+  
 
 const UserCard = ({
   className = "flex ",

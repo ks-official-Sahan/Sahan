@@ -20,54 +20,62 @@ export const UpdatesContent = {
         {
             id: 1,
             name: "Releases",
-            updates: 20
+            updates: 2
         },
         {
             id: 2,
             name: "Personal",
-            updates: 15
+            updates: 1
         },
         {
             id: 3,
             name: "Bug Fix",
-            updates: 46
+            updates: 0
         },
         {
             id: 4,
             name: "New Features",
-            updates: 10
+            updates: 1
         },
         {
             id: 5,
             name: "Other",
-            updates: 5
+            updates: 0
         }
     ],
-    tags: ["Nest.js", "Next.js", "React", "Node.js"],
+    tags: ["Next.js", "React", "SEO", "Accessibility", "Portfolio"],
     posts: [
         {
             id: "1",
-            title: "Introducing Our New Product",
-            date: "July 15, 2023",
-            content: "Introducing our latest product, XYZ, which offers a unique blend of cutting-edge technology and sustainable practices. This revolutionary solution will help businesses achieve their goals while minimizing environmental impact.",
+            title: "Upgraded the portfolio to Next.js 16 and React 19",
+            date: "September 2026",
+            content: "Migrated the whole site to Next.js 16 and React 19, fixed a number of bugs surfaced along the way (a broken hydration mismatch, an invalid nested-button pattern, dead code from an abandoned blog feature), and cleaned up the theming setup so the dark/light toggle has a single source of truth.",
             topic: "Releases",
-            tags: ["Nest.js", "Next.js"]
+            tags: ["Next.js", "React", "Portfolio"]
         },
         {
             id: "2",
-            title: "Launching Our New Website",
-            date: "July 10, 2023",
-            content: "We are thrilled to announce the launch of our new website, www.xyz.com. This revolutionary platform will provide our users with a more engaging and accessible experience, while also empowering them to create their own unique content.",
-            topic: "Releases",
-            tags: ["Nest.js", "Next.js"]
+            title: "Added real projects, work history, and live GitHub stats",
+            date: "September 2026",
+            content: "Replaced the empty Works page with real project case studies (the Datalake Creative product line, freelance client sites, and past contract work), added a proper work experience timeline, and wired up a live GitHub activity card on the About page.",
+            topic: "New Features",
+            tags: ["Portfolio"]
         },
         {
             id: "3",
-            title: "New Webinar Series on Sustainable Development",
-            date: "July 5, 2023",
-            content: "We have just launched a new webinar series on sustainable development.",
+            title: "SEO, accessibility, and performance overhaul",
+            date: "September 2026",
+            content: "Fixed the site's metadata (proper Open Graph/Twitter tags, a generated social preview image, sitemap, robots.txt, and structured data), resolved every accessibility issue an automated WCAG audit could find, and trimmed unused fonts and dependencies.",
+            topic: "Releases",
+            tags: ["SEO", "Accessibility", "Portfolio"]
+        },
+        {
+            id: "4",
+            title: "Joined Datalake Creative Ltd",
+            date: "2025",
+            content: "Started as a Full-Stack Software Engineer at Datalake Creative Ltd (UK), working across a portfolio of cross-platform products spanning Android, iOS, web, and admin dashboards.",
             topic: "Personal",
-            tags: ["Nest.js", "Next.js"]
+            tags: []
         }
     ]
 }

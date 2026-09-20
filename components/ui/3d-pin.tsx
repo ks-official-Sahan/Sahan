@@ -64,7 +64,7 @@ export const PinContainer = ({
   );
 };
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
+ 
 
 export const PinPerspective = ({ title }: { title?: string }) => {
   return (

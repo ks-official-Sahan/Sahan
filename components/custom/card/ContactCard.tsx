@@ -8,7 +8,7 @@ import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import { Site } from "@/config/site";
 
-/* eslint-disable @typescript-eslint/no-unused-vars */ 
+  
 
 const ContactCard = ({
   className = "flex ",

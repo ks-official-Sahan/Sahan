@@ -219,7 +219,7 @@ export const Beam = ({
   );
 };
 
-/* eslint-disable @typescript-eslint/no-unused-vars */
+ 
 export const CircleIcon = ({
   className,
   delay,

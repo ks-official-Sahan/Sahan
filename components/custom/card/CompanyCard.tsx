@@ -9,7 +9,7 @@ import { Building2 } from "lucide-react";
 import Link from "next/link";
 import React from "react";
 
-/* eslint-disable @typescript-eslint/no-unused-vars */ 
+  
 
 const CompanyCard = ({
   className = "flex ",

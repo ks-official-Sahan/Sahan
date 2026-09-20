@@ -4,7 +4,7 @@ import tailwindcssAnimate from "tailwindcss-animate";
 import svgToDataUri from "mini-svg-data-uri";
 import defaultTheme from "tailwindcss/defaultTheme";
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
+ 
 import colors from "tailwindcss/colors";
 import { default as flattenColorPalette } from "tailwindcss/lib/util/flattenColorPalette";
 
@@ -275,7 +275,7 @@ const config = {
 
 export default config;
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ 
 function addVariablesForColors({ addBase, theme }: any) {
   const allColors = flattenColorPalette(theme("colors"));
   // NextUI defines some opacity-aware colors (e.g. foreground-50) as functions

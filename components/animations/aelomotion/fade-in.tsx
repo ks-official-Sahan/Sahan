@@ -7,7 +7,7 @@ const FadeIn = ({ children, animate, initial, className, transition }: FadeInPro
 
     return (
       <motion.div
-        /* eslint-disable @typescript-eslint/no-explicit-any */
+         
         initial={initial as any}
         animate={animate as any}
         transition={transition}
