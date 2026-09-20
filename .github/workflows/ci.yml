@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: sahan-web-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  ACTIONS_ALLOW_USE_UNSECURE_NODE20: "true"
+
+jobs:
+  lint-typecheck-build:
+    name: Lint, Type Check & Build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci --prefer-offline --no-fund
+
+      - name: Lint
+        run: npm run lint
+        continue-on-error: true
+
+      - name: Type check
+        run: npx tsc --noEmit
+
+      - name: Run tests
+        run: npm test
+
+      # Build uses minimal env vars required for Next.js static analysis.
+      # Runtime secrets are injected at runtime via the deployment platform.
+      # Exposing them in CI build steps is a security risk with no benefit.
+      - name: Build
+        run: npm run build
+        env:
+          CI: "true"
+          # Public vars needed for static rendering (safe to embed in CI)
+          NEXT_PUBLIC_BASE_URL: "https://sahansachintha.vercel.app"
