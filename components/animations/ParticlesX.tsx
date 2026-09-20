@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
+ 
 import React, { useEffect, useRef, useState } from "react";
 
 interface MousePosition {
@@ -67,6 +67,7 @@ const ParticlesX: React.FC<ParticlesProps> = ({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const canvasContainerRef = useRef<HTMLDivElement>(null);
   const context = useRef<CanvasRenderingContext2D | null>(null);
+  const animationFrameId = useRef<number | null>(null);
   const circles = useRef<Circle[]>([]);
   const mousePosition = MousePosition();
   const mouse = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -85,6 +86,9 @@ const ParticlesX: React.FC<ParticlesProps> = ({
 
     return () => {
       window.removeEventListener("resize", initCanvas);
+      if (animationFrameId.current) {
+        cancelAnimationFrame(animationFrameId.current);
+      }
     };
   }, [color]);
 
@@ -257,7 +261,7 @@ const ParticlesX: React.FC<ParticlesProps> = ({
 
       drawCircle(circle, true);
     });
-    window.requestAnimationFrame(animate);
+    animationFrameId.current = window.requestAnimationFrame(animate);
   };
 
   return (

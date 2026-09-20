@@ -18,7 +18,7 @@ const FooterNav = ({ className }: { className?: string }) => {
   const router = useRouter();
 
   const handleNavigation = (
-    href: "home" | "about" | "works" | "blog" | "updates" | "contact"
+    href: "home" | "about" | "works" | "updates" | "contact"
   ) => {
     if (href === "home") {
       router.push("/", { scroll: true });
@@ -26,8 +26,6 @@ const FooterNav = ({ className }: { className?: string }) => {
       router.push("/about", { scroll: true });
     } else if (href === "works") {
       router.push("/works", { scroll: true });
-    } else if (href === "blog") {
-      router.push("/blog", { scroll: true });
     } else if (href === "updates") {
       router.push("/updates", { scroll: true });
     } else if (href === "contact") {
@@ -45,8 +43,6 @@ const FooterNav = ({ className }: { className?: string }) => {
         setCurrentPath("works");
       } else if (path.endsWith("updates")) {
         setCurrentPath("updates");
-      } else if (path.endsWith("blog")) {
-        setCurrentPath("blog");
       } else if (path.endsWith("contact")) {
         setCurrentPath("contact");
       }
@@ -56,97 +52,101 @@ const FooterNav = ({ className }: { className?: string }) => {
   }, [path]);
 
   return (
-    <>
-      <div className={`${className} w-fit h-fit border rounded-[12px] flex items-center`}>
-        <div className="flex flex-col">
-          <div className="flex items-center">
-            <Button
-              onClick={() => handleNavigation("home")}
-              className={`min-w-[50px] w-[50px] h-[50px] border-b border-r rounded-tl-[12px] rounded-r-none rounded-b-none 
+    <nav
+      aria-label="Footer"
+      className={`${className} w-fit h-fit border rounded-[12px] flex items-center`}
+    >
+      <div className="flex flex-col">
+        <div className="flex items-center">
+          <Button
+            onPress={() => handleNavigation("home")}
+            aria-label="Home"
+            aria-current={currentPath === "home" ? "page" : undefined}
+            className={`min-w-[50px] w-[50px] h-[50px] border-b border-r rounded-tl-[12px] rounded-r-none rounded-b-none
                 ${
                   currentPath === "home"
                     ? "bg-[#f7f7f7] dark:bg-[#00000032] text-[#19cf31] dark:text-[#91FF00]"
                     : "bg-transparent text-[#9c9c9c]"
                 }
                 `}
-            >
-              <div className="w-full h-full flex justify-center items-center">
-                <HomeIcon size={20} />
-              </div>
-            </Button>
-            <Button
-              onClick={() => handleNavigation("about")}
-              className={`min-w-[50px] w-[50px] h-[50px] border-b border-r bg-transparent rounded-none
+          >
+            <div className="w-full h-full flex justify-center items-center">
+              <HomeIcon size={20} />
+            </div>
+          </Button>
+          <Button
+            onPress={() => handleNavigation("about")}
+            aria-label="About"
+            aria-current={currentPath === "about" ? "page" : undefined}
+            className={`min-w-[50px] w-[50px] h-[50px] border-b border-r bg-transparent rounded-none
                  ${
                    currentPath === "about"
                      ? "bg-[#f7f7f7] dark:bg-[#00000032] text-[#19cf31] dark:text-[#91FF00]"
                      : "bg-transparent text-[#9c9c9c]"
                  }
                 `}
-            >
-              <div className="w-full h-full flex justify-center items-center">
-                <User size={20} />
-              </div>
-            </Button>
-          </div>
-          <div className="flex items-center">
-            <Button
-              onClick={() => handleNavigation("works")}
-              className={`min-w-[50px] w-[50px] h-[50px] border-r rounded-bl-[12px] bg-transparent rounded-r-none rounded-t-none
+          >
+            <div className="w-full h-full flex justify-center items-center">
+              <User size={20} />
+            </div>
+          </Button>
+        </div>
+        <div className="flex items-center">
+          <Button
+            onPress={() => handleNavigation("works")}
+            aria-label="Works"
+            aria-current={currentPath === "works" ? "page" : undefined}
+            className={`min-w-[50px] w-[50px] h-[50px] border-r rounded-bl-[12px] bg-transparent rounded-r-none rounded-t-none
                 ${
                   currentPath === "works"
                     ? "bg-[#f7f7f7] dark:bg-[#00000032] text-[#19cf31] dark:text-[#91FF00]"
                     : "bg-transparent text-[#9c9c9c]"
                 }
                 `}
-            >
-              <div className="w-full h-full flex justify-center items-center">
-                <BriefcaseBusiness size={20} />
-              </div>
-            </Button>
-            {/* <Button onClick={() => handleNavigation("blog")} className={`min-w-[50px] w-[50px] h-[50px] border-r bg-transparent rounded-none
-                 ${currentPath === "blog" ? "bg-[#f7f7f7] dark:bg-[#00000032] text-[#19cf31] dark:text-[#91FF00]" : "bg-transparent text-[#9c9c9c]"}
-                 `}>
-                 <div className='w-full h-full flex justify-center items-center'>
-                 <Rss size={20} />
-                 </div>
-                 </Button> */}
-            <Button
-              onClick={() => handleNavigation("updates")}
-              className={`min-w-[50px] w-[50px] h-[50px] border-r bg-transparent rounded-none
+          >
+            <div className="w-full h-full flex justify-center items-center">
+              <BriefcaseBusiness size={20} />
+            </div>
+          </Button>
+          <Button
+            onPress={() => handleNavigation("updates")}
+            aria-label="Updates"
+            aria-current={currentPath === "updates" ? "page" : undefined}
+            className={`min-w-[50px] w-[50px] h-[50px] border-r bg-transparent rounded-none
                 ${
                   currentPath === "updates"
                     ? "bg-[#f7f7f7] dark:bg-[#00000032] text-[#19cf31] dark:text-[#91FF00]"
                     : "bg-transparent text-[#9c9c9c]"
                 }
                 `}
-            >
-              <div className="w-full h-full flex justify-center items-center">
-                <Rss size={20} />
-              </div>
-            </Button>
-          </div>
+          >
+            <div className="w-full h-full flex justify-center items-center">
+              <Rss size={20} />
+            </div>
+          </Button>
         </div>
-        <Button
-          onClick={() => handleNavigation("contact")}
-          className={`min-w-[50px] w-[50px] h-[100px] rounded-r-[12px] bg-transparent rounded-l-none
+      </div>
+      <Button
+        onPress={() => handleNavigation("contact")}
+        aria-label="Contact"
+        aria-current={currentPath === "contact" ? "page" : undefined}
+        className={`min-w-[50px] w-[50px] h-[100px] rounded-r-[12px] bg-transparent rounded-l-none
             ${
               currentPath === "contact"
                 ? "bg-[#f7f7f7] dark:bg-[#00000032] text-[#19cf31] dark:text-[#91FF00]"
                 : "bg-transparent text-[#9c9c9c]"
             }
             `}
+      >
+        <motion.div
+          initial={{ rotate: -90 }}
+          className="w-[84px] h-[34px] px-[13px] rounded-full border flex items-center gap-[4px]"
         >
-          <motion.div
-            initial={{ rotate: -90 }}
-            className="w-[84px] h-[34px] px-[13px] rounded-full border flex items-center gap-[4px]"
-          >
-            <Handshake size={12} />{" "}
-            <span className="text-[10px] font-semibold ">Contact</span>
-          </motion.div>
-        </Button>
-      </div>
-    </>
+          <Handshake size={12} />{" "}
+          <span className="text-[10px] font-semibold ">Contact</span>
+        </motion.div>
+      </Button>
+    </nav>
   );
 };
 

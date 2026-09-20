@@ -1,48 +1,32 @@
 import type { NextConfig } from "next";
-import { fileURLToPath } from "url";
-import { dirname } from "path";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
 
 const nextConfig: NextConfig = {
   images: {
+    qualities: [70, 75, 80, 85, 90, 95],
     remotePatterns: [
       {
         protocol: "https",
-        hostname: "images.unsplash.com",
+        hostname: "avatars.githubusercontent.com",
         port: "",
         pathname: "/**",
       },
       {
         protocol: "https",
-        hostname: "assets.aceternity.com",
+        hostname: "raw.githubusercontent.com",
         port: "",
         pathname: "/**",
       },
     ],
   },
-  // experimental: {
-  //   esmExternals: "loose",
-  //   optimizePackageImports: ["@mantine/core", "@mantine/hooks"],
-  // },
-
-  // eslint: {
-  //   ignoreDuringBuilds: true,
-  // },
-  reactStrictMode: true,
-  webpack: (config, { isServer }) => {
-    // config.cache = {
-    //   type: "filesystem",
-    //   name: "project-cache",
-    //   version: "1.0",
-    //   buildDependencies: {
-    //     config: [__filename], // Rebuild when config changes
-    //   },
-    // };
-    config.cache = false;
-    return config;
+  experimental: {
+    optimizePackageImports: [
+      "@mantine/core",
+      "@mantine/hooks",
+      "@tabler/icons-react",
+      "lucide-react",
+    ],
   },
+  reactStrictMode: true,
 };
 
 export default nextConfig;

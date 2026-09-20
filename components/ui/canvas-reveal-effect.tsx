@@ -1,9 +1,9 @@
 "use client";
 import { cn } from "@/lib/utils";
-/* eslint-disable @typescript-eslint/no-explicit-any */
+ 
 /* eslint-disable react-hooks/exhaustive-deps */
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import React, { useMemo, useRef } from "react";
+import React, { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 
 export const CanvasRevealEffect = ({
@@ -194,16 +194,17 @@ const ShaderMaterial = ({
   uniforms: Uniforms;
 }) => {
   const { size } = useThree();
-  const ref = useRef<THREE.Mesh>();
-  let lastFrameTime = 0;
+  const ref = useRef<THREE.Mesh>(null);
+  const lastFrameTime = useRef(0);
+  const prevMaterial = useRef<THREE.ShaderMaterial | null>(null);
 
   useFrame(({ clock }) => {
     if (!ref.current) return;
     const timestamp = clock.getElapsedTime();
-    if (timestamp - lastFrameTime < 1 / maxFps) {
+    if (timestamp - lastFrameTime.current < 1 / maxFps) {
       return;
     }
-    lastFrameTime = timestamp;
+    lastFrameTime.current = timestamp;
 
     const material: any = ref.current.material;
     const timeLocation = material.uniforms.u_time;
@@ -256,8 +257,10 @@ const ShaderMaterial = ({
     return preparedUniforms;
   };
 
-  // Shader material
+  // Shader material — dispose the previous instance before creating a new one
+  // to prevent GPU resource leaks on resize (R3F does not auto-dispose primitives).
   const material = useMemo(() => {
+    prevMaterial.current?.dispose();
     const materialObject = new THREE.ShaderMaterial({
       vertexShader: `
       precision mediump float;
@@ -280,8 +283,11 @@ const ShaderMaterial = ({
       blendDst: THREE.OneFactor,
     });
 
+    prevMaterial.current = materialObject;
     return materialObject;
   }, [size.width, size.height, source]);
+
+  useEffect(() => () => prevMaterial.current?.dispose(), []);
 
   return (
     <mesh ref={ref as any}>

@@ -3,7 +3,7 @@
 import React from "react";
 import { motion } from "framer-motion";
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
+ 
 
 interface GridCardWrapProps {
   children?: React.ReactNode;

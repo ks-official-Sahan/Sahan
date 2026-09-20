@@ -1,6 +1,5 @@
 "use client";
 
-import { Button } from "@nextui-org/react";
 import Link from "next/link";
 import React from "react";
 
@@ -14,21 +13,22 @@ const NavItem = ({
 
   return (
     <Link
-      className={isSideBarItem ? "w-full" : ""}
-      href={isCurrentPath ? "" : `/${path}`}
-    >
-      <Button
-        variant="ghost"
-        className={`${
+      href={`/${path}`}
+      aria-current={isCurrentPath ? "page" : undefined}
+      className={`
+        relative flex items-center justify-center select-none
+        rounded-full font-medium text-[13.5px] tracking-[-0.01em]
+        transition-all duration-150
+        active:scale-[0.97]
+        ${isSideBarItem ? "w-full h-[40px] px-5" : "h-[33px] px-[18px]"}
+        ${
           isCurrentPath
-            ? " border font-medium opacity-100 px-[24px] flex items-center justify-center bg-[#f7f7f7] dark:bg-[#00000025] "
-            : " px-0 border-none focus:outline-none opacity-80"
-        } rounded-full ${
-          isSideBarItem ? "h-[40px] w-full " : "h-[33px]"
-        } border-[#0000001f] dark:border-[#ffffff1f] text-center`}
-      >
-        {title}
-      </Button>
+            ? "border border-white/15 bg-white/[0.08] text-white font-semibold shadow-[0_1px_3px_rgba(0,0,0,0.3)]"
+            : "text-white/65 hover:text-white border border-transparent"
+        }
+      `}
+    >
+      {title}
     </Link>
   );
 };

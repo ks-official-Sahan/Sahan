@@ -5,7 +5,7 @@ import React, { MouseEvent as ReactMouseEvent, useState } from "react";
 import { CanvasRevealEffect } from "@/components/ui/canvas-reveal-effect";
 import { cn } from "@/lib/utils";
 
-/* eslint-disable prefer-const */
+ 
 
 export const CardSpotlight = ({
   children,

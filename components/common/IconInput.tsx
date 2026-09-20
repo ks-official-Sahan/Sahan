@@ -57,7 +57,7 @@ const IconInput: React.FC<IconInputProps> = ({
   size = 16,
   error,
   success,
-  /* eslint-disable @typescript-eslint/no-unused-vars */
+   
   loading,
   autoComplete,
   autoFocus,
@@ -84,7 +84,9 @@ const IconInput: React.FC<IconInputProps> = ({
         <div
           className={`w-[32px] h-[32px] flex justify-center items-center text-[#969696] border bg-white dark:bg-[#232323] rounded-[8px] absolute left-[8px] top-[-18px] ${iconClassName}`}
         >
-          {React.cloneElement(icon as React.ReactElement, { size })}
+          {React.cloneElement(icon as React.ReactElement<{ size?: number }>, {
+            size,
+          })}
         </div>
       )}
 
@@ -92,7 +94,9 @@ const IconInput: React.FC<IconInputProps> = ({
         <div
           className={`w-[32px] h-[32px] flex justify-center items-center text-[#969696] border bg-white dark:bg-[#232323] rounded-[8px] absolute right-[8px] top-[-18px] ${iconClassName}`}
         >
-          {React.cloneElement(icon as React.ReactElement, { size })}
+          {React.cloneElement(icon as React.ReactElement<{ size?: number }>, {
+            size,
+          })}
         </div>
       )}
 
@@ -101,6 +105,7 @@ const IconInput: React.FC<IconInputProps> = ({
         <Input
           type={inputType}
           placeholder={placeholder}
+          aria-label={placeholder}
           disabled={disabled}
           value={value}
           onChange={onChange}
@@ -134,6 +139,7 @@ const IconInput: React.FC<IconInputProps> = ({
           required={required}
         >
           <SelectTrigger
+            aria-label={placeholder}
             className={`w-full h-[56px] px-[24px] placeholder:font-medium rounded-[12px] border-[#0000001f] dark:border-[#ffffff1f] bg-[#f7f7f7] dark:bg-[#1A1A1A] focus:ring-[#19cf31] dark:focus:ring-[#91FF00] ${className}`}
           >
             <SelectValue
@@ -158,6 +164,7 @@ const IconInput: React.FC<IconInputProps> = ({
       {type === "textarea" && (
         <textarea
           placeholder={placeholder}
+          aria-label={placeholder}
           disabled={disabled}
           value={value}
           onChange={onChange}

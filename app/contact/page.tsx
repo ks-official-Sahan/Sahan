@@ -5,6 +5,7 @@ import SocialMedia from "@/components/custom/contact/SocialMedia";
 import { RainbowButton } from "@/components/magicui/rainbow-button";
 import WrapperBody from "@/components/wrappers/WrapperBody";
 import { TopicInputOptions } from "@/contents/contact";
+import { Site } from "@/config/site";
 import {
   Mail,
   MapPin,
@@ -35,19 +36,19 @@ const Contact = () => {
                     copy
                     icon={<Mail size={24} />}
                     title="Email"
-                    value="ks.official.sahan@gmail.com"
+                    value={Site.email}
                   />
                   <ContactDetailsCard
                     copy
                     icon={<PhoneIcon size={24} />}
                     title="Phone Number"
-                    value="+94768701148"
-                    displayValue="+94 76-870-1148"
+                    value={Site.phone}
+                    displayValue={Site.phoneDisplay}
                   />
                   <ContactDetailsCard
                     icon={<MapPin size={24} />}
                     title="Location"
-                    value="Sri Lanka - Available for Remote Work"
+                    value={Site.location}
                   />
                 </ContactDetailsBox>
               </div>

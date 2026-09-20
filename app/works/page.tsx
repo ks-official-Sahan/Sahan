@@ -7,21 +7,24 @@ import { cn } from "@/lib/utils";
 import React, { useEffect, useState } from "react";
 import Image from "next/image";
 import { motion } from "framer-motion";
-import { Button } from "@nextui-org/react";
 import { ArrowDownLeft, ArrowDownRight } from "lucide-react";
 import { useTheme } from "next-themes";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import HeaderCard from "@/components/custom/work/HeaderCard";
 import Particals from "@/components/custom/Particals";
+import ProjectGrid from "@/components/works/ProjectGrid";
+import { ProjectFilters } from "@/contents/projects";
+import { Button } from "@nextui-org/react";
+
+type FilterValue = (typeof ProjectFilters)[number]["value"];
 
 const Works = () => {
   const { theme } = useTheme();
 
   const [workType, setWorkType] = useState("design");
+  const [filter, setFilter] = useState<FilterValue>("freelance");
 
   const searchParams = useSearchParams();
-  const router = useRouter();
-  const path = usePathname();
 
   const handleTypeChange = (type: "des" | "pro") => {
     localStorage.setItem("wt", type);
@@ -33,16 +36,24 @@ const Works = () => {
     window.history.replaceState(null, "", newUrl);
   };
 
+  // Seed state from the URL once on mount — never write back via router.replace
+  // (that would update searchParams → re-trigger this effect → infinite loop).
+  // Use window.history.replaceState for the initial default so the URL is clean
+  // without causing a React navigation event.
   useEffect(() => {
-    const wt = searchParams.get("wt");
-    if (!wt) {
-      localStorage.setItem("wt", "des");
-      router.replace("/works?wt=des");
-    } else {
-      setWorkType(wt === "des" ? "design" : "projects");
-      router.replace("/works?wt=" + wt);
+    const wt = searchParams.get("wt") ?? localStorage.getItem("wt") ?? "des";
+    const normalised = wt === "pro" ? "pro" : "des";
+
+    setWorkType(normalised === "des" ? "design" : "projects");
+    setFilter(normalised === "des" ? "freelance" : "product");
+    localStorage.setItem("wt", normalised);
+
+    // Only patch the URL if it is missing — no router call, no re-render.
+    if (!searchParams.get("wt")) {
+      window.history.replaceState(null, "", `/works?wt=${normalised}`);
     }
-  }, [path, router, searchParams]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // intentionally empty — run once on mount only
 
   return (
     <div
@@ -80,8 +91,9 @@ const Works = () => {
               {/* Card 1 */}
               <HeaderCard workType={workType} title="design" rotate={-7.5}>
                 <Button
-                  onClick={() => {
+                  onPress={() => {
                     setWorkType("design");
+                    setFilter("freelance");
                     handleTypeChange("des");
                   }}
                   className="bg-transparent w-[268px] h-[211px] rounded-[24px] p-0 m-0 backdrop-blur-[33px]"
@@ -150,7 +162,7 @@ const Works = () => {
                 >
                   <Image
                     src={"/av/c1.svg"}
-                    alt="C2"
+                    alt=""
                     width={126}
                     height={203}
                     className="object-cover"
@@ -169,16 +181,19 @@ const Works = () => {
                   src={"/av/c3.svg"}
                   width={277}
                   height={277}
-                  alt="C3"
+                  alt="Works illustration"
                   className="object-cover"
+                  loading="eager"
+                  priority
                 />
               </motion.div>
 
               {/* Card 3 */}
               <HeaderCard workType={workType} title="projects" rotate={7.5}>
                 <Button
-                  onClick={() => {
+                  onPress={() => {
                     setWorkType("projects");
+                    setFilter("product");
                     handleTypeChange("pro");
                   }}
                   className="bg-transparent w-[268px] h-[211px] rounded-[24px] p-0 m-0 backdrop-blur-[33px]"
@@ -248,7 +263,7 @@ const Works = () => {
                 >
                   <Image
                     src={"/av/c2.svg"}
-                    alt="C2"
+                    alt=""
                     width={110}
                     height={203}
                     className="object-cover"
@@ -260,47 +275,11 @@ const Works = () => {
         </WrapperBody>
       </section>
 
-      {/* CATEGORY */}
-      {/* <section className='min-h-[385px] w-full from-[#000000] to-[#111111] bg-gradient-to-b'> */}
-      <section className=" w-full pt-[40px] pb-[30px] bg-opacity-/0">
-        <WrapperBody>
-          <div className="flex items-center gap-5">
-            {WorksContent.categories.map((category, index) => (
-              <div
-                key={index}
-                className="px-[20px] py-[6px] border rounded-full"
-              >
-                {category.name}
-              </div>
-            ))}
-          </div>
-        </WrapperBody>
-      </section>
-
       {/* WORKS */}
       <section className="border-y w-full">
-        <div className="flex flex-col w-full items-center relative min-h-screen bg-opacity-50">
+        <div className="flex flex-col w-full items-center bg-opacity-50 py-[60px]">
           <WrapperBody>
-            <div className="flex flex-col items-center">
-              {/* BOTTOM FLOATING BAR */}
-              <div className="w-full max-w-[940px] h-[80px] flex rounded-full border bg-black/30 backdrop-blur-sm absolute bottom-[40px]">
-                {/* LEFT */}
-                <div className="py-[12px] pl-[12px] border-l pr-[30px] bg-black/30 backdrop-blur-sm h-full rounded-l-full flex items-center gap-[14px]">
-                  <div className="w-[56px] h-[56px] border rounded-full dark:bg-white/30 bg-green-400/40 backdrop-blur-sm"></div>
-                  <div
-                    className={cn(
-                      "leading-[19px] uppercase text-white",
-                      righteous.className
-                    )}
-                  >
-                    <div>{WorksContent.workTypes.design.title.line1}</div>
-                    <div className="text-[20px]">
-                      {WorksContent.workTypes.design.title.line2}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
+            <ProjectGrid filter={filter} onFilterChange={setFilter} />
           </WrapperBody>
         </div>
       </section>

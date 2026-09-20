@@ -1,15 +1,15 @@
 "use client";
 
-import EVISIONIT_ICON from "@/components/icons/EvisionIT";
 import VIP_ICON from "@/components/icons/VIP";
 import { Site } from "@/config/site";
 import { righteous } from "@/lib/fonts";
 import { Button } from "@nextui-org/react";
 import { motion } from "framer-motion";
+import { Building2 } from "lucide-react";
 import Link from "next/link";
 import React from "react";
 
-/* eslint-disable @typescript-eslint/no-unused-vars */ 
+  
 
 const CompanyCard = ({
   className = "flex ",
@@ -32,14 +32,10 @@ const CompanyCard = ({
       px-[25px] pt-[30px] pb-[20px] rounded-[24px] border bg-[#f7f7f7] dark:bg-[#00000052]`}
     >
       <div className="w-[80px] h-[80px] rounded-full bg-black dark:bg-white flex justify-center items-center pt-[3px]">
-        <EVISIONIT_ICON
-          className="fill-white dark:fill-black"
-          width={60}
-          height={30}
-        />
+        <Building2 className="stroke-white dark:stroke-black" size={32} />
       </div>
-      <div className="text-[10px] font-medium opacity-65 pt-[14px]">
-        Founder & CEO of Evision IT
+      <div className="text-[10px] font-medium opacity-65 pt-[14px] text-center">
+        {Site.companyRole}
       </div>
 
       <Link
@@ -55,7 +51,7 @@ const CompanyCard = ({
           <span
             className={`${righteous.className} text-[14px] bg-evisionBro text-center w-full bg-clip-text text-transparent`}
           >
-            www.evisionit.lk
+            {Site.orgUrl.replace("https://", "www.")}
           </span>
         </Button>
       </Link>

@@ -11,7 +11,6 @@ import NavBar from "./Nav";
 
 const Navigation = () => {
   const [currentPath, setCurrentPath] = useState("");
-  const [scrollPosition, setScrollPosition] = useState(0);
   const [isVisible, setIsVisible] = useState(true);
   const path = usePathname();
 
@@ -33,27 +32,18 @@ const Navigation = () => {
     }
   }, [path]);
 
+  const lastScrollY = React.useRef(0);
+
   useEffect(() => {
     const handleScroll = () => {
       const currentScroll = window.scrollY;
-
-      if (currentScroll > scrollPosition) {
-        // Scrolling down
-        setIsVisible(false);
-      } else {
-        // Scrolling up
-        setIsVisible(true);
-      }
-
-      setScrollPosition(currentScroll);
+      setIsVisible(currentScroll <= lastScrollY.current || currentScroll < 10);
+      lastScrollY.current = currentScroll;
     };
 
-    window.addEventListener("scroll", handleScroll);
-
-    return () => {
-      window.removeEventListener("scroll", handleScroll);
-    };
-  }, [scrollPosition]);
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []); // stable — registered once
 
   return (
     <motion.header

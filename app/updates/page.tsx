@@ -4,7 +4,7 @@ import UpdatesCard from "@/components/updates/UpdatesCard";
 import WrapperBody from "@/components/wrappers/WrapperBody";
 import { UpdatesContent } from "@/contents/updates";
 import { righteous } from "@/lib/fonts";
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
+ 
 import { cn } from "@/lib/utils";
 import React from "react";
 

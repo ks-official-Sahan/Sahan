@@ -6,7 +6,7 @@ interface MoveElementProps extends MotionProps {
   children: React.ReactNode;
   initial?: boolean | string;
   animate: boolean | string;
-  /* eslint-disable @typescript-eslint/no-explicit-any */
+   
   transition?: any;
   className?: string;
 }

@@ -4,7 +4,7 @@ import Link from "next/link";
 import React from "react";
 import { motion } from "framer-motion";
 
-/* eslint-disable @typescript-eslint/no-unused-vars */ 
+  
 
 const ServiceCard = ({
   title = "Service",

@@ -1,5 +1,6 @@
+"use client";
+
 import { UpdatesContent } from "@/contents/updates";
-import { Button } from "@nextui-org/react";
 import React from "react";
 
 const FilterSection = ({ className = "" }) => {
@@ -25,13 +26,12 @@ const FilterSection = ({ className = "" }) => {
         {/* TOPIC CHIPS */}
         <div className="flex flex-wrap gap-[10px]">
           {UpdatesContent.topics.map((topic, index) => (
-            <Button
+            <span
               key={index}
-              className="text-[12px] font-semibold min-h-0 h-auto text-black/65 dark:text-white/65 py-[6px] pl-[16px] pr-[16px] rounded-[6px] border dark:bg-[#232323]"
+              className="text-[12px] font-semibold text-black/65 dark:text-white/65 py-[6px] pl-[16px] pr-[16px] rounded-[6px] border dark:bg-[#232323]"
             >
-              {/* <div className='text-[10px] font-semibold py-[4px] px-[8px] bg-[#1A1A1A]/10 rounded-full border'>{topic.updates}</div> */}
               {topic.name}
-            </Button>
+            </span>
           ))}
         </div>
       </div>
@@ -51,12 +51,12 @@ const FilterSection = ({ className = "" }) => {
         {/* TOPIC CHIPS */}
         <div className="flex flex-wrap gap-[10px]">
           {UpdatesContent.tags.map((tag, index) => (
-            <Button
+            <span
               key={index}
-              className="text-[12px] font-semibold min-h-0 h-auto text-white/65 py-[6px] px-[16px] rounded-full text-[#6BFF60] border bg-[#6BFF60]/10"
+              className="text-[12px] font-semibold text-white/65 py-[6px] px-[16px] rounded-full text-[#6BFF60] border bg-[#6BFF60]/10"
             >
               {tag}
-            </Button>
+            </span>
           ))}
         </div>
       </div>
