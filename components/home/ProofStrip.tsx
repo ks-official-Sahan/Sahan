@@ -8,10 +8,15 @@ import React from "react";
 // claim more than the Works and Skills pages already show.
 const platformCount = new Set(Projects.flatMap((p) => p.platforms ?? [])).size;
 const clientSites = Projects.filter((p) => p.category === "freelance").length;
-const skillCount = MySkills.tabs.categories.reduce(
-  (total, category) => total + category.skills.length,
-  0
-);
+// Tools only: working-style skills and repeats across categories don't count.
+const skillCount = new Set(
+  MySkills.tabs.categories
+    .filter(
+      (category) =>
+        !["General Skills", "Mentoring Skills"].includes(category.category)
+    )
+    .flatMap((category) => category.skills.map((skill) => skill.name))
+).size;
 
 const stats = [
   { value: Projects.length, label: "Projects shipped" },

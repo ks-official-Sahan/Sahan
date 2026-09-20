@@ -2,9 +2,9 @@
 
 import ContactChannels from "@/components/home/ContactChannels";
 import HomeSection from "@/components/home/HomeSection";
-import { Site } from "@/config/site";
+import { Site, SiteMetadata } from "@/config/site";
 import { HomeContent } from "@/contents/home";
-import { ArrowUpRight, Check, Copy } from "lucide-react";
+import { ArrowUpRight, Check, Copy, Share2 } from "lucide-react";
 import Link from "next/link";
 import React, { useEffect, useRef, useState } from "react";
 
@@ -34,6 +34,40 @@ const FinalCta = () => {
     setCopied(true);
     if (timeout.current) clearTimeout(timeout.current);
     timeout.current = setTimeout(() => setCopied(false), 2000);
+  };
+
+  // Word of mouth is the cheapest marketing a portfolio has, so make passing
+  // it on one tap: the native share sheet where it exists, a copied link
+  // everywhere else.
+  const [linkCopied, setLinkCopied] = useState(false);
+  const linkTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(
+    () => () => {
+      if (linkTimeout.current) clearTimeout(linkTimeout.current);
+    },
+    []
+  );
+
+  const shareSite = async () => {
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: SiteMetadata.title,
+          text: `${SiteMetadata.title}, ${Site.myRole}`,
+          url: SiteMetadata.siteUrl,
+        });
+        return;
+      }
+      await navigator.clipboard.writeText(SiteMetadata.siteUrl);
+    } catch {
+      // The share sheet was dismissed or the clipboard is blocked: nothing to
+      // confirm, and nothing was lost.
+      return;
+    }
+    setLinkCopied(true);
+    if (linkTimeout.current) clearTimeout(linkTimeout.current);
+    linkTimeout.current = setTimeout(() => setLinkCopied(false), 2000);
   };
 
   return (
@@ -99,6 +133,23 @@ const FinalCta = () => {
               {channels.title}
             </h3>
             <ContactChannels variant="rows" />
+            <button
+              type="button"
+              onClick={shareSite}
+              className="press mt-1 inline-flex min-h-11 w-fit items-center gap-2 rounded-full px-2 text-sm font-medium opacity-80 hover:opacity-100"
+            >
+              {linkCopied ? (
+                <Check size={16} aria-hidden="true" />
+              ) : (
+                <Share2 size={16} aria-hidden="true" />
+              )}
+              {linkCopied
+                ? "Link copied"
+                : "Know someone hiring? Share my portfolio"}
+            </button>
+            <span role="status" className="sr-only">
+              {linkCopied ? "Portfolio link copied" : ""}
+            </span>
           </div>
         </div>
       </div>

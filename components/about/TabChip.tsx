@@ -10,6 +10,8 @@ interface TabChipProps {
   controls?: string;
 }
 
+// Tabs never move on their own (a moving target is a bad click target); when
+// there are too many for the width, the tab row scrolls sideways instead.
 const TabChip = React.memo(
   ({ title, selected = false, onClick, id, controls }: TabChipProps) => {
     return (
@@ -21,10 +23,10 @@ const TabChip = React.memo(
         aria-controls={controls}
         onClick={onClick}
         className={cn(
-          "rounded-[10px] border px-4 py-[6px] text-[14px] font-medium transition-colors",
+          "press min-h-11 shrink-0 snap-start whitespace-nowrap rounded-full border px-5 text-[14px] font-medium transition-colors",
           selected
-            ? "bg-bICON_FADE text-bICON"
-            : "bg-bCHIP opacity-70 hover:opacity-100"
+            ? "border-transparent bg-bICON_FADE text-bICON"
+            : "border-bBORDERFADE bg-bCHIP opacity-80 hover:opacity-100"
         )}
       >
         {title}

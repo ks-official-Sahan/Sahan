@@ -1,12 +1,26 @@
 import {
+  Boxes,
   Cloud,
+  Code2,
+  Compass,
+  Container,
   Database,
+  FileText,
   Globe,
+  GraduationCap,
+  Layers,
   LayoutDashboard,
+  Lightbulb,
+  Monitor,
   Palette,
+  PenTool,
   Plug,
+  Presentation,
+  SearchCode,
+  Server,
   ShieldCheck,
   Smartphone,
+  Video,
 } from "lucide-react";
 import { Projects } from "@/contents/projects";
 import type { ProjectCategory, ProjectPlatform } from "@/types/project";
@@ -28,14 +42,14 @@ const webProducts = Projects.filter(
 const categories: ServiceCategory[] = [
   {
     id: 1,
-    name: "Engineering",
+    name: "Full-Stack Development",
     services: [
       {
         id: "WEB",
         icon: Globe,
         name: "Web Development",
         description:
-          "Building fast, responsive websites and web apps with React and Next.js, backed by Node.js, NestJS, Spring Boot, or Django.",
+          "Building fast, responsive websites and web apps with HTML, CSS, JavaScript, React, Next.js, and Angular.",
         done: {
           title: "Delivered",
           href: "/works",
@@ -46,11 +60,25 @@ const categories: ServiceCategory[] = [
         },
       },
       {
-        id: "XPL",
-        icon: Smartphone,
-        name: "Cross-Platform Products",
+        id: "BCK",
+        icon: Server,
+        name: "Backend Development",
         description:
-          "Shipping Android, iOS, web, and admin experiences that share one product vision across every platform.",
+          "Setting up robust backends with Node.js, Express.js, NestJS, Spring Boot, Django, or Laravel, and managing data in MySQL, MongoDB, and PostgreSQL.",
+      },
+      {
+        id: "API",
+        icon: Plug,
+        name: "API Development & Integration",
+        description:
+          "Designing RESTful and GraphQL APIs, such as property-finder APIs, and integrating third-party services like Cloudinary for media management.",
+      },
+      {
+        id: "APP",
+        icon: Smartphone,
+        name: "Cross-Platform Mobile Apps",
+        description:
+          "Shipping Android and iOS apps, with web and admin experiences that share one product vision across every platform.",
         done: {
           title: "Built at Datalake Creative",
           href: "/works",
@@ -61,6 +89,13 @@ const categories: ServiceCategory[] = [
         },
       },
       {
+        id: "PWA",
+        icon: Layers,
+        name: "Progressive Web Apps",
+        description:
+          "Creating PWAs for a seamless mobile and desktop experience using Next.js and React.",
+      },
+      {
         id: "DSH",
         icon: LayoutDashboard,
         name: "Dashboards & Admin Panels",
@@ -68,31 +103,38 @@ const categories: ServiceCategory[] = [
           "Internal tools for managing content, users, and data, including multi-account media management and content tooling with versioned snapshots.",
       },
       {
-        id: "API",
-        icon: Plug,
-        name: "APIs & Integrations",
+        id: "DSK",
+        icon: Monitor,
+        name: "Desktop Applications",
         description:
-          "Designing APIs, such as property-finder APIs, and integrating third-party services like Cloudinary for media management.",
+          "Building cross-platform desktop applications with Electron.js for tools, utilities, or business software.",
       },
     ],
   },
   {
     id: 2,
-    name: "Cloud & Reliability",
+    name: "DevOps & Cloud",
     services: [
       {
         id: "CLD",
-        icon: Cloud,
-        name: "Deployment & Hosting",
+        icon: Container,
+        name: "Containerization & Deployment",
         description:
-          "Deploying on Vercel, Cloudflare, and Azure, containerising with Docker, and adding Redis caching where it pays off.",
+          "Deploying with Docker, setting up CI/CD pipelines with Git, and shipping to Vercel, Cloudflare, or Azure, with Redis caching where it pays off.",
+      },
+      {
+        id: "CCH",
+        icon: Cloud,
+        name: "Cloud Consulting & Hosting",
+        description:
+          "Solutions for hosting, scaling, and managing applications in the cloud, including migration to cloud platforms.",
       },
       {
         id: "DAT",
         icon: Database,
-        name: "Data & Backups",
+        name: "Database Management & Optimization",
         description:
-          "Designing schemas on PostgreSQL, MySQL, and MongoDB, with backup and sync flows that include fallback strategies.",
+          "Database design, optimization, and maintenance with MySQL, PostgreSQL, MongoDB, and Prisma, plus backup and sync flows with fallback strategies.",
       },
       {
         id: "SEC",
@@ -105,14 +147,96 @@ const categories: ServiceCategory[] = [
   },
   {
     id: 3,
-    name: "Design",
+    name: "UI/UX & Graphic Design",
     services: [
       {
         id: "UXD",
         icon: Palette,
         name: "UI/UX Design",
         description:
-          "Turning ideas into clean, usable interfaces, prototyped in Figma before they are built.",
+          "Designing clean, modern, user-friendly interfaces for web and mobile, prototyped in Figma before they are built.",
+      },
+      {
+        id: "BRD",
+        icon: PenTool,
+        name: "Brand Identity & Logo Design",
+        description:
+          "Crafting brand identities, logos, and brand assets that fit a company's values and audience.",
+      },
+      {
+        id: "MCK",
+        icon: Boxes,
+        name: "Website & App Mockups",
+        description:
+          "Creating wireframes, prototypes, and high-fidelity mockups for web and mobile applications.",
+      },
+      {
+        id: "PPD",
+        icon: Presentation,
+        name: "Presentation & Proposal Design",
+        description:
+          "Designing professional documents, proposals, and presentations for business or academic purposes.",
+      },
+    ],
+  },
+  {
+    id: 4,
+    name: "Multimedia & Content",
+    services: [
+      {
+        id: "PVE",
+        icon: Video,
+        name: "Photo & Video Editing",
+        description:
+          "Editing photos for marketing and branding, and cutting videos for social media or business.",
+      },
+      {
+        id: "DWF",
+        icon: FileText,
+        name: "Document Writing & Formatting",
+        description:
+          "Writing, editing, and formatting reports, technical documentation, user manuals, and other professional documents.",
+      },
+      {
+        id: "CCI",
+        icon: Lightbulb,
+        name: "Content Creation & Idea Generation",
+        description:
+          "Content ideas, creative direction, and concepts for digital marketing campaigns or branding projects.",
+      },
+    ],
+  },
+  {
+    id: 5,
+    name: "Consulting & Mentoring",
+    services: [
+      {
+        id: "CNS",
+        icon: Compass,
+        name: "Software Consulting",
+        description:
+          "Advising on the best technology stack, project structure, and development practices for your requirements.",
+      },
+      {
+        id: "CRO",
+        icon: SearchCode,
+        name: "Code Review & Optimization",
+        description:
+          "Reviewing code for quality, performance, and security, with clear recommendations for improvement.",
+      },
+      {
+        id: "PPS",
+        icon: Code2,
+        name: "Project Planning & Strategy",
+        description:
+          "Helping outline project goals, timelines, and tech stacks, with roadmaps and estimates.",
+      },
+      {
+        id: "MNT",
+        icon: GraduationCap,
+        name: "Mentorship & Training",
+        description:
+          "Tutorials, workshops, and one-on-one sessions in web development, cloud, databases, or design.",
       },
     ],
   },

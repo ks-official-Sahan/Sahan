@@ -161,6 +161,35 @@ export const HomeContent = {
       subtitle: "The things people usually ask before we start.",
     },
   },
+  teams: {
+    label: "Built with teams and for clients",
+  },
+  why: {
+    title: "Why people hire me",
+    subtitle: "What you get when one engineer owns the whole product.",
+    points: [
+      {
+        icon: "layers",
+        title: "One engineer, the whole product",
+        body: "Interface, API, database and deployment from one person, so nothing gets lost between handoffs.",
+      },
+      {
+        icon: "smartphone",
+        title: "Shipped on every platform",
+        body: "Android, iOS, web and admin panels. The work on this page is proof, not a promise.",
+      },
+      {
+        icon: "shield",
+        title: "Built to keep running",
+        body: "Backups with fallbacks, versioned content snapshots, caching and multi-factor sign-in: the unglamorous parts that keep a product alive.",
+      },
+      {
+        icon: "globe",
+        title: "Easy to work with from anywhere",
+        body: "Remote by default, currently with a UK-based team. Clear updates and working builds along the way.",
+      },
+    ],
+  },
   process: [
     {
       title: "Talk it through",

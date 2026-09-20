@@ -2,9 +2,11 @@
 
 import SkillGroupCard from "@/components/about/SkillGroupCard";
 import TabChip from "@/components/about/TabChip";
+import ChipMarquee from "@/components/common/ChipMarquee";
 import SkillCard from "@/components/common/SkillCard";
-import TitleBlock from "@/components/common/TitleBlock";
-import WrapperBody from "@/components/wrappers/WrapperBody";
+import SkillChip from "@/components/common/SkillChip";
+import HomeSection from "@/components/home/HomeSection";
+import SectionHeading from "@/components/home/SectionHeading";
 import { AboutContent } from "@/contents/about";
 import { MySkills } from "@/contents/skills";
 import { cn } from "@/lib/utils";
@@ -31,123 +33,119 @@ const SkillSection = () => {
   const groups = useMemo(() => groupByType(selected.skills), [selected]);
 
   return (
-    <section id="skills" className="flex flex-col items-center pt-[80px]">
-      <WrapperBody>
-        <div className="flex flex-col">
-          {/* TITLE & LAYOUT SWITCH */}
-          <div className="flex items-end justify-between gap-6 sm:flex-col sm:items-start">
-            <TitleBlock
-              isBadge
-              isSubtitle
-              titleAs="h2"
-              icon={<span aria-hidden="true">🚀</span>}
-              title={AboutContent.KB.title}
-              subtitle={AboutContent.KB.description}
-              label="Skills"
-              titleClass="text-[2rem] font-bold uppercase pt-[12px]"
-            />
+    <HomeSection id="skills" labelledBy="skills-title">
+      <SectionHeading
+        id="skills-title"
+        title={AboutContent.KB.title}
+        description={AboutContent.KB.description}
+        action={
+          <div
+            role="group"
+            aria-label="Skill layout"
+            className="flex items-center gap-2 rounded-full border border-bBORDERFADE bg-bCARD p-1"
+          >
+            {layoutFilter.options.map((option) => (
+              <button
+                key={option.id}
+                type="button"
+                aria-pressed={layout === option.id}
+                onClick={() => setLayout(option.id)}
+                className={cn(
+                  "press min-h-10 rounded-full px-5 text-sm font-medium transition-colors",
+                  layout === option.id
+                    ? "bg-bICON_FADE text-bICON"
+                    : "opacity-80 hover:opacity-100"
+                )}
+              >
+                {option.name}
+              </button>
+            ))}
+          </div>
+        }
+      />
 
-            <div
-              role="group"
-              aria-label="Skill layout"
-              className="flex items-center gap-[10px] rounded-[10px] border bg-bCHIP py-[6px] pl-4 pr-[10px]"
+      {layout === layoutFilter.options[0].id ? (
+        <div className="mt-10 flex w-full flex-col">
+          {/* CATEGORIES: scrolls sideways when they do not fit */}
+          <div
+            role="tablist"
+            aria-label="Skill categories"
+            className="no-scrollbar -mx-4 flex snap-x gap-2 overflow-x-auto px-4 [scroll-padding-inline:1rem] s640:-mx-8 s640:px-8 lg:mx-0 lg:flex-wrap lg:overflow-visible lg:px-0"
+          >
+            {categories.map((category) => (
+              <TabChip
+                key={category.id}
+                id={`skill-tab-${category.id}`}
+                controls="skill-panel"
+                title={category.category}
+                selected={selectedId === category.id}
+                onClick={() => setSelectedId(category.id)}
+              />
+            ))}
+          </div>
+
+          {/* SKILLS: keyed so switching tabs replays the entrance */}
+          <div
+            key={selected.id}
+            role="tabpanel"
+            id="skill-panel"
+            aria-labelledby={`skill-tab-${selected.id}`}
+            className="swap-in flex flex-col gap-6 pt-6"
+          >
+            <ChipMarquee
+              label={`${selected.category} skills`}
+              minItems={6}
+              duration={30}
             >
-              <span className="text-[14px] font-medium opacity-65">
-                {layoutFilter.label}
-              </span>
-              {layoutFilter.options.map((option) => (
-                <button
-                  key={option.id}
-                  type="button"
-                  aria-pressed={layout === option.id}
-                  onClick={() => setLayout(option.id)}
-                  className={cn(
-                    "rounded-[10px] border px-4 py-[6px] text-[14px] font-medium transition-colors",
-                    layout === option.id
-                      ? "bg-bICON_FADE text-bICON"
-                      : "bg-border opacity-80 hover:opacity-100"
-                  )}
-                >
-                  {option.name}
-                </button>
+              {selected.skills.map((skill) => (
+                <SkillChip key={skill.name} skill={skill} />
+              ))}
+            </ChipMarquee>
+
+            <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+              {groups.map(([type, skills]) => (
+                <SkillGroupCard
+                  key={`${selected.id}-${type}`}
+                  type={type}
+                  skills={skills}
+                  className={
+                    groups.length === 1
+                      ? "lg:col-span-2 lg:mx-auto lg:w-full lg:max-w-xl"
+                      : undefined
+                  }
+                />
               ))}
             </div>
           </div>
-
-          {layout === layoutFilter.options[0].id ? (
-            <div className="flex w-full flex-col pt-12">
-              {/* CATEGORIES */}
-              <div
-                role="tablist"
-                aria-label="Skill categories"
-                className="flex flex-wrap gap-3"
-              >
-                {categories.map((category) => (
-                  <TabChip
-                    key={category.id}
-                    id={`skill-tab-${category.id}`}
-                    controls="skill-panel"
-                    title={category.category}
-                    selected={selectedId === category.id}
-                    onClick={() => setSelectedId(category.id)}
-                  />
-                ))}
-              </div>
-
-              {/* SEPARATOR */}
-              <div className="mt-6 h-px w-full bg-border" />
-
-              {/* SKILLS */}
-              <div
-                role="tabpanel"
-                id="skill-panel"
-                aria-labelledby={`skill-tab-${selected.id}`}
-                className="grid gap-5 pt-8 lg:grid-cols-2"
-              >
-                {groups.map(([type, skills]) => (
-                  <SkillGroupCard
-                    key={`${selected.id}-${type}`}
-                    type={type}
-                    skills={skills}
-                    className={
-                      groups.length === 1
-                        ? "lg:col-span-2 lg:mx-auto lg:w-full lg:max-w-xl"
-                        : undefined
-                    }
-                  />
-                ))}
-              </div>
-            </div>
-          ) : (
-            <div className="flex flex-wrap justify-center pt-12">
-              {AboutContent.KB.skills.dev.map((skill) => {
-                const IconComponent = skill.icon;
-                const isStroke = skill.variant === "stroke";
-
-                return (
-                  <SkillCard
-                    key={skill.title}
-                    title={skill.title}
-                    bgColors={skill.bgColors}
-                    colors={skill.colors}
-                    icon={
-                      isStroke ? (
-                        <IconComponent
-                          size={40}
-                          className="text-black dark:text-white group-hover/canvas-card:text-white"
-                        />
-                      ) : (
-                        <IconComponent className="fill-black dark:fill-white group-hover/canvas-card:fill-white" />
-                      )
-                    }
-                  />
-                );
-              })}
-            </div>
-          )}
         </div>
-      </WrapperBody>
-    </section>
+      ) : (
+        <div className="flex flex-wrap justify-center pt-12">
+          {AboutContent.KB.skills.dev.map((skill) => {
+            const IconComponent = skill.icon;
+            const isStroke = skill.variant === "stroke";
+
+            return (
+              <SkillCard
+                key={skill.title}
+                title={skill.title}
+                bgColors={skill.bgColors}
+                colors={skill.colors}
+                icon={
+                  isStroke ? (
+                    <IconComponent
+                      size={40}
+                      className="text-black dark:text-white group-hover/canvas-card:text-white"
+                    />
+                  ) : (
+                    <IconComponent className="fill-black dark:fill-white group-hover/canvas-card:fill-white" />
+                  )
+                }
+              />
+            );
+          })}
+        </div>
+      )}
+    </HomeSection>
   );
 };
 

@@ -3,6 +3,7 @@
 import ServiceCard from "@/components/about/ServiceCard";
 import TabChip from "@/components/about/TabChip";
 import { MyServices } from "@/contents/service";
+import { ArrowUpRight } from "lucide-react";
 import Link from "next/link";
 import React, { useState } from "react";
 
@@ -15,11 +16,11 @@ const ServiceBox = () => {
 
   return (
     <div className="flex flex-col">
-      {/* CATEGORY BAR */}
+      {/* CATEGORY BAR: scrolls sideways on narrow screens */}
       <div
         role="tablist"
         aria-label="Service categories"
-        className="flex flex-wrap gap-3"
+        className="no-scrollbar -mx-4 flex snap-x gap-2 overflow-x-auto px-4 [scroll-padding-inline:1rem] s640:-mx-8 s640:px-8 lg:mx-0 lg:flex-wrap lg:overflow-visible lg:px-0"
       >
         {categories.map((category) => (
           <TabChip
@@ -33,31 +34,31 @@ const ServiceBox = () => {
         ))}
       </div>
 
-      {/* SEPARATOR */}
-      <div className="mt-6 h-px w-full bg-border" />
-
-      {/* SERVICES */}
+      {/* SERVICES: keyed so switching tabs replays the entrance */}
       <div
+        key={selectedId}
         role="tabpanel"
         id="service-panel"
         aria-labelledby={`service-tab-${selectedId}`}
-        className="grid grid-cols-3 gap-5 pt-8 md:grid-cols-2 sm:grid-cols-1"
+        className="swap-in mt-6 grid grid-cols-1 gap-4 s768:grid-cols-2 s768:gap-5 lg:grid-cols-3"
       >
         {services.map((service) => (
           <ServiceCard key={service.id} service={service} />
         ))}
       </div>
 
-      {/* DISCUSS */}
-      <div className="mt-14 flex items-center gap-5">
-        <div className="h-px flex-1 bg-border sm:hidden" />
+      <div className="mt-12">
         <Link
           href="/contact"
-          className="rounded-[12px] bg-bFRAME px-8 py-3 text-[14px] font-medium transition-opacity hover:opacity-80"
+          className="press arrow-nudge inline-flex min-h-12 items-center gap-2 rounded-full bg-bCHIPSELECTED px-7 text-[15px] font-semibold text-white dark:text-black"
         >
           Discuss a project
+          <ArrowUpRight
+            size={18}
+            aria-hidden="true"
+            className="arrow-nudge-icon"
+          />
         </Link>
-        <div className="h-px flex-1 bg-border sm:hidden" />
       </div>
     </div>
   );

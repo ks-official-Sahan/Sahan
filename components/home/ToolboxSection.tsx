@@ -1,32 +1,24 @@
+import ChipMarquee from "@/components/common/ChipMarquee";
+import SkillChip from "@/components/common/SkillChip";
 import HomeSection from "@/components/home/HomeSection";
 import SectionHeading from "@/components/home/SectionHeading";
 import { HomeContent } from "@/contents/home";
 import { MySkills } from "@/contents/skills";
-import type { Skill } from "@/types/skills";
-import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
+import Link from "next/link";
 import React from "react";
 
-// Brand colours are CSS variables (light + dark) so server and client markup
-// match and Tailwind's `dark:` variant does the switching.
-const skillVars = (skill: Skill) =>
-  ({
-    "--skill-light": skill.baseColor.light,
-    "--skill-dark": skill.baseColor.dark,
-  }) as React.CSSProperties;
+// Working-style skills live on the About page; the home toolbox is the stack.
+const softCategories = ["General Skills", "Mentoring Skills"];
+const stackCategories = MySkills.tabs.categories.filter(
+  (category) => !softCategories.includes(category.category)
+);
 
-const SkillGlyph = ({ skill }: { skill: Skill }) =>
-  skill.variant === "stroke" ? (
-    <skill.icon size={20} stroke={1.5} />
-  ) : (
-    <span className="inline-flex h-5 w-5 [&>svg]:h-full [&>svg]:w-full">
-      <skill.icon className="fill-current" />
-    </span>
-  );
-
+// Each row is a category label plus a slow marquee of its tools, alternating
+// direction so the block reads as woven rather than as one long ticker. The
+// marquee stops on hover; reduced-motion visitors get wrapped chips instead.
 const ToolboxSection = () => {
   const { home } = HomeContent;
-  const categories = MySkills.tabs.categories;
 
   return (
     <HomeSection id="toolbox" labelledBy="toolbox-title">
@@ -49,30 +41,26 @@ const ToolboxSection = () => {
         }
       />
 
-      <div className="mt-10 grid grid-cols-1 gap-4 s768:grid-cols-2 xl:grid-cols-3">
-        {categories.map((category) => (
+      <div className="reveal mt-10 divide-y divide-bBORDERFADE overflow-hidden rounded-[16px] border border-bBORDERFADE bg-bCARD">
+        {stackCategories.map((category, index) => (
           <div
             key={category.id}
-            className="reveal flex flex-col gap-4 rounded-[12px] border border-bBORDERFADE bg-bCARD p-6"
+            className="grid grid-cols-1 items-center gap-3 px-5 py-5 lg:grid-cols-[180px_1fr] lg:gap-8 lg:px-8"
           >
-            <h3 className="text-base font-semibold">{category.category}</h3>
-            <ul className="flex flex-wrap gap-2">
+            <h3 className="text-sm font-semibold opacity-80">
+              {category.category}
+            </h3>
+            <ChipMarquee
+              label={`${category.category} skills`}
+              reverse={index % 2 === 1}
+              duration={28 + (index % 3) * 6}
+              minItems={8}
+              className="min-w-0"
+            >
               {category.skills.map((skill) => (
-                <li
-                  key={skill.name}
-                  style={skillVars(skill)}
-                  className="flex items-center gap-2 rounded-full border border-bBORDERFADE bg-bCHIP py-1.5 pl-2.5 pr-3.5 text-sm"
-                >
-                  <span
-                    aria-hidden="true"
-                    className="text-[color:var(--skill-light)] dark:text-[color:var(--skill-dark)]"
-                  >
-                    <SkillGlyph skill={skill} />
-                  </span>
-                  {skill.name}
-                </li>
+                <SkillChip key={skill.name} skill={skill} />
               ))}
-            </ul>
+            </ChipMarquee>
           </div>
         ))}
       </div>

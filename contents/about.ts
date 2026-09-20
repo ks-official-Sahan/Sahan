@@ -40,7 +40,7 @@ export const AboutContent = {
       line2: "Software Engineer.",
     },
     description:
-      "Hello, I'm Sahan Sachintha, a full-stack software engineer dedicated to crafting exceptional digital experiences. With expertise in both front-end and back-end development, I bring your ideas to life through innovative software solutions. Feel free to get in touch, and let's create something amazing together.land let's create something amazing",
+      "Hello, I'm Sahan Sachintha, a full-stack software engineer dedicated to crafting exceptional digital experiences. With expertise in both front-end and back-end development, I bring your ideas to life through innovative software solutions. Feel free to get in touch, and let's build something amazing together.",
   },
 
   bento: {

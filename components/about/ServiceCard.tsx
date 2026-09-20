@@ -1,5 +1,5 @@
 import TitleBlock from "@/components/common/TitleBlock";
-import Marquee from "@/components/ui/marquee";
+import ChipMarquee from "@/components/common/ChipMarquee";
 import { cn } from "@/lib/utils";
 import type { Service, ServiceDoneItem } from "@/types/service";
 import Link from "next/link";
@@ -55,19 +55,11 @@ const ServiceCard = ({
           </div>
 
           <div className="rounded-[20px] border border-bBORDERFADE bg-bBENTO_CHIP p-2">
-            {done.list.length > 3 ? (
-              <Marquee className="p-0 [--gap:10px]">
-                {done.list.map((item) => (
-                  <DoneChip key={item.name} item={item} />
-                ))}
-              </Marquee>
-            ) : (
-              <div className="flex flex-wrap gap-[10px]">
-                {done.list.map((item) => (
-                  <DoneChip key={item.name} item={item} />
-                ))}
-              </div>
-            )}
+            <ChipMarquee label={done.title} minItems={4} duration={24}>
+              {done.list.map((item) => (
+                <DoneChip key={item.name} item={item} />
+              ))}
+            </ChipMarquee>
           </div>
         </div>
       )}

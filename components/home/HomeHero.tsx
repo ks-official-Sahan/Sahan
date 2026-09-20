@@ -1,7 +1,6 @@
 import ContactChannels from "@/components/home/ContactChannels";
 import HeroBackdrop from "@/components/home/HeroBackdrop";
 import { HomeContainer, stagger } from "@/components/home/HomeSection";
-import RandomIam from "@/components/home/RandomIam";
 import { BorderBeam } from "@/components/ui/border-beam";
 import { Site } from "@/config/site";
 import { HomeContent } from "@/contents/home";
@@ -10,19 +9,19 @@ import Image from "next/image";
 import Link from "next/link";
 import React from "react";
 
-// One hero, four layouts. The copy stays the same; the arrangement changes
-// with the viewport:
-//   phone   (<640)    text, then a 2-up bento under it
-//   tablet  (640-1023) portrait spans two rows beside the small cards
-//   laptop  (1024+)   text left, bento right, hero fills the screen height
-//   wide    (1536+)   same split, bigger type and a wider container
+// Clean hero: one promise, two actions, one face. Everything else (channels,
+// employer) is quiet supporting detail. The arrangement changes per viewport:
+//   phone   (<640)    copy, wide portrait, channel tiles
+//   tablet  (640-1023) same order, portrait gets a cinematic crop
+//   laptop  (1024+)   copy left, portrait + channels right, fills the screen
+//   wide    (1536+)   larger type, wider container
 const HomeHero = () => {
   const { hero, channels } = HomeContent;
 
   return (
     <section id="hero" aria-labelledby="hero-title" className="w-full">
       <HeroBackdrop>
-        <div className="flex pb-[clamp(3rem,6vw,5rem)] pt-[clamp(6.5rem,12vw,9rem)] lg:min-h-[min(100svh,62rem)] lg:items-center">
+        <div className="flex pb-[clamp(3rem,6vw,5rem)] pt-[clamp(6.5rem,12vw,9rem)] lg:min-h-[min(100svh,60rem)] lg:items-center">
           <HomeContainer>
             <div className="grid grid-cols-1 gap-12 lg:grid-cols-12 lg:items-center lg:gap-10 xl:gap-16">
               {/* COPY */}
@@ -78,19 +77,18 @@ const HomeHero = () => {
                 </div>
               </div>
 
-              {/* BENTO */}
-              <div className="grid grid-cols-2 gap-3 s640:gap-4 lg:col-span-5">
-                {/* portrait */}
+              {/* FACE + DIRECT LINES */}
+              <div className="flex flex-col gap-3 lg:col-span-5">
                 <div
                   style={stagger(2)}
-                  className="hero-rise relative col-span-2 aspect-[5/4] overflow-hidden rounded-[16px] border border-bBORDERFADE bg-bCARD s640:col-span-1 s640:row-span-2 s640:aspect-auto lg:col-span-2 lg:row-span-1 lg:aspect-[16/11] xl:aspect-[16/12]"
+                  className="hero-rise relative aspect-[5/4] overflow-hidden rounded-[20px] border border-bBORDERFADE bg-bCARD s640:aspect-[16/10] lg:aspect-[4/4.4]"
                 >
                   <Image
                     src="/me/sahan.webp"
                     alt={`Portrait of ${Site.authorFullName}`}
                     fill
                     priority
-                    sizes="(min-width: 1536px) 30vw, (min-width: 1024px) 40vw, (min-width: 640px) 45vw, 92vw"
+                    sizes="(min-width: 1536px) 30vw, (min-width: 1024px) 40vw, 92vw"
                     className="object-cover object-top"
                   />
                   <BorderBeam
@@ -99,45 +97,28 @@ const HomeHero = () => {
                     colorFrom="#6bff60"
                     colorTo="#166534"
                   />
-                  <div className="absolute bottom-3 left-3 rounded-[10px] border border-bBORDERFADE bg-bFCARD px-3 py-2 text-[13px] leading-tight shadow-md">
-                    <div className="font-semibold">{Site.myRole}</div>
-                  </div>
-                </div>
-
-                {/* employer */}
-                <a
-                  href={Site.orgUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={stagger(3)}
-                  className="hero-rise press lift arrow-nudge flex min-h-[132px] flex-col justify-between gap-4 rounded-[16px] border border-bBORDERFADE bg-bCARD p-5"
-                >
-                  <span className="text-sm opacity-70">Working with</span>
-                  <span className="text-lg font-semibold leading-tight">
-                    {Site.org}
-                    <span className="sr-only"> {channels.newTab}</span>
-                  </span>
-                  <span className="flex items-center justify-between text-xs opacity-70">
-                    Software Engineer
+                  <a
+                    href={Site.orgUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="press arrow-nudge absolute bottom-3 left-3 right-3 flex items-center justify-between gap-3 rounded-[14px] border border-bBORDERFADE bg-bFCARD px-4 py-3 text-[13px] leading-tight shadow-md s480:right-auto"
+                  >
+                    <span>
+                      <span className="block font-semibold">{Site.myRole}</span>
+                      <span className="block opacity-70">
+                        at {Site.org}
+                        <span className="sr-only"> {channels.newTab}</span>
+                      </span>
+                    </span>
                     <ArrowUpRight
                       size={16}
                       aria-hidden="true"
-                      className="arrow-nudge-icon"
+                      className="arrow-nudge-icon shrink-0"
                     />
-                  </span>
-                </a>
-
-                {/* I'm a ... */}
-                <div style={stagger(4)} className="hero-rise">
-                  <RandomIam />
+                  </a>
                 </div>
 
-                {/* direct lines */}
-                <div
-                  style={stagger(5)}
-                  className="hero-rise col-span-2 flex flex-col gap-3 rounded-[16px] border border-bBORDERFADE bg-bCARD p-4"
-                >
-                  <h2 className="text-sm font-semibold">{channels.title}</h2>
+                <div style={stagger(4)} className="hero-rise">
                   <ContactChannels variant="tiles" />
                 </div>
               </div>
