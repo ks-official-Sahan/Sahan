@@ -48,13 +48,15 @@ const NavBar = ({ title, currentPath, opened, toggle }: NavBarProps) => {
       {/* RIGHT */}
       <div className="hidden-sm-flex-lg items-center gap-6 z-[50]">
         <ThemeSwitch />
-        <Link href={`/contact`} className="md:hidden">
-          <JelloElement>
-            <Button className="text-[14px] font-semibold dark:text-black text-white bg-[#19cf31] dark:bg-[#91FF00] h-[37px] px-[20px] rounded-[15px] flex justify-center items-center">
-              Let&apos;s Talk
-            </Button>
-          </JelloElement>
-        </Link>
+        <JelloElement className="md:hidden">
+          <Button
+            as={Link}
+            href="/contact"
+            className="text-[14px] font-semibold dark:text-black text-white bg-[#19cf31] dark:bg-[#91FF00] h-[37px] px-[20px] rounded-[15px] flex justify-center items-center"
+          >
+            Let&apos;s Talk
+          </Button>
+        </JelloElement>
       </div>
 
       {/* MENUBAR */}

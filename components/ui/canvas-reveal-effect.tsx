@@ -196,6 +196,7 @@ const ShaderMaterial = ({
   const { size } = useThree();
   const ref = useRef<THREE.Mesh>(null);
   const lastFrameTime = useRef(0);
+  const prevMaterial = useRef<THREE.ShaderMaterial>();
 
   useFrame(({ clock }) => {
     if (!ref.current) return;
@@ -256,8 +257,10 @@ const ShaderMaterial = ({
     return preparedUniforms;
   };
 
-  // Shader material
+  // Shader material — dispose the previous instance before creating a new one
+  // to prevent GPU resource leaks on resize (R3F does not auto-dispose primitives).
   const material = useMemo(() => {
+    prevMaterial.current?.dispose();
     const materialObject = new THREE.ShaderMaterial({
       vertexShader: `
       precision mediump float;
@@ -280,8 +283,11 @@ const ShaderMaterial = ({
       blendDst: THREE.OneFactor,
     });
 
+    prevMaterial.current = materialObject;
     return materialObject;
   }, [size.width, size.height, source]);
+
+  useEffect(() => () => prevMaterial.current?.dispose(), []);
 
   return (
     <mesh ref={ref as any}>

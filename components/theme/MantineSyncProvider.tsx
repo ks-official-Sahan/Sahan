@@ -3,6 +3,7 @@
 import { MantineProvider } from "@mantine/core";
 import { useTheme } from "next-themes";
 import { theme } from "@/config/mantine-theme";
+import { useState, useEffect } from "react";
 
 /**
  * next-themes is the single source of truth for light/dark mode (it drives
@@ -11,6 +12,10 @@ import { theme } from "@/config/mantine-theme";
  * rather than letting Mantine manage its own independent color scheme, this
  * derives it from next-themes to avoid the two systems drifting out of sync
  * (which previously caused an `<html>` hydration mismatch).
+ *
+ * The `mounted` guard prevents a FOUC where `resolvedTheme` is undefined on
+ * the first render — without it, Mantine always starts dark regardless of the
+ * user's actual preference.
  */
 export function MantineSyncProvider({
   children,
@@ -18,6 +23,15 @@ export function MantineSyncProvider({
   children: React.ReactNode;
 }) {
   const { resolvedTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) {
+    return <>{children}</>;
+  }
 
   return (
     <MantineProvider

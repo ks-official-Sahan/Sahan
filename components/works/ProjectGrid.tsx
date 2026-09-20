@@ -29,6 +29,7 @@ const ProjectGrid = ({
           <button
             key={item.value}
             type="button"
+            aria-pressed={filter === item.value}
             onClick={() => onFilterChange(item.value)}
             className={cn(
               "rounded-full border px-[20px] py-[6px] text-[13px] font-medium transition-colors",

@@ -17,7 +17,7 @@ const personJsonLd = {
     addressCountry: "LK",
   },
   sameAs: [
-    "https://github.com/ks-official-Sahan",
+    `https://github.com/${SiteMetadata.githubUsername}`,
     "https://www.linkedin.com/in/sahan-sachintha",
     "https://x.com/SahanSubasingha",
   ],

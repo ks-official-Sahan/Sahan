@@ -20,8 +20,8 @@ const ContactDetailsCard = ({
   icon,
   copy = false,
 }: ContactDetailsCardProps) => {
-  const handleCopy = async (event: any) => {
-    const rect = event?.currentTarget?.getBoundingClientRect?.();
+  const handleCopy = async (event: { target: Element }) => {
+    const rect = (event?.target as HTMLElement | undefined)?.getBoundingClientRect?.();
     try {
       await copyToClipboard(value);
       if (rect) {

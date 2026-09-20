@@ -13,7 +13,8 @@ const NavItem = ({
 
   return (
     <Link
-      href={isCurrentPath ? "#" : `/${path}`}
+      href={`/${path}`}
+      aria-current={isCurrentPath ? "page" : undefined}
       className={`
         relative flex items-center justify-center select-none
         rounded-full font-medium text-[13.5px] tracking-[-0.01em]
