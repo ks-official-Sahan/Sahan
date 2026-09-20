@@ -1,3 +1,5 @@
+"use client";
+
 import { UpdatesContent } from "@/contents/updates";
 import { Button } from "@nextui-org/react";
 import React from "react";

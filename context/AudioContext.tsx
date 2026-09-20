@@ -1,5 +1,5 @@
 "use client";
-import { createContext, useState, useContext, useEffect } from "react";
+import { createContext, useState, useContext, useEffect, useRef } from "react";
 
 type AudioContextType = {
   isPlaying: boolean;
@@ -10,20 +10,28 @@ type AudioContextType = {
 const AudioContext = createContext<AudioContextType | undefined>(undefined);
 
 export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
-  const [bgSound, setBgSound] = useState<HTMLAudioElement | null>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
-
-  // Load audio state and currentTime from localStorage on mount
-  useEffect(() => {
+  const [bgSound] = useState<HTMLAudioElement | null>(() => {
+    if (typeof window === "undefined") return null;
     const audio = new Audio("/aud/cts.mp3");
     audio.loop = true;
     audio.volume = 0.2;
-    setBgSound(audio);
+    return audio;
+  });
+  const [isPlaying, setIsPlaying] = useState(false);
+  const isPlayingRef = useRef(isPlaying);
+
+  useEffect(() => {
+    isPlayingRef.current = isPlaying;
+  }, [isPlaying]);
+
+  // Restore playback state from localStorage and wire up play/pause listeners.
+  useEffect(() => {
+    if (!bgSound) return;
+    const audio = bgSound;
 
     const savedIsPlaying = localStorage.getItem("isPlaying");
     const savedCurrentTime = localStorage.getItem("currentTime");
 
-    // Event listeners to handle audio play/pause and update the `isPlaying` state
     const handlePlay = () => {
       setIsPlaying(true);
     };
@@ -47,18 +55,15 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
       });
     }
 
-    // Clean up on component unmount
     return () => {
       // Store the current time and play state before unmounting
-      if (audio) {
-        localStorage.setItem("currentTime", audio.currentTime.toString());
-        localStorage.setItem("isPlaying", isPlaying.toString());
-        audio.pause();
-      }
+      localStorage.setItem("currentTime", audio.currentTime.toString());
+      localStorage.setItem("isPlaying", isPlayingRef.current.toString());
+      audio.pause();
       audio.removeEventListener("play", handlePlay);
       audio.removeEventListener("pause", handlePause);
     };
-  }, []);
+  }, [bgSound]);
 
   // Store the currentTime in localStorage whenever audio time updates
   useEffect(() => {

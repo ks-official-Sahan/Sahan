@@ -2,8 +2,8 @@
 import { copyToClipboard } from "@/utils/clipboardUtils";
 import { Button } from "@nextui-org/react";
 import { Clipboard } from "lucide-react";
-import React, { useEffect, useState } from "react";
-import { ConfettiButton } from "../magicui/confetti";
+import React from "react";
+import confetti from "canvas-confetti";
 
 interface ContactDetailsCardProps {
   title: string;
@@ -20,15 +20,16 @@ const ContactDetailsCard = ({
   icon,
   copy = false,
 }: ContactDetailsCardProps) => {
-  const [message, setMessage] = useState("Hello I am Sahan,");
-
-  useEffect(() => {
-    setMessage(value);
-  }, [value]);
-
-  const handleCopy = async () => {
+  const handleCopy = async (event: React.MouseEvent<HTMLButtonElement>) => {
     try {
-      await copyToClipboard(message);
+      await copyToClipboard(value);
+      const rect = event.currentTarget.getBoundingClientRect();
+      confetti({
+        origin: {
+          x: (rect.left + rect.width / 2) / window.innerWidth,
+          y: (rect.top + rect.height / 2) / window.innerHeight,
+        },
+      });
     } catch (err) {
       alert("Failed to copy text to clipboard." + err);
     }
@@ -50,11 +51,13 @@ const ContactDetailsCard = ({
       {copy && (
         <Button
           onClick={handleCopy}
+          aria-label={`Copy ${title.toLowerCase()}`}
           className="w-[34px] group min-w-[34px] flex justify-center items-center h-[30px] border rounded-[12px] bg-[#fafafa] dark:bg-[#232323] absolute top-[10px] right-[10px]"
         >
-          <ConfettiButton className="bg-transparent dark:text-white text-black group-hover:text-white group-hover:dark:text-black">
-            <Clipboard size={14} />
-          </ConfettiButton>
+          <Clipboard
+            size={14}
+            className="dark:text-white text-black group-hover:text-white group-hover:dark:text-black"
+          />
         </Button>
       )}
     </div>

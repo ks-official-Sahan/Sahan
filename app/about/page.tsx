@@ -1,3 +1,5 @@
+"use client";
+
 import WrapperBody from "@/components/wrappers/WrapperBody";
 import { Site, SiteMetadata } from "@/config/site";
 import { righteous } from "@/lib/fonts";

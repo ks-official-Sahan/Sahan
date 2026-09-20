@@ -278,8 +278,12 @@ export default config;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function addVariablesForColors({ addBase, theme }: any) {
   const allColors = flattenColorPalette(theme("colors"));
+  // NextUI defines some opacity-aware colors (e.g. foreground-50) as functions
+  // rather than strings; only strings are valid CSS custom property values.
   const newVars = Object.fromEntries(
-    Object.entries(allColors).map(([key, val]) => [`--${key}`, val])
+    Object.entries(allColors)
+      .filter(([, val]) => typeof val === "string")
+      .map(([key, val]) => [`--${key}`, val])
   );
 
   addBase({

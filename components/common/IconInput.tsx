@@ -84,7 +84,9 @@ const IconInput: React.FC<IconInputProps> = ({
         <div
           className={`w-[32px] h-[32px] flex justify-center items-center text-[#969696] border bg-white dark:bg-[#232323] rounded-[8px] absolute left-[8px] top-[-18px] ${iconClassName}`}
         >
-          {React.cloneElement(icon as React.ReactElement, { size })}
+          {React.cloneElement(icon as React.ReactElement<{ size?: number }>, {
+            size,
+          })}
         </div>
       )}
 
@@ -92,7 +94,9 @@ const IconInput: React.FC<IconInputProps> = ({
         <div
           className={`w-[32px] h-[32px] flex justify-center items-center text-[#969696] border bg-white dark:bg-[#232323] rounded-[8px] absolute right-[8px] top-[-18px] ${iconClassName}`}
         >
-          {React.cloneElement(icon as React.ReactElement, { size })}
+          {React.cloneElement(icon as React.ReactElement<{ size?: number }>, {
+            size,
+          })}
         </div>
       )}
 
