@@ -19,11 +19,12 @@ const SlAnimation = dynamic<SlAnimationProps>(() => import('@shoelace-style/shoe
 
 interface RubberBandElementProps {
   children: React.ReactNode;
+  className?: string;
 }
 
-export const JelloElement = ({ children }: RubberBandElementProps) => {
+export const JelloElement = ({ children, className }: RubberBandElementProps) => {
   return (
-    <div>
+    <div className={className}>
       <SlAnimation name="jello" duration={2000} iterations={1} delay={1000} play>
         {children}
       </SlAnimation>

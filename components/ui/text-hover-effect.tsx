@@ -14,7 +14,7 @@ export const TextHoverEffect = ({
   const [cursor, setCursor] = useState({ x: 0, y: 0 });
   const [hovered, setHovered] = useState(false);
   const [maskPosition, setMaskPosition] = useState({ cx: "50%", cy: "50%" });
-  const rafId = useRef<number>();
+  const rafId = useRef<number | null>(null);
 
   useEffect(() => {
     if (svgRef.current && cursor.x !== null && cursor.y !== null) {

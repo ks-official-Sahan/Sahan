@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils";
  
 /* eslint-disable react-hooks/exhaustive-deps */
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import React, { useMemo, useRef } from "react";
+import React, { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 
 export const CanvasRevealEffect = ({
@@ -196,7 +196,7 @@ const ShaderMaterial = ({
   const { size } = useThree();
   const ref = useRef<THREE.Mesh>(null);
   const lastFrameTime = useRef(0);
-  const prevMaterial = useRef<THREE.ShaderMaterial>();
+  const prevMaterial = useRef<THREE.ShaderMaterial | null>(null);
 
   useFrame(({ clock }) => {
     if (!ref.current) return;
