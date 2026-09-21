@@ -1,3 +1,5 @@
+const PHONE = "+94768701148";
+
 export const Site = {
   siteName: "Sahan",
   fooTxt: "Sahan.",
@@ -8,13 +10,19 @@ export const Site = {
   authorFullName: "Sahan Sachintha",
   authorPortfolio: "#",
   email: "ks.official.sahan@gmail.com",
-  phone: "+94768701148",
+  phone: PHONE,
   phoneDisplay: "+94 76-870-1148",
   location: "Sri Lanka - Available for Remote Work",
   org: "Datalake Creative",
   orgUrl: "https://datalakecreative.com",
   myRole: "Full-Stack Software Engineer",
   companyRole: "Software Engineer at Datalake Creative Ltd",
+  // Both links are built from the phone number. Swap `telegramUrl` for a
+  // https://t.me/<username> link if a public Telegram username exists.
+  whatsAppUrl: `https://wa.me/${PHONE.replace(/\D/g, "")}?text=${encodeURIComponent(
+    "Hi Sahan, I found your portfolio and would like to talk about a project."
+  )}`,
+  telegramUrl: `https://t.me/${PHONE}`,
 };
 
 export const SiteMetadata = {

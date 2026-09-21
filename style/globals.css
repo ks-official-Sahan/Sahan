@@ -44,6 +44,27 @@
     );
     --text-secondary: #9c9c9c;
     --ct-shadow: inset 0px -6px 8px 0px rgba(0, 0, 0, 0.112);
+
+    /* Surface tokens (ported from neth, with real light-mode values). */
+    --b-bg: #ffffff;
+    --b-card: #f7f7f7;
+    --b-fcard: #fafafa;
+    --b-bento-card: #f7f7f7;
+    --b-bento-chip: #efefef;
+    --b-border-fade: #00000014;
+    --b-border-shade: #0000000f;
+    --b-chip: #ececec;
+    --b-frame: #ececec;
+    --b-placeholder: #e9e9e9;
+    --b-linkholder: #e6e6e6;
+    --b-icon-holder: #e2e2e2;
+    --b-card-shade: #f2f2f2;
+    --b-card-shade-bold: #ebebeb;
+    --b-chip-selected: #15803d;
+    /* #166534 on the tinted chip is 6.3:1; the old #15803d was 4.19:1 and
+       failed WCAG AA for 14px text. */
+    --b-icon: #166534;
+    --b-icon-fade: #1665341f;
   }
 
   .dark {
@@ -80,6 +101,24 @@
     );
     --text-secondary: #9c9c9c;
     --ct-shadow: inset 0px -12px 14px 0px rgba(0, 0, 0, 0.3);
+
+    --b-bg: #111111;
+    --b-card: #1a1a1a;
+    --b-fcard: #181818;
+    --b-bento-card: #171717;
+    --b-bento-chip: #161616;
+    --b-border-fade: #ffffff14;
+    --b-border-shade: #ffffff0f;
+    --b-chip: #232323;
+    --b-frame: #1f1f1f;
+    --b-placeholder: #1e1e1e;
+    --b-linkholder: #1b1b1b;
+    --b-icon-holder: #272727;
+    --b-card-shade: #141414;
+    --b-card-shade-bold: #121212;
+    --b-chip-selected: #91ff00;
+    --b-icon: #6bff60;
+    --b-icon-fade: #6bff601f;
   }
 }
 
@@ -112,6 +151,237 @@
 
   .responsive-container {
     @apply w-full px-3 xs:w-full xs:px-3 sm:px-4 sm:box-border sm:w-[90%] md:w-[85%] lg:w-[80%] xl:w-[70%] portrait:w-[95%] landscape:w-[85%];
+  }
+}
+
+/* Home motion + interaction primitives.
+   Rules: only transform/opacity, UI under 300ms (entrances are the exception,
+   they run once), strong ease-out, hover gated to real pointers, and reduced
+   motion swaps movement for a plain fade instead of removing feedback. */
+:root {
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1); /* shared by home, about and marquees */
+}
+
+html {
+  /* Keep focused and anchored content clear of the sticky nav (WCAG 2.4.11). */
+  scroll-padding-top: 6rem;
+}
+
+@keyframes home-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes home-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes home-ping {
+  0% {
+    transform: scale(1);
+    opacity: 0.6;
+  }
+  80%,
+  100% {
+    transform: scale(2.4);
+    opacity: 0;
+  }
+}
+
+@layer utilities {
+  /* Hero entrance: staggered by --i, plays once on load. `both` keeps the
+     element visible if the animation never runs. */
+  .hero-rise {
+    animation: home-rise 600ms var(--ease-out) both;
+    animation-delay: calc(var(--i, 0) * 70ms);
+  }
+
+  /* Availability dot: a soft ring that says "live" without moving layout. */
+  .status-ping::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 9999px;
+    background: currentColor;
+    animation: home-ping 2.2s var(--ease-out) infinite;
+  }
+
+  /* Press feedback for every tappable card and button. */
+  .press {
+    transition: transform 160ms var(--ease-out);
+  }
+  .press:active {
+    transform: scale(0.97);
+  }
+
+  /* Hover lift, only on devices that can actually hover. */
+  @media (hover: hover) and (pointer: fine) {
+    .lift {
+      transition:
+        transform 200ms var(--ease-out),
+        border-color 200ms ease;
+    }
+    .lift:hover {
+      transform: translateY(-3px);
+      border-color: var(--b-icon);
+    }
+    .arrow-nudge:hover .arrow-nudge-icon,
+    .arrow-nudge:focus-visible .arrow-nudge-icon {
+      transform: translate(2px, -2px);
+    }
+  }
+  .arrow-nudge-icon {
+    transition: transform 200ms var(--ease-out);
+  }
+
+  /* Scroll reveal, driven by the compositor where supported. Content is fully
+     visible by default, so browsers without scroll timelines lose nothing. */
+  @supports (animation-timeline: view()) {
+    .reveal {
+      animation: home-rise linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 25%;
+    }
+  }
+}
+
+/* Hero atmosphere. Three quiet layers: an accent glow, a masked grid, and a
+   pointer spotlight that only exists on devices with a real hover pointer. */
+.hero-glow {
+  background:
+    radial-gradient(
+      50% 60% at 82% 18%,
+      color-mix(in srgb, var(--b-icon) 22%, transparent),
+      transparent 70%
+    ),
+    radial-gradient(
+      40% 50% at 8% 88%,
+      color-mix(in srgb, var(--b-icon) 10%, transparent),
+      transparent 70%
+    );
+  animation: glow-drift 22s var(--ease-out) infinite alternate;
+}
+
+.hero-grid {
+  background-image:
+    linear-gradient(to right, var(--b-border-fade) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--b-border-fade) 1px, transparent 1px);
+  background-size: 56px 56px;
+  mask-image: radial-gradient(70% 60% at 60% 35%, #000 20%, transparent 75%);
+  -webkit-mask-image: radial-gradient(
+    70% 60% at 60% 35%,
+    #000 20%,
+    transparent 75%
+  );
+}
+
+.hero-spotlight {
+  opacity: 0;
+  background: radial-gradient(
+    460px circle at var(--mx, 50%) var(--my, 30%),
+    color-mix(in srgb, var(--b-icon) 14%, transparent),
+    transparent 65%
+  );
+  transition: opacity 300ms ease;
+}
+@media (hover: hover) and (pointer: fine) {
+  .hero-root:hover .hero-spotlight {
+    opacity: 1;
+  }
+}
+
+/* About hero runner: one lap across the banner, then again. Container units
+   (the banner is `container-type: inline-size`) keep the distance in step with
+   the banner width at every breakpoint. */
+@keyframes runner-travel {
+  from {
+    transform: translateX(-4rem);
+  }
+  to {
+    transform: translateX(calc(100cqw + 1rem));
+  }
+}
+.runner-travel {
+  animation: runner-travel 22s linear infinite;
+}
+
+@keyframes glow-drift {
+  from {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  to {
+    transform: translate3d(-2%, 3%, 0) scale(1.06);
+  }
+}
+
+/* Word swap in the "I'm a ..." card. A touch of blur hides the seam between
+   the old and new word (Emil: blur bridges a crossfade). */
+@keyframes home-swap {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+    filter: blur(3px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: blur(0);
+  }
+}
+.swap-in {
+  animation: home-swap 240ms var(--ease-out) both;
+}
+
+/* Detail dialogs (works page): lock the page behind an open modal. */
+body:has(dialog[open]) {
+  overflow: hidden;
+}
+.project-dialog {
+  overscroll-behavior: contain;
+}
+
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-glow {
+    animation: none;
+  }
+  .swap-in {
+    animation-name: home-fade;
+  }
+  .hero-rise {
+    animation-name: home-fade;
+    animation-duration: 300ms;
+    animation-delay: 0ms;
+  }
+  .reveal {
+    animation-name: home-fade;
+  }
+  .status-ping::after,
+  .animate-border-beam {
+    animation: none;
+  }
+  .press:active {
+    transform: none;
+  }
+  .lift:hover {
+    transform: none;
   }
 }
 

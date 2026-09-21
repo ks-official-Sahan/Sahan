@@ -23,8 +23,16 @@ const config = {
       xs: { max: "479px" }, // Very small/old mobile phones (e.g., iPhone 5, older Android phones)
       sm: { max: "767px" }, // Small tablets, large phones in landscape
       md: { min: "768px", max: "1023px" }, // Tablets and small laptops (e.g., iPad Pro, smaller Chromebooks)
+      // Plain min-width steps for mobile-first layouts. Tailwind's arbitrary
+      // `min-[..]` variants are not generated when the screens above mix in
+      // max-width entries, and the order here must stay ascending so a wider
+      // rule always overrides a narrower one.
+      s480: "480px",
+      s640: "640px",
+      s768: "768px",
       lg: "1024px", // Laptops and small desktops (e.g., MacBook Pro, 13" laptops)
       xl: "1536px", // Larger desktops, 4K monitors
+      s1920: "1920px", // Wide and ultrawide monitors
     },
     // screens: {
     //   // 1. Old low-end mobile devices
@@ -70,6 +78,23 @@ const config = {
         "color-4": "hsl(var(--color-4))",
         "color-5": "hsl(var(--color-5))",
         secondaryT: "var(--text-secondary)",
+        bBG: "var(--b-bg)",
+        bBORDERFADE: "var(--b-border-fade)",
+        bBORDER_SHADE: "var(--b-border-shade)",
+        bCARD: "var(--b-card)",
+        bFCARD: "var(--b-fcard)",
+        bBENTO_CARD: "var(--b-bento-card)",
+        bBENTO_CHIP: "var(--b-bento-chip)",
+        bCARD_SHADE: "var(--b-card-shade)",
+        bCARD_SHADE_BOLD: "var(--b-card-shade-bold)",
+        bCHIP: "var(--b-chip)",
+        bFRAME: "var(--b-frame)",
+        bPLACEHOLDER: "var(--b-placeholder)",
+        bICON_HOLDER: "var(--b-icon-holder)",
+        bLINKHOLDER: "var(--b-linkholder)",
+        bCHIPSELECTED: "var(--b-chip-selected)",
+        bICON: "var(--b-icon)",
+        bICON_FADE: "var(--b-icon-fade)",
         border: "var(--evision-br)",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",

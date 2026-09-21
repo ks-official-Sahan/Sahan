@@ -1,5 +1,8 @@
 import { ExperienceEntry } from "@/types/experience";
 
+// Highlights are outcome-led and specific on purpose: what the team could do
+// because of the work, not a list of what was built. The projects themselves
+// live on the works page (`contents/projects.ts`).
 export const Experience: ExperienceEntry[] = [
   {
     company: "Datalake Creative Ltd",
@@ -10,27 +13,33 @@ export const Experience: ExperienceEntry[] = [
     location: "United Kingdom (Remote)",
     current: true,
     highlights: [
-      "Engineering across a portfolio of cross-platform products (Android, iOS, web, and web-admin), including Wizzie Words: Dictionary, Reaktu, Channel Direct, Meto Finance, and Hatchy.",
-      "Work spans dashboards and admin panels, property-finder APIs, AI-assisted content tooling, multi-account Cloudinary media management, Redis caching, and database backup/sync with fallback strategies.",
-      "Built security-hardened flows including MFA, and content management tooling with versioned snapshots and scheduled cron jobs.",
+      "Take products from first commit to the app stores across Android, iOS, web and admin, so real users have them in their hands.",
+      "Reliability is the feature: Redis caching, database backup and sync with fallbacks, and multi-factor authentication keep products fast, available and safe.",
+      "Give non-technical teams control: AI-assisted content tooling, versioned content snapshots and scheduled jobs let them publish with confidence.",
     ],
   },
   {
     company: "Evision IT PVT Ltd",
+    companyUrl: "https://evision-it.com",
     role: "Software Engineer",
     period: "2025",
     type: "contract",
     location: "Sri Lanka",
-    highlights: ["Contract engagement building web applications."],
+    highlights: [
+      "Turned a finance workflow into a clickable demo, so stakeholders could judge the product by using it, not by reading a spec.",
+    ],
   },
   {
     company: "CodyZea PVT Ltd",
+    companyUrl:
+      "https://web.facebook.com/people/Cody-Zea-Software-Solutions/61569599424974/",
     role: "Software Engineer",
     period: "2024",
     type: "contract",
     location: "Sri Lanka",
     highlights: [
-      "Led team projects on a contract engagement, including occasional training sessions for team members.",
+      "Led the team, not just the code: planned client projects and steered them from kickoff to launch.",
+      "Ran mentoring programs for new recruits at a startup, so newcomers could contribute to real client work sooner.",
     ],
   },
   {
@@ -39,15 +48,20 @@ export const Experience: ExperienceEntry[] = [
     period: "2024",
     type: "part-time",
     location: "Sri Lanka",
-    highlights: ["Part-time role combined with an internship."],
+    highlights: [
+      "Combined a part-time role with an internship, building web and mobile apps end to end alongside a team, from a blank repo to a working product.",
+    ],
   },
   {
     company: "Quantum Cod PVT Ltd",
+    companyUrl: "https://quantumcod.com",
     role: "Software Engineer",
     period: "2023",
     type: "contract",
     location: "Sri Lanka",
-    highlights: ["Contract engagement building point-of-sale (POS) systems."],
+    highlights: [
+      "Built the systems that run a shop's day, checkout, inventory and reporting, from scratch, plus company websites that look sharp on every screen.",
+    ],
   },
   {
     company: "Freelance",
@@ -56,7 +70,7 @@ export const Experience: ExperienceEntry[] = [
     type: "freelance",
     location: "Remote",
     highlights: [
-      "Delivered client websites including Valorem, Valorem Real Estate, Questside, and Lakeview Villa Tangalle.",
+      "Trusted by clients in the UAE and Sri Lanka for websites built to turn visitors into enquiries and bookings.",
     ],
   },
 ];

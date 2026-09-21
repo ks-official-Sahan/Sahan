@@ -1,62 +1,40 @@
-import Particals from "@/components/custom/Particals";
-import FilterSection from "@/components/updates/FilterSection";
-import UpdatesCard from "@/components/updates/UpdatesCard";
-import WrapperBody from "@/components/wrappers/WrapperBody";
+import FinalCta from "@/components/home/FinalCta";
+import HeroBackdrop from "@/components/home/HeroBackdrop";
+import { HomeContainer, stagger } from "@/components/home/HomeSection";
+import UpdatesExplorer from "@/components/updates/UpdatesExplorer";
 import { UpdatesContent } from "@/contents/updates";
-import { righteous } from "@/lib/fonts";
- 
-import { cn } from "@/lib/utils";
 import React from "react";
 
-const Updates = () => {
-  return (
-    <div className="min-h-screen w-full flex flex-col items-center pb-[60px] relative">
-      <Particals />
-
-      {/* TOP */}
-      <section className="flex flex-col items-center pt-[100px] lg:pt-[151px] text-center">
-        <WrapperBody>
-          <div className="w-full flex flex-col items-center">
-            {/* TITLE */}
-            <div
-              className={cn(
-                righteous.className,
-                "flex items-center uppercase text-[40px] gap-2 font-bold"
-              )}
-            >
-              <div>{UpdatesContent.title.w1}</div>
-              <div className="text-[#91FF00]">{UpdatesContent.title.w2}</div>
+const Updates = () => (
+  <div className="w-full overflow-hidden font-medium">
+    <section aria-labelledby="updates-title" className="w-full">
+      <HeroBackdrop>
+        <div className="flex pb-[clamp(2.5rem,5vw,4rem)] pt-[clamp(6.5rem,12vw,9rem)]">
+          <HomeContainer>
+            <div className="flex flex-col items-start gap-6">
+              <h1
+                id="updates-title"
+                style={stagger(0)}
+                className="hero-rise max-w-[16ch] text-balance text-[length:clamp(2.25rem,1.1rem+4.6vw,5rem)] font-semibold leading-[1.04] tracking-[-0.03em]"
+              >
+                {UpdatesContent.title.w1}{" "}
+                <span className="text-bICON">{UpdatesContent.title.w2}</span>
+              </h1>
+              <p
+                style={stagger(1)}
+                className="hero-rise max-w-[52ch] text-[length:clamp(1.05rem,0.9rem+0.5vw,1.3rem)] leading-relaxed opacity-70"
+              >
+                {UpdatesContent.subtitle}
+              </p>
             </div>
+          </HomeContainer>
+        </div>
+      </HeroBackdrop>
+    </section>
 
-            {/* SUB-TITLE */}
-            <div className="text-[18px] font-medium opacity-65">
-              <div>{UpdatesContent.subtitle}</div>
-            </div>
-          </div>
-        </WrapperBody>
-      </section>
-
-      {/* CONTENT */}
-      <section className="flex flex-col items-center pt-[30px] lg:pt-[80px]">
-        <WrapperBody>
-          <div className="flex justify-center items-center flex-col lg:flex-row lg:items-start lg:justify-end w-full ">
-            {/* FILTER SECTION */}
-            <FilterSection className="hidden sm:flex md:flex" />
-
-            {/* POST CARDS */}
-            <div className="flex flex-col items-center gap-[24px] z-[100] w-full lg:w-9/12">
-              {UpdatesContent.posts.map((post, index) => (
-                <UpdatesCard {...post} key={index} />
-              ))}
-            </div>
-
-            {/* FILTER SECTION */}
-            <FilterSection className="flex sm:hidden md:hidden" />
-          </div>
-        </WrapperBody>
-      </section>
-    </div>
-  );
-};
+    <UpdatesExplorer />
+    <FinalCta />
+  </div>
+);
 
 export default Updates;

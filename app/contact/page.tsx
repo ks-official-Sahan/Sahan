@@ -1,101 +1,113 @@
-import IconInput from "@/components/common/IconInput";
-import ContactDetailsBox from "@/components/contact/ContactDetailsBox";
 import ContactDetailsCard from "@/components/contact/ContactDetailsCard";
+import ContactForm from "@/components/contact/ContactForm";
 import SocialMedia from "@/components/custom/contact/SocialMedia";
-import { RainbowButton } from "@/components/magicui/rainbow-button";
-import WrapperBody from "@/components/wrappers/WrapperBody";
-import { TopicInputOptions } from "@/contents/contact";
+import HeroBackdrop from "@/components/home/HeroBackdrop";
+import { HomeContainer, stagger } from "@/components/home/HomeSection";
+import ProcessSection from "@/components/home/ProcessSection";
 import { Site } from "@/config/site";
-import {
-  Mail,
-  MapPin,
-  MessageCircle,
-  PhoneIcon,
-  Shapes,
-  User,
-} from "lucide-react";
+import { ContactContent } from "@/contents/contact";
+import { IconBrandTelegram, IconBrandWhatsapp } from "@tabler/icons-react";
+import { Mail, MapPin, Phone } from "lucide-react";
 import React from "react";
 
 const Contact = () => {
+  const { hero, tips } = ContactContent;
+
   return (
-    <div className="w-full min-h-screen ">
-      <section className="w-full from-[#f7f7f7] to-white dark:from-[#11111112] dark:to-[#00000012] pt-[171px] pb-20 min-h-[720px] border-b  bg-gradient-to-b ct-box">
-        <WrapperBody>
-          <div className="w-full flex sm:flex-col md:flex-col items-center justify-between gap-[80px]">
-            {/* LEFT */}
-            <div className="flex flex-col justify-center items-center">
-              <div className="text-[40px] font-bold">Let’s Collaborate!</div>
-              <div className="flex flex-col text-secondaryT pt-3">
-                <div>Got a question or a project in mind? </div>
-                <div>Chat with my AI or leave me a message!</div>
-              </div>
-
-              <div className="pt-[68px]">
-                <ContactDetailsBox>
-                  <ContactDetailsCard
-                    copy
-                    icon={<Mail size={24} />}
-                    title="Email"
-                    value={Site.email}
+    <div className="w-full overflow-hidden font-medium">
+      <section aria-labelledby="contact-title" className="w-full">
+        <HeroBackdrop>
+          <div className="flex pb-[clamp(2.5rem,5vw,4rem)] pt-[clamp(6.5rem,12vw,9rem)]">
+            <HomeContainer>
+              <div className="flex flex-col items-start gap-6">
+                <p
+                  style={stagger(0)}
+                  className="hero-rise inline-flex items-center gap-3 rounded-full border border-bBORDERFADE bg-bCHIP py-2 pl-3 pr-4 text-sm font-medium"
+                >
+                  <span
+                    aria-hidden="true"
+                    className="status-ping relative h-2.5 w-2.5 rounded-full bg-bICON text-bICON"
                   />
-                  <ContactDetailsCard
-                    copy
-                    icon={<PhoneIcon size={24} />}
-                    title="Phone Number"
-                    value={Site.phone}
-                    displayValue={Site.phoneDisplay}
-                  />
-                  <ContactDetailsCard
-                    icon={<MapPin size={24} />}
-                    title="Location"
-                    value={Site.location}
-                  />
-                </ContactDetailsBox>
+                  {hero.status}
+                </p>
+                <h1
+                  id="contact-title"
+                  style={stagger(1)}
+                  className="hero-rise max-w-[20ch] text-balance text-[length:clamp(2.25rem,1.1rem+4.6vw,5rem)] font-semibold leading-[1.04] tracking-[-0.03em]"
+                >
+                  {hero.title}
+                </h1>
+                <p
+                  style={stagger(2)}
+                  className="hero-rise max-w-[52ch] text-[length:clamp(1.05rem,0.9rem+0.5vw,1.3rem)] leading-relaxed opacity-70"
+                >
+                  {hero.description}
+                </p>
               </div>
-            </div>
-
-            {/* RIGHT */}
-            <div className="w-full max-w-[556px] flex flex-col gap-[48px] px-5 justify-center items-center">
-              <div className="flex sm:flex-col items-center gap-[20px] w-full">
-                <IconInput
-                  icon={<User size={16} />}
-                  placeholder="Your First Name"
-                />
-                <IconInput
-                  icon={<User size={16} />}
-                  placeholder="Your Last Name"
-                />
-              </div>
-              <div className="flex sm:flex-col items-center gap-[20px] w-full">
-                <IconInput
-                  inputType="email"
-                  icon={<Mail size={16} />}
-                  placeholder="example@domain.com"
-                />
-                <IconInput
-                  type="select"
-                  icon={<Shapes size={16} />}
-                  placeholder="Select Your Topic"
-                  options={TopicInputOptions}
-                  optionTitle="Topic"
-                />
-              </div>
-              <div className="flex w-full flex-col gap-[30px]">
-                <IconInput
-                  type="textarea"
-                  icon={<MessageCircle size={16} />}
-                  className="min-h-[160px]"
-                  placeholder="Your Message"
-                />
-                <RainbowButton>Send Message</RainbowButton>
-              </div>
-            </div>
+            </HomeContainer>
           </div>
-        </WrapperBody>
+        </HeroBackdrop>
       </section>
 
-      {/* SOCIAL MEDIA */}
+      <section aria-label="Contact details and form" className="w-full">
+        <HomeContainer>
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-[0.85fr_1.15fr] lg:items-start lg:gap-8">
+            <div className="flex flex-col gap-3">
+              <ContactDetailsCard
+                copy
+                href={`mailto:${Site.email}`}
+                icon={<Mail size={20} />}
+                title="Email"
+                value={Site.email}
+              />
+              <ContactDetailsCard
+                copy
+                href={`tel:${Site.phone}`}
+                icon={<Phone size={20} />}
+                title="Phone"
+                value={Site.phone}
+                displayValue={Site.phoneDisplay}
+              />
+              <ContactDetailsCard
+                external
+                href={Site.whatsAppUrl}
+                icon={<IconBrandWhatsapp size={20} />}
+                title="WhatsApp"
+                value={Site.phone}
+                displayValue="Chat now"
+              />
+              <ContactDetailsCard
+                external
+                href={Site.telegramUrl}
+                icon={<IconBrandTelegram size={20} />}
+                title="Telegram"
+                value={Site.phone}
+                displayValue="Message me"
+              />
+              <ContactDetailsCard
+                icon={<MapPin size={20} />}
+                title="Location"
+                value={Site.location}
+              />
+
+              <div className="mt-2 rounded-[16px] border border-bBORDERFADE bg-bCARD p-6">
+                <h2 className="text-base font-semibold">{tips.title}</h2>
+                <ul className="mt-3 list-disc space-y-2 pl-5 text-[15px] leading-relaxed opacity-80">
+                  {tips.items.map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+
+            <ContactForm />
+          </div>
+        </HomeContainer>
+      </section>
+
       <SocialMedia />
+      <ProcessSection />
+      <div className="pb-[clamp(4rem,8vw,7rem)]" />
     </div>
   );
 };
