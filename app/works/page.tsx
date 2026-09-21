@@ -4,18 +4,18 @@ import HeroBackdrop from "@/components/home/HeroBackdrop";
 import { HomeContainer, stagger } from "@/components/home/HomeSection";
 import WorksBehind from "@/components/works/WorksBehind";
 import WorksExplorer from "@/components/works/WorksExplorer";
-import { Projects } from "@/contents/projects";
+import { Projects, teamOf } from "@/contents/projects";
 import { WorksContent } from "@/contents/works";
 import React from "react";
 
 // Numbers come straight from the project list, so they can never drift.
 const stats = [
   { value: Projects.length, label: "Projects" },
-  { value: Projects.filter((p) => p.url).length, label: "Live websites" },
   {
-    value: new Set(Projects.flatMap((p) => p.platforms ?? [])).size,
-    label: "Platforms",
+    value: Projects.filter((p) => p.status === "live").length,
+    label: "Live right now",
   },
+  { value: new Set(Projects.map(teamOf)).size, label: "Teams and clients" },
 ];
 
 const Works = () => {

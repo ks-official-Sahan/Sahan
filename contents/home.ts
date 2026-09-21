@@ -28,11 +28,11 @@ const questions: FAQItem[] = [
     answer: {
       intro: "My recent work spans a few different domains:",
       points: [
-        "Real estate: brand and property-listing websites",
-        "Finance and productivity: Meto Finance and Hatchy",
-        "Reference and language tools: the Wizzie Words dictionary",
-        "Hospitality: a booking-focused villa website",
-        "Retail: a point-of-sale system",
+        "Real estate: brokerage and property-deal websites in the UAE",
+        "Consumer apps: Wizzie Words (a dictionary) and Reaktu (a social platform), live in the app stores",
+        "Finance and productivity: Meto, a finance app coming soon, and Hatchy, a project management tool",
+        "Hospitality: booking-focused villa websites",
+        "Retail and operations: point-of-sale and inventory management systems",
       ],
       outro: "The Works page has the full list.",
     },
@@ -68,7 +68,7 @@ const questions: FAQItem[] = [
     question: "Can you build custom software for businesses?",
     answer: {
       intro:
-        "Yes. I've delivered client websites as a freelancer, built a point-of-sale system during a contract engagement, and I work on commercial cross-platform products as part of the Datalake Creative engineering team.",
+        "Yes. I've delivered client websites as a freelancer, built point-of-sale and inventory systems from scratch on contract, led small teams on client projects, and I work on cross-platform products as part of the Datalake Creative engineering team.",
     },
   },
   {

@@ -5,7 +5,7 @@ export const WorksContent = {
     status: "Products and client sites",
     title: "Work I have built and shipped.",
     description:
-      "Products built with a team, and websites delivered for clients. Open any project for the details.",
+      "App-store products, client websites and the business systems behind them, such as POS and inventory. Open any project for its links and the story.",
   },
   // Same idea as the neth works page (two kinds of work), matched to the kinds
   // of work that actually exist here. `param` keeps old ?wt= links working.
@@ -35,7 +35,10 @@ export const WorksContent = {
       "Versioned content snapshots",
       "Scheduled cron jobs",
       "Client websites",
-      "Point-of-sale system",
+      "Booking-focused sites",
+      "Point-of-sale systems",
+      "Inventory management",
+      "Learning management system",
     ],
     // Looked up by name in `contents/skills.ts`.
     stack: [

@@ -4,7 +4,7 @@ import { HomeContainer } from "@/components/home/HomeSection";
 import ProjectCard from "@/components/works/ProjectCard";
 import { platformLabels } from "@/components/works/ProjectPreview";
 import { WorksContent } from "@/contents/works";
-import { Projects } from "@/contents/projects";
+import { Projects, teamOf } from "@/contents/projects";
 import { cn } from "@/lib/utils";
 import type { Project, ProjectPlatform } from "@/types/project";
 import { useSearchParams } from "next/navigation";
@@ -34,6 +34,7 @@ const WorksExplorer = () => {
     () => tabs.find((t) => t.param === searchParams.get("wt"))?.id ?? "all"
   );
   const [platform, setPlatform] = useState<PlatformFilter>("all");
+  const [team, setTeam] = useState("all");
 
   const inTab = useMemo(() => sorted.filter(matchers[tab]), [tab]);
   const platforms = useMemo(
@@ -41,17 +42,24 @@ const WorksExplorer = () => {
       [...new Set(inTab.flatMap((project) => project.platforms ?? []))] as ProjectPlatform[],
     [inTab]
   );
+  const teams = useMemo(
+    () => [...new Set(inTab.map(teamOf))],
+    [inTab]
+  );
   const visible = useMemo(
     () =>
-      platform === "all"
-        ? inTab
-        : inTab.filter((project) => project.platforms?.includes(platform)),
-    [inTab, platform]
+      inTab.filter(
+        (project) =>
+          (platform === "all" || project.platforms?.includes(platform)) &&
+          (team === "all" || teamOf(project) === team)
+      ),
+    [inTab, platform, team]
   );
 
   const selectTab = (id: TabId) => {
     setTab(id);
     setPlatform("all");
+    setTeam("all");
     // Keep the URL shareable without triggering a Next navigation.
     const param = tabs.find((t) => t.id === id)?.param ?? "all";
     const url = new URL(window.location.href);
@@ -151,13 +159,37 @@ const WorksExplorer = () => {
           </div>
         </div>
 
+        {/* TEAM FILTER: who it was built with */}
+        <div
+          role="group"
+          aria-label="Filter by team"
+          className="no-scrollbar -mx-4 mt-4 flex gap-2 overflow-x-auto px-4 s640:mx-0 s640:flex-wrap s640:overflow-visible s640:px-0"
+        >
+          {["all", ...teams].map((value) => (
+            <button
+              key={value}
+              type="button"
+              aria-pressed={team === value}
+              onClick={() => setTeam(value)}
+              className={cn(
+                "press min-h-11 shrink-0 whitespace-nowrap rounded-full border px-4 text-sm font-medium transition-colors",
+                team === value
+                  ? "border-transparent bg-bICON_FADE text-bICON"
+                  : "border-bBORDERFADE bg-bCHIP opacity-80 hover:opacity-100"
+              )}
+            >
+              {value === "all" ? "Any team" : value}
+            </button>
+          ))}
+        </div>
+
         {/* RESULTS */}
         <p aria-live="polite" className="sr-only">
           Showing {visible.length} {visible.length === 1 ? "project" : "projects"}
         </p>
 
         <div
-          key={`${tab}-${platform}`}
+          key={`${tab}-${platform}-${team}`}
           id="works-panel"
           role="tabpanel"
           aria-labelledby={`works-tab-${tab}`}

@@ -1,10 +1,13 @@
 "use client";
 
 import ProjectPreview, {
+  linkIcons,
+  linkLabels,
   platformLabels,
 } from "@/components/works/ProjectPreview";
+import { primaryLink } from "@/contents/projects";
 import { cn } from "@/lib/utils";
-import type { Project } from "@/types/project";
+import type { Project, ProjectLinkKind, ProjectStatus } from "@/types/project";
 import { ArrowUpRight, X } from "lucide-react";
 import Link from "next/link";
 import React, { useRef } from "react";
@@ -13,7 +16,31 @@ const categoryLabels: Record<Project["category"], string> = {
   product: "Product",
   freelance: "Client project",
   contract: "Contract",
+  internship: "Internship",
   internal: "Internal",
+};
+
+// The card's one primary action says what it opens.
+const primaryLabels: Record<ProjectLinkKind, string> = {
+  website: "Visit site",
+  webapp: "Open web app",
+  demo: "Try the demo",
+  casestudy: "Read case study",
+  playstore: "Google Play",
+  appstore: "App Store",
+  facebook: "Facebook page",
+};
+
+// Honest context for anything a visitor cannot open themselves.
+const statusNotes: Partial<Record<ProjectStatus, string>> = {
+  private:
+    "This is private client work, so there is no public source. Happy to walk through it on a call.",
+  upcoming:
+    "This product has not reached the app stores yet. Ask me for a preview.",
+  unpublished:
+    "The apps are not published yet. Happy to demo it on a call.",
+  offline:
+    "This site is currently offline on the client's side, so there is no live link. Happy to talk through how it was built.",
 };
 
 const chip =
@@ -32,6 +59,8 @@ const ProjectCard = ({ project, variant = "default" }: ProjectCardProps) => {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const featured = variant === "featured";
   const titleId = `${project.slug}-title`;
+  const primary = primaryLink(project);
+  const note = statusNotes[project.status];
 
   const open = () => dialogRef.current?.showModal();
   const close = () => dialogRef.current?.close();
@@ -96,14 +125,14 @@ const ProjectCard = ({ project, variant = "default" }: ProjectCardProps) => {
               Details
               <span className="sr-only"> for {project.title}</span>
             </button>
-            {project.url && (
+            {primary && (
               <Link
-                href={project.url}
+                href={primary.url}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="press arrow-nudge inline-flex min-h-11 items-center gap-1.5 rounded-full bg-bCHIPSELECTED px-5 text-sm font-semibold text-white dark:text-black"
               >
-                Visit site
+                {primaryLabels[primary.kind]}
                 <ArrowUpRight
                   size={16}
                   aria-hidden="true"
@@ -145,6 +174,12 @@ const ProjectCard = ({ project, variant = "default" }: ProjectCardProps) => {
               <X size={18} aria-hidden="true" />
             </button>
           </div>
+
+          <ProjectPreview
+            project={project}
+            sizes="(min-width: 768px) 576px, 90vw"
+            className="shrink-0 rounded-[14px] border border-bBORDERFADE"
+          />
 
           <p className="text-base leading-relaxed opacity-80">
             {project.description}
@@ -197,32 +232,59 @@ const ProjectCard = ({ project, variant = "default" }: ProjectCardProps) => {
                 </dd>
               </div>
             )}
+            {project.tech && project.tech.length > 0 && (
+              <div className="col-span-2">
+                <dt className="opacity-70">Built with</dt>
+                <dd className="mt-2 flex flex-wrap gap-2">
+                  {project.tech.map((item) => (
+                    <span key={item} className={chip}>
+                      {item}
+                    </span>
+                  ))}
+                </dd>
+              </div>
+            )}
           </dl>
 
-          {project.private && (
+          {note && (
             <p className="rounded-[12px] border border-bBORDERFADE bg-bFCARD p-4 text-sm leading-relaxed opacity-80">
-              This is a private commercial product, so there is no public link
-              or source. Happy to walk through it on a call.
+              {note}
             </p>
           )}
 
+          {project.links && project.links.length > 0 && (
+            <ul aria-label="Links" className="flex flex-wrap gap-3">
+              {project.links.map((link, index) => {
+                const Icon = linkIcons[link.kind];
+                return (
+                  <li key={link.url}>
+                    <Link
+                      href={link.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={cn(
+                        "press arrow-nudge inline-flex min-h-12 items-center gap-2 rounded-full px-5 text-[15px] font-semibold",
+                        index === 0
+                          ? "bg-bCHIPSELECTED text-white dark:text-black"
+                          : "border border-bBORDERFADE bg-bFCARD"
+                      )}
+                    >
+                      <Icon size={17} aria-hidden="true" />
+                      {link.label ?? linkLabels[link.kind]}
+                      <ArrowUpRight
+                        size={16}
+                        aria-hidden="true"
+                        className="arrow-nudge-icon"
+                      />
+                      <span className="sr-only"> (opens in a new tab)</span>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+
           <div className="flex flex-wrap gap-3">
-            {project.url && (
-              <Link
-                href={project.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="press arrow-nudge inline-flex min-h-12 items-center gap-2 rounded-full bg-bCHIPSELECTED px-6 text-[15px] font-semibold text-white dark:text-black"
-              >
-                Visit live site
-                <ArrowUpRight
-                  size={18}
-                  aria-hidden="true"
-                  className="arrow-nudge-icon"
-                />
-                <span className="sr-only"> (opens in a new tab)</span>
-              </Link>
-            )}
             <Link
               href="/contact"
               className="press inline-flex min-h-12 items-center rounded-full border border-bBORDERFADE bg-bFCARD px-6 text-[15px] font-semibold"
