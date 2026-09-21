@@ -1,6 +1,7 @@
 "use client";
 
 import TitleBlock from "@/components/common/TitleBlock";
+import Marquee from "@/components/ui/marquee";
 import { cn } from "@/lib/utils";
 import type { Skill } from "@/types/skills";
 import React, { useState } from "react";
@@ -85,30 +86,38 @@ const SkillGroupCard = ({
       <div
         role="group"
         aria-label={`${type} skills`}
-        className="relative flex max-h-[240px] flex-col items-center gap-2 overflow-y-auto rounded-[20px] border border-bBORDERFADE bg-bFRAME p-2"
+        className="relative h-[240px] overflow-hidden rounded-[20px] border border-bBORDERFADE bg-bFRAME p-2 [mask-image:linear-gradient(to_bottom,transparent,#000_10%,#000_90%,transparent)]"
       >
-        {skills.map((skill) => {
-          const isSelected = skill.name === selected.name;
+        <Marquee
+          vertical
+          pauseOnHover
+          repeat={skills.length < 4 ? 4 : 2}
+          className="h-full p-0 [--gap:0.5rem]"
+          style={{ "--duration": `${Math.max(skills.length * 1.2, 4)}s` } as React.CSSProperties}
+        >
+          {skills.map((skill) => {
+            const isSelected = skill.name === selected.name;
 
-          return (
-            <button
-              key={skill.name}
-              type="button"
-              aria-pressed={isSelected}
-              aria-label={skill.name}
-              title={skill.name}
-              onClick={() => setSelectedName(skill.name)}
-              style={skillVars(skill)}
-              className={cn(
-                "flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-[12px] transition-colors",
-                colorClass,
-                isSelected ? tintClass : "bg-bCHIP hover:bg-bPLACEHOLDER"
-              )}
-            >
-              <SkillIcon skill={skill} size={28} />
-            </button>
-          );
-        })}
+            return (
+              <button
+                key={skill.name}
+                type="button"
+                aria-pressed={isSelected}
+                aria-label={skill.name}
+                title={skill.name}
+                onClick={() => setSelectedName(skill.name)}
+                style={skillVars(skill)}
+                className={cn(
+                  "flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-[12px] transition-colors",
+                  colorClass,
+                  isSelected ? tintClass : "bg-bCHIP hover:bg-bPLACEHOLDER"
+                )}
+              >
+                <SkillIcon skill={skill} size={28} />
+              </button>
+            );
+          })}
+        </Marquee>
       </div>
     </div>
   );
