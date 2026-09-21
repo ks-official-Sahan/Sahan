@@ -10,7 +10,8 @@ import {
   unlockKeysFromEnv,
   verifyUnlockCookie,
 } from "@/lib/admin/login-unlock";
-import { LOCKED_PATH, LOGIN_PATH, SESSION_COOKIE } from "@/lib/auth/constants";
+import { LOCKED_PATH, LOGIN_PATH, SESSION_COOKIE, SET_PASSWORD_PATH } from "@/lib/auth/constants";
+import { verifyTokenTag } from "@/lib/auth/invite-token";
 import { limit } from "@/lib/cache/ratelimit";
 import { log } from "@/lib/log";
 import { buildCsp, generateNonce } from "@/lib/security/csp";
@@ -116,7 +117,14 @@ export async function proxy(request: NextRequest) {
     return response;
   }
 
-  // 4b. Optimistic session check: signature and expiry only.
+  // 4b. An invite or reset link carries an HMAC tag only this server can make, so a
+  // link that verifies reaches the set-password page without the unlock cookie. The
+  // page and the action still check the token in the database (single use, expiry).
+  if (adminPage && pathname === SET_PASSWORD_PATH && verifyTokenTag(searchParams.get("token"), process.env.AUTH_SECRET)) {
+    return withCsp(request);
+  }
+
+  // 4c. Optimistic session check: signature and expiry only.
   const token = await sessionToken(request);
   const signedIn = Boolean(token?.sid);
 

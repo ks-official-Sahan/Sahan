@@ -1,6 +1,6 @@
 # Admin panel and CMS for the portfolio
 
-Owner: Sahan. Status: steps 1 to 5 done (ADR, foundation, route groups and admin shell, auth core and hidden login, email service), steps 6 to 18 not started. Tick the progress list at the end as steps finish.
+Owner: Sahan. Status: steps 1 to 8 done (ADR, foundation, route groups and admin shell, auth core and hidden login, email service, RBAC and users, MFA and account page, sessions and audit log), steps 9 to 18 not started. Tick the progress list at the end as steps finish.
 
 ## Goal
 
@@ -187,9 +187,9 @@ Out of scope: code changes beyond doc fixes.
 - [x] Step 3: route groups and admin shell
 - [x] Step 4: auth core and hidden login (the owner's real password sign-in is left for the owner to confirm by hand, see the ADR result)
 - [x] Step 5: email service (code and tests done; the two real test mails are for the owner to send with `scripts/send-test-email.mts`, see the ADR result)
-- [ ] Step 6: RBAC, users and invites
-- [ ] Step 7: MFA and account page
-- [ ] Step 8: sessions and audit log
+- [x] Step 6: RBAC, users and invites (an EDITOR posting a user action directly and a real invite acceptance are left for the owner to check by hand, see the ADR result)
+- [x] Step 7: MFA and account page (the emailed code sign-in is left for the owner to confirm by hand, see the ADR result)
+- [x] Step 8: sessions and audit log
 - [ ] Step 9: CMS engine
 - [ ] Step 10: CMS editors for Home, About and Contact
 - [ ] Step 11: Works collections

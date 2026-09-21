@@ -3,24 +3,6 @@ import "@/style/globals.css";
 
 import { poppins } from "@/lib/fonts";
 import { Site, SiteMetadata } from "@/config/site";
-<<<<<<< HEAD
-=======
-import Footer from "@/components/foo/Footer";
-import FloatingAudioSwitch from "@/components/common/FloatingAudioSwitch";
-
-import { gsap } from "gsap";
-import { useGSAP } from "@gsap/react";
-import ShoelaceSetup from "@/components/animations/shoelace/shoelace-setup";
-import Navigation from "@/components/nav/Navigation";
-import { AudioProvider } from "@/context/AudioContext";
-
-import { SpeedInsights } from "@vercel/speed-insights/next";
-import { Analytics } from "@vercel/analytics/next";
-import LoadingScreen from "@/components/animations/LoadingScreen";
-import JsonLd from "@/components/seo/JsonLd";
-
-gsap.registerPlugin(useGSAP);
->>>>>>> origin/master
 
 // Thin root layout: the document, font and the metadata every route inherits.
 // Public chrome lives in components/site/SiteShell.tsx (used by app/(site) and
@@ -79,37 +61,7 @@ export default function RootLayout({
           }}
         />
       </head>
-<<<<<<< HEAD
       <body className={`${poppins.className} antialiased relative`}>{children}</body>
-=======
-      <body className={`${poppins.className} antialiased relative`}>
-        <a
-          href="#main-content"
-          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[2000] focus:rounded-full focus:bg-[#91FF00] focus:px-4 focus:py-2 focus:text-black focus:outline-none"
-        >
-          Skip to content
-        </a>
-        <ThemeProvider enableSystem attribute="class" defaultTheme="dark">
-          <MantineSyncProvider>
-            <AudioProvider>
-              <main className="flex flex-col min-h-screen w-full overflow-x-hidden">
-                <ShoelaceSetup>
-                  <LoadingScreen />
-                  <Navigation />
-                  <FloatingAudioSwitch />
-                  <div id="main-content" className="pb-[300px]">
-                    {children}
-                  </div>
-                  <Footer />
-                  <SpeedInsights />
-                  <Analytics />
-                </ShoelaceSetup>
-              </main>
-            </AudioProvider>
-          </MantineSyncProvider>
-        </ThemeProvider>
-      </body>
->>>>>>> origin/master
     </html>
   );
 }

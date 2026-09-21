@@ -5,7 +5,7 @@ import { after } from "next/server";
 import { cache } from "react";
 
 import { auth } from "./config";
-import { EXPIRE_PATH } from "./constants";
+import { ACCOUNT_PASSWORD_PATH, EXPIRE_PATH } from "./constants";
 import type { Permission, RoleName } from "./permissions";
 import { getRolePermissions } from "./rbac";
 import { evaluateSession, type SessionDenial } from "./session-state";
@@ -68,11 +68,22 @@ export async function getOptionalUser(): Promise<AuthUser | null> {
  * (revoked, expired, disabled, password changed) goes to the route that clears
  * the cookie, because a Server Component cannot write cookies.
  */
-export async function requireUser(): Promise<AuthUser> {
+export async function requireUser(options: { allowPasswordChange?: boolean } = {}): Promise<AuthUser> {
   const result = await resolve();
-  if ("user" in result) return result.user;
-  if (result.denied === "no_session") notFound();
-  redirect(EXPIRE_PATH);
+  if (!("user" in result)) {
+    if (result.denied === "no_session") notFound();
+    redirect(EXPIRE_PATH);
+  }
+  // A user whose password was set by someone else (the seeded owner, an admin
+  // reset) can reach nothing but the account page until they choose their own.
+  if (result.user.mustChangePassword && !options.allowPasswordChange) redirect(ACCOUNT_PASSWORD_PATH);
+  return result.user;
+}
+
+/** For the session heartbeat: never redirects, and says why a session no longer counts. */
+export async function getSessionStatus(): Promise<{ active: true } | { active: false; reason: string }> {
+  const result = await resolve();
+  return "user" in result ? { active: true } : { active: false, reason: result.denied };
 }
 
 export function hasPermission(user: Pick<AuthUser, "permissions">, permission: Permission): boolean {
@@ -80,8 +91,11 @@ export function hasPermission(user: Pick<AuthUser, "permissions">, permission: P
 }
 
 /** For pages: a missing permission looks like a missing page. */
-export async function requirePermission(permission: Permission): Promise<AuthUser> {
-  const user = await requireUser();
+export async function requirePermission(
+  permission: Permission,
+  options: { allowPasswordChange?: boolean } = {}
+): Promise<AuthUser> {
+  const user = await requireUser(options);
   if (!hasPermission(user, permission)) notFound();
   return user;
 }

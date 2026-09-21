@@ -17,8 +17,11 @@ const json = (body: unknown, status = 200) =>
 
 export async function GET(request: NextRequest) {
   const user = await getOptionalUser();
-  if (!user) return json({ error: "not_found" }, 404);
-  if (!hasPermission(user, "manageSettings")) return json({ error: "forbidden" }, 403);
+  // A missing permission looks like a missing page, and a user who must still
+  // choose a password can use nothing but the account page.
+  if (!user || user.mustChangePassword || !hasPermission(user, "manageSettings")) {
+    return json({ error: "not_found" }, 404);
+  }
 
   const params = request.nextUrl.searchParams;
   const messageId = params.get("messageId")?.trim() || undefined;

@@ -21,7 +21,9 @@ export default async function PanelLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const user = await requireUser();
+  // The account page has to render for a user who must change their password, so
+  // the layout lets them in and every other page enforces it (requireUser).
+  const user = await requireUser({ allowPasswordChange: true });
 
   return (
     <AdminShell

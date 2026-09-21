@@ -13,6 +13,11 @@ export function GET(request: NextRequest) {
     return new NextResponse(null, { status: 404, headers: { "Cache-Control": "no-store" } });
   }
 
+  // Nothing to expire: look like any other unknown URL.
+  if (!request.cookies.has(SESSION_COOKIE)) {
+    return new NextResponse(null, { status: 404, headers: { "Cache-Control": "no-store" } });
+  }
+
   const url = request.nextUrl.clone();
   url.pathname = LOGIN_PATH;
   url.search = "?reason=revoked";

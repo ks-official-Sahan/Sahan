@@ -27,6 +27,10 @@ function createClient(): PrismaClient {
 
   return new PrismaClient({
     adapter,
+    // Each statement of an interactive transaction is a round trip to Neon (about
+    // 0.3 s), and a cold connection takes seconds. The defaults (2 s to start, 5 s
+    // to finish) were shorter than the admin's multi-statement transactions.
+    transactionOptions: { maxWait: 10_000, timeout: 15_000 },
     log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"],
   });
 }

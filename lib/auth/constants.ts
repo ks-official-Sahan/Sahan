@@ -15,3 +15,9 @@ export const LOCKED_PATH = "/not-found";
 
 /** Route Handler that clears the session cookie of a revoked browser. */
 export const EXPIRE_PATH = "/api/auth/expire";
+
+/** Where a user with `mustChangePassword` is sent until they choose their own password. */
+export const ACCOUNT_PASSWORD_PATH = "/admin/account?reason=change-password";
+
+/** Invite and reset links land here; the proxy lets a link with a valid tag through without the unlock cookie. */
+export const SET_PASSWORD_PATH = "/admin/set-password";

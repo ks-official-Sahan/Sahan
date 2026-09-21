@@ -8,6 +8,7 @@ import { getEnv } from "@/lib/env";
 
 import { SESSION_MAX_AGE_SECONDS } from "./constants";
 import type { RoleName } from "./permissions";
+import { createSessionReader } from "./session-reader";
 import { passwordFingerprint, type SessionState } from "./session-state";
 
 // Server side of a session: the Postgres row is the authority, Redis holds a
@@ -17,8 +18,8 @@ import { passwordFingerprint, type SessionState } from "./session-state";
 const STATE_TTL_SECONDS = 30;
 const TOUCH_INTERVAL_SECONDS = 60;
 
-const stateKey = (sid: string) => `sahan:sess:v1:${sid}`;
-const touchKey = (sid: string) => `sahan:sess:touch:${sid}`;
+const stateKey = (sid: string) => `sess:v1:${sid}`;
+const touchKey = (sid: string) => `sess:touch:${sid}`;
 
 export interface NewSession {
   userId: string;
@@ -54,19 +55,17 @@ export async function createSession(input: NewSession): Promise<{ id: string; ex
   return { id: row.id, expiresAt };
 }
 
-/**
- * State of a session, or null when no such session exists. A Redis error falls
- * back to the database. A database error is thrown: the caller must not treat
- * "cannot tell" as "signed in", and must not sign the user out for it either.
- */
-export async function getSessionState(sid: string): Promise<SessionState | null> {
-  try {
-    const cached = await kv.get<SessionState>(stateKey(sid));
-    if (cached && typeof cached === "object" && cached.userId) return cached;
-  } catch {
-    // fall through to the database
-  }
+/** True when this user has signed in before from the same address, browser and system. */
+export async function isKnownDevice(userId: string, ip: string | null, ua: string | null): Promise<boolean> {
+  const { browser, os } = describeAgent(ua);
+  const found = await db.userSession.findFirst({
+    where: { userId, ip, browser, os },
+    select: { id: true },
+  });
+  return found !== null;
+}
 
+async function loadFromDatabase(sid: string): Promise<SessionState | null> {
   const row = await db.userSession.findUnique({
     where: { id: sid },
     select: {
@@ -92,7 +91,7 @@ export async function getSessionState(sid: string): Promise<SessionState | null>
   const authSecret = getEnv().AUTH_SECRET;
   if (!authSecret) throw new Error("AUTH_SECRET is not set");
 
-  const state: SessionState = {
+  return {
     userId: row.user.id,
     email: row.user.email,
     name: row.user.name,
@@ -105,15 +104,26 @@ export async function getSessionState(sid: string): Promise<SessionState | null>
     mfaEnabled: row.user.mfaEnabled,
     mfaVerified: row.mfaVerified,
   };
-  await kv.set(stateKey(sid), state, { ttlSeconds: STATE_TTL_SECONDS }).catch(() => undefined);
-  return state;
 }
 
+const reader = createSessionReader({
+  cache: {
+    get: (sid) => kv.get<SessionState>(stateKey(sid)).then((value) => (value && typeof value === "object" && value.userId ? value : null)),
+    set: async (sid, state) => void (await kv.set(stateKey(sid), state, { ttlSeconds: STATE_TTL_SECONDS })),
+    del: async (...sids) => void (await kv.del(...sids.map(stateKey))),
+  },
+  load: loadFromDatabase,
+});
+
+/**
+ * State of a session, or null when no such session exists. A Redis error falls
+ * back to the database. A database error is thrown: the caller must not treat
+ * "cannot tell" as "signed in", and must not sign the user out for it either.
+ */
+export const getSessionState = reader.get;
+
 /** Forgets the cached state, so the next request reads the database. */
-export async function invalidateSessionState(...sids: string[]): Promise<void> {
-  if (sids.length === 0) return;
-  await kv.del(...sids.map(stateKey)).catch(() => undefined);
-}
+export const invalidateSessionState = reader.invalidate;
 
 /** Records activity at most once a minute per session. */
 export async function touchSession(sid: string): Promise<void> {
@@ -130,14 +140,116 @@ export async function touchSession(sid: string): Promise<void> {
   });
 }
 
-export async function revokeSession(
-  sid: string,
-  by: { userId: string | null; reason: string }
-): Promise<boolean> {
+/** Drops the cached state of every session of a user, so a role or status change applies at once. */
+export async function invalidateUserSessionState(userId: string): Promise<void> {
+  const rows = await db.userSession.findMany({ where: { userId, revokedAt: null }, select: { id: true } });
+  if (rows.length > 0) await invalidateSessionState(...rows.map((row) => row.id));
+}
+
+export interface Revoker {
+  userId: string | null;
+  reason: string;
+}
+
+export async function revokeSession(sid: string, by: Revoker): Promise<boolean> {
   const result = await db.userSession.updateMany({
     where: { id: sid, revokedAt: null },
     data: { revokedAt: new Date(), revokedById: by.userId, revokeReason: by.reason },
   });
   await invalidateSessionState(sid);
   return result.count > 0;
+}
+
+/** Ends every active session of a user, optionally keeping one. Returns the ids it ended. */
+export async function revokeUserSessions(
+  userId: string,
+  by: Revoker,
+  options: { exceptSid?: string } = {}
+): Promise<string[]> {
+  const active = await db.userSession.findMany({
+    where: { userId, revokedAt: null, ...(options.exceptSid ? { id: { not: options.exceptSid } } : {}) },
+    select: { id: true },
+  });
+  const ids = active.map((row) => row.id);
+  if (ids.length === 0) return [];
+  await db.userSession.updateMany({
+    where: { id: { in: ids }, revokedAt: null },
+    data: { revokedAt: new Date(), revokedById: by.userId, revokeReason: by.reason },
+  });
+  await invalidateSessionState(...ids);
+  return ids;
+}
+
+/** Ends every active session of everyone, optionally keeping every session of one user (the caller). */
+export async function forceLogoutAll(
+  by: Revoker,
+  options: { exceptUserId?: string } = {}
+): Promise<{ sessions: number; users: number; userIds: string[] }> {
+  const active = await db.userSession.findMany({
+    where: { revokedAt: null, expiresAt: { gt: new Date() }, ...(options.exceptUserId ? { userId: { not: options.exceptUserId } } : {}) },
+    select: { id: true, userId: true },
+  });
+  const ids = active.map((row) => row.id);
+  if (ids.length > 0) {
+    await db.userSession.updateMany({
+      where: { id: { in: ids }, revokedAt: null },
+      data: { revokedAt: new Date(), revokedById: by.userId, revokeReason: by.reason },
+    });
+    await invalidateSessionState(...ids);
+  }
+  const userIds = [...new Set(active.map((row) => row.userId))];
+  return { sessions: ids.length, users: userIds.length, userIds };
+}
+
+export interface SessionListItem {
+  id: string;
+  userId: string;
+  userEmail: string;
+  userName: string | null;
+  ip: string | null;
+  browser: string | null;
+  os: string | null;
+  device: string | null;
+  mfaVerified: boolean;
+  createdAt: Date;
+  lastSeenAt: Date;
+  expiresAt: Date;
+  revokedAt: Date | null;
+  revokeReason: string | null;
+}
+
+/** Active sessions, or with `includeEnded` the last week of ended ones too. Newest activity first. */
+export async function listSessions(options: {
+  userId?: string;
+  includeEnded?: boolean;
+  limit?: number;
+} = {}): Promise<SessionListItem[]> {
+  const now = new Date();
+  const weekAgo = new Date(now.getTime() - 7 * 24 * 3600 * 1000);
+  const rows = await db.userSession.findMany({
+    where: {
+      ...(options.userId ? { userId: options.userId } : {}),
+      ...(options.includeEnded
+        ? { OR: [{ revokedAt: null, expiresAt: { gt: now } }, { lastSeenAt: { gte: weekAgo } }] }
+        : { revokedAt: null, expiresAt: { gt: now } }),
+    },
+    orderBy: { lastSeenAt: "desc" },
+    take: Math.min(options.limit ?? 100, 500),
+    select: {
+      id: true,
+      userId: true,
+      ip: true,
+      browser: true,
+      os: true,
+      device: true,
+      mfaVerified: true,
+      createdAt: true,
+      lastSeenAt: true,
+      expiresAt: true,
+      revokedAt: true,
+      revokeReason: true,
+      user: { select: { email: true, name: true } },
+    },
+  });
+  return rows.map(({ user, ...row }) => ({ ...row, userEmail: user.email, userName: user.name }));
 }

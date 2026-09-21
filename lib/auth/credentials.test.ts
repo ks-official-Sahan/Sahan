@@ -196,12 +196,13 @@ test("malformed input is refused without touching the database", async () => {
   assert.equal(looked, 0);
 });
 
-test("an account with MFA cannot sign in with a password alone yet", async () => {
-  const { deps } = harness({ users: [{ ...user, mfaEnabled: true }] });
-  assert.deepEqual(await verifyCredentials(attempt("owner@example.com", "right-password"), deps), {
-    ok: false,
-    reason: "mfa_required",
-  });
+test("a right password for an MFA account is reported with mfaEnabled, and the counter is cleared", async () => {
+  const mfaUser = { ...user, mfaEnabled: true };
+  const { deps, counts } = harness({ users: [mfaUser] });
+  counts.set("owner@example.com", 2);
+  const result = await verifyCredentials(attempt("owner@example.com", "right-password"), deps);
+  assert.deepEqual(result, { ok: true, user: mfaUser });
+  assert.equal(counts.has("owner@example.com"), false);
 });
 
 test("a failing audit write does not change the answer", async () => {

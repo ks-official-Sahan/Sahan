@@ -45,7 +45,7 @@ export interface CredentialInput {
   userAgent: string | null;
 }
 
-export type CredentialFailure = "invalid" | "limited" | "mfa_required";
+export type CredentialFailure = "invalid" | "limited";
 
 export type CredentialResult =
   | { ok: true; user: StoredUser }
@@ -129,13 +129,9 @@ export async function verifyCredentials(
     return { ok: false, reason: "invalid" };
   }
 
-  // Sign-in with a second factor arrives with the MFA step. Until then such an
-  // account cannot sign in at all, rather than skipping the second factor.
-  if (user.mfaEnabled) {
-    await fail("mfa_not_supported_yet", user);
-    return { ok: false, reason: "mfa_required" };
-  }
-
+  // The password is right. Whether a second factor is still needed is the
+  // caller's decision (`user.mfaEnabled`): lib/auth/config.ts refuses to sign such
+  // an account in on the password alone.
   await deps.failures.clear(email).catch(() => undefined);
   return { ok: true, user };
 }

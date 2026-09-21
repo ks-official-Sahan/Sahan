@@ -18,14 +18,15 @@ export const metadata: Metadata = {
 
 const NOTICES: Record<string, string> = {
   revoked: "Your session ended. Sign in again to continue.",
+  "password-set": "Your password is saved. Sign in with it.",
 };
 
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ callbackUrl?: string; reason?: string }>;
+  searchParams: Promise<{ callbackUrl?: string; reason?: string; notice?: string }>;
 }) {
-  const { callbackUrl, reason } = await searchParams;
+  const { callbackUrl, reason, notice } = await searchParams;
   const target = safeCallbackUrl(callbackUrl);
 
   if (await getOptionalUser()) redirect(target);
@@ -34,5 +35,7 @@ export default async function LoginPage({
   // itself needs the unlock cookie.
   if (!(await hasValidUnlock())) notFound();
 
-  return <LoginForm callbackUrl={target} notice={(reason && NOTICES[reason]) || null} />;
+  // Own keys only: a query value such as "constructor" must not reach the prototype.
+  const key = notice ?? reason ?? "";
+  return <LoginForm callbackUrl={target} notice={Object.hasOwn(NOTICES, key) ? NOTICES[key] : null} />;
 }
