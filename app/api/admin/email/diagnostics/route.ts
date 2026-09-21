@@ -1,0 +1,42 @@
+import { NextResponse, type NextRequest } from "next/server";
+
+import { getOptionalUser, hasPermission } from "@/lib/auth/dal";
+import { getBrevoDiagnostics, getEmailHealth } from "@/lib/email";
+import { assertAddress, EmailGuardError } from "@/lib/email/guards";
+
+// Read-only report on email: which providers are configured, and, with `messageId`
+// or `email`, what Brevo says happened to a send. Needs the manageSettings
+// permission. The proxy already answers 404 to anyone without a session; this
+// route checks the permission itself and never relies on that
+// (docs/plan/admin-cms-adr.md, step 5).
+
+export const dynamic = "force-dynamic";
+
+const json = (body: unknown, status = 200) =>
+  NextResponse.json(body, { status, headers: { "Cache-Control": "no-store" } });
+
+export async function GET(request: NextRequest) {
+  const user = await getOptionalUser();
+  if (!user) return json({ error: "not_found" }, 404);
+  if (!hasPermission(user, "manageSettings")) return json({ error: "forbidden" }, 403);
+
+  const params = request.nextUrl.searchParams;
+  const messageId = params.get("messageId")?.trim() || undefined;
+  const rawEmail = params.get("email")?.trim() || undefined;
+
+  if (messageId && (messageId.length > 300 || /[\x00-\x1f\x7f]/.test(messageId))) {
+    return json({ error: "bad_message_id" }, 400);
+  }
+  let email: string | undefined;
+  if (rawEmail) {
+    try {
+      email = assertAddress(rawEmail, "email");
+    } catch (error) {
+      if (error instanceof EmailGuardError) return json({ error: "bad_email" }, 400);
+      throw error;
+    }
+  }
+
+  const diagnostics = await getBrevoDiagnostics({ messageId, email });
+  return json({ health: getEmailHealth(), diagnostics });
+}

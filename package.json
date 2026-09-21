@@ -35,8 +35,12 @@
     "@tsparticles/react": "^3.0.0",
     "@tsparticles/slim": "^3.5.0",
     "@types/canvas-confetti": "^1.6.4",
+<<<<<<< HEAD
     "@upstash/ratelimit": "^2.1.0",
     "@upstash/redis": "^1.38.4",
+=======
+    "@vercel/analytics": "^2.0.1",
+>>>>>>> origin/master
     "@vercel/speed-insights": "^2.0.0",
     "bcryptjs": "^3.0.3",
     "canvas-confetti": "^1.9.3",
