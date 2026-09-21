@@ -6,7 +6,7 @@ import WorksBehind from "@/components/works/WorksBehind";
 import WorksExplorer from "@/components/works/WorksExplorer";
 import { Projects, teamOf } from "@/contents/projects";
 import { WorksContent } from "@/contents/works";
-import React from "react";
+import React, { Suspense } from "react";
 
 // Numbers come straight from the project list, so they can never drift.
 const stats = [
@@ -75,7 +75,9 @@ const Works = () => {
         </HeroBackdrop>
       </section>
 
-      <WorksExplorer />
+      <Suspense fallback={<div className="h-24" />}>
+        <WorksExplorer />
+      </Suspense>
       <WorksBehind />
       <FinalCta />
     </div>
