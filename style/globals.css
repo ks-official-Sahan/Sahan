@@ -167,18 +167,6 @@ html {
   scroll-padding-top: 6rem;
 }
 
-/* Invisible scrollbars everywhere. Scrolling itself (wheel, touch, keyboard,
-   drag) is untouched; only the bar is hidden. */
-* {
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-}
-*::-webkit-scrollbar {
-  display: none;
-  width: 0;
-  height: 0;
-}
-
 @keyframes home-rise {
   from {
     opacity: 0;

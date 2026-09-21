@@ -1,6 +1,7 @@
 "use client";
 
 import { useTheme } from "next-themes";
+import { useReducedMotion } from "framer-motion";
 import React, { useEffect, useState } from "react";
 import ParticlesX from "../animations/ParticlesX";
 
@@ -12,6 +13,7 @@ const Particals = ({
   const { theme } = useTheme();
   const [color, setColor] = useState("#ffffff");
   const [mounted, setMounted] = useState(false);
+  const reduceMotion = useReducedMotion();
 
   useEffect(() => {
     setMounted(true);
@@ -28,7 +30,7 @@ const Particals = ({
       );
   }, [theme, mounted]);
 
-  if (!mounted) return null;
+  if (!mounted || reduceMotion) return null;
 
   return (
     <>

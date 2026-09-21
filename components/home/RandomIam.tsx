@@ -23,11 +23,12 @@ const RandomIam = () => {
     >
       <span className="text-sm opacity-70">{iam.prefix}</span>
       <span
-        key={index}
         aria-live="polite"
-        className="swap-in block text-[length:clamp(1.25rem,2vw,1.6rem)] font-semibold leading-tight text-bICON"
+        className="block text-[length:clamp(1.25rem,2vw,1.6rem)] font-semibold leading-tight text-bICON"
       >
-        {iam.words[index]}
+        <span key={index} className="swap-in block">
+          {iam.words[index]}
+        </span>
       </span>
       <span className="flex items-center gap-2 text-xs opacity-70">
         <RefreshCw

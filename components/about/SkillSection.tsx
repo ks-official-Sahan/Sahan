@@ -32,6 +32,19 @@ const SkillSection = () => {
     categories.find((category) => category.id === selectedId) ?? categories[0];
   const groups = useMemo(() => groupByType(selected.skills), [selected]);
 
+  const allSkills = useMemo(() => {
+    const seen = new Set<string>();
+    const skills: Skill[] = [];
+    for (const category of categories) {
+      for (const skill of category.skills) {
+        if (seen.has(skill.name)) continue;
+        seen.add(skill.name);
+        skills.push(skill);
+      }
+    }
+    return skills;
+  }, [categories]);
+
   return (
     <HomeSection id="skills" labelledBy="skills-title">
       <SectionHeading
@@ -120,16 +133,14 @@ const SkillSection = () => {
         </div>
       ) : (
         <div className="flex flex-wrap justify-center pt-12">
-          {AboutContent.KB.skills.dev.map((skill) => {
+          {allSkills.map((skill) => {
             const IconComponent = skill.icon;
             const isStroke = skill.variant === "stroke";
 
             return (
               <SkillCard
-                key={skill.title}
-                title={skill.title}
-                bgColors={skill.bgColors}
-                colors={skill.colors}
+                key={skill.name}
+                title={skill.name}
                 icon={
                   isStroke ? (
                     <IconComponent

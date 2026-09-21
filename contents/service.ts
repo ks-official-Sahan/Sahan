@@ -83,7 +83,15 @@ const categories: ServiceCategory[] = [
           title: "Built at Datalake Creative",
           href: "/works",
           list: [
-            { name: "Android & iOS apps", count: countByPlatform("android") },
+            {
+              name: "Android & iOS apps",
+              count: Projects.filter(
+                (project) =>
+                  project.organization === "Datalake Creative Ltd" &&
+                  project.platforms?.includes("android") &&
+                  project.platforms.includes("ios")
+              ).length,
+            },
             { name: "Web admin panels", count: countByPlatform("web-admin") },
           ],
         },

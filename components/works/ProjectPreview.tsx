@@ -155,7 +155,7 @@ const ProjectPreview = ({
           sizes={sizes}
           priority={priority}
           className={cn(
-            "transition-transform duration-500 [transition-timing-function:var(--ease-out)] group-hover:scale-[1.03]",
+            "transition-transform duration-500 [transition-timing-function:var(--ease-out)] group-hover:scale-[1.03] motion-reduce:transition-none motion-reduce:group-hover:scale-100",
             contain ? "object-contain p-2" : "object-cover"
           )}
           style={contain ? undefined : { objectPosition: image.position }}

@@ -154,7 +154,7 @@ const UpdatesExplorer = () => {
 
             {visible.length > 0 ? (
               <ol
-                key={`${topic}-${tag}-${query}`}
+                key={`${topic}-${tag}`}
                 className="swap-in flex flex-col gap-5"
               >
                 {visible.map((post) => (

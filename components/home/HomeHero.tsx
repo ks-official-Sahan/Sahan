@@ -92,6 +92,7 @@ const HomeHero = () => {
                     className="object-cover object-top"
                   />
                   <BorderBeam
+                    className="motion-reduce:hidden"
                     size={220}
                     duration={14}
                     colorFrom="#6bff60"

@@ -13,7 +13,7 @@ export const WorksContent = {
     { id: "all", label: "All work", param: "all" },
     { id: "products", label: "Products", param: "pro" },
     { id: "client", label: "Client work", param: "des" },
-  ],
+  ] as const,
   results: {
     empty: "Nothing to show for this filter yet.",
   },

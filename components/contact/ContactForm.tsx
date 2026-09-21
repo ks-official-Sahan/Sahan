@@ -135,6 +135,7 @@ const ContactForm = () => {
             id={`${id}-name`}
             name="name"
             autoComplete="name"
+            required
             value={values.name}
             onChange={setField("name")}
             aria-invalid={Boolean(errors.name)}
@@ -153,6 +154,7 @@ const ContactForm = () => {
             type="email"
             autoComplete="email"
             inputMode="email"
+            required
             value={values.email}
             onChange={setField("email")}
             aria-invalid={Boolean(errors.email)}
@@ -193,6 +195,7 @@ const ContactForm = () => {
           id={`${id}-message`}
           name="message"
           rows={6}
+          required
           value={values.message}
           onChange={setField("message")}
           aria-invalid={Boolean(errors.message)}
