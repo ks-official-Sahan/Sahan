@@ -3,27 +3,14 @@ import React from "react";
 const X_ICON = ({ className, width, height }: IconProps) => {
   return (
     <svg
-      width={width ? width : "36"}
-      height={height ? height : "33"}
-      viewBox={`0 0 ${width ? width : 36} ${height ? height : 33}`}
-      fill="none"
+      width={width ?? 24}
+      height={height ?? 24}
+      viewBox="0 0 24 24"
+      fill="currentColor"
       xmlns="http://www.w3.org/2000/svg"
+      className={className}
     >
-      <g clipPath="url(#clip0_482_437)">
-        <path
-          d="M0.0878895 0L13.9863 18.2054L0 33.0007H3.14777L15.3932 20.0449L25.29 33.0014H35.9993L21.318 13.7754L34.3367 0H31.189L19.9118 11.93L10.7993 0H0.0878895ZM4.71723 2.27142H9.63831L31.3677 30.7293H26.4481L4.71723 2.27142Z"
-          className={className}
-        />
-      </g>
-      <defs>
-        <clipPath id="clip0_482_437">
-          <rect
-            width={width ? width : "36"}
-            height={height ? height : "33"}
-            className={className}
-          />
-        </clipPath>
-      </defs>
+      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
     </svg>
   );
 };
