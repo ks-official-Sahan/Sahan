@@ -1,68 +1,113 @@
 "use client";
-import { copyToClipboard } from "@/utils/clipboardUtils";
-import { Button } from "@nextui-org/react";
-import { Clipboard } from "lucide-react";
-import React from "react";
-import confetti from "canvas-confetti";
+
+import { cn } from "@/lib/utils";
+import { ArrowUpRight, Check, Copy } from "lucide-react";
+import React, { useEffect, useRef, useState } from "react";
 
 interface ContactDetailsCardProps {
   title: string;
   value: string;
   displayValue?: string;
   icon: React.ReactNode;
+  /** Adds a copy button with inline confirmation. */
   copy?: boolean;
+  /** Makes the whole row a link (mailto:, tel:, https:). */
+  href?: string;
+  external?: boolean;
 }
 
+// One line of contact info. Copy confirms in place (icon swap + a polite
+// announcement) instead of an alert, and never fails loudly: if the clipboard
+// is blocked the value is still on screen to select.
 const ContactDetailsCard = ({
   title,
   value,
   displayValue,
   icon,
   copy = false,
+  href,
+  external = false,
 }: ContactDetailsCardProps) => {
-  const handleCopy = async (event: { target: Element }) => {
-    const rect = (event?.target as HTMLElement | undefined)?.getBoundingClientRect?.();
+  const [copied, setCopied] = useState(false);
+  const timeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(
+    () => () => {
+      if (timeout.current) clearTimeout(timeout.current);
+    },
+    []
+  );
+
+  const handleCopy = async () => {
     try {
-      await copyToClipboard(value);
-      if (rect) {
-        confetti({
-          origin: {
-            x: (rect.left + rect.width / 2) / window.innerWidth,
-            y: (rect.top + rect.height / 2) / window.innerHeight,
-          },
-        });
-      } else {
-        confetti();
-      }
-    } catch (err) {
-      alert("Failed to copy text to clipboard." + err);
+      await navigator.clipboard.writeText(value);
+    } catch {
+      return;
     }
+    setCopied(true);
+    if (timeout.current) clearTimeout(timeout.current);
+    timeout.current = setTimeout(() => setCopied(false), 2000);
   };
 
-  return (
-    <div className="w-full border p-[12px] rounded-[12px] bg-[#fff] dark:bg-[#1A1A1A] min-h-[74px] flex gap-[15px] items-center relative">
-      <div className="w-[50px] h-[50px] border bg-[#fafafa] dark:bg-[#232323] rounded-[12px] flex items-center justify-center text-[#19cf31] dark:text-[#91FF00]">
+  const body = (
+    <>
+      <span
+        aria-hidden="true"
+        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-bICON_FADE text-bICON"
+      >
         {icon}
-      </div>
+      </span>
+      <span className="flex min-w-0 flex-1 flex-col">
+        <span className="text-sm opacity-70">{title}</span>
+        <span className="truncate text-[15px] font-semibold">
+          {displayValue ?? value}
+        </span>
+      </span>
+    </>
+  );
 
-      <div className="flex flex-col gap-1">
-        <div className="text-[14px] font-semibold text-secondaryT">{title}</div>
-        <div className="text-[12px] font-medium opacity-80">
-          {displayValue ? displayValue : value}
-        </div>
-      </div>
+  return (
+    <div className="flex min-h-[72px] items-center gap-3 rounded-[14px] border border-bBORDERFADE bg-bFCARD px-4 py-3">
+      {href ? (
+        <a
+          href={href}
+          {...(external
+            ? { target: "_blank", rel: "noopener noreferrer" }
+            : undefined)}
+          className={cn(
+            "press arrow-nudge flex min-w-0 flex-1 items-center gap-3"
+          )}
+        >
+          {body}
+          <ArrowUpRight
+            size={16}
+            aria-hidden="true"
+            className="arrow-nudge-icon shrink-0 opacity-60"
+          />
+          {external && <span className="sr-only"> (opens in a new tab)</span>}
+        </a>
+      ) : (
+        <div className="flex min-w-0 flex-1 items-center gap-3">{body}</div>
+      )}
 
       {copy && (
-        <Button
-          onPress={handleCopy}
-          aria-label={`Copy ${title.toLowerCase()}`}
-          className="w-[34px] group min-w-[34px] flex justify-center items-center h-[30px] border rounded-[12px] bg-[#fafafa] dark:bg-[#232323] absolute top-[10px] right-[10px]"
-        >
-          <Clipboard
-            size={14}
-            className="dark:text-white text-black group-hover:text-white group-hover:dark:text-black"
-          />
-        </Button>
+        <>
+          <button
+            type="button"
+            onClick={handleCopy}
+            aria-label={`Copy ${title.toLowerCase()}`}
+            className="press flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-bBORDERFADE bg-bCARD"
+          >
+            {copied ? (
+              <Check size={16} aria-hidden="true" />
+            ) : (
+              <Copy size={16} aria-hidden="true" />
+            )}
+          </button>
+          <span role="status" className="sr-only">
+            {copied ? `${title} copied` : ""}
+          </span>
+        </>
       )}
     </div>
   );

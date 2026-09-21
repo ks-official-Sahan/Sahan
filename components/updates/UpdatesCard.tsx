@@ -1,55 +1,43 @@
-import { Box } from "lucide-react";
 import React from "react";
-import TwoWayScrollAnimation from "../animations/aelomotion/two-way-scroll-animation";
 
-const UpdatesCard = ({ ...update }: UpdatesCardProps) => {
-  return (
-    <TwoWayScrollAnimation
-      animate={{ opacity: 1 }} // Animation when scrolling down
-      reverse={{ opacity: 0 }} // Reverse animation when scrolling up
-      initial={{ opacity: 0 }} // Initial state
-      threshold={0.2}
-      key={update.id}
-    >
-      <div className="w-full max-w-[756px] rounded-[12px] px-[26px] py-[30px] border dark:bg-[#1A1A1A] bg-[#f1f1f1] hover:to-[#FFFFFF] hover:from-[#EAEAEA] dark:hover:from-[#1A1A1A] dark:hover:to-[#232323] hover:bg-gradient-to-t transition-all duration-300 ease-in-out">
-        {/* HEADER */}
-        <div className="flex items-center justify-between">
-          {/* LEFT */}
-          <div className="flex items-center gap-2">
-            <Box size={16} />
-            <span className="font-semibold text-[14px] text-[#00ff73] dark:text-[#91FF00]">
-              {update.topic}
-            </span>
-          </div>
+// Ambient `UpdatesCardProps` comes from types/updates.d.ts.
+const UpdatesCard = ({ id, title, date, content, topic, tags }: UpdatesCardProps) => (
+  <article
+    aria-labelledby={`update-${id}`}
+    className="lift flex flex-col gap-4 rounded-[20px] border border-bBORDERFADE bg-bCARD p-6 s640:p-8"
+  >
+    <div className="flex flex-wrap items-center justify-between gap-3">
+      <span className="rounded-full bg-bICON_FADE px-3 py-1 text-xs font-semibold text-bICON">
+        {topic}
+      </span>
+      <span className="text-sm tabular-nums opacity-70">{date}</span>
+    </div>
 
-          {/* RIGHT */}
-          <div>
-            <div className="font-semibold text-[14px] opacity-60">
-              {update.date}
-            </div>
-          </div>
-        </div>
+    <div>
+      <h3
+        id={`update-${id}`}
+        className="text-balance text-xl font-semibold leading-snug s768:text-2xl"
+      >
+        {title}
+      </h3>
+      <p className="mt-3 max-w-[70ch] text-[15px] leading-relaxed opacity-80 s768:text-base">
+        {content}
+      </p>
+    </div>
 
-        {/* TITLE & CONTENT */}
-        <div className="w-full flex flex-col pt-[24px]">
-          <div className="font-semibold text-[20px]">{update.title}</div>
-          <div className="font-medium opacity-80 pt-2">{update.content}</div>
-        </div>
-
-        {/* TAGS */}
-        <div className="flex items-center flex-wrap gap-[10px] pt-[26px] ">
-          {update.tags.map((tag, index) => (
-            <div
-              className="text-[12px] font-semibold text-[#00ff73] dark:text-[#91FF00] py-[6px] px-[16px] rounded-full border bg-[#6BFF60]/10"
-              key={index}
-            >
-              {tag}
-            </div>
-          ))}
-        </div>
-      </div>
-    </TwoWayScrollAnimation>
-  );
-};
+    {tags.length > 0 && (
+      <ul className="flex flex-wrap gap-2" aria-label="Tags">
+        {tags.map((tag) => (
+          <li
+            key={tag}
+            className="rounded-full border border-bBORDERFADE bg-bCHIP px-3 py-1 text-xs font-medium"
+          >
+            {tag}
+          </li>
+        ))}
+      </ul>
+    )}
+  </article>
+);
 
 export default UpdatesCard;

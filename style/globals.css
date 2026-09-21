@@ -313,6 +313,21 @@ html {
   }
 }
 
+/* About hero runner: one lap across the banner, then again. Container units
+   (the banner is `container-type: inline-size`) keep the distance in step with
+   the banner width at every breakpoint. */
+@keyframes runner-travel {
+  from {
+    transform: translateX(-4rem);
+  }
+  to {
+    transform: translateX(calc(100cqw + 1rem));
+  }
+}
+.runner-travel {
+  animation: runner-travel 22s linear infinite;
+}
+
 @keyframes glow-drift {
   from {
     transform: translate3d(0, 0, 0) scale(1);

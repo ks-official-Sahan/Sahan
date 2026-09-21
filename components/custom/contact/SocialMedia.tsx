@@ -1,66 +1,57 @@
-"use client";
-
-import React from "react";
-import { motion } from "framer-motion";
-import Link from "next/link";
-import WrapperBody from "@/components/wrappers/WrapperBody";
-import { GitHubLogoIcon } from "@radix-ui/react-icons";
 import LINKEDIN_ICON from "@/components/icons/Linkedin";
 import X_ICON from "@/components/icons/twitter-X";
+import HomeSection from "@/components/home/HomeSection";
+import SectionHeading from "@/components/home/SectionHeading";
+import { ContactContent } from "@/contents/contact";
+import { GitHubLogoIcon } from "@radix-ui/react-icons";
+import { ArrowUpRight } from "lucide-react";
+import React from "react";
 
-const SocialMedia = () => {
-  return (
-    <motion.section
-      initial={{ y: 0, opacity: 0 }}
-      animate={{ y: -40, opacity: 1 }}
-      transition={{ type: "spring", duration: 0.7, delay: 0.4 }}
-      className="w-full"
-    >
-      <WrapperBody>
-        <div className="w-full min-h-[270px] rounded-[24px] py-5 px-[60px] box-border flex sm:flex-col justify-between items-center border from-white to-[#f7f7f7] dark:from-[#000000] dark:to-[#0F0F0F] bg-gradient-to-r">
-          <div>
-            <div className="text-[36px] font-bold">
-              Reach Me on Social Media
-            </div>
-            <div className="pt-3 text-secondaryT">
-              Get know about me with my social media profiles
-            </div>
-          </div>
-          <div className="flex items-center gap-[14px] mt-5 mb-3">
-            <div className="flex flex-col sm:flex-row gap-[14px]">
-              <Link
-                href={"https://github.com/ks-official-Sahan"}
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label="Sahan's GitHub profile"
-                className="w-[80px] h-[80px] border rounded-[16px] bg-[#fafafa] dark:bg-[#00000035] backdrop-blur-sm flex items-center justify-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lime-500"
-              >
-                <GitHubLogoIcon width={33} height={33} />
-              </Link>
-              <Link
-                href={"https://www.linkedin.com/in/sahan-sachintha"}
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label="Sahan's LinkedIn profile"
-                className="w-[80px] h-[80px] border rounded-[16px] bg-[#006adc] dark:bg-[#00409A35] backdrop-blur-sm flex items-center justify-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lime-500"
-              >
-                <LINKEDIN_ICON className="fill-white" />
-              </Link>
-            </div>
-            <Link
-              href={"https://x.com/SahanSubasingha"}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="Sahan's X (Twitter) profile"
-              className="w-[80px] h-[80px] border rounded-[16px] bg-[#fafafa] dark:bg-[#00000035] backdrop-blur-sm flex items-center justify-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lime-500"
+const icons = {
+  github: <GitHubLogoIcon width={22} height={22} />,
+  linkedin: <LINKEDIN_ICON className="fill-current" width={22} height={22} />,
+  x: <X_ICON className="fill-current" width={20} height={20} />,
+} as const;
+
+// Plain links with names, not icon-only squares: people should know where a
+// link goes before they tap it.
+const SocialMedia = () => (
+  <HomeSection id="social" labelledBy="social-title">
+    <SectionHeading
+      id="social-title"
+      title="Find me elsewhere"
+      description="Code, career and the occasional thought."
+    />
+
+    <ul className="reveal mt-8 grid grid-cols-1 gap-3 s640:grid-cols-3">
+      {ContactContent.socials.map((item) => (
+        <li key={item.id}>
+          <a
+            href={item.href}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="press lift arrow-nudge flex min-h-[72px] items-center gap-4 rounded-[16px] border border-bBORDERFADE bg-bCARD px-5"
+          >
+            <span
+              aria-hidden="true"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-bICON_FADE text-bICON"
             >
-              <X_ICON className="fill-black dark:fill-white" />
-            </Link>
-          </div>
-        </div>
-      </WrapperBody>
-    </motion.section>
-  );
-};
+              {icons[item.id as keyof typeof icons]}
+            </span>
+            <span className="flex-1 text-[15px] font-semibold">
+              {item.label}
+              <span className="sr-only"> (opens in a new tab)</span>
+            </span>
+            <ArrowUpRight
+              size={18}
+              aria-hidden="true"
+              className="arrow-nudge-icon opacity-60"
+            />
+          </a>
+        </li>
+      ))}
+    </ul>
+  </HomeSection>
+);
 
 export default SocialMedia;
