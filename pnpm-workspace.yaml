@@ -5,6 +5,10 @@ publicHoistPattern:
   - '*@nextui-org/*'
 
 allowBuilds:
+  '@prisma/client': true
+  '@prisma/engines': true
   '@tsparticles/engine': true
+  esbuild: true
+  prisma: true
   sharp: true
   unrs-resolver: true

@@ -1,26 +1,20 @@
 import type { Metadata } from "next";
 import "@/style/globals.css";
-import "@mantine/core/styles.css";
-import { ThemeProvider } from "@/components/theme/ThemeProvider";
 
-import { MantineSyncProvider } from "@/components/theme/MantineSyncProvider";
 import { poppins } from "@/lib/fonts";
 import { Site, SiteMetadata } from "@/config/site";
-import Footer from "@/components/foo/Footer";
-import FloatingAudioSwitch from "@/components/common/FloatingAudioSwitch";
 
-import { gsap } from "gsap";
-import { useGSAP } from "@gsap/react";
-import ShoelaceSetup from "@/components/animations/shoelace/shoelace-setup";
-import Navigation from "@/components/nav/Navigation";
-import { AudioProvider } from "@/context/AudioContext";
-
-import { SpeedInsights } from "@vercel/speed-insights/next";
-import LoadingScreen from "@/components/animations/LoadingScreen";
-import JsonLd from "@/components/seo/JsonLd";
-
-gsap.registerPlugin(useGSAP);
-
+// Thin root layout: the document, font and the metadata every route inherits.
+// Public chrome lives in components/site/SiteShell.tsx (used by app/(site) and
+// the root 404) and the admin has its own shell, so neither leaks into the other.
+// The theme provider is mounted by SiteShell and by app/admin/layout.tsx, because
+// the admin one needs the per-request CSP nonce, which this static layout cannot
+// read. Design record: docs/plan/admin-cms-adr.md, section 4.3.
+//
+// openGraph and twitter stay here on purpose. app/opengraph-image.tsx sits at
+// this level, and Next attaches its image to the openGraph object of the same
+// segment; an openGraph defined in a child layout would replace that object and
+// drop the image. The admin panel resets both to null.
 export const metadata: Metadata = {
   metadataBase: new URL(SiteMetadata.siteUrl),
   title: {
@@ -28,19 +22,6 @@ export const metadata: Metadata = {
     template: `%s | ${SiteMetadata.title}`,
   },
   description: SiteMetadata.description,
-  authors: [{ name: SiteMetadata.author, url: SiteMetadata.siteUrl }],
-  creator: SiteMetadata.author,
-  keywords: [
-    "Sahan Sachintha",
-    "Full-Stack Software Engineer",
-    "Next.js Developer",
-    "React Native Developer",
-    "Software Engineer Sri Lanka",
-    "Datalake Creative",
-  ],
-  alternates: {
-    canonical: SiteMetadata.siteUrl,
-  },
   openGraph: {
     type: "website",
     url: SiteMetadata.siteUrl,
@@ -79,34 +60,8 @@ export default function RootLayout({
             __html: "window.litDisableDevMode = true;",
           }}
         />
-        <JsonLd />
       </head>
-      <body className={`${poppins.className} antialiased relative`}>
-        <a
-          href="#main-content"
-          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[2000] focus:rounded-full focus:bg-[#91FF00] focus:px-4 focus:py-2 focus:text-black focus:outline-none"
-        >
-          Skip to content
-        </a>
-        <ThemeProvider enableSystem attribute="class" defaultTheme="dark">
-          <MantineSyncProvider>
-            <AudioProvider>
-              <main className="flex flex-col min-h-screen w-full overflow-x-hidden">
-                <ShoelaceSetup>
-                  <LoadingScreen />
-                  <Navigation />
-                  <FloatingAudioSwitch />
-                  <div id="main-content" className="pb-[300px]">
-                    {children}
-                  </div>
-                  <Footer />
-                  <SpeedInsights />
-                </ShoelaceSetup>
-              </main>
-            </AudioProvider>
-          </MantineSyncProvider>
-        </ThemeProvider>
-      </body>
+      <body className={`${poppins.className} antialiased relative`}>{children}</body>
     </html>
   );
 }

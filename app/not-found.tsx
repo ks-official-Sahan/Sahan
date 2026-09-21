@@ -1,17 +1,19 @@
-import { buttonVariants } from "@/components/ui/button";
-import Link from "next/link";
+import NotFoundContent from "@/components/site/NotFoundContent";
+import SiteShell from "@/components/site/SiteShell";
 
+// Every unmatched URL lands here, inside the thin root layout, so the page wraps
+// its content in SiteShell to keep the public navigation and footer. Unmatched
+// URLs render through Next's internal /_not-found route, which is prerendered at
+// build and answers 404 with full server-rendered HTML. A notFound() thrown while
+// rendering a route is different: it falls back to a client-rendered shell, so
+// the locked admin rewrites to an unmatched path instead of calling it
+// (docs/plan/admin-cms-adr.md, section 4.4).
+// Keep SiteShell free of Suspense boundaries and suspending awaits, or the 404
+// would stream and answer 200.
 export default function NotFound() {
   return (
-    <div className="min-h-[94vh] px-2 py-8 flex flex-col gap-3 items-center justify-center w-full">
-      <div className="flex flex-col items-center gap-3 text-center pb-4">
-        <h2 className="text-7xl font-bold">404</h2>
-        <p className="text-muted-foreground">Oops! Page You Looking Not Found</p>
-      </div>
-
-      <Link href="/" className={buttonVariants({})}>
-        Back to homepage
-      </Link>
-    </div>
+    <SiteShell>
+      <NotFoundContent />
+    </SiteShell>
   );
 }
