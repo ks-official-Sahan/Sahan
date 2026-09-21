@@ -16,6 +16,7 @@ import Navigation from "@/components/nav/Navigation";
 import { AudioProvider } from "@/context/AudioContext";
 
 import { SpeedInsights } from "@vercel/speed-insights/next";
+import { Analytics } from "@vercel/analytics/next";
 import LoadingScreen from "@/components/animations/LoadingScreen";
 import JsonLd from "@/components/seo/JsonLd";
 
@@ -101,6 +102,7 @@ export default function RootLayout({
                   </div>
                   <Footer />
                   <SpeedInsights />
+                  <Analytics />
                 </ShoelaceSetup>
               </main>
             </AudioProvider>
