@@ -86,18 +86,46 @@ const SkillGroupCard = ({
       <div
         role="group"
         aria-label={`${type} skills`}
-        className="relative h-[240px] overflow-hidden rounded-[20px] border border-bBORDERFADE bg-bFRAME p-2 [mask-image:linear-gradient(to_bottom,transparent,#000_10%,#000_90%,transparent)]"
+        className={cn(
+          "relative rounded-[20px] border border-bBORDERFADE bg-bFRAME p-2",
+          skills.length > 3
+            ? "h-[240px] overflow-hidden [mask-image:linear-gradient(to_bottom,transparent,#000_10%,#000_90%,transparent)]"
+            : "flex flex-col gap-2"
+        )}
       >
-        <Marquee
-          vertical
-          pauseOnHover
-          repeat={skills.length < 4 ? 4 : 2}
-          className="h-full p-0 [--gap:0.5rem]"
-          style={{ "--duration": `${Math.max(skills.length * 1.2, 4)}s` } as React.CSSProperties}
-        >
-          {skills.map((skill) => {
+        {skills.length > 3 ? (
+          <Marquee
+            vertical
+            pauseOnHover
+            repeat={2}
+            className="h-full p-0 [--gap:0.5rem]"
+            style={{ "--duration": `${Math.max(skills.length * 1.2, 4)}s` } as React.CSSProperties}
+          >
+            {skills.map((skill) => {
+              const isSelected = skill.name === selected.name;
+              return (
+                <button
+                  key={skill.name}
+                  type="button"
+                  aria-pressed={isSelected}
+                  aria-label={skill.name}
+                  title={skill.name}
+                  onClick={() => setSelectedName(skill.name)}
+                  style={skillVars(skill)}
+                  className={cn(
+                    "flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-[12px] transition-colors",
+                    colorClass,
+                    isSelected ? tintClass : "bg-bCHIP hover:bg-bPLACEHOLDER"
+                  )}
+                >
+                  <SkillIcon skill={skill} size={28} />
+                </button>
+              );
+            })}
+          </Marquee>
+        ) : (
+          skills.map((skill) => {
             const isSelected = skill.name === selected.name;
-
             return (
               <button
                 key={skill.name}
@@ -116,8 +144,8 @@ const SkillGroupCard = ({
                 <SkillIcon skill={skill} size={28} />
               </button>
             );
-          })}
-        </Marquee>
+          })
+        )}
       </div>
     </div>
   );
