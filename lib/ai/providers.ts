@@ -160,7 +160,7 @@ export function nvidiaProvider(config: { apiKey: string; model: string; fetch?: 
 
 /** Gemini's own REST API (not OpenAI-compatible), called directly so no extra SDK is added for one provider. */
 export function geminiProvider(config: { apiKey: string; model?: string; fetchImpl?: typeof fetch }): AiProvider {
-  const model = config.model || "gemini-2.0-flash";
+  const model = config.model || "gemini-3.6-flash";
   const fetchImpl = config.fetchImpl ?? fetch;
 
   return {
@@ -175,7 +175,16 @@ export function geminiProvider(config: { apiKey: string; model?: string; fetchIm
             body: JSON.stringify({
               systemInstruction: { parts: [{ text: prompt.system }] },
               contents: [{ role: "user", parts: [{ text: prompt.user }] }],
-              generationConfig: { maxOutputTokens: options?.maxTokens ?? 1200 },
+              // Newer Gemini models spend tokens on internal reasoning before
+              // any visible text (usageMetadata.thoughtsTokenCount), which can
+              // consume the whole maxOutputTokens budget and leave an empty
+              // reply (finishReason MAX_TOKENS) for a plain chat answer that
+              // needs no extended thinking. Confirmed against the live API:
+              // thinkingBudget 0 turns that into a normal STOP with real text.
+              generationConfig: {
+                maxOutputTokens: options?.maxTokens ?? 1200,
+                thinkingConfig: { thinkingBudget: 0 },
+              },
             }),
           }
         );
@@ -198,7 +207,7 @@ export function geminiProvider(config: { apiKey: string; model?: string; fetchIm
 /** The chain from decision D15, using whichever keys are configured. Empty when none are set. */
 export function realProviders(env: AppEnv, fetchImpl?: typeof fetch): AiProvider[] {
   const providers: AiProvider[] = [];
-  const openRouterModel = env.OPENROUTER_MODEL || "meta-llama/llama-3.3-70b-instruct:free";
+  const openRouterModel = env.OPENROUTER_MODEL || "google/gemma-4-31b-it:free";
   // Two keys are two quota pools on the same provider: both go in the chain
   // (named distinctly for the audit trail), so a rate-limited first key falls
   // through to the second before the chain moves on to Gemini.
@@ -226,7 +235,7 @@ export function realProviders(env: AppEnv, fetchImpl?: typeof fetch): AiProvider
   }
   if (env.GEMINI_API_KEY) providers.push(geminiProvider({ apiKey: env.GEMINI_API_KEY, fetchImpl }));
   if (env.NVIDIA_API_KEY) {
-    providers.push(nvidiaProvider({ apiKey: env.NVIDIA_API_KEY, model: "meta/llama-3.1-8b-instruct", fetch: fetchImpl }));
+    providers.push(nvidiaProvider({ apiKey: env.NVIDIA_API_KEY, model: "meta/llama-3.2-11b-vision-instruct", fetch: fetchImpl }));
   }
   return providers;
 }

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 
-import { MessageCircle, Send, X } from "lucide-react";
+import { Bot, Send, X } from "lucide-react";
 
 import type { ChatbotConfig } from "@/lib/settings/schema";
 
@@ -100,11 +100,11 @@ export default function ChatWidget({ enabled, config, siteUrl }: ChatWidgetProps
         {/* Header */}
         <div className="flex items-center justify-between gap-3 border-b border-bBORDERFADE px-4 py-3.5">
           <div className="flex items-center gap-2.5">
-            <span className="relative flex h-2 w-2" aria-hidden="true">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-bICON opacity-60 motion-reduce:animate-none" />
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-bICON" />
+            <span className="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-bICON_FADE text-bICON">
+              <Bot size={16} aria-hidden="true" />
+              <span className="absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full bg-bICON ring-2 ring-bCARD" aria-hidden="true" />
             </span>
-            <h2 className="text-sm font-semibold">Chat with me</h2>
+            <h2 className="text-sm font-semibold">Portfolio assistant</h2>
           </div>
           <button
             onClick={() => setIsOpen(false)}
@@ -187,7 +187,7 @@ export default function ChatWidget({ enabled, config, siteUrl }: ChatWidgetProps
         className="press flex h-14 w-14 items-center justify-center rounded-full bg-bICON text-white shadow-lg shadow-black/20 transition-transform dark:text-black"
       >
         <span className="relative grid h-6 w-6 place-items-center">
-          <MessageCircle
+          <Bot
             size={24}
             className={`absolute transition-[opacity,transform] duration-200 ${
               isOpen ? "scale-75 opacity-0" : "scale-100 opacity-100"
