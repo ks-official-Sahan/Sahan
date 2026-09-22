@@ -2,16 +2,17 @@
 
 import HeroBackdrop from "@/components/home/HeroBackdrop";
 import { HomeContainer, stagger } from "@/components/home/HomeSection";
-import UpdatesExplorer from "@/components/updates/UpdatesExplorer";
+import UpdatesExplorer, { type UpdatesListPost } from "@/components/updates/UpdatesExplorer";
 import type { PageContent } from "@/lib/cms/registry";
 import React, { ReactNode } from "react";
 
 interface UpdatesPageViewProps {
   content: PageContent<"updates">;
+  posts: UpdatesListPost[];
   finalCta: ReactNode;
 }
 
-export default function UpdatesPageView({ content, finalCta }: UpdatesPageViewProps) {
+export default function UpdatesPageView({ content, posts, finalCta }: UpdatesPageViewProps) {
   return (
     <div className="w-full overflow-hidden font-medium">
       <section aria-labelledby="updates-title" className="w-full">
@@ -39,7 +40,7 @@ export default function UpdatesPageView({ content, finalCta }: UpdatesPageViewPr
         </HeroBackdrop>
       </section>
 
-      <UpdatesExplorer content={content} />
+      <UpdatesExplorer content={content} posts={posts} />
       {finalCta}
     </div>
   );

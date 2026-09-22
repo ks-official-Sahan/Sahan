@@ -2,7 +2,6 @@
 
 import { HomeContainer } from "@/components/home/HomeSection";
 import UpdatesCard from "@/components/updates/UpdatesCard";
-import { UpdatesContent } from "@/contents/updates";
 import type { PageContent } from "@/lib/cms/registry";
 import { cn } from "@/lib/utils";
 import { Search, X } from "lucide-react";
@@ -13,29 +12,36 @@ const chip =
 const on = "border-transparent bg-bICON_FADE text-bICON";
 const off = "border-bBORDERFADE bg-bCHIP opacity-80 hover:opacity-100";
 
-interface UpdatesExplorerProps {
-  content: PageContent<"updates">;
+export interface UpdatesListPost {
+  id: string;
+  slug: string;
+  title: string;
+  date: string;
+  excerpt: string;
+  topic: string;
+  tags: string[];
 }
 
-const UpdatesExplorer = ({ content }: UpdatesExplorerProps) => {
-  // Posts stay in contents for now (step 12 moves them to DB)
-  const posts = UpdatesContent.posts;
+interface UpdatesExplorerProps {
+  content: PageContent<"updates">;
+  /** Published posts, from the database when the Post table has rows, else the code defaults (lib/blog/queries.ts). */
+  posts: UpdatesListPost[];
+}
 
-  // Counts come from the posts themselves, so the filters can never advertise
-  // something that is not there.
-  const topics = UpdatesContent.topics
-    .map((topic) => ({
-      name: topic.name,
-      count: posts.filter((post) => post.topic === topic.name).length,
-    }))
-    .filter((topic) => topic.count > 0);
+const UpdatesExplorer = ({ content, posts }: UpdatesExplorerProps) => {
+  // Topics and tags are computed from the posts actually shown, so a filter
+  // can never advertise something that is not there (docs/plan/admin-cms-adr.md, Step 12).
+  const topics = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const post of posts) counts.set(post.topic, (counts.get(post.topic) ?? 0) + 1);
+    return [...counts.entries()].map(([name, count]) => ({ name, count }));
+  }, [posts]);
 
-  const tags = UpdatesContent.tags
-    .map((tag) => ({
-      name: tag,
-      count: posts.filter((post) => post.tags.includes(tag)).length,
-    }))
-    .filter((tag) => tag.count > 0);
+  const tags = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const post of posts) for (const tag of post.tags) counts.set(tag, (counts.get(tag) ?? 0) + 1);
+    return [...counts.entries()].map(([name, count]) => ({ name, count }));
+  }, [posts]);
 
   const [topic, setTopic] = useState<string | null>(null);
   const [tag, setTag] = useState<string | null>(null);
@@ -49,7 +55,7 @@ const UpdatesExplorer = ({ content }: UpdatesExplorerProps) => {
         (!tag || post.tags.includes(tag)) &&
         (!needle ||
           post.title.toLowerCase().includes(needle) ||
-          post.content.toLowerCase().includes(needle))
+          post.excerpt.toLowerCase().includes(needle))
     );
   }, [posts, topic, tag, query]);
 
@@ -165,7 +171,15 @@ const UpdatesExplorer = ({ content }: UpdatesExplorerProps) => {
               >
                 {visible.map((post) => (
                   <li key={post.id}>
-                    <UpdatesCard {...post} />
+                    <UpdatesCard
+                      id={post.id}
+                      slug={post.slug}
+                      title={post.title}
+                      date={post.date}
+                      content={post.excerpt}
+                      topic={post.topic}
+                      tags={post.tags}
+                    />
                   </li>
                 ))}
               </ol>

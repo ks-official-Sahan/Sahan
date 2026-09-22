@@ -193,7 +193,7 @@ Out of scope: code changes beyond doc fixes.
 - [x] Step 9: CMS engine (`site` settings, `getSite` and `SiteConfigProvider` move to step 16, see the ADR result)
 - [x] Step 10: CMS editors for Home, About and Contact (an EDITOR account and the form in a real browser are left for the owner to check, see the ADR result)
 - [x] Step 11: Works collections (`site` page stays deferred; seed script not run, see the ADR result)
-- [ ] Step 12: updates and blog
+- [x] Step 12: updates and blog (seed script not run; no live AI provider call or browser check, see the ADR result)
 - [x] Step 13: media (live Cloudinary check and a browser pass on the picker left for the owner, see the ADR result)
 - [x] Step 14: contact pipeline and inquiries (live mail send and a real browser submission left for the owner, see the ADR result)
 - [ ] Step 15: chatbot

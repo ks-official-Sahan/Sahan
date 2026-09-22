@@ -12,6 +12,7 @@ import { requirePermission } from "@/lib/auth/dal";
 import { isCmsPage } from "@/lib/cms/registry";
 import { loadPreviewContent } from "@/lib/cms/service";
 import { getProjects, getExperience } from "@/lib/collections";
+import { getPosts } from "@/lib/blog/queries";
 import { getGitHubStats } from "@/lib/github";
 import { Projects } from "@/contents/projects";
 import { Experience } from "@/contents/experience";
@@ -54,9 +55,19 @@ export default async function PreviewPage({ params }: { params: Promise<{ page: 
     case "works":
       view = <WorksPageView content={await loadPreviewContent("works")} finalCta={finalCta} />;
       break;
-    case "updates":
-      view = <UpdatesPageView content={await loadPreviewContent("updates")} finalCta={finalCta} />;
+    case "updates": {
+      const posts = (await getPosts()).map((post) => ({
+        id: post.id,
+        slug: post.slug,
+        title: post.title,
+        date: post.date,
+        excerpt: post.excerpt,
+        topic: post.topic,
+        tags: post.tags,
+      }));
+      view = <UpdatesPageView content={await loadPreviewContent("updates")} posts={posts} finalCta={finalCta} />;
       break;
+    }
     case "contact":
       view = <ContactPageView content={await loadPreviewContent("contact")} home={home} />;
       break;
