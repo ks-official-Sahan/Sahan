@@ -69,7 +69,18 @@ function credentialDeps(): CredentialDeps {
       return user ? { ...user, role: user.role as RoleName } : null;
     },
     compare: verifyPassword,
-    allowIp: async (ip) => (await limit("login:ip", ip)).ok,
+    // Same R22 rule as the proxy's IP allowlist: UNKNOWN_IP is shared by every
+    // caller without a resolvable address (no TRUSTED_PROXY_HOPS, or off
+    // Vercel), so rate-limiting it for real would let any one caller lock
+    // every other unknown-IP visitor out, the owner included. `login:acct`
+    // (below) still throttles per account regardless of IP.
+    allowIp: async (ip) => {
+      if (ip === UNKNOWN_IP) {
+        log.warn("sign-in: client IP is unknown (set TRUSTED_PROXY_HOPS); IP rate limit skipped");
+        return true;
+      }
+      return (await limit("login:ip", ip)).ok;
+    },
     failures: {
       // The TTL is set when the counter is created, so a steady attacker cannot
       // keep a window open, and the increment and the TTL are one transaction.
@@ -149,7 +160,8 @@ async function authorize(credentials: Partial<Record<string, unknown>>, request:
   // Second step of an MFA sign-in: no password here, only a challenge whose code
   // was verified in the last 60 seconds. It can be used exactly once.
   if (typeof credentials.challengeId === "string" && credentials.email === undefined) {
-    if (!(await limit("login:ip", ip)).ok) throw new LimitedLogin();
+    // Same UNKNOWN_IP fail-open as allowIp above.
+    if (ip !== UNKNOWN_IP && !(await limit("login:ip", ip)).ok) throw new LimitedLogin();
     const owner = await challengeOwner(credentials.challengeId, "SIGN_IN");
     if (!owner || owner.user.disabledAt) throw new InvalidLogin();
     if (!(await consumeChallenge({ challengeId: credentials.challengeId, userId: owner.userId, purpose: "SIGN_IN" }))) {

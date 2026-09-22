@@ -243,10 +243,16 @@ export async function proxy(request: NextRequest) {
   // 4a. Unlock query: /admin or /admin/login with ?secret=...
   if (adminPage && searchParams.has(UNLOCK_QUERY) && (pathname === "/admin" || pathname === LOGIN_PATH)) {
     const ip = clientIp(request.headers);
-    const attempt = await limit("unlock:ip", ip);
-    const accepted = attempt.ok && keys !== null && isUnlockSecret(searchParams.get(UNLOCK_QUERY), keys);
+    // Same R22 fail-open rule as the IP allowlist above: without
+    // TRUSTED_PROXY_HOPS (or off Vercel), every caller shares UNKNOWN_IP, so
+    // rate-limiting it for real would let one caller exhaust the bucket for
+    // everyone, including the owner. The unlock secret's own entropy is the
+    // real defense here, not the per-IP counter.
+    const limited = ip === UNKNOWN_IP ? false : !(await limit("unlock:ip", ip)).ok;
+    if (ip === UNKNOWN_IP) log.warn("admin unlock: client IP is unknown (set TRUSTED_PROXY_HOPS); rate limit skipped");
+    const accepted = !limited && keys !== null && isUnlockSecret(searchParams.get(UNLOCK_QUERY), keys);
     if (!accepted || !keys) {
-      log.warn("admin unlock refused", { ip, limited: !attempt.ok, configured: keys !== null });
+      log.warn("admin unlock refused", { ip, limited, configured: keys !== null });
       return locked(request);
     }
     const clean = request.nextUrl.clone();
