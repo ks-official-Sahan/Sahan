@@ -7,17 +7,17 @@ import type { ExperienceEntry, EmploymentType } from "@/types/experience";
 export const experienceSchema = z.object({
   id: z.string(),
   company: z.string().min(1),
-  companyUrl: z.string().url().optional(),
+  companyUrl: z.string().url().nullable().optional(),
   role: z.string().min(1),
   period: z.string().min(1),
   type: z.enum(["full-time", "contract", "part-time", "internship", "freelance"] as const),
-  location: z.string().optional(),
+  location: z.string().nullable().optional(),
   highlights: z.array(z.string()).default([]),
   current: z.boolean().default(false),
   sortOrder: z.number().default(0),
   published: z.boolean().default(true),
-  createdAt: z.date(),
-  updatedAt: z.date(),
+  createdAt: z.coerce.date(),
+  updatedAt: z.coerce.date(),
 });
 
 export type ExperienceRow = z.infer<typeof experienceSchema>;
@@ -30,11 +30,11 @@ export async function loadExperience(client: { experience: { findMany: (arg: any
 
   return rows.map((row) => ({
     company: row.company,
-    companyUrl: row.companyUrl,
+    companyUrl: row.companyUrl ?? undefined,
     role: row.role,
     period: row.period,
     type: row.type as EmploymentType,
-    location: row.location,
+    location: row.location ?? undefined,
     highlights: row.highlights,
     current: row.current,
   }));

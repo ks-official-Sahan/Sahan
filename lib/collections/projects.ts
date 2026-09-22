@@ -30,8 +30,8 @@ export const projectSchema = z.object({
   tagline: z.string(),
   description: z.string(),
   role: z.string().min(1),
-  organization: z.string().optional(),
-  organizationUrl: z.string().url().optional(),
+  organization: z.string().nullable().optional(),
+  organizationUrl: z.string().url().nullable().optional(),
   category: z.enum(["product", "freelance", "contract", "internship", "internal"] as const),
   status: z.enum(["live", "demo", "upcoming", "unpublished", "offline", "private"] as const),
   platforms: z.array(z.enum(["android", "ios", "web", "web-admin"] as const)).default([]),
@@ -42,8 +42,8 @@ export const projectSchema = z.object({
   featured: z.boolean().default(false),
   sortOrder: z.number().default(0),
   published: z.boolean().default(false),
-  createdAt: z.date(),
-  updatedAt: z.date(),
+  createdAt: z.coerce.date(),
+  updatedAt: z.coerce.date(),
 });
 
 export type ProjectRow = z.infer<typeof projectSchema>;
@@ -60,8 +60,8 @@ export async function loadProjects(client: { project: { findMany: (arg: any) => 
     tagline: row.tagline,
     description: row.description,
     role: row.role,
-    organization: row.organization,
-    organizationUrl: row.organizationUrl,
+    organization: row.organization ?? undefined,
+    organizationUrl: row.organizationUrl ?? undefined,
     category: row.category as ProjectCategory,
     status: row.status as ProjectStatus,
     platforms: row.platforms as ProjectPlatform[],
