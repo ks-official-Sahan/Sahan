@@ -9,19 +9,22 @@ interface DescriptorProps {
   item: FAQItem;
   isOpen: boolean;
   onToggle: () => void;
+  index: number;
 }
 
-const Descriptor = ({ item, isOpen, onToggle }: DescriptorProps) => {
-  const { id, icon, question, answer } = item;
+const Descriptor = ({ item, isOpen, onToggle, index }: DescriptorProps) => {
+  const { icon, question, answer } = item;
+  // Ids stay 1-based, as they were when each question carried its own number.
+  const position = index + 1;
 
   return (
     <div className="w-full rounded-[12px] border border-bBORDERFADE bg-bCARD">
       <h3>
         <button
           type="button"
-          id={`faq-trigger-${id}`}
+          id={`faq-trigger-${position}`}
           aria-expanded={isOpen}
-          aria-controls={`faq-panel-${id}`}
+          aria-controls={`faq-panel-${position}`}
           onClick={onToggle}
           className="flex w-full items-center justify-between gap-4 p-5 text-left"
         >
@@ -47,9 +50,9 @@ const Descriptor = ({ item, isOpen, onToggle }: DescriptorProps) => {
       {/* `hidden` must sit on an element without a display utility, otherwise
           the utility wins over the [hidden] rule and the panel never hides. */}
       <div
-        id={`faq-panel-${id}`}
+        id={`faq-panel-${position}`}
         role="region"
-        aria-labelledby={`faq-trigger-${id}`}
+        aria-labelledby={`faq-trigger-${position}`}
         hidden={!isOpen}
       >
         <div
@@ -60,7 +63,7 @@ const Descriptor = ({ item, isOpen, onToggle }: DescriptorProps) => {
         >
           <p>{answer.intro}</p>
 
-          {answer.points && (
+          {answer.points && answer.points.length > 0 && (
             <ul className="list-disc space-y-1.5 pl-5 marker:text-bICON">
               {answer.points.map((point) => (
                 <li key={point}>{point}</li>

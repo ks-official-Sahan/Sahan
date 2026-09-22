@@ -190,13 +190,13 @@ Out of scope: code changes beyond doc fixes.
 - [x] Step 6: RBAC, users and invites (an EDITOR posting a user action directly and a real invite acceptance are left for the owner to check by hand, see the ADR result)
 - [x] Step 7: MFA and account page (the emailed code sign-in is left for the owner to confirm by hand, see the ADR result)
 - [x] Step 8: sessions and audit log
-- [ ] Step 9: CMS engine
-- [ ] Step 10: CMS editors for Home, About and Contact
-- [ ] Step 11: Works collections
+- [x] Step 9: CMS engine (`site` settings, `getSite` and `SiteConfigProvider` move to step 16, see the ADR result)
+- [x] Step 10: CMS editors for Home, About and Contact (an EDITOR account and the form in a real browser are left for the owner to check, see the ADR result)
+- [x] Step 11: Works collections (`site` page stays deferred; seed script not run, see the ADR result)
 - [ ] Step 12: updates and blog
-- [ ] Step 13: media
-- [ ] Step 14: contact pipeline and inquiries
+- [x] Step 13: media (live Cloudinary check and a browser pass on the picker left for the owner, see the ADR result)
+- [x] Step 14: contact pipeline and inquiries (live mail send and a real browser submission left for the owner, see the ADR result)
 - [ ] Step 15: chatbot
-- [ ] Step 16: settings, dashboard, cron, maintenance
+- [x] Step 16: settings, dashboard, cron, maintenance (`site` page section stays deferred; crons not run on real infrastructure, see the ADR result)
 - [ ] Step 17: end-to-end verification and security audit
 - [ ] Step 18: documentation and ops handoff

@@ -3,34 +3,40 @@
 import { HomeContainer } from "@/components/home/HomeSection";
 import UpdatesCard from "@/components/updates/UpdatesCard";
 import { UpdatesContent } from "@/contents/updates";
+import type { PageContent } from "@/lib/cms/registry";
 import { cn } from "@/lib/utils";
 import { Search, X } from "lucide-react";
 import React, { useMemo, useState } from "react";
-
-const posts = UpdatesContent.posts;
-
-// Counts come from the posts themselves, so the filters can never advertise
-// something that is not there.
-const topics = UpdatesContent.topics
-  .map((topic) => ({
-    name: topic.name,
-    count: posts.filter((post) => post.topic === topic.name).length,
-  }))
-  .filter((topic) => topic.count > 0);
-
-const tags = UpdatesContent.tags
-  .map((tag) => ({
-    name: tag,
-    count: posts.filter((post) => post.tags.includes(tag)).length,
-  }))
-  .filter((tag) => tag.count > 0);
 
 const chip =
   "press min-h-11 shrink-0 whitespace-nowrap rounded-full border px-4 text-sm font-medium transition-colors";
 const on = "border-transparent bg-bICON_FADE text-bICON";
 const off = "border-bBORDERFADE bg-bCHIP opacity-80 hover:opacity-100";
 
-const UpdatesExplorer = () => {
+interface UpdatesExplorerProps {
+  content: PageContent<"updates">;
+}
+
+const UpdatesExplorer = ({ content }: UpdatesExplorerProps) => {
+  // Posts stay in contents for now (step 12 moves them to DB)
+  const posts = UpdatesContent.posts;
+
+  // Counts come from the posts themselves, so the filters can never advertise
+  // something that is not there.
+  const topics = UpdatesContent.topics
+    .map((topic) => ({
+      name: topic.name,
+      count: posts.filter((post) => post.topic === topic.name).length,
+    }))
+    .filter((topic) => topic.count > 0);
+
+  const tags = UpdatesContent.tags
+    .map((tag) => ({
+      name: tag,
+      count: posts.filter((post) => post.tags.includes(tag)).length,
+    }))
+    .filter((tag) => tag.count > 0);
+
   const [topic, setTopic] = useState<string | null>(null);
   const [tag, setTag] = useState<string | null>(null);
   const [query, setQuery] = useState("");
@@ -45,7 +51,7 @@ const UpdatesExplorer = () => {
           post.title.toLowerCase().includes(needle) ||
           post.content.toLowerCase().includes(needle))
     );
-  }, [topic, tag, query]);
+  }, [posts, topic, tag, query]);
 
   const filtered = Boolean(topic || tag || query.trim());
   const clear = () => {
@@ -85,7 +91,7 @@ const UpdatesExplorer = () => {
             </div>
 
             <div className="flex flex-col gap-3">
-              <h2 className="text-sm font-semibold">Topics</h2>
+              <h2 className="text-sm font-semibold">{content.filters.topicsTitle}</h2>
               <div className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4 s640:-mx-8 s640:px-8 lg:mx-0 lg:flex-wrap lg:overflow-visible lg:px-0">
                 <button
                   type="button"
@@ -118,7 +124,7 @@ const UpdatesExplorer = () => {
             </div>
 
             <div className="flex flex-col gap-3">
-              <h2 className="text-sm font-semibold">Tags</h2>
+              <h2 className="text-sm font-semibold">{content.filters.tagsTitle}</h2>
               <div className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4 s640:-mx-8 s640:px-8 lg:mx-0 lg:flex-wrap lg:overflow-visible lg:px-0">
                 {tags.map((item) => (
                   <button

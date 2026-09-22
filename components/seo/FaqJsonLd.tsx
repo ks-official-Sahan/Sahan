@@ -1,14 +1,18 @@
-import { HomeContent } from "@/contents/home";
+import type { PageContent } from "@/lib/cms/registry";
 import type { FAQAnswer } from "@/types/faq";
 
 const answerToText = ({ intro, points, outro }: FAQAnswer) =>
   [intro, points?.join("; "), outro].filter(Boolean).join(" ");
 
-const FaqJsonLd = () => {
+interface FaqJsonLdProps {
+  content: PageContent<"home">["faq"];
+}
+
+const FaqJsonLd = ({ content }: FaqJsonLdProps) => {
   const faqJsonLd = {
     "@context": "https://schema.org",
     "@type": "FAQPage",
-    mainEntity: HomeContent.faq.questions.map((item) => ({
+    mainEntity: content.questions.map((item) => ({
       "@type": "Question",
       name: item.question,
       acceptedAnswer: {

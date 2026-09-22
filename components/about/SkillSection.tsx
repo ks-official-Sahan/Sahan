@@ -7,11 +7,15 @@ import SkillCard from "@/components/common/SkillCard";
 import SkillChip from "@/components/common/SkillChip";
 import HomeSection from "@/components/home/HomeSection";
 import SectionHeading from "@/components/home/SectionHeading";
-import { AboutContent } from "@/contents/about";
 import { MySkills } from "@/contents/skills";
+import type { PageContent } from "@/lib/cms/registry";
 import { cn } from "@/lib/utils";
 import type { Skill } from "@/types/skills";
 import React, { useMemo, useState } from "react";
+
+interface SkillSectionProps {
+  content: PageContent<"about">;
+}
 
 const groupByType = (skills: Skill[]) => {
   const groups = new Map<string, Skill[]>();
@@ -21,7 +25,7 @@ const groupByType = (skills: Skill[]) => {
   return Array.from(groups.entries());
 };
 
-const SkillSection = () => {
+const SkillSection = ({ content }: SkillSectionProps) => {
   const { categories } = MySkills.tabs;
   const { layoutFilter } = MySkills;
 
@@ -49,8 +53,8 @@ const SkillSection = () => {
     <HomeSection id="skills" labelledBy="skills-title">
       <SectionHeading
         id="skills-title"
-        title={AboutContent.KB.title}
-        description={AboutContent.KB.description}
+        title={content.skills.title}
+        description={content.skills.description}
         action={
           <div
             role="group"

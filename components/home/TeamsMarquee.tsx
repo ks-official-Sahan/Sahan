@@ -1,26 +1,28 @@
 import { HomeContainer } from "@/components/home/HomeSection";
 import Marquee from "@/components/ui/marquee";
-import { HomeContent } from "@/contents/home";
-import { Experience } from "@/contents/experience";
-import { Projects } from "@/contents/projects";
+import type { PageContent } from "@/lib/cms/registry";
+import type { ExperienceEntry } from "@/types/experience";
+import type { Project } from "@/types/project";
 import React from "react";
-
-// Real names only: every employer from the experience list plus every project
-// title. Text, not logos, so nothing here implies a brand endorsement.
-const names = [
-  ...new Set([
-    ...Experience.filter((entry) => entry.type !== "freelance").map((entry) =>
-      entry.company.replace(/\s+(PVT\s+)?Ltd$/i, "")
-    ),
-    ...Projects.map((project) => project.title),
-  ]),
-];
 
 const fade =
   "[mask-image:linear-gradient(to_right,transparent,#000_10%,#000_90%,transparent)]";
 
-const TeamsMarquee = () => {
-  const { teams } = HomeContent;
+interface TeamsMarqueeProps {
+  content: PageContent<"home">["teams"];
+  experience: ExperienceEntry[];
+}
+
+const TeamsMarquee = ({ content: teams, experience }: TeamsMarqueeProps) => {
+  // Real names only: every employer from the experience list plus every project
+  // title. Text, not logos, so nothing here implies a brand endorsement.
+  const names = [
+    ...new Set([
+      ...experience.filter((entry) => entry.type !== "freelance").map((entry) =>
+        entry.company.replace(/\s+(PVT\s+)?Ltd$/i, "")
+      ),
+    ]),
+  ];
 
   return (
     <section aria-label={teams.label} className="w-full pt-2">

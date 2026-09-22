@@ -39,9 +39,16 @@ export function forContentPublish(
 
 /** Create, update, delete, reorder or publish-toggle in a works collection. */
 export function forCollection(name: CollectionName): InvalidationPlan {
+  const paths: string[] = ["/", "/about", "/works"];
+  // Experience affects about and home team/timeline
+  if (name === "experience") paths.push("/about");
+  // Projects affect home featured works and works page
+  if (name === "projects") {
+    // Already included: "/", "/about", "/works"
+  }
   return {
     tags: [TAGS.collection(name), TAGS.chatbotKnowledge],
-    paths: ["/", "/about", "/works"],
+    paths: [...new Set(paths)],
   };
 }
 

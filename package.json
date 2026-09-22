@@ -15,7 +15,10 @@
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:admin": "node --env-file-if-exists=.env.local --conditions=react-server --import tsx prisma/admin-cli.ts",
-    "db:seed": "node --env-file-if-exists=.env.local --conditions=react-server --import tsx prisma/seed.ts"
+    "db:seed": "node --env-file-if-exists=.env.local --conditions=react-server --import tsx prisma/seed.ts",
+    "db:seed-content": "node --env-file-if-exists=.env.local --conditions=react-server --import tsx prisma/seed-content.ts",
+    "db:seed-collections": "node --env-file-if-exists=.env.local --conditions=react-server --import tsx prisma/seed-collections.ts",
+    "db:seed-media": "node --env-file-if-exists=.env.local --conditions=react-server --import tsx prisma/seed-media.ts"
   },
   "dependencies": {
     "@gsap/react": "^2.1.2",

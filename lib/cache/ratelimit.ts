@@ -22,6 +22,7 @@ export const LIMITS = {
   "unlock:ip": { windowSeconds: 600, max: 10, failMode: "closed" },
   "login:ip": { windowSeconds: 600, max: 10, failMode: "closed" },
   "login:acct": { windowSeconds: 900, max: 5, failMode: "closed" },
+  "maintenance:ip": { windowSeconds: 600, max: 10, failMode: "closed" },
   "mfa:send:user": { windowSeconds: 600, max: 3, failMode: "closed" },
   "invite:actor": { windowSeconds: 3600, max: 20, failMode: "closed" },
   "upload:sign:user": { windowSeconds: 600, max: 30, failMode: "closed" },

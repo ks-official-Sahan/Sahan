@@ -1,13 +1,19 @@
 import HomeSection from "@/components/home/HomeSection";
 import SectionHeading from "@/components/home/SectionHeading";
-import { HomeContent } from "@/contents/home";
+import type { PageContent } from "@/lib/cms/registry";
 import React from "react";
 
 // A real sequence, so the numbers carry information (order matters here).
 // Phones and tablets read it as a vertical timeline; from 1024px the steps sit
 // in a row joined by a rule, so the whole process is visible at a glance.
-const ProcessSection = () => {
-  const { process, home } = HomeContent;
+
+interface ProcessSectionProps {
+  content: PageContent<"home">["process"];
+  labels: PageContent<"home">["home"];
+}
+
+const ProcessSection = ({ content, labels: home }: ProcessSectionProps) => {
+  const { steps } = content;
 
   return (
     <HomeSection id="process" labelledBy="process-title" band>
@@ -18,7 +24,7 @@ const ProcessSection = () => {
       />
 
       <ol className="mt-12 grid grid-cols-1 gap-0 lg:grid-cols-4 lg:gap-6">
-        {process.map((step, index) => (
+        {steps.map((step, index) => (
           <li
             key={step.title}
             className="reveal group relative pb-10 pl-14 last:pb-0 lg:pb-0 lg:pl-0 lg:pt-14"

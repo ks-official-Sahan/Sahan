@@ -2,8 +2,8 @@
 
 import ContactChannels from "@/components/home/ContactChannels";
 import HomeSection from "@/components/home/HomeSection";
+import type { PageContent } from "@/lib/cms/registry";
 import { Site, SiteMetadata } from "@/config/site";
-import { HomeContent } from "@/contents/home";
 import { ArrowUpRight, Check, Copy, Share2 } from "lucide-react";
 import Link from "next/link";
 import React, { useEffect, useRef, useState } from "react";
@@ -11,8 +11,13 @@ import React, { useEffect, useRef, useState } from "react";
 // The closing section is a contact hub: the primary path (a project brief)
 // plus the three channels people already use. Choosing the channel is the
 // friction cut; nobody has to open a form to say hello.
-const FinalCta = () => {
-  const { finalCta, channels } = HomeContent;
+
+interface FinalCtaProps {
+  content: PageContent<"home">["finalCta"];
+  channels: PageContent<"home">["channels"];
+}
+
+const FinalCta = ({ content: finalCta, channels }: FinalCtaProps) => {
   const [copied, setCopied] = useState(false);
   const timeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -132,7 +137,7 @@ const FinalCta = () => {
             <h3 className="text-sm font-semibold opacity-70">
               {channels.title}
             </h3>
-            <ContactChannels variant="rows" />
+            <ContactChannels content={channels} variant="rows" />
             <button
               type="button"
               onClick={shareSite}
