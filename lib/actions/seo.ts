@@ -66,8 +66,13 @@ export async function pingIndexNowAction(_previous: ActionState, _formData: Form
 
   const failed = result.endpoints.filter((endpoint) => !endpoint.ok);
   if (failed.length > 0) {
+    const detail = failed.map((endpoint) => `${endpoint.name} (HTTP ${endpoint.status ?? "no response"})`).join(", ");
+    // indexnow.org verifies keyLocation synchronously by fetching
+    // public/<key>.txt from the live site before it returns 200/202 — this
+    // fails until that file is actually deployed to production, which is a
+    // deployment-state issue, not a bad request.
     return fail(
-      `Pinged ${result.submitted} URL(s), but ${failed.map((endpoint) => endpoint.name).join(", ")} failed.`
+      `Pinged ${result.submitted} URL(s), but ${detail} failed. If this is indexnow.org, confirm the key file is live at https://<site>/<key>.txt on production first.`
     );
   }
   return done(`Pinged ${result.submitted} URL(s) to ${result.endpoints.map((endpoint) => endpoint.name).join(" and ")}.`);

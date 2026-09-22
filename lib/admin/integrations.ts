@@ -66,10 +66,21 @@ export async function checkResend(fetchImpl: FetchLike = fetch): Promise<Integra
   const apiKey = process.env.RESEND_API_KEY;
   const configured = Boolean(apiKey);
   if (!configured) return { name: "Resend", configured, reachable: null };
-  const reachable = await pingUrl(fetchImpl, "https://api.resend.com/domains", {
-    headers: { Authorization: `Bearer ${apiKey}` },
-  });
-  return { name: "Resend", configured, reachable };
+  try {
+    const response = await fetchImpl("https://api.resend.com/domains", {
+      headers: { Authorization: `Bearer ${apiKey}` },
+      signal: AbortSignal.timeout(PING_TIMEOUT_MS),
+    });
+    if (response.ok) return { name: "Resend", configured, reachable: true };
+    // A send-only scoped API key correctly 401s on /domains with this error
+    // name: Resend recognized the key, it is just narrower than this ping
+    // needs. That is a valid, working key, not an unreachable integration.
+    const body = (await response.json().catch(() => null)) as { name?: string } | null;
+    const scopedButValid = response.status === 401 && body?.name === "restricted_api_key";
+    return { name: "Resend", configured, reachable: scopedButValid };
+  } catch {
+    return { name: "Resend", configured, reachable: false };
+  }
 }
 
 export async function checkBrevo(fetchImpl: FetchLike = fetch): Promise<IntegrationStatus> {

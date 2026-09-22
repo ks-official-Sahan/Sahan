@@ -7,10 +7,12 @@ import type { AppEnv } from "@/lib/env";
 import { log } from "@/lib/log";
 
 import type { ModelPrompt } from "./guard";
+import { getVertexAccessToken } from "./vertex";
 
 // An injectable, ordered provider chain, in the style of lib/email/service.ts
 // (docs/plan/admin-cms-adr.md, decision D15: OpenRouter, then Gemini, then
-// NVIDIA, paid OpenRouter models off by default). Every provider here is a
+// NVIDIA, then Google Vertex AI as the final fallback; paid OpenRouter
+// models off by default). Every provider here is a
 // thin adapter: the fallback logic in createAiService() is pure and unit
 // tested with fakes, and real network calls only happen through
 // realProviders(), which this agent never calls in a test.
@@ -204,6 +206,59 @@ export function geminiProvider(config: { apiKey: string; model?: string; fetchIm
   };
 }
 
+/** Google Vertex AI's Gemini endpoint, authenticated with a service-account JWT
+ * (lib/ai/vertex.ts) instead of an API key. Last resort in the chain: it is the
+ * slowest to authenticate (a token exchange before every cold call) and the
+ * most involved to configure correctly, so faster, simpler providers go first. */
+export function vertexProvider(config: {
+  clientEmail: string;
+  privateKey: string;
+  tokenUri: string;
+  project: string;
+  location?: string;
+  model?: string;
+  fetchImpl?: typeof fetch;
+}): AiProvider {
+  const location = config.location ?? "us-central1";
+  const model = config.model ?? "gemini-2.0-flash-001";
+  const fetchImpl = config.fetchImpl ?? fetch;
+
+  return {
+    name: "vertex",
+    async generate(prompt, options) {
+      try {
+        const accessToken = await getVertexAccessToken(
+          { clientEmail: config.clientEmail, privateKey: config.privateKey, tokenUri: config.tokenUri },
+          fetchImpl
+        );
+        const response = await fetchImpl(
+          `https://${location}-aiplatform.googleapis.com/v1/projects/${config.project}/locations/${location}/publishers/google/models/${model}:generateContent`,
+          {
+            method: "POST",
+            headers: { "content-type": "application/json", authorization: `Bearer ${accessToken}` },
+            body: JSON.stringify({
+              systemInstruction: { parts: [{ text: prompt.system }] },
+              contents: [{ role: "user", parts: [{ text: prompt.user }] }],
+              generationConfig: { maxOutputTokens: options?.maxTokens ?? 1200 },
+            }),
+          }
+        );
+        if (!response.ok) {
+          return { ok: false, errorClass: `http_${response.status}`, retryable: response.status >= 500, status: response.status };
+        }
+        const data = (await response.json()) as {
+          candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+        };
+        const text = data.candidates?.[0]?.content?.parts?.map((part) => part.text ?? "").join("") ?? "";
+        if (!text) return { ok: false, errorClass: "empty_response", retryable: true };
+        return { ok: true, text };
+      } catch {
+        return { ok: false, errorClass: "transport", retryable: true };
+      }
+    },
+  };
+}
+
 /** The chain from decision D15, using whichever keys are configured. Empty when none are set. */
 export function realProviders(env: AppEnv, fetchImpl?: typeof fetch): AiProvider[] {
   const providers: AiProvider[] = [];
@@ -236,6 +291,17 @@ export function realProviders(env: AppEnv, fetchImpl?: typeof fetch): AiProvider
   if (env.GEMINI_API_KEY) providers.push(geminiProvider({ apiKey: env.GEMINI_API_KEY, fetchImpl }));
   if (env.NVIDIA_API_KEY) {
     providers.push(nvidiaProvider({ apiKey: env.NVIDIA_API_KEY, model: "meta/llama-3.2-11b-vision-instruct", fetch: fetchImpl }));
+  }
+  if (env.GOOGLE_CLIENT_EMAIL && env.GOOGLE_PRIVATE_KEY && env.GOOGLE_CLOUD_PROJECT && env.GOOGLE_TOKEN_URI) {
+    providers.push(
+      vertexProvider({
+        clientEmail: env.GOOGLE_CLIENT_EMAIL,
+        privateKey: env.GOOGLE_PRIVATE_KEY,
+        tokenUri: env.GOOGLE_TOKEN_URI,
+        project: env.GOOGLE_CLOUD_PROJECT,
+        fetchImpl,
+      })
+    );
   }
   return providers;
 }
