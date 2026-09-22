@@ -11,10 +11,12 @@ import FeaturesForm from "@/components/admin/settings/FeaturesForm";
 import IntegrationHealthPanel from "@/components/admin/settings/IntegrationHealthPanel";
 import IpAllowlistForm from "@/components/admin/settings/IpAllowlistForm";
 import MaintenanceForm from "@/components/admin/settings/MaintenanceForm";
+import SeoToolsPanel from "@/components/admin/settings/SeoToolsPanel";
 import { getIntegrationHealth } from "@/lib/admin/integrations";
 import { hasPermission, requireUser } from "@/lib/auth/dal";
 import { getKnownIps } from "@/lib/auth/session-store";
 import { clientIp } from "@/lib/security/ip";
+import { isIndexNowConfigured } from "@/lib/seo/indexnow";
 import { getSetting } from "@/lib/settings/service";
 
 export const metadata: Metadata = {
@@ -102,6 +104,15 @@ export default async function SettingsPage() {
             description="Configured status and a live ping for each external service. No secret is ever shown."
           >
             <IntegrationHealthPanel statuses={health} />
+          </Section>
+        ) : null}
+
+        {canManageSettings ? (
+          <Section
+            title="SEO tools"
+            description="Regenerate llms.txt, revalidate the sitemap, and ping IndexNow (Bing + indexnow.org) with every public URL."
+          >
+            <SeoToolsPanel indexNowConfigured={isIndexNowConfigured()} />
           </Section>
         ) : null}
 

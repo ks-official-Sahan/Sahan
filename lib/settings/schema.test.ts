@@ -22,10 +22,18 @@ describe("setting keys", () => {
     assert.equal(isSettingKey(""), false);
   });
 
-  test("declares exactly the six keys the design record lists", () => {
+  test("declares exactly the seven keys the design record lists", () => {
     assert.deepEqual(
       [...ALL_KEYS].sort(),
-      ["chatbot.config", "email.routing", "features", "maintenance", "rbac.seedVersion", "security.ipAllowlist"].sort()
+      [
+        "chatbot.config",
+        "email.routing",
+        "features",
+        "maintenance",
+        "rbac.seedVersion",
+        "security.ipAllowlist",
+        "seo.llmsTxt",
+      ].sort()
     );
   });
 });

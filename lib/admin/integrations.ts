@@ -3,6 +3,7 @@ import "server-only";
 import { db } from "@/lib/db/prisma";
 import { kv, kvBackend } from "@/lib/cache/redis";
 import { log } from "@/lib/log";
+import { checkIndexNowKeyFile } from "@/lib/seo/indexnow";
 
 // Integration health for the settings screen: configured yes/no, plus a
 // cheap live ping through an injectable fetch with a short timeout. Never
@@ -114,6 +115,11 @@ export async function checkNvidia(): Promise<IntegrationStatus> {
   return { name: "NVIDIA (AI)", configured: Boolean(process.env.NVIDIA_API_KEY), reachable: null };
 }
 
+export async function checkIndexNow(): Promise<IntegrationStatus> {
+  const result = await checkIndexNowKeyFile();
+  return { name: "IndexNow", configured: result.configured, reachable: result.configured ? result.ok : null };
+}
+
 /**
  * Every integration's status, each check isolated so one failure (a timeout,
  * a thrown error) never hides the others. `fetchImpl` is injectable for
@@ -129,6 +135,7 @@ export async function getIntegrationHealth(fetchImpl: FetchLike = fetch): Promis
     checkOpenRouter(fetchImpl),
     checkGemini(),
     checkNvidia(),
+    checkIndexNow(),
   ];
   const results = await Promise.allSettled(checks);
   return results.map((result, index) =>
@@ -145,4 +152,5 @@ const INTEGRATION_NAMES = [
   "OpenRouter (AI)",
   "Gemini (AI)",
   "NVIDIA (AI)",
+  "IndexNow",
 ];

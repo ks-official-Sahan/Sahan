@@ -57,6 +57,17 @@ export const rbacSeedVersionSchema = z.object({
 });
 export type RbacSeedVersion = z.infer<typeof rbacSeedVersionSchema>;
 
+// SEO: llms.txt content, regenerated on demand from real site data and
+// persisted here (not the filesystem — Vercel's runtime filesystem is
+// read-only outside /tmp, so writing to public/llms.txt from a Server
+// Action would throw on every deploy). /llms.txt falls back to generating
+// it on the fly when nobody has regenerated it yet, so it is never a 404.
+export const llmsTxtSchema = z.object({
+  content: z.string().default(""),
+  generatedAt: z.string().datetime().optional(),
+});
+export type LlmsTxt = z.infer<typeof llmsTxtSchema>;
+
 // Union of all setting keys and their schemas
 export const SETTING_SCHEMAS = {
   "features": featuresSchema,
@@ -65,6 +76,7 @@ export const SETTING_SCHEMAS = {
   "chatbot.config": chatbotConfigSchema,
   "email.routing": emailRoutingSchema,
   "rbac.seedVersion": rbacSeedVersionSchema,
+  "seo.llmsTxt": llmsTxtSchema,
 } as const;
 
 export type SettingKey = keyof typeof SETTING_SCHEMAS;
@@ -94,6 +106,7 @@ export const DEFAULT_SETTINGS: Record<SettingKey, unknown> = {
   "chatbot.config": getSettingDefault("chatbot.config"),
   "email.routing": getSettingDefault("email.routing"),
   "rbac.seedVersion": getSettingDefault("rbac.seedVersion"),
+  "seo.llmsTxt": getSettingDefault("seo.llmsTxt"),
 };
 
 // Public settings: subset safe to expose to client-side or caching layers

@@ -95,6 +95,10 @@ const schema = z.object({
   GOOGLE_PRIVATE_KEY: privateKey,
   GOOGLE_CLOUD_PROJECT: text,
   GOOGLE_TOKEN_URI: text,
+
+  // SEO: IndexNow ping and Bing Webmaster diagnostics
+  INDEXNOW_KEY: text,
+  BING_API_KEY: text,
 });
 
 export type AppEnv = z.infer<typeof schema>;
