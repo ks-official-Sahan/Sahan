@@ -92,6 +92,11 @@ interface PostRow {
 }
 
 function toView(row: PostRow): BlogPostView {
+  // Coerced, not trusted as a Date instance: a cache hit off the Redis
+  // read-through in lib/cache/cached.ts round-trips through JSON, which
+  // turns Date into an ISO string. new Date() on an already-Date value is a
+  // no-op, so this is safe on a cold read too.
+  const publishedAt = row.publishedAt ? new Date(row.publishedAt) : null;
   return {
     id: row.id,
     slug: row.slug,
@@ -102,8 +107,8 @@ function toView(row: PostRow): BlogPostView {
     contentText: row.contentText,
     topic: row.topic,
     tags: row.tags,
-    date: row.publishedAt ? formatDate(row.publishedAt) : "",
-    publishedAt: row.publishedAt ? row.publishedAt.toISOString() : null,
+    date: publishedAt ? formatDate(publishedAt) : "",
+    publishedAt: publishedAt ? publishedAt.toISOString() : null,
     readMinutes: row.readMinutes,
     coverUrl: row.coverMedia?.url,
     coverAlt: row.coverAlt || undefined,
