@@ -76,11 +76,11 @@ export default function ChatWidget({ enabled, config, siteUrl }: ChatWidgetProps
   };
 
   return (
-    <div className="fixed bottom-4 right-4 z-50">
+    <div className="fixed bottom-20 right-8 z-50">
       {!isOpen ? (
         <button
           onClick={() => setIsOpen(true)}
-          className="bg-blue-600 hover:bg-blue-700 text-white rounded-full p-4 shadow-lg transition"
+          className="bg-green-500 hover:bg-green-700 text-white rounded-full p-4 shadow-lg transition"
           aria-label="Open chat"
         >
           <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
@@ -90,7 +90,7 @@ export default function ChatWidget({ enabled, config, siteUrl }: ChatWidgetProps
       ) : (
         <div className="bg-white rounded-lg shadow-xl flex flex-col h-96 w-80 border border-gray-200">
           {/* Header */}
-          <div className="bg-blue-600 text-white p-4 rounded-t-lg flex justify-between items-center">
+          <div className="bg-green-600 text-white p-4 rounded-t-lg flex justify-between items-center">
             <h2 className="font-semibold">Chat with us</h2>
             <button
               onClick={() => setIsOpen(false)}

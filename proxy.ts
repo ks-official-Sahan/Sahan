@@ -162,7 +162,23 @@ export async function proxy(request: NextRequest) {
   const bypassCookie = request.cookies.get(BYPASS_COOKIE)?.value;
   const hasBypassCookie = bypassKeys ? verifyBypassCookie(bypassCookie, now, bypassKeys) : false;
 
-  // 2. Maintenance mode for public paths. isMaintenanceExempt (pure, unit
+  // 2. Origin check for unsafe methods on /admin, /api/admin, and public
+  // /api (not cron). Runs before maintenance mode so it also covers public
+  // API routes like /api/contact and /api/chat, which otherwise return
+  // inside the maintenance block below and never reach this check.
+  if (UNSAFE_METHODS.has(request.method) && (adminPage || adminApi || (isApi(pathname) && !cronPath))) {
+    const allowed = isAllowedOrigin(request.headers.get("origin"), {
+      hosts: [request.headers.get("host"), request.headers.get("x-forwarded-host")],
+      siteUrl: process.env.SITE_URL,
+      extraOrigins: extraOrigins(),
+    });
+    if (!allowed) {
+      // The admin surface never answers 403, so it cannot be told from a missing page.
+      return adminPage || adminApi ? locked(request) : new NextResponse(null, { status: 403 });
+    }
+  }
+
+  // 3. Maintenance mode for public paths. isMaintenanceExempt (pure, unit
   // tested in lib/admin/maintenance-bypass.test.ts) is the single source of
   // truth for the exemption rule: admin pages, admin API, cron, and a valid
   // bypass cookie. Called here with hasBypassCookie=false, it reduces to the
@@ -196,19 +212,6 @@ export async function proxy(request: NextRequest) {
 
     // Public pages continue normally
     return NextResponse.next();
-  }
-
-  // 3. Origin check for unsafe methods on /admin and /api (not cron).
-  if (UNSAFE_METHODS.has(request.method) && (adminPage || (isAdminApi(pathname) || (isApi(pathname) && !cronPath)))) {
-    const allowed = isAllowedOrigin(request.headers.get("origin"), {
-      hosts: [request.headers.get("host"), request.headers.get("x-forwarded-host")],
-      siteUrl: process.env.SITE_URL,
-      extraOrigins: extraOrigins(),
-    });
-    if (!allowed) {
-      // The admin surface never answers 403, so it cannot be told from a missing page.
-      return adminPage || adminApi ? locked(request) : new NextResponse(null, { status: 403 });
-    }
   }
 
   if (!adminPage && !adminApi) return NextResponse.next();

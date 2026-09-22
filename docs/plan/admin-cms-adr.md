@@ -395,7 +395,7 @@ Catalogue in `lib/auth/permissions.ts`, 33 keys. DEV is DEVELOPER, MGR is MANAGE
 | Media | `uploadMedia` | upload, edit alt text and tags | yes | yes | yes |
 | Media | `deleteMedia` | delete assets | yes | yes | no |
 | Leads | `viewLeads` | see inquiries | yes | yes | no |
-| Leads | `manageLeads` | status, notes, assignee | yes | yes | no |
+| Leads | `manageLeads` | status, notes, assignee, delete | yes | yes | no |
 | Leads | `exportData` | CSV exports (leads, audit, sessions) | yes | yes | no |
 | Chatbot | `viewChatHistory` | conversation history | yes | yes | no |
 | Chatbot | `manageChatbot` | training entries, on and off, tone, greeting | yes | yes | no |
@@ -742,6 +742,16 @@ Format: **In** is what must exist before the step. **Out** is what the step leav
 - In: all earlier steps.
 - Out: `e2e/*.spec.ts` (unlock then sign in, MFA, invite, role limits, content edit to public page, blog publish, media upload, contact submit, session revoke) running against `next start` with `EMAIL_PROVIDER=capture` and schema `sahan_test`; `docs/plan/admin-cms-security-review.md` (OWASP top ten mapping, secret handling, XSS, CSRF, IDOR check of every `app/api/admin` route and every action, rate limits, headers, `pnpm audit`); Lighthouse reports for the five public pages; fixes for every finding.
 - Done when: no high or medium finding is open; e2e passes; public accessibility scores are unchanged.
+- Built, and where it differs from the plan:
+  - A real `next build` (not just `tsc`/eslint/unit tests) caught two build-breaking Next 16 server/client boundary violations invisible to the other three checks: `app/(site)/layout.tsx` used `next/dynamic(..., { ssr: false })` directly inside a Server Component, which Next 16 forbids; fixed by moving the dynamic import into a new `components/site/chat/ChatWidgetLoader.tsx` client wrapper, one boundary below the server layout. `lib/media/config.ts` had a leftover `import "server-only"` even though it's pure data/pure functions with no secrets or database access, pulled into the client bundle via `MediaPicker.tsx` and `BlogEditorForm.tsx`; fixed by removing the import and documenting why the file is legitimately shareable.
+  - Security review (full findings and OWASP mapping in `docs/plan/admin-cms-security-review.md`) found 1 HIGH and 3 LOW findings, all fixed:
+    - HIGH: `proxy.ts`'s maintenance-mode block for public paths always returned inside itself before ever reaching the origin/CSRF check below it, so unsafe-method requests to public API routes (`/api/contact`, `/api/chat`) never got an origin check from the proxy layer, regardless of maintenance mode. Fixed by moving the origin check ahead of the maintenance block, covering `adminPage`, `adminApi`, and any other `/api/*` path except `/api/cron/*` unconditionally.
+    - LOW: `lib/admin/maintenance-bypass.ts`'s `verifyBypassCookie` and `isValidBypassSecret` used manual byte-loop comparisons instead of the shared constant-time helper. Fixed to call `constantTimeEqual` from `lib/admin/login-unlock.ts`.
+    - LOW: the permissions table in section 9 didn't list `deleteInquiry`'s delete under `manageLeads`, even though the code already gated it there correctly. Table updated, no code change.
+    - LOW: `lib/actions/works.ts`'s `featureProjectAction` invalidated public caches but not the admin projects list (`revalidatePath("/admin/works/projects")`), unlike its sibling `publishProjectAction`. Fixed to match.
+  - `pnpm audit --prod` found 2 high advisories in `sharp` (libheif), a direct production dependency used by Next's image optimizer; bumped `sharp` 0.33.5 → 0.35.4 and rebuilt clean. The remaining 2 high + 1 moderate advisories are in `mysql2`/`deepmerge-ts`, transitive to the `prisma` CLI devDependency, never loaded at runtime (the app uses `@prisma/adapter-neon` against Postgres only).
+  - `e2e/*.spec.ts` and Lighthouse were not produced in this environment: the browser pane cannot accept a session cookie minted outside the browser (the same limitation noted in Steps 9–16's results), and there is no running production server here to point Lighthouse at outside the owner's own infrastructure. Left for the owner, documented in the security review's "Left for the owner" section.
+- Result: after every fix, `tsc --noEmit` 0 errors, `eslint` clean on every changed file, full unit suite 688/688 pass, `next build` compiles clean with the full route manifest printed and no server/client boundary errors. Independently re-executed `isMaintenanceExempt("/api/contact", false)` (still `false`, confirming the class of request the HIGH fix now covers) and the bypass-cookie functions against correct secret, wrong secret, tampered cookie and wrong signing key (all behaved correctly) rather than trusting the fix by inspection alone.
 
 ### Step 18: Documentation and ops handoff
 

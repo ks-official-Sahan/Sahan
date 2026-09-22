@@ -1,8 +1,8 @@
-import "server-only";
-
 import type { MediaKind } from "@prisma/client";
 
-// Media constraints and configuration.
+// Media constraints and configuration. Pure data and pure functions, no
+// secrets and no database access, so the picker in the browser can import it
+// too to validate a file before it uploads.
 
 const IMAGE_FORMATS = ["jpg", "jpeg", "png", "webp", "avif", "gif"] as const;
 const DOCUMENT_FORMATS = ["pdf"] as const;

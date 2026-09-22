@@ -198,5 +198,5 @@ Out of scope: code changes beyond doc fixes.
 - [x] Step 14: contact pipeline and inquiries (live mail send and a real browser submission left for the owner, see the ADR result)
 - [x] Step 15: chatbot (a live AI call, a browser check and a real lead-capture submission left for the owner, see the ADR result)
 - [x] Step 16: settings, dashboard, cron, maintenance (`site` page section stays deferred; crons not run on real infrastructure, see the ADR result)
-- [ ] Step 17: end-to-end verification and security audit
+- [x] Step 17: end-to-end verification and security audit (`e2e/*.spec.ts` and Lighthouse left for the owner, see the ADR result)
 - [ ] Step 18: documentation and ops handoff

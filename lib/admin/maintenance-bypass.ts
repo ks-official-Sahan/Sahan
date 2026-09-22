@@ -1,5 +1,7 @@
 import { createHmac } from "node:crypto";
 
+import { constantTimeEqual } from "@/lib/admin/login-unlock";
+
 // Maintenance bypass cookie: allows a developer to see the real site while
 // maintenance mode is on. Similar to the unlock cookie pattern. Design:
 // docs/plan/admin-cms-adr.md, section 4.5 and Step 16.
@@ -59,18 +61,11 @@ export function verifyBypassCookie(
   // Check expiry (2 hours)
   if (now - timestamp > BYPASS_COOKIE_MAX_AGE * 1000) return false;
 
-  // Verify signature in constant time
   const expected = createHmac("sha256", keys.secret)
     .update(`${timestamp}:bypass`)
     .digest("hex");
 
-  // Prevent timing attacks
-  let matches = true;
-  for (let i = 0; i < Math.max(hmac.length, expected.length); i++) {
-    if ((hmac[i] ?? "") !== (expected[i] ?? "")) matches = false;
-  }
-
-  return matches;
+  return constantTimeEqual(hmac, expected);
 }
 
 /**
@@ -78,18 +73,7 @@ export function verifyBypassCookie(
  */
 export function isValidBypassSecret(provided: string | null | undefined, keys: BypassCookieKeys): boolean {
   if (!provided) return false;
-
-  // Prevent timing attacks: always compare full strings
-  let matches = true;
-  const expected = keys.secret;
-
-  if (provided.length !== expected.length) matches = false;
-
-  for (let i = 0; i < Math.max(provided.length, expected.length); i++) {
-    if ((provided[i] ?? "") !== (expected[i] ?? "")) matches = false;
-  }
-
-  return matches;
+  return constantTimeEqual(provided, keys.secret);
 }
 
 /**

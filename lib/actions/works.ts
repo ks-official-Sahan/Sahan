@@ -350,6 +350,7 @@ export async function featureProjectAction(
     });
 
     invalidate(forCollection("projects"));
+    revalidatePath("/admin/works/projects");
     return done(featured ? "Project featured." : "Project unfeatured.");
   } catch (error) {
     log.error("feature project failed", { error: error instanceof Error ? error.message : String(error) });
