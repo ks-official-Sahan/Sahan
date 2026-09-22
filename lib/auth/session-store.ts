@@ -201,6 +201,36 @@ export async function forceLogoutAll(
   return { sessions: ids.length, users: userIds.length, userIds };
 }
 
+export interface KnownIp {
+  ip: string;
+  lastSeenAt: Date;
+  userEmail: string;
+}
+
+/**
+ * Distinct IPs that have actually signed in, most recently seen first. Backs
+ * the IP allowlist form so the owner can pick from real sign-in history
+ * instead of typing an address from memory (docs/plan/admin-cms-adr.md,
+ * section 6.7 / R22). Reads `UserSession.ip`, which is only ever set to a
+ * resolved address (never UNKNOWN_IP, see lib/auth/config.ts's `knownIp`),
+ * so every entry here is a real, previously-seen caller.
+ */
+export async function getKnownIps(limit = 20): Promise<KnownIp[]> {
+  const rows = await db.userSession.findMany({
+    where: { ip: { not: null } },
+    orderBy: { lastSeenAt: "desc" },
+    take: Math.max(limit, 1) * 10, // Several sessions can share one IP; overfetch before deduping.
+    select: { ip: true, lastSeenAt: true, user: { select: { email: true } } },
+  });
+  const seen = new Map<string, KnownIp>();
+  for (const row of rows) {
+    if (!row.ip || seen.has(row.ip)) continue;
+    seen.set(row.ip, { ip: row.ip, lastSeenAt: row.lastSeenAt, userEmail: row.user.email });
+    if (seen.size >= limit) break;
+  }
+  return [...seen.values()];
+}
+
 export interface SessionListItem {
   id: string;
   userId: string;

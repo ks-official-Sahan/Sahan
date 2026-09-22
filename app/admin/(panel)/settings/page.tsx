@@ -13,6 +13,7 @@ import IpAllowlistForm from "@/components/admin/settings/IpAllowlistForm";
 import MaintenanceForm from "@/components/admin/settings/MaintenanceForm";
 import { getIntegrationHealth } from "@/lib/admin/integrations";
 import { hasPermission, requireUser } from "@/lib/auth/dal";
+import { getKnownIps } from "@/lib/auth/session-store";
 import { clientIp } from "@/lib/security/ip";
 import { getSetting } from "@/lib/settings/service";
 
@@ -35,7 +36,7 @@ export default async function SettingsPage() {
 
   if (!canManageSettings && !canManageAllowlist && !canClearCache && !canManageCron) notFound();
 
-  const [features, maintenance, ipAllowlist, chatbotConfig, emailRouting, health, requestHeaders] = await Promise.all([
+  const [features, maintenance, ipAllowlist, chatbotConfig, emailRouting, health, requestHeaders, knownIps] = await Promise.all([
     canManageSettings ? getSetting("features") : Promise.resolve(null),
     canManageSettings ? getSetting("maintenance") : Promise.resolve(null),
     canManageAllowlist ? getSetting("security.ipAllowlist") : Promise.resolve(null),
@@ -43,6 +44,7 @@ export default async function SettingsPage() {
     canManageSettings ? getSetting("email.routing") : Promise.resolve(null),
     canManageSettings ? getIntegrationHealth() : Promise.resolve(null),
     headers(),
+    canManageAllowlist ? getKnownIps() : Promise.resolve([]),
   ]);
 
   const callerIp = clientIp(requestHeaders);
@@ -74,7 +76,11 @@ export default async function SettingsPage() {
 
         {canManageAllowlist && ipAllowlist ? (
           <Section title="Admin IP allowlist" description="Restrict /admin and /api/admin to specific addresses.">
-            <IpAllowlistForm value={ipAllowlist} callerIp={callerIp} />
+            <IpAllowlistForm
+              value={ipAllowlist}
+              callerIp={callerIp}
+              knownIps={knownIps.map((known) => ({ ...known, lastSeenAt: known.lastSeenAt.toISOString() }))}
+            />
           </Section>
         ) : null}
 
