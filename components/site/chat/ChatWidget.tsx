@@ -83,7 +83,7 @@ export default function ChatWidget({ enabled, config, siteUrl }: ChatWidgetProps
   };
 
   return (
-    <div className="fixed bottom-20 right-8 z-50 flex flex-col items-end s768:bottom-8 s768:right-8">
+    <div className="fixed bottom-20 right-10 z-50 flex flex-col items-end s768:bottom-20 s768:right-10">
       {/* Panel: scales in from the trigger, never from scale(0) (see
           style/globals.css's .press/.lift for the same easing convention).
           Kept mounted so the exit transition can play instead of unmounting
@@ -184,7 +184,7 @@ export default function ChatWidget({ enabled, config, siteUrl }: ChatWidgetProps
         onClick={() => setIsOpen((open) => !open)}
         aria-expanded={isOpen}
         aria-label={isOpen ? "Close chat" : "Open chat"}
-        className="press flex h-14 w-14 items-center justify-center rounded-full bg-bICON text-white shadow-lg shadow-black/20 transition-transform dark:text-black"
+        className="press flex h-11 w-11 items-center justify-center rounded-full bg-bICON text-white shadow-lg shadow-black/20 transition-transform dark:text-black"
       >
         <span className="relative grid h-6 w-6 place-items-center">
           <Bot
