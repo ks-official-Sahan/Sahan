@@ -1,9 +1,15 @@
 "use client";
 
+import type { PageContent } from "@/lib/cms/registry";
 import { GitHubStats } from "@/lib/github";
 import { Github } from "lucide-react";
 import Link from "next/link";
 import React from "react";
+
+interface GitHubStatsCardProps {
+  stats: GitHubStats;
+  content: PageContent<"about">["bento"];
+}
 
 const Stat = ({ label, value }: { label: string; value: number | null }) => (
   <div className="flex flex-col items-center">
@@ -16,7 +22,7 @@ const Stat = ({ label, value }: { label: string; value: number | null }) => (
   </div>
 );
 
-const GitHubStatsCard = ({ stats }: { stats: GitHubStats }) => {
+const GitHubStatsCard = ({ stats, content }: GitHubStatsCardProps) => {
   return (
     <Link
       href={stats.profileUrl}
@@ -26,20 +32,20 @@ const GitHubStatsCard = ({ stats }: { stats: GitHubStats }) => {
     >
       <div className="flex items-center gap-2 text-[14px] font-semibold">
         <Github size={18} />
-        <span>GitHub Activity</span>
+        <span>{content.githubLabel}</span>
       </div>
 
       <div className="flex w-full items-center justify-around">
         <Stat
-          label="Contributions"
+          label={content.githubContributionsLabel}
           value={stats.contributionsLastYear}
         />
-        <Stat label="Public Repos" value={stats.publicRepos} />
-        <Stat label="Followers" value={stats.followers} />
+        <Stat label={content.githubReposLabel} value={stats.publicRepos} />
+        <Stat label={content.githubFollowersLabel} value={stats.followers} />
       </div>
 
       <div className="text-[11px] opacity-70">
-        Contributions counted over the last year
+        {content.githubNote}
       </div>
     </Link>
   );

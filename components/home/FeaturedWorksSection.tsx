@@ -2,16 +2,19 @@ import HomeSection from "@/components/home/HomeSection";
 import SectionHeading from "@/components/home/SectionHeading";
 import SnapRow from "@/components/home/SnapRow";
 import ProjectCard from "@/components/works/ProjectCard";
-import { HomeContent } from "@/contents/home";
-import { Projects } from "@/contents/projects";
+import type { PageContent } from "@/lib/cms/registry";
+import type { Project } from "@/types/project";
 import { ArrowUpRight } from "lucide-react";
 import Link from "next/link";
 import React from "react";
 
-const featuredProjects = Projects.filter((project) => project.featured);
+interface FeaturedWorksSectionProps {
+  content: PageContent<"home">["home"];
+  projects: Project[];
+}
 
-const FeaturedWorksSection = () => {
-  const { home, works } = HomeContent;
+const FeaturedWorksSection = ({ content: home, projects }: FeaturedWorksSectionProps) => {
+  const featuredProjects = projects.filter((project) => project.featured);
 
   return (
     <HomeSection id="works" labelledBy="works-title">
@@ -24,7 +27,7 @@ const FeaturedWorksSection = () => {
             href="/works"
             className="press arrow-nudge inline-flex min-h-11 items-center gap-2 rounded-full border border-bBORDERFADE bg-bCARD px-5 text-sm font-semibold"
           >
-            {works.buttonTitle}
+            {home.works.buttonTitle}
             <ArrowUpRight
               size={16}
               aria-hidden="true"

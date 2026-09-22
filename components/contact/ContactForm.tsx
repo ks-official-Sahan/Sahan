@@ -1,12 +1,12 @@
 "use client";
 
+import type { PageContent } from "@/lib/cms/registry";
 import { Site } from "@/config/site";
-import { ContactContent, TopicInputOptions } from "@/contents/contact";
 import { cn } from "@/lib/utils";
 import { Check, Copy, Send } from "lucide-react";
-import React, { useId, useState } from "react";
+import React, { useId, useState, useEffect } from "react";
 
-type ChannelId = (typeof ContactContent.form.channels)[number]["id"];
+type ChannelId = "email" | "whatsapp";
 type Field = "name" | "email" | "message";
 type Errors = Partial<Record<Field, string>>;
 
@@ -14,32 +14,49 @@ const fieldClass =
   "min-h-12 w-full rounded-[12px] border border-bBORDERFADE bg-bFCARD px-4 text-[15px] placeholder:opacity-50";
 const labelClass = "mb-2 block text-sm font-semibold";
 
-const validate = (values: Record<Field, string>): Errors => {
-  const errors: Errors = {};
-  if (!values.name.trim()) errors.name = "Please tell me your name.";
-  if (!values.email.trim()) errors.email = "Please add your email address.";
-  else if (!/^\S+@\S+\.\S+$/.test(values.email.trim()))
-    errors.email = "That email address does not look right.";
-  if (values.message.trim().length < 10)
-    errors.message = "A sentence or two helps me reply properly.";
-  return errors;
-};
+interface ContactFormProps {
+  content: PageContent<"contact">;
+}
 
-// Without a mail service, the honest way to make a contact form work is to
-// hand the composed message to an app the visitor already trusts. So submit
-// builds the message and opens their email or WhatsApp; copy is the fallback
-// for anyone whose device has neither set up.
-const ContactForm = () => {
+// The contact form now submits to the API, but keeps the WhatsApp and email
+// quick links and copy fallback as alternate channels. If the API is unreachable
+// or rate-limited, the form degrades gracefully to show the fallbacks.
+const ContactForm = ({ content }: ContactFormProps) => {
   const id = useId();
   const [values, setValues] = useState<Record<Field, string>>({
     name: "",
     email: "",
     message: "",
   });
-  const [topic, setTopic] = useState(TopicInputOptions[0]);
+  const [topic, setTopic] = useState(content.form.topicOptions[0]);
   const [channel, setChannel] = useState<ChannelId>("email");
   const [errors, setErrors] = useState<Errors>({});
-  const [status, setStatus] = useState<"idle" | "opened" | "copied">("idle");
+  const [status, setStatus] = useState<"idle" | "submitting" | "success" | "error" | "opened" | "copied">("idle");
+  const [token, setToken] = useState<string>("");
+
+  // Fetch timing token on mount
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch("/api/contact/token");
+        const data = await res.json();
+        if (data.token) setToken(data.token);
+      } catch {
+        console.error("Failed to get token");
+      }
+    })();
+  }, []);
+
+  const validate = (values: Record<Field, string>): Errors => {
+    const errors: Errors = {};
+    if (!values.name.trim()) errors.name = content.form.validation.name.required;
+    if (!values.email.trim()) errors.email = content.form.validation.email.required;
+    else if (!/^\S+@\S+\.\S+$/.test(values.email.trim()))
+      errors.email = content.form.validation.email.format;
+    if (values.message.trim().length < 10)
+      errors.message = content.form.validation.message.minLength;
+    return errors;
+  };
 
   const setField = (field: Field) => (
     event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
@@ -60,7 +77,7 @@ const ContactForm = () => {
       `Topic: ${topic}`,
     ].join("\n");
 
-  const submit = (event: React.FormEvent) => {
+  const submit = async (event: React.FormEvent) => {
     event.preventDefault();
     const found = validate(values);
     setErrors(found);
@@ -73,6 +90,38 @@ const ContactForm = () => {
       return;
     }
 
+    // Try to submit to API first
+    if (token && channel === "email") {
+      setStatus("submitting");
+      try {
+        const res = await fetch("/api/contact", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: values.name.trim(),
+            email: values.email.trim(),
+            phone: "",
+            topic: topic,
+            message: values.message.trim(),
+            website: "", // honeypot
+            token,
+          }),
+        });
+
+        if (res.ok) {
+          setStatus("success");
+          setValues({ name: "", email: "", message: "" });
+          setTimeout(() => setStatus("idle"), 3000);
+          return;
+        }
+      } catch (error) {
+        console.error("API submission failed", error);
+        setStatus("error");
+        // Fall through to fallback
+      }
+    }
+
+    // Fallback: use mailto or WhatsApp
     const body = buildMessage();
 
     if (channel === "email") {
@@ -120,16 +169,16 @@ const ContactForm = () => {
       className="flex flex-col gap-5 rounded-[20px] border border-bBORDERFADE bg-bCARD p-6 s640:p-8"
     >
       <div>
-        <h2 className="text-xl font-semibold">{ContactContent.form.title}</h2>
+        <h2 className="text-xl font-semibold">{content.form.title}</h2>
         <p className="mt-2 text-sm leading-relaxed opacity-70">
-          {ContactContent.form.intro}
+          {content.form.intro}
         </p>
       </div>
 
       <div className="grid grid-cols-1 gap-5 s640:grid-cols-2">
         <div>
           <label htmlFor={`${id}-name`} className={labelClass}>
-            Your name
+            {content.form.fields.name.label}
           </label>
           <input
             id={`${id}-name`}
@@ -140,13 +189,14 @@ const ContactForm = () => {
             onChange={setField("name")}
             aria-invalid={Boolean(errors.name)}
             aria-describedby={described("name")}
+            placeholder={content.form.fields.name.placeholder || undefined}
             className={fieldClass}
           />
           {error("name")}
         </div>
         <div>
           <label htmlFor={`${id}-email`} className={labelClass}>
-            Your email
+            {content.form.fields.email.label}
           </label>
           <input
             id={`${id}-email`}
@@ -159,7 +209,7 @@ const ContactForm = () => {
             onChange={setField("email")}
             aria-invalid={Boolean(errors.email)}
             aria-describedby={described("email")}
-            placeholder="you@example.com"
+            placeholder={content.form.fields.email.placeholder || "you@example.com"}
             className={fieldClass}
           />
           {error("email")}
@@ -168,7 +218,7 @@ const ContactForm = () => {
 
       <div>
         <label htmlFor={`${id}-topic`} className={labelClass}>
-          What is this about?
+          {content.form.fields.topic.label}
         </label>
         <select
           id={`${id}-topic`}
@@ -179,7 +229,7 @@ const ContactForm = () => {
           }}
           className={cn(fieldClass, "appearance-none")}
         >
-          {TopicInputOptions.map((option) => (
+          {content.form.topicOptions.map((option) => (
             <option key={option} value={option}>
               {option}
             </option>
@@ -189,7 +239,7 @@ const ContactForm = () => {
 
       <div>
         <label htmlFor={`${id}-message`} className={labelClass}>
-          Your message
+          {content.form.fields.message.label}
         </label>
         <textarea
           id={`${id}-message`}
@@ -200,15 +250,16 @@ const ContactForm = () => {
           onChange={setField("message")}
           aria-invalid={Boolean(errors.message)}
           aria-describedby={described("message")}
+          placeholder={content.form.fields.message.placeholder || undefined}
           className={cn(fieldClass, "min-h-[160px] resize-y py-3")}
         />
         {error("message")}
       </div>
 
       <fieldset>
-        <legend className={labelClass}>Send it with</legend>
+        <legend className={labelClass}>{content.form.legend}</legend>
         <div className="flex gap-2">
-          {ContactContent.form.channels.map((item) => (
+          {content.form.channels.map((item) => (
             <label
               key={item.id}
               className={cn(
@@ -223,7 +274,7 @@ const ContactForm = () => {
                 name="channel"
                 value={item.id}
                 checked={channel === item.id}
-                onChange={() => setChannel(item.id)}
+                onChange={() => setChannel(item.id as ChannelId)}
                 className="sr-only"
               />
               {item.label}
@@ -238,7 +289,7 @@ const ContactForm = () => {
           className="press inline-flex min-h-12 flex-1 items-center justify-center gap-2 rounded-full bg-bCHIPSELECTED px-7 text-[15px] font-semibold text-white dark:text-black"
         >
           <Send size={18} aria-hidden="true" />
-          Prepare my message
+          {content.form.submitButtonText}
         </button>
         <button
           type="button"
@@ -250,14 +301,24 @@ const ContactForm = () => {
           ) : (
             <Copy size={18} aria-hidden="true" />
           )}
-          {status === "copied" ? "Copied" : "Copy message"}
+          {status === "copied" ? content.form.copiedButtonText : content.form.copyButtonText}
         </button>
       </div>
 
       <p role="status" className="text-sm leading-relaxed opacity-80">
-        {status === "opened" &&
-          "Your app should be open with the message ready. Press send there to finish. If nothing opened, use Copy message and paste it anywhere."}
-        {status === "copied" && "Message copied. Paste it into any chat or email."}
+        {status === "success" && (
+          <span className="text-green-600 dark:text-green-400">
+            Thanks! Your message was received. I'll get back to you soon.
+          </span>
+        )}
+        {status === "error" && (
+          <span className="text-yellow-600 dark:text-yellow-400">
+            Could not connect to the server. Using email as fallback—your message is open there.
+          </span>
+        )}
+        {status === "submitting" && <span>Sending...</span>}
+        {status === "opened" && content.form.statusOpened}
+        {status === "copied" && content.form.statusCopied}
       </p>
     </form>
   );

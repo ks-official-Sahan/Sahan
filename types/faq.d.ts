@@ -5,7 +5,6 @@ export interface FAQAnswer {
 }
 
 export interface FAQItem {
-  id: number;
   icon: string;
   question: string;
   answer: FAQAnswer;

@@ -17,15 +17,26 @@ export const TextHoverEffect = ({
   const rafId = useRef<number | null>(null);
 
   useEffect(() => {
-    if (svgRef.current && cursor.x !== null && cursor.y !== null) {
-      const svgRect = svgRef.current.getBoundingClientRect();
-      const cxPercentage = ((cursor.x - svgRect.left) / svgRect.width) * 100;
-      const cyPercentage = ((cursor.y - svgRect.top) / svgRect.height) * 100;
-      setMaskPosition({
-        cx: `${cxPercentage}%`,
-        cy: `${cyPercentage}%`,
-      });
-    }
+    if (!svgRef.current) return;
+
+    const { x, y } = cursor;
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return;
+
+    const svgRect = svgRef.current.getBoundingClientRect();
+    const width = svgRect.width || 0;
+    const height = svgRect.height || 0;
+
+    if (!width || !height) return;
+
+    const cxPercentage = ((x - svgRect.left) / width) * 100;
+    const cyPercentage = ((y - svgRect.top) / height) * 100;
+
+    if (!Number.isFinite(cxPercentage) || !Number.isFinite(cyPercentage)) return;
+
+    setMaskPosition({
+      cx: `${cxPercentage}%`,
+      cy: `${cyPercentage}%`,
+    });
   }, [cursor]);
 
   return (
@@ -72,13 +83,13 @@ export const TextHoverEffect = ({
           animate={maskPosition}
           transition={{ duration: duration ?? 0, ease: "easeOut" }}
 
-          // example for a smoother animation below
+        // example for a smoother animation below
 
-          // transition={{
-          //   type: "spring",
-          //   stiffness: 800,
-          //   damping: 100,
-          // }}
+        // transition={{
+        //   type: "spring",
+        //   stiffness: 800,
+        //   damping: 100,
+        // }}
         >
           <stop offset="0%" stopColor="white" />
           <stop offset="100%" stopColor="black" />

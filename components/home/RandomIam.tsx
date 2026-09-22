@@ -1,16 +1,19 @@
 "use client";
 
-import { HomeContent } from "@/contents/home";
+import type { PageContent } from "@/lib/cms/registry";
 import { RefreshCw } from "lucide-react";
 import React, { useState } from "react";
-
-const { iam } = HomeContent;
 
 // A small toy with a real job: it lists what Sahan actually does, one phrase
 // at a time. It never rotates by itself (no surprise motion, no lost place for
 // screen-reader users); a tap or Enter swaps the word. Keyed so the swap
 // animation replays, and announced politely.
-const RandomIam = () => {
+
+interface RandomIamProps {
+  content: PageContent<"home">["iam"];
+}
+
+const RandomIam = ({ content: iam }: RandomIamProps) => {
   const [index, setIndex] = useState(0);
 
   const next = () => setIndex((current) => (current + 1) % iam.words.length);
