@@ -21,3 +21,9 @@ export const ACCOUNT_PASSWORD_PATH = "/admin/account?reason=change-password";
 
 /** Invite and reset links land here; the proxy lets a link with a valid tag through without the unlock cookie. */
 export const SET_PASSWORD_PATH = "/admin/set-password";
+
+/** Self-service "forgot password" request form, shown to an unsigned-in visitor. */
+export const FORGOT_PASSWORD_PATH = "/admin/forgot-password";
+
+/** Email-change confirmation links land here; same valid-tag bypass as SET_PASSWORD_PATH. */
+export const CONFIRM_EMAIL_PATH = "/admin/confirm-email";

@@ -125,6 +125,10 @@ export default function LoginForm({ callbackUrl, notice }: { callbackUrl: string
           <button type="submit" disabled={startPending} className={primary}>
             {startPending ? "Signing in..." : "Sign in"}
           </button>
+
+          <a href="/admin/forgot-password" className={`${link} block text-center`}>
+            Forgot your password?
+          </a>
         </form>
       )}
     </div>

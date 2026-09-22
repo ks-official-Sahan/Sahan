@@ -7,6 +7,7 @@ import {
   changePassword,
   confirmMfaDisable,
   confirmMfaEnable,
+  requestEmailChangeAction,
   revokeMySession,
   revokeOtherSessions,
   startMfaDisable,
@@ -48,6 +49,27 @@ export function PasswordForm({ email, forced }: { email: string; forced: boolean
       />
       <Field label="Repeat the new password" name="confirm" type="password" autoComplete="new-password" required maxLength={128} />
       <SubmitButton pendingLabel="Changing...">Change password</SubmitButton>
+    </ActionForm>
+  );
+}
+
+export function EmailChangeForm({ email }: { email: string }) {
+  return (
+    <ActionForm action={requestEmailChangeAction} className="space-y-4">
+      <p className="text-sm text-muted-foreground">
+        Current address: <span className="font-medium text-foreground">{email}</span>
+      </p>
+      <Field label="New email" name="newEmail" type="email" autoComplete="email" required maxLength={254} />
+      <Field
+        label="Current password"
+        name="password"
+        type="password"
+        autoComplete="current-password"
+        required
+        maxLength={128}
+        hint="We email a confirmation link to the new address; nothing changes until you open it."
+      />
+      <SubmitButton pendingLabel="Sending...">Send confirmation link</SubmitButton>
     </ActionForm>
   );
 }

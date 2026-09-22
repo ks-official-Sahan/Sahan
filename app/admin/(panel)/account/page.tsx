@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import {
+  EmailChangeForm,
   EndOtherSessionsButton,
   EndSessionButton,
   MfaFlow,
@@ -57,6 +58,16 @@ export default async function AccountPage() {
           Changing it signs out every other session. This one stays signed in.
         </p>
         <PasswordForm email={user.email} forced={user.mustChangePassword} />
+      </section>
+
+      <section id="email" className={cardClass} aria-labelledby="email-heading">
+        <h2 id="email-heading" className="text-base font-medium">
+          Email
+        </h2>
+        <p className="mb-4 mt-1 text-sm text-muted-foreground">
+          Changing it confirms the new address first, then signs out every session.
+        </p>
+        <EmailChangeForm email={user.email} />
       </section>
 
       <section className={cardClass} aria-labelledby="profile-heading">

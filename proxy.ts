@@ -20,7 +20,7 @@ import {
   signBypassCookie,
   verifyBypassCookie,
 } from "@/lib/admin/maintenance-bypass";
-import { LOCKED_PATH, LOGIN_PATH, SESSION_COOKIE, SET_PASSWORD_PATH } from "@/lib/auth/constants";
+import { CONFIRM_EMAIL_PATH, FORGOT_PASSWORD_PATH, LOCKED_PATH, LOGIN_PATH, SESSION_COOKIE, SET_PASSWORD_PATH } from "@/lib/auth/constants";
 import { verifyTokenTag } from "@/lib/auth/invite-token";
 import { limit } from "@/lib/cache/ratelimit";
 import { log } from "@/lib/log";
@@ -270,7 +270,11 @@ export async function proxy(request: NextRequest) {
   // 4b. An invite or reset link carries an HMAC tag only this server can make, so a
   // link that verifies reaches the set-password page without the unlock cookie. The
   // page and the action still check the token in the database (single use, expiry).
-  if (adminPage && pathname === SET_PASSWORD_PATH && verifyTokenTag(searchParams.get("token"), process.env.AUTH_SECRET)) {
+  if (
+    adminPage &&
+    (pathname === SET_PASSWORD_PATH || pathname === CONFIRM_EMAIL_PATH) &&
+    verifyTokenTag(searchParams.get("token"), process.env.AUTH_SECRET)
+  ) {
     return withCsp(request);
   }
 
@@ -283,7 +287,7 @@ export async function proxy(request: NextRequest) {
   const unlocked = keys ? verifyUnlockCookie(request.cookies.get(UNLOCK_COOKIE)?.value, now, keys) : false;
   if (!signedIn && !unlocked) return locked(request);
 
-  if (!signedIn && pathname !== LOGIN_PATH) {
+  if (!signedIn && pathname !== LOGIN_PATH && pathname !== FORGOT_PASSWORD_PATH) {
     const login = request.nextUrl.clone();
     login.pathname = LOGIN_PATH;
     login.search = "";

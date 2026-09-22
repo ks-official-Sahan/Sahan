@@ -14,12 +14,14 @@ import { hashPassword, verifyPassword } from "@/lib/auth/password";
 import { checkPassword } from "@/lib/auth/password-policy";
 import { invalidateSessionState, invalidateUserSessionState, revokeSession, revokeUserSessions } from "@/lib/auth/session-store";
 import { passwordFingerprint } from "@/lib/auth/session-state";
+import { createToken, RESET_TTL_MINUTES } from "@/lib/auth/invite-token";
 import { limit } from "@/lib/cache/ratelimit";
 import { db } from "@/lib/db/prisma";
 import { sendEmail } from "@/lib/email";
-import { mfaToggled, passwordChanged, type Rendered } from "@/lib/email/templates";
+import { emailChangeVerify, mfaToggled, passwordChanged, type Rendered } from "@/lib/email/templates";
 import { getEnv } from "@/lib/env";
 import { requestDetails } from "@/lib/security/request-device";
+import { absoluteUrl } from "@/lib/site-url";
 
 // The signed-in user's own account. A user whose password was set by someone else
 // may use these before anything else, which is how they choose their own
@@ -159,6 +161,75 @@ export async function changePassword(_previous: ActionState, formData: FormData)
   await mail(user, passwordChanged(await requestDetails(user.name)));
   revalidatePath("/admin", "layout");
   return done("Password changed. Your other sessions were signed out.");
+}
+
+const emailField = z.string().trim().toLowerCase().email("Enter a valid email address.").max(254);
+
+/**
+ * Starts a change of the account's own email. Confirms the current password
+ * (same re-verification pattern as MFA toggling), then emails a confirmation
+ * link to the NEW address — the change only takes effect once that inbox
+ * proves it belongs to the account holder (lib/actions/confirm-email.ts).
+ */
+export async function requestEmailChangeAction(_previous: ActionState, formData: FormData): Promise<ActionState> {
+  const access = await authorizeAction(null, OPTIONS);
+  if (!access.ok) return fail(access.error);
+  const { user } = access;
+
+  const parsed = z.object({ newEmail: emailField, password: z.string().max(128) }).safeParse(formValues(formData));
+  if (!parsed.success) return fail("Check the form.", fieldErrorsFrom(parsed.error.issues));
+  const { newEmail, password } = parsed.data;
+
+  if (newEmail === user.email) return fail("That is already your email address.", { newEmail: "Already your address." });
+
+  const verified = await confirmPassword(user, password);
+  if (!verified.ok) return fail(verified.error, { password: verified.error });
+
+  if (!(await limit("email-change:user", user.id)).ok) return fail("Too many attempts. Wait a while and try again.");
+
+  if (await db.user.findUnique({ where: { email: newEmail }, select: { id: true } })) {
+    return fail("Another account already uses that address.", { newEmail: "Already in use." });
+  }
+
+  const secretValue = secret();
+  const { token, hash } = createToken(secretValue);
+  try {
+    await db.$transaction(async (tx) => {
+      await tx.authToken.updateMany({
+        where: { purpose: "EMAIL_CHANGE", userId: user.id, usedAt: null, revokedAt: null },
+        data: { revokedAt: new Date() },
+      });
+      await tx.authToken.create({
+        data: {
+          purpose: "EMAIL_CHANGE",
+          email: newEmail,
+          userId: user.id,
+          tokenHash: hash,
+          createdById: user.id,
+          expiresAt: new Date(Date.now() + RESET_TTL_MINUTES * 60 * 1000),
+        },
+      });
+      await audit(
+        { action: "user.email_change_requested", actor: user, entityType: "User", entityId: user.id, meta: { newEmail } },
+        tx
+      );
+    });
+  } catch {
+    return fail(UNEXPECTED);
+  }
+
+  const rendered = emailChangeVerify({
+    name: user.name,
+    url: absoluteUrl(`/admin/confirm-email?token=${encodeURIComponent(token)}`),
+    expiresMinutes: RESET_TTL_MINUTES,
+  });
+  const sent = await sendEmail(
+    { to: newEmail, subject: rendered.subject, html: rendered.html, text: rendered.text, category: "security" },
+    { actor: user }
+  );
+  if (!sent.ok) return fail("The confirmation link could not be emailed. Check the email settings and try again.");
+
+  return done(`A confirmation link was sent to ${newEmail}. It works once and lasts ${RESET_TTL_MINUTES} minutes.`);
 }
 
 // Second factor: the code goes to the account email. Enabling and disabling each

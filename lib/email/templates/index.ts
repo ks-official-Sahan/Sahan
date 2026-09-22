@@ -136,6 +136,29 @@ export function contactNotify(input: {
   });
 }
 
+export function emailChangeVerify(input: { name?: string | null; url: string; expiresMinutes: number }): Rendered {
+  return renderEmail(`Confirm your new ${brand} admin email`, {
+    preheader: "Confirm this address to finish changing your email",
+    heading: "Confirm your new email",
+    paragraphs: [
+      `Hi ${who(input.name)}, confirm this address to finish changing the email on your admin account.`,
+      `The link works once and expires in ${input.expiresMinutes} minutes.`,
+    ],
+    button: { label: "Confirm this email", url: input.url },
+    footnote: "If you did not ask for this, ignore this email; your account keeps its current address.",
+  });
+}
+
+export function emailChanged(input: SignInDetails & { newEmail: string }): Rendered {
+  return renderEmail(`Your ${brand} admin email was changed`, {
+    preheader: "Your account email was changed",
+    heading: "Email address changed",
+    paragraphs: [`Hi ${who(input.name)}, the email on your admin account was changed to ${oneLine(input.newEmail, 254)}.`],
+    details: deviceRows(input),
+    footnote: "If you did not do this, ask the site owner to disable the account.",
+  });
+}
+
 export function contactAutoReply(input: { name: string }): Rendered {
   return renderEmail(`Thanks for your message, ${oneLine(input.name, 40)}`, {
     preheader: "Your message reached me",

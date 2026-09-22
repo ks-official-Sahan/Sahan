@@ -64,6 +64,7 @@ enum MfaPurpose {
 enum TokenPurpose {
   INVITE
   PASSWORD_RESET
+  EMAIL_CHANGE
 }
 
 // ─── Access: users, roles, sessions, tokens ───────────────────────────────────
