@@ -1,0 +1,50 @@
+{
+  "name": "@sahan/auth-kit",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./session": "./src/session/index.ts",
+    "./rbac": "./src/rbac/index.ts",
+    "./mfa": "./src/mfa/index.ts",
+    "./security": "./src/security/index.ts",
+    "./cache": "./src/cache/index.ts",
+    "./credentials": "./src/credentials.ts",
+    "./adapter": "./src/adapter.ts",
+    "./password": "./src/password.ts",
+    "./password-policy": "./src/password-policy.ts",
+    "./invite-token": "./src/invite-token.ts",
+    "./safe-callback-url": "./src/safe-callback-url.ts",
+    "./constants": "./src/constants.ts",
+    "./login-unlock": "./src/login-unlock.ts",
+    "./unlock-request": "./src/unlock-request.ts",
+    "./security/ip": "./src/security/ip.ts",
+    "./security/allowlist": "./src/security/allowlist.ts",
+    "./security/origin": "./src/security/origin.ts",
+    "./security/csp": "./src/security/csp.ts",
+    "./security/headers": "./src/security/headers.ts",
+    "./security/scanner-paths": "./src/security/scanner-paths.ts",
+    "./security/check-origin": "./src/security/check-origin.ts",
+    "./security/request-device": "./src/security/request-device.ts",
+    "./cache/ratelimit": "./src/cache/ratelimit.ts",
+    "./cache/memory": "./src/cache/memory.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "node --conditions=react-server --import tsx --test \"src/**/*.test.ts\""
+  },
+  "dependencies": {
+    "@upstash/redis": "^1.38.4",
+    "bcryptjs": "^3.0.3"
+  },
+  "peerDependencies": {
+    "next": "^16.3.5",
+    "next-auth": "5.0.0-beta.32"
+  },
+  "devDependencies": {
+    "@types/node": "^22",
+    "tsx": "^4.23.15",
+    "typescript": "^5.6.3"
+  }
+}

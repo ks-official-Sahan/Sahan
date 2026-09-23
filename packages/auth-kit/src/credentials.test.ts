@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import type { AuditEvent } from "../admin/audit";
+import type { AuditEvent } from "./audit-event";
 import { DUMMY_HASH, verifyCredentials, type CredentialDeps, type StoredUser } from "./credentials";
 
 const user: StoredUser = {

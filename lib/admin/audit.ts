@@ -3,25 +3,16 @@ import "server-only";
 import type { Prisma } from "@prisma/client";
 import { headers } from "next/headers";
 
+import type { AuditEvent } from "@sahan/auth-kit";
+import { clientIp, UNKNOWN_IP } from "@sahan/auth-kit/security";
+
 import { db } from "@/lib/db/prisma";
 import { AUDIT_SENSITIVE_KEY, log, redact as redactValue } from "@/lib/log";
-import { clientIp, UNKNOWN_IP } from "@/lib/security/ip";
 
 // The one writer for the audit trail (docs/plan/admin-cms-adr.md, section 6.9).
 // Action names use domain.entity.verb, for example auth.login.success.
 
-export interface AuditEvent {
-  action: string;
-  actor?: { id?: string | null; email?: string | null } | null;
-  entityType: string;
-  entityId?: string | null;
-  before?: unknown;
-  after?: unknown;
-  meta?: Record<string, unknown>;
-  /** Taken from the request headers when left out. */
-  ip?: string | null;
-  userAgent?: string | null;
-}
+export type { AuditEvent };
 
 export interface AuditClient {
   auditLog: {

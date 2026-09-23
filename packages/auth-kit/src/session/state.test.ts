@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { evaluateSession, passwordFingerprint, type SessionState } from "./session-state";
+import { evaluateSession, passwordFingerprint, type SessionState } from "./state";
 
 const NOW = 1_800_000_000_000;
 const SECRET = "test-auth-secret-0123456789-abcdefghijklmnop";

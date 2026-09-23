@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { evaluateSession, type SessionState } from "./session-state";
-import { createSessionReader, type SessionCache } from "./session-reader";
+import { evaluateSession, type SessionState } from "./state";
+import { createSessionReader, type SessionCache } from "./reader";
 
 const NOW = 1_800_000_000_000;
 const live: SessionState = {

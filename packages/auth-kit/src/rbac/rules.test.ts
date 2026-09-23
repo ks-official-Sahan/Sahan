@@ -11,7 +11,7 @@ import {
   matrixFromRows,
   matrixToRows,
   validateMatrix,
-} from "./rbac-rules";
+} from "./rules";
 
 // The table of docs/plan/admin-cms-adr.md, section 9, written out in full.
 const MANAGER_DENIED: Permission[] = ["deleteUser", "manageSettings", "manageIpAllowlist", "clearSystemCache", "managePermissions"];

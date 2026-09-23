@@ -47,6 +47,9 @@ importers:
       '@react-three/fiber':
         specifier: ^9.7.0
         version: 9.7.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(three@0.169.0)
+      '@sahan/auth-kit':
+        specifier: workspace:*
+        version: link:packages/auth-kit
       '@shoelace-style/shoelace':
         specifier: ^2.17.1
         version: 2.20.1(@floating-ui/utils@0.2.12)(@types/react@19.2.18)
@@ -222,6 +225,31 @@ importers:
       tailwindcss:
         specifier: ^3.4.14
         version: 3.4.19(tsx@4.23.15)
+      tsx:
+        specifier: ^4.23.15
+        version: 4.23.15
+      typescript:
+        specifier: ^5.6.3
+        version: 5.9.3
+
+  packages/auth-kit:
+    dependencies:
+      '@upstash/redis':
+        specifier: ^1.38.4
+        version: 1.38.4
+      bcryptjs:
+        specifier: ^3.0.3
+        version: 3.0.3
+      next:
+        specifier: ^16.3.5
+        version: 16.3.5(@babel/core@7.29.7(supports-color@7.2.0))(@types/node@22.20.4)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      next-auth:
+        specifier: 5.0.0-beta.32
+        version: 5.0.0-beta.32(next@16.3.5(@babel/core@7.29.7(supports-color@7.2.0))(@types/node@22.20.4)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(nodemailer@10.0.10)(react@19.2.8)
+    devDependencies:
+      '@types/node':
+        specifier: ^22
+        version: 22.20.4
       tsx:
         specifier: ^4.23.15
         version: 4.23.15

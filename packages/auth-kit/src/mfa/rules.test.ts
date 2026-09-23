@@ -12,7 +12,7 @@ import {
   newChallengeId,
   normalizeCode,
   verifiedWithinWindow,
-} from "./mfa-rules";
+} from "./rules";
 
 const SECRET = "test-auth-secret-0123456789-abcdefghijklmnop";
 const NOW = 1_800_000_000_000;
