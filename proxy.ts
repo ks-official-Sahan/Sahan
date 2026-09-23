@@ -30,8 +30,7 @@ import {
   verifyBypassCookie,
 } from "@/lib/admin/maintenance-bypass";
 import { log } from "@/lib/log";
-import { getKvSetting } from "@/lib/settings/service";
-import type { IpAllowlist, Maintenance } from "@/lib/settings/schema";
+import { readKvSetting } from "@/lib/settings/kv";
 
 // Optimistic checks only: the proxy reads cookies and never the database. The
 // data access layer (lib/auth/dal.ts) is the authority. Responsibilities 1, 2, 3, 4, 5
@@ -68,37 +67,14 @@ async function sessionToken(request: NextRequest) {
   }
 }
 
-/**
- * Check if maintenance mode is active for public paths.
- * Reads from KV cache first, falls back to safe default (NOT in maintenance).
- */
+/** Maintenance flag from the KV mirror; not set or unreadable reads as off. */
 async function isMaintenanceActive(): Promise<boolean> {
-  try {
-    const setting = await getKvSetting("maintenance");
-    if (setting && typeof setting === "object" && "enabled" in setting) {
-      return Boolean((setting as Maintenance).enabled);
-    }
-  } catch {
-    // Fall back to safe default if KV read fails
-  }
-  return false;
+  return Boolean((await readKvSetting("maintenance"))?.enabled);
 }
 
-/**
- * Get the IP allowlist from KV cache.
- * Fails safe: if read fails, returns empty list (fail-open).
- */
+/** IP allowlist from the KV mirror; not set or unreadable reads as empty (fail-open, see step 5). */
 async function getIpAllowlist(): Promise<string[]> {
-  try {
-    const setting = await getKvSetting("security.ipAllowlist");
-    if (setting && typeof setting === "object" && "ips" in setting) {
-      const list = (setting as IpAllowlist).ips;
-      if (Array.isArray(list)) return list;
-    }
-  } catch {
-    // Fall back to fail-open
-  }
-  return [];
+  return (await readKvSetting("security.ipAllowlist"))?.ips ?? [];
 }
 
 /**

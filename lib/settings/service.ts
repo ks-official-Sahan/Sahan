@@ -4,7 +4,6 @@ import { cached } from "@/lib/cache/cached";
 import { invalidate } from "@/lib/cache/invalidate";
 import { forSettings } from "@/lib/cache/plan";
 import { staticTags } from "@/lib/cache/tags";
-import { kv } from "@/lib/cache/redis";
 import { db } from "@/lib/db/prisma";
 import { audit } from "@/lib/admin/audit";
 import type { AuthUser } from "@/lib/auth/dal";
@@ -19,6 +18,7 @@ import {
   type SettingValueOf,
   validateSetting,
 } from "./schema";
+import { isKvMirrored, KV_MIRRORED_SETTINGS, writeKvSetting } from "./kv";
 
 // Service layer for settings: read, write, cache and validate. Design:
 // docs/plan/admin-cms-adr.md, section 16. Settings are stored in the database
@@ -134,9 +134,9 @@ export async function updateSetting<K extends SettingKey>(
  * read from Postgres through the cached getSetting/getAllSettings.
  */
 async function mirrorSettingToKv<K extends SettingKey>(key: K, value: SettingValue<K>): Promise<void> {
-  if (key !== "maintenance" && key !== "security.ipAllowlist") return;
+  if (!isKvMirrored(key)) return;
   try {
-    await kv.set(`setting:${key}`, value, { ttlSeconds: 3600 });
+    await writeKvSetting(key, value as SettingValueOf<typeof key>);
   } catch (err) {
     // KV failure is not fatal for the setting save; the proxy's safe default
     // applies until the mirror catches up (documented at the top of this file).
@@ -150,30 +150,15 @@ async function mirrorSettingToKv<K extends SettingKey>(key: K, value: SettingVal
  * after a KV outage during a save), and available for a manual resync.
  */
 export async function syncSettingsToKv(): Promise<void> {
-  const keysToMirror: SettingKey[] = ["maintenance", "security.ipAllowlist"];
-  for (const key of keysToMirror) {
-    try {
-      const value = await readSettingRaw(key);
-      await kv.set(`setting:${key}`, value, { ttlSeconds: 3600 });
-    } catch (err) {
-      log.error("Failed to sync setting to KV", { key, error: String(err) });
-    }
-  }
-}
-
-/**
- * KV-only read for the proxy: no database fallback, so a cache miss reads as
- * "not set" and the caller (proxy.ts) applies its own safe default.
- */
-export async function getKvSetting<K extends SettingKey>(key: K): Promise<SettingValue<K> | null> {
-  try {
-    const value = await kv.get(`setting:${key}`);
-    if (!value) return null;
-    return validateSetting(key, value) as SettingValue<K>;
-  } catch (err) {
-    log.warn("Failed to read KV setting", { key, error: String(err) });
-    return null;
-  }
+  await Promise.all(
+    KV_MIRRORED_SETTINGS.map(async (key) => {
+      try {
+        await writeKvSetting(key, await readSettingRaw(key));
+      } catch (err) {
+        log.error("Failed to sync setting to KV", { key, error: String(err) });
+      }
+    })
+  );
 }
 
 /** Invalidate every cache tag and repair the KV mirror. Backs the "clear cache" button. */
