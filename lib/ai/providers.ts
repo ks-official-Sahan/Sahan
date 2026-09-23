@@ -21,9 +21,15 @@ export type AiOutcome =
   | { ok: true; text: string }
   | { ok: false; errorClass: string; retryable: boolean; status?: number };
 
+export interface AiGenerateOptions {
+  maxTokens?: number;
+  /** Aborted when the attempt times out, so a slow provider stops consuming a socket. */
+  signal?: AbortSignal;
+}
+
 export interface AiProvider {
   readonly name: string;
-  generate(prompt: ModelPrompt, options?: { maxTokens?: number }): Promise<AiOutcome>;
+  generate(prompt: ModelPrompt, options?: AiGenerateOptions): Promise<AiOutcome>;
 }
 
 export interface AiAttempt {
@@ -42,57 +48,159 @@ export interface AiResult {
 }
 
 export const AI_TIMEOUT_MS = 25_000;
+/** A provider that timed out or was rate limited goes to the back of the line for this long. */
+export const AI_COOLDOWN_MS = 60_000;
 
-async function withTimeout(promise: Promise<AiOutcome>, ms: number): Promise<AiOutcome> {
+async function attempt(
+  provider: AiProvider,
+  prompt: ModelPrompt,
+  maxTokens: number | undefined,
+  ms: number,
+  cancel: AbortSignal
+): Promise<AiOutcome> {
+  const controller = new AbortController();
+  const onCancel = () => controller.abort();
+  cancel.addEventListener("abort", onCancel, { once: true });
   let timer: ReturnType<typeof setTimeout> | undefined;
   const timeout = new Promise<AiOutcome>((resolve) => {
-    timer = setTimeout(() => resolve({ ok: false, errorClass: "timeout", retryable: true }), ms);
+    timer = setTimeout(() => {
+      controller.abort();
+      resolve({ ok: false, errorClass: "timeout", retryable: true });
+    }, ms);
   });
   try {
-    return await Promise.race([promise, timeout]);
+    return await Promise.race([provider.generate(prompt, { maxTokens, signal: controller.signal }), timeout]);
+  } catch {
+    return { ok: false, errorClass: "transport", retryable: true };
   } finally {
     clearTimeout(timer);
+    cancel.removeEventListener("abort", onCancel);
   }
+}
+
+/** What the chain has learned about each provider: when it may lead again, and how fast it answers. */
+export interface AiHealth {
+  cooldownUntil: Map<string, number>;
+  latencyMs: Map<string, number>;
+}
+
+export const createAiHealth = (): AiHealth => ({ cooldownUntil: new Map(), latencyMs: new Map() });
+
+/** One per server instance, for request handlers; tests and scripts get a fresh one by default. */
+export const sharedAiHealth: AiHealth = ((globalThis as unknown as { sahanAiHealth?: AiHealth }).sahanAiHealth ??= createAiHealth());
+
+/** Quota and slowness pass quickly; a wrong key or a retired model needs an operator, so it cools longer. */
+function cooldownFor(outcome: AiOutcome): number {
+  if (outcome.ok) return 0;
+  if (outcome.errorClass === "timeout" || outcome.status === 429) return AI_COOLDOWN_MS;
+  if (outcome.status === 401 || outcome.status === 403 || outcome.status === 404) return AI_COOLDOWN_MS * 10;
+  return 0;
 }
 
 export interface AiServiceDeps {
   providers: readonly AiProvider[];
+  /** Per-provider attempt budget. */
   timeoutMs?: number;
+  /** Whole-chain budget; the remaining time caps each later attempt. */
+  deadlineMs?: number;
+  /**
+   * Hedged requests: when the running attempt has not answered after this
+   * long, the next provider starts too and the first success wins (the
+   * others are aborted). Off by default, so attempts run one at a time.
+   */
+  hedgeAfterMs?: number;
+  health?: AiHealth;
+  now?: () => number;
 }
 
-/** Tries each provider in order, stopping at the first success or the first non-retryable failure. */
+const HEDGE = Symbol("hedge");
+
+/**
+ * Tries providers until one succeeds, a non-retryable failure stops the chain,
+ * or the deadline passes. Healthy providers lead, fastest observed first;
+ * cooling ones go last instead of being dropped, so a request always gets a
+ * real attempt even when every provider is cooling.
+ */
 export function createAiService(deps: AiServiceDeps) {
   const timeoutMs = deps.timeoutMs ?? AI_TIMEOUT_MS;
+  const now = deps.now ?? Date.now;
+  const health = deps.health ?? createAiHealth();
+
+  function rank(at: number): AiProvider[] {
+    const cooling = (p: AiProvider) => Number((health.cooldownUntil.get(p.name) ?? 0) > at);
+    const speed = (p: AiProvider) => health.latencyMs.get(p.name) ?? Number.POSITIVE_INFINITY;
+    // Array.prototype.sort is stable, so unmeasured providers keep the configured order.
+    return [...deps.providers].sort((a, b) => cooling(a) - cooling(b) || speed(a) - speed(b));
+  }
 
   async function generate(prompt: ModelPrompt, options?: { maxTokens?: number }): Promise<AiResult> {
     if (deps.providers.length === 0) {
       return { ok: false, provider: null, errorClass: "no_provider", attempts: [] };
     }
 
+    const startedAll = now();
+    const ordered = rank(startedAll);
     const attempts: AiAttempt[] = [];
-    for (const provider of deps.providers) {
-      const started = Date.now();
-      let outcome: AiOutcome;
-      try {
-        outcome = await withTimeout(provider.generate(prompt, options), timeoutMs);
-      } catch {
-        outcome = { ok: false, errorClass: "transport", retryable: true };
-      }
-      const ms = Date.now() - started;
+    const cancelLosers = new AbortController();
+    const running = new Set<Promise<void>>();
+    let next = 0;
+    let stopped = false;
+    let result: AiResult | null = null;
 
-      if (outcome.ok) {
-        attempts.push({ provider: provider.name, ok: true, ms });
-        return { ok: true, provider: provider.name, text: outcome.text, attempts };
+    const launch = (): boolean => {
+      if (result || stopped || next >= ordered.length) return false;
+      const remaining = deps.deadlineMs === undefined ? timeoutMs : deps.deadlineMs - (now() - startedAll);
+      if (remaining <= 250) return false;
+      const provider = ordered[next++];
+      const started = now();
+      const run = attempt(provider, prompt, options?.maxTokens, Math.min(timeoutMs, remaining), cancelLosers.signal).then((outcome) => {
+        if (result) return; // Lost the race; its failure is not the provider's fault.
+        const ms = now() - started;
+        if (outcome.ok) {
+          health.cooldownUntil.delete(provider.name);
+          const previous = health.latencyMs.get(provider.name);
+          health.latencyMs.set(provider.name, previous === undefined ? ms : Math.round(previous * 0.7 + ms * 0.3));
+          attempts.push({ provider: provider.name, ok: true, ms });
+          result = { ok: true, provider: provider.name, text: outcome.text, attempts };
+          cancelLosers.abort();
+          return;
+        }
+        attempts.push({ provider: provider.name, ok: false, errorClass: outcome.errorClass, ms });
+        const cooldown = cooldownFor(outcome);
+        if (cooldown) health.cooldownUntil.set(provider.name, now() + cooldown);
+        log.warn("ai provider failed", { provider: provider.name, errorClass: outcome.errorClass, ms });
+        if (!outcome.retryable) stopped = true;
+      });
+      const tracked: Promise<void> = run.finally(() => running.delete(tracked));
+      running.add(tracked);
+      return true;
+    };
+
+    while (!result) {
+      if (running.size === 0 && !launch()) break;
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const racers: Promise<unknown>[] = [...running];
+      if (deps.hedgeAfterMs !== undefined && next < ordered.length) {
+        racers.push(new Promise((resolve) => (timer = setTimeout(() => resolve(HEDGE), deps.hedgeAfterMs))));
       }
-      attempts.push({ provider: provider.name, ok: false, errorClass: outcome.errorClass, ms });
-      log.warn("ai provider failed", { provider: provider.name, errorClass: outcome.errorClass });
-      if (!outcome.retryable) break;
+      const first = await Promise.race(racers);
+      clearTimeout(timer);
+      if (first === HEDGE) launch();
     }
 
-    return { ok: false, provider: null, errorClass: attempts[attempts.length - 1]?.errorClass, attempts };
+    return result ?? { ok: false, provider: null, errorClass: attempts[attempts.length - 1]?.errorClass ?? "deadline", attempts };
   }
 
   return { generate };
+}
+
+/**
+ * Every HTTP failure falls through to the next provider: a 401 (bad key), 404
+ * (retired model) or 429 (quota) is specific to this provider, and even a 400
+ * may be a model limit another provider does not share.
+ */
+function httpOutcome(status: number): AiOutcome {
+  return { ok: false, errorClass: `http_${status}`, retryable: true, status };
 }
 
 // ─── Real providers (never used in tests) ────────────────────────────────────
@@ -106,6 +214,7 @@ export function openRouterProvider(config: {
   baseUrl?: string;
   allowPaidModels: boolean;
   fetch?: typeof fetch;
+  name?: string;
 }): AiProvider {
   const client = createOpenAI({
     apiKey: config.apiKey,
@@ -114,24 +223,34 @@ export function openRouterProvider(config: {
   });
 
   return {
-    name: "openrouter",
+    name: config.name ?? "openrouter",
     async generate(prompt, options) {
       if (!config.allowPaidModels && !config.model.endsWith(FREE_SUFFIX)) {
         return { ok: false, errorClass: "paid_model_blocked", retryable: true };
       }
-      try {
-        const result = await generateText({
-          model: client(config.model),
-          system: prompt.system,
-          prompt: prompt.user,
-          maxOutputTokens: options?.maxTokens ?? 1200,
-        });
-        return { ok: true, text: result.text };
-      } catch (error) {
-        return { ok: false, errorClass: "provider_error", retryable: true, status: (error as { status?: number })?.status };
-      }
+      return sdkGenerate(client(config.model), prompt, options);
     },
   };
+}
+
+/** The chain does the retrying: the SDK's own retries (2 by default, with backoff) would multiply every slow provider's latency. */
+async function sdkGenerate(model: Parameters<typeof generateText>[0]["model"], prompt: ModelPrompt, options?: AiGenerateOptions): Promise<AiOutcome> {
+  try {
+    const result = await generateText({
+      model,
+      system: prompt.system,
+      prompt: prompt.user,
+      maxOutputTokens: options?.maxTokens ?? 1200,
+      maxRetries: 0,
+      abortSignal: options?.signal,
+    });
+    if (!result.text) return { ok: false, errorClass: "empty_response", retryable: true };
+    return { ok: true, text: result.text };
+  } catch (error) {
+    const status = (error as { statusCode?: number; status?: number })?.statusCode ?? (error as { status?: number })?.status;
+    if (status) return httpOutcome(status);
+    return { ok: false, errorClass: options?.signal?.aborted ? "timeout" : "provider_error", retryable: true };
+  }
 }
 
 /** NVIDIA NIM, OpenAI-compatible. */
@@ -144,19 +263,7 @@ export function nvidiaProvider(config: { apiKey: string; model: string; fetch?: 
 
   return {
     name: "nvidia",
-    async generate(prompt, options) {
-      try {
-        const result = await generateText({
-          model: client(config.model),
-          system: prompt.system,
-          prompt: prompt.user,
-          maxOutputTokens: options?.maxTokens ?? 1200,
-        });
-        return { ok: true, text: result.text };
-      } catch (error) {
-        return { ok: false, errorClass: "provider_error", retryable: true, status: (error as { status?: number })?.status };
-      }
-    },
+    generate: (prompt, options) => sdkGenerate(client(config.model), prompt, options),
   };
 }
 
@@ -170,10 +277,12 @@ export function geminiProvider(config: { apiKey: string; model?: string; fetchIm
     async generate(prompt, options) {
       try {
         const response = await fetchImpl(
-          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${config.apiKey}`,
+          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
           {
             method: "POST",
-            headers: { "content-type": "application/json" },
+            // Header, not ?key=: query strings end up in proxy and access logs.
+            headers: { "content-type": "application/json", "x-goog-api-key": config.apiKey },
+            signal: options?.signal,
             body: JSON.stringify({
               systemInstruction: { parts: [{ text: prompt.system }] },
               contents: [{ role: "user", parts: [{ text: prompt.user }] }],
@@ -190,9 +299,7 @@ export function geminiProvider(config: { apiKey: string; model?: string; fetchIm
             }),
           }
         );
-        if (!response.ok) {
-          return { ok: false, errorClass: `http_${response.status}`, retryable: response.status >= 500, status: response.status };
-        }
+        if (!response.ok) return httpOutcome(response.status);
         const data = (await response.json()) as {
           candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
         };
@@ -200,7 +307,7 @@ export function geminiProvider(config: { apiKey: string; model?: string; fetchIm
         if (!text) return { ok: false, errorClass: "empty_response", retryable: true };
         return { ok: true, text };
       } catch {
-        return { ok: false, errorClass: "transport", retryable: true };
+        return { ok: false, errorClass: options?.signal?.aborted ? "timeout" : "transport", retryable: true };
       }
     },
   };
@@ -220,7 +327,7 @@ export function vertexProvider(config: {
   fetchImpl?: typeof fetch;
 }): AiProvider {
   const location = config.location ?? "us-central1";
-  const model = config.model ?? "gemini-2.0-flash-001";
+  const model = config.model || "gemini-2.5-flash";
   const fetchImpl = config.fetchImpl ?? fetch;
 
   return {
@@ -236,6 +343,7 @@ export function vertexProvider(config: {
           {
             method: "POST",
             headers: { "content-type": "application/json", authorization: `Bearer ${accessToken}` },
+            signal: options?.signal,
             body: JSON.stringify({
               systemInstruction: { parts: [{ text: prompt.system }] },
               contents: [{ role: "user", parts: [{ text: prompt.user }] }],
@@ -243,9 +351,7 @@ export function vertexProvider(config: {
             }),
           }
         );
-        if (!response.ok) {
-          return { ok: false, errorClass: `http_${response.status}`, retryable: response.status >= 500, status: response.status };
-        }
+        if (!response.ok) return httpOutcome(response.status);
         const data = (await response.json()) as {
           candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
         };
@@ -285,12 +391,13 @@ export function realProviders(env: AppEnv, fetchImpl?: typeof fetch): AiProvider
         baseUrl: env.OPENROUTER_BASE_URL,
         allowPaidModels: env.OPENROUTER_ALLOW_PAID_MODELS,
         fetch: fetchImpl,
+        name: "openrouter-2",
       })
     );
   }
-  if (env.GEMINI_API_KEY) providers.push(geminiProvider({ apiKey: env.GEMINI_API_KEY, fetchImpl }));
+  if (env.GEMINI_API_KEY) providers.push(geminiProvider({ apiKey: env.GEMINI_API_KEY, model: env.GEMINI_MODEL, fetchImpl }));
   if (env.NVIDIA_API_KEY) {
-    providers.push(nvidiaProvider({ apiKey: env.NVIDIA_API_KEY, model: "meta/llama-3.2-11b-vision-instruct", fetch: fetchImpl }));
+    providers.push(nvidiaProvider({ apiKey: env.NVIDIA_API_KEY, model: env.NVIDIA_MODEL || "meta/llama-3.3-70b-instruct", fetch: fetchImpl }));
   }
   if (env.GOOGLE_CLIENT_EMAIL && env.GOOGLE_PRIVATE_KEY && env.GOOGLE_CLOUD_PROJECT && env.GOOGLE_TOKEN_URI) {
     providers.push(
@@ -299,6 +406,7 @@ export function realProviders(env: AppEnv, fetchImpl?: typeof fetch): AiProvider
         privateKey: env.GOOGLE_PRIVATE_KEY,
         tokenUri: env.GOOGLE_TOKEN_URI,
         project: env.GOOGLE_CLOUD_PROJECT,
+        model: env.VERTEX_MODEL,
         fetchImpl,
       })
     );
