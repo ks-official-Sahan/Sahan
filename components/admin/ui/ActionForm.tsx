@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useActionState, useContext, useEffect, useRef, type ReactNode } from "react";
+import { createContext, useActionState, useContext, useEffect, useRef, type ChangeEvent, type ReactNode } from "react";
 import { useFormStatus } from "react-dom";
 
 import { idleState, type ActionState } from "@/lib/actions/state";
@@ -121,6 +121,9 @@ interface FieldProps {
   required?: boolean;
   autoComplete?: string;
   defaultValue?: string;
+  /** Controlled mode: pass together with `onChange` (e.g. a field an AI helper fills in). Omit both for the default uncontrolled behavior. */
+  value?: string;
+  onChange?: (value: string) => void;
   maxLength?: number;
   placeholder?: string;
   inputMode?: "text" | "numeric" | "email";
@@ -130,12 +133,16 @@ interface FieldProps {
   className?: string;
 }
 
-/** Label, input and the field message from the surrounding ActionForm. */
-export function Field({ label, name, hint, multiline, className, ...input }: FieldProps) {
+/** Label, input and the field message from the surrounding ActionForm. Uncontrolled by default; pass `value`+`onChange` to control it instead. */
+export function Field({ label, name, hint, multiline, className, defaultValue, value, onChange, ...input }: FieldProps) {
   const state = useActionResult();
   const message = state.fieldErrors?.[name];
   const id = `f-${name}`;
   const describedBy = [hint ? `${id}-hint` : null, message ? `${id}-error` : null].filter(Boolean).join(" ") || undefined;
+  const valueProps =
+    value !== undefined
+      ? { value, onChange: (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => onChange?.(event.target.value) }
+      : { defaultValue };
 
   return (
     <div className={className}>
@@ -149,9 +156,9 @@ export function Field({ label, name, hint, multiline, className, ...input }: Fie
           aria-invalid={message ? true : undefined}
           aria-describedby={describedBy}
           className={cn(textareaClass, "mt-1.5")}
-          defaultValue={input.defaultValue}
           maxLength={input.maxLength}
           placeholder={input.placeholder}
+          {...valueProps}
         />
       ) : (
         <input
@@ -161,6 +168,7 @@ export function Field({ label, name, hint, multiline, className, ...input }: Fie
           aria-describedby={describedBy}
           className={cn(fieldClass, "mt-1.5")}
           {...input}
+          {...valueProps}
         />
       )}
       {hint ? (
