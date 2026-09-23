@@ -5,7 +5,11 @@ import { loadOrNull } from "@/lib/cache/fallback";
 import { TAGS } from "@/lib/cache/tags";
 import { db } from "@/lib/db/prisma";
 import { log } from "@/lib/log";
+import { getPosts } from "@/lib/blog/queries";
 import { getPageContent } from "@/lib/cms/loaders";
+import { getExperience, getProjects } from "@/lib/collections";
+import { Experience } from "@/contents/experience";
+import { Projects } from "@/contents/projects";
 
 // Builds the knowledge base for the chatbot from published CMS content and
 // active training entries. Cached under the `chatbot:knowledge` tag and
@@ -15,11 +19,12 @@ async function buildKnowledge(): Promise<string> {
   const parts: string[] = [];
 
   try {
-    // Get published CMS content for all pages with proper typing
-    const home = await getPageContent("home");
-    const about = await getPageContent("about");
-    const works = await getPageContent("works");
-    const contact = await getPageContent("contact");
+    const [home, about, works, contact] = await Promise.all([
+      getPageContent("home"),
+      getPageContent("about"),
+      getPageContent("works"),
+      getPageContent("contact"),
+    ]);
 
     parts.push("### Site Overview\n");
 
@@ -39,9 +44,37 @@ async function buildKnowledge(): Promise<string> {
       parts.push(`\n**Works:** ${works.hero.title}\n`);
     }
 
-    // Skills and experience are collections from database, not directly in CMS sections
-    // They are loaded separately and rendered by the public pages
-    // Knowledge builder focuses on the CMS-editable content above
+    // Collections and posts: the questions visitors actually ask ("what have you
+    // built?", "where have you worked?"). Each change to them already drops
+    // this cache through the chatbot:knowledge tag (lib/cache/plan.ts).
+    const [projects, experience, posts] = await Promise.all([
+      getProjects(Projects),
+      getExperience(Experience),
+      getPosts(),
+    ]);
+
+    if (projects.length > 0) {
+      parts.push("\n### Projects\n");
+      for (const project of projects.slice(0, 25)) {
+        const meta = [project.role, project.organization, project.status].filter(Boolean).join(", ");
+        const tech = project.tech?.length ? ` Tech: ${project.tech.slice(0, 10).join(", ")}.` : "";
+        const link = project.links?.[0]?.url ? ` Link: ${project.links[0].url}` : "";
+        parts.push(`- **${project.title}** (${meta}): ${project.tagline}.${tech}${link}\n`);
+      }
+    }
+
+    if (experience.length > 0) {
+      parts.push("\n### Experience\n");
+      for (const entry of experience.slice(0, 15)) {
+        const highlights = entry.highlights.slice(0, 3).join(" ");
+        parts.push(`- **${entry.role}** at ${entry.company} (${entry.period}${entry.current ? ", current" : ""}). ${highlights}\n`);
+      }
+    }
+
+    if (posts.length > 0) {
+      parts.push("\n### Recent writing (on /updates)\n");
+      for (const post of posts.slice(0, 10)) parts.push(`- ${post.title} (/updates/${post.slug})\n`);
+    }
 
     // Contact information
     if (contact.socials?.items && Array.isArray(contact.socials.items)) {
@@ -80,7 +113,8 @@ async function buildKnowledge(): Promise<string> {
 // Load knowledge from cache or null if database is not configured
 export async function getKnowledge(): Promise<string | null> {
   return loadOrNull(
-    cached(buildKnowledge, ["chatbot", "knowledge"], {
+    // Bump the version when the knowledge format changes, so stale entries are not served.
+    cached(buildKnowledge, ["chatbot", "knowledge", "v2"], {
       tags: [TAGS.chatbotKnowledge],
       revalidate: 3600,
     }),

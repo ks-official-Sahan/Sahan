@@ -3,8 +3,10 @@
 // is added only as data, visitor messages are wrapped as data, so secrets
 // and instructions cannot be hidden in the knowledge or user input.
 
-import type { ChatbotConfig } from "@/lib/settings/schema";
 import type { ModelPrompt } from "@/lib/ai/guard";
+import type { ChatbotConfig } from "@/lib/settings/schema";
+
+import { guardUserMessage } from "./guard";
 
 const TONE_DESCRIPTIONS = {
   professional:
@@ -17,6 +19,7 @@ export function buildChatPrompt(options: {
   config: ChatbotConfig;
   knowledge?: string;
   userMessage: string;
+  history?: readonly { role: string; content: string }[];
 }): ModelPrompt {
   const toneDesc = TONE_DESCRIPTIONS[options.config.tone];
   const knowledge = options.knowledge?.trim() || "";
@@ -39,9 +42,16 @@ export function buildChatPrompt(options: {
     systemParts.push("\n===== KNOWLEDGE END =====\n");
   }
 
+  // Earlier turns give the model context for follow-ups ("tell me more about
+  // that one"). Visitor turns are wrapped the same way as the new message, so
+  // stored text cannot pose as instructions either.
+  const history = (options.history ?? [])
+    .map((turn) => (turn.role === "user" ? `Visitor: ${guardUserMessage(turn.content)}` : `You: ${turn.content}`))
+    .join("\n");
+
   return {
     system: systemParts.join(""),
-    user: options.userMessage,
+    user: history ? `Conversation so far:\n${history}\n\nVisitor's new message:\n${options.userMessage}` : options.userMessage,
   };
 }
 
