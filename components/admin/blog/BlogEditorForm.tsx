@@ -75,6 +75,22 @@ type FullPostResponse = {
 
 type CoverPromptResponse = { ok: boolean; prompt?: string; error?: string };
 
+/** These AI routes return `null` bodies for 403/404/429 (permission/origin/rate-limit) and JSON only for 200/400/502, so parsing is content-type gated and failure tolerant rather than assumed. */
+async function readAiJson<T>(response: Response): Promise<T | null> {
+  if (!(response.headers.get("content-type") ?? "").includes("application/json")) return null;
+  try {
+    return (await response.json()) as T;
+  } catch {
+    return null;
+  }
+}
+
+function aiErrorMessage(response: Response, data: { error?: string } | null, fallback: string): string {
+  if (response.status === 429) return "Too many AI requests. Wait a minute and try again.";
+  if (response.status === 403) return "That request was blocked. Refresh the page and try again.";
+  return data?.error || fallback;
+}
+
 export default function BlogEditorForm({
   action,
   post,
@@ -112,6 +128,9 @@ export default function BlogEditorForm({
       setAiError("Describe what the post should cover first.");
       return;
     }
+    if ((title.trim() || content.trim()) && !window.confirm("This replaces the current title and body with the AI's draft. Continue?")) {
+      return;
+    }
     setAiBusy(true);
     setAiError(null);
     try {
@@ -120,9 +139,9 @@ export default function BlogEditorForm({
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ prompt: aiPrompt, tone: aiTone, length: aiLength }),
       });
-      const data = (await response.json()) as FullPostResponse;
-      if (!data.ok) {
-        setAiError(data.error || "The AI helper could not produce a draft.");
+      const data = await readAiJson<FullPostResponse>(response);
+      if (!response.ok || !data?.ok) {
+        setAiError(aiErrorMessage(response, data, "The AI helper could not produce a draft."));
         return;
       }
       if (data.title) {
@@ -156,9 +175,9 @@ export default function BlogEditorForm({
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ topic: topicForPrompt }),
       });
-      const data = (await response.json()) as CoverPromptResponse;
-      if (!data.ok || !data.prompt) {
-        setCoverPromptError(data.error || "Could not suggest an image prompt.");
+      const data = await readAiJson<CoverPromptResponse>(response);
+      if (!response.ok || !data?.ok || !data.prompt) {
+        setCoverPromptError(aiErrorMessage(response, data, "Could not suggest an image prompt."));
         return;
       }
       setCoverPromptSuggestion(data.prompt);

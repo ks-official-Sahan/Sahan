@@ -120,10 +120,20 @@ function clampTags(value: unknown): string[] {
     .map((tag) => tag.trim().slice(0, 30));
 }
 
+// A JSON-string value can hide a secret-shaped token behind an escape (e.g.
+// sk-... decodes to sk-...) that the raw pre-parse text never contains,
+// so every field is re-checked here on its *decoded* value, not just the raw
+// completion text above.
+const FULL_POST_MAX_TOKENS: Record<FullPostLength, number> = {
+  short: 1800,
+  medium: 2800,
+  long: 4000,
+};
+
 export async function generateFullPost(input: FullPostInput, deps: AiDeps): Promise<FullPostResult | AiHelperFailure> {
   const prompt = buildFullPostPrompt(input);
   const service = createAiService({ providers: deps.providers });
-  const result = await service.generate(prompt, { maxTokens: 2800 });
+  const result = await service.generate(prompt, { maxTokens: FULL_POST_MAX_TOKENS[input.length] });
 
   if (!result.ok || !result.text) {
     return { ok: false, error: "No AI provider is configured or reachable right now." };
@@ -142,7 +152,14 @@ export async function generateFullPost(input: FullPostInput, deps: AiDeps): Prom
   if (!title || !content) {
     return { ok: false, error: "The AI response was missing a title or body. Try again." };
   }
-  if (looksLikeLeak(title) || looksLikeLeak(content)) {
+
+  const excerpt = clampText(parsed.excerpt, 500);
+  const topic = clampText(parsed.topic, 50);
+  const tags = clampTags(parsed.tags);
+  const seoTitle = clampText(parsed.seoTitle, 70);
+  const seoDescription = clampText(parsed.seoDescription, 200);
+
+  if ([title, content, excerpt, topic, seoTitle, seoDescription, ...tags].some((value) => looksLikeLeak(value))) {
     return { ok: false, error: "The AI response looked unsafe and was discarded. Try a different prompt." };
   }
 
@@ -150,11 +167,11 @@ export async function generateFullPost(input: FullPostInput, deps: AiDeps): Prom
     ok: true,
     title,
     content,
-    excerpt: clampText(parsed.excerpt, 500),
-    topic: clampText(parsed.topic, 50),
-    tags: clampTags(parsed.tags),
-    seoTitle: clampText(parsed.seoTitle, 70),
-    seoDescription: clampText(parsed.seoDescription, 200),
+    excerpt,
+    topic,
+    tags,
+    seoTitle,
+    seoDescription,
     provider: result.provider ?? "unknown",
   };
 }

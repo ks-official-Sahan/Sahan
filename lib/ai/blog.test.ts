@@ -92,3 +92,14 @@ test("generateFullPost discards a reply that looks like a leaked secret", async 
   );
   assert.equal(result.ok, false);
 });
+
+test("generateFullPost rejects a secret hidden by a JSON escape until the excerpt is decoded", async () => {
+  // s decodes to "s": the raw completion text never contains the literal
+  // "sk-" substring, only the parsed/decoded excerpt does.
+  const raw = '{"title":"Safe title","content":"<p>ok</p>","excerpt":"contact \\u0073k-abcdefghij1234567890 for access"}';
+  const result = await generateFullPost(
+    { prompt: "x", tone: "professional", length: "short" },
+    { providers: [fakeProvider("fake", { ok: true, text: raw })] }
+  );
+  assert.equal(result.ok, false);
+});
