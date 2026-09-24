@@ -81,7 +81,9 @@ function slowProvider(name: string, ms: number, text = name): AiProvider & { abo
 }
 
 test("hedging starts the next provider when the first is slow, and aborts the loser", async () => {
-  const slow = slowProvider("slow", 500);
+  // "slow" only finishes if the test is broken (it is aborted long before),
+  // so a stalled event loop under a loaded test run cannot let it win.
+  const slow = slowProvider("slow", 10_000);
   const fast = slowProvider("fast", 10);
   const service = createAiService({ providers: [slow, fast], hedgeAfterMs: 30 });
   const result = await service.generate(PROMPT);
