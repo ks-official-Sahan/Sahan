@@ -6,7 +6,7 @@ import { after, userAgent } from "next/server";
 
 import type { AuthDbAdapter, RoleName } from "./adapter";
 import type { AuditEvent } from "./audit-event";
-import { LOGIN_PATH, SESSION_COOKIE, SESSION_MAX_AGE_SECONDS } from "./constants";
+import { SESSION_MAX_AGE_SECONDS } from "./constants";
 import { verifyCredentials, type CredentialDeps } from "./credentials";
 import type { createMfa } from "./mfa/mfa";
 import { verifyPassword } from "./password";
@@ -35,7 +35,8 @@ function describeDevice(ua: string | null): { browser: string | null; os: string
   return { browser: parsed.browser.name ?? null, os: parsed.os.name ?? null };
 }
 
-const failureKey = (email: string) => `sahan:login:fail:${createHash("sha256").update(email).digest("hex").slice(0, 32)}`;
+const failureKey = (keyPrefix: string, email: string) =>
+  `${keyPrefix}login:fail:${createHash("sha256").update(email).digest("hex").slice(0, 32)}`;
 
 export interface AuthConfigDeps {
   adapter: AuthDbAdapter;
@@ -43,10 +44,20 @@ export interface AuthConfigDeps {
   authTrustHost: boolean;
   authDebug: boolean;
   production: boolean;
+  /** Namespaces every KV key this module writes (failure counters). For example `"myapp:"`. */
+  keyPrefix: string;
+  /** Cookie name for the Auth.js session token. Resolve with `resolveCookieName` for the `__Host-`-prefixed production form. */
+  sessionCookieName: string;
+  /** Where `pages.signIn`/`pages.error` point. For example `"/admin/login"`. */
+  loginPath: string;
+  /** Role written into the session when a token carries none (defensive fallback only). */
+  defaultRole: RoleName;
   sessionStore: ReturnType<typeof createSessionStore>;
   mfa: ReturnType<typeof createMfa>;
   bootstrap: () => Promise<void>;
   loginFailureWindowSeconds: number;
+  /** Attempts allowed per window before the account is locked (the app's own "login:acct"-shaped bucket). */
+  loginFailureMaxAttempts: number;
   limit: (bucket: string, key: string) => Promise<{ ok: boolean }>;
   failures: {
     reserve: (key: string, windowSeconds: number) => Promise<number>;
@@ -82,8 +93,9 @@ export function createAuthConfig(deps: AuthConfigDeps): NextAuthConfig {
       return (await limit("login:ip", ip)).ok;
     },
     failures: {
-      reserve: (email) => failures.reserve(failureKey(email), deps.loginFailureWindowSeconds),
-      clear: (email) => failures.clear(failureKey(email)),
+      reserve: (email) => failures.reserve(failureKey(deps.keyPrefix, email), deps.loginFailureWindowSeconds),
+      clear: (email) => failures.clear(failureKey(deps.keyPrefix, email)),
+      max: deps.loginFailureMaxAttempts,
     },
     audit: (event) => audit(event),
     warn,
@@ -192,10 +204,10 @@ export function createAuthConfig(deps: AuthConfigDeps): NextAuthConfig {
     },
     session: { strategy: "jwt", maxAge: SESSION_MAX_AGE_SECONDS },
     jwt: { maxAge: SESSION_MAX_AGE_SECONDS },
-    pages: { signIn: LOGIN_PATH, error: LOGIN_PATH },
+    pages: { signIn: deps.loginPath, error: deps.loginPath },
     cookies: {
       sessionToken: {
-        name: SESSION_COOKIE,
+        name: deps.sessionCookieName,
         options: { httpOnly: true, sameSite: "lax", path: "/", secure: deps.production },
       },
     },
@@ -230,7 +242,7 @@ export function createAuthConfig(deps: AuthConfigDeps): NextAuthConfig {
         // The runtime shape is guaranteed by the `jwt` callback above.
         session.user.id = token.sub ?? "";
         session.sid = (token.sid as string | undefined) ?? "";
-        session.role = (token.role as RoleName | undefined) ?? "EDITOR";
+        session.role = (token.role as RoleName | undefined) ?? deps.defaultRole;
         session.pwf = (token.pwf as string | undefined) ?? "";
         session.mfa = (token.mfa as boolean | undefined) ?? false;
         return session;

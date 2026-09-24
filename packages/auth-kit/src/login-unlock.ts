@@ -1,11 +1,15 @@
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 
-// Hidden login: /admin/login stays a 404 until the visitor opens it once with
-// ?secret=<ADMIN_LOGIN_UNLOCK_SECRET>. The proxy then sets a signed cookie that
+// Hidden login: the login page stays a 404 until the visitor opens it once
+// with ?<UNLOCK_QUERY>=<secret>. The proxy then sets a signed cookie that
 // lasts two hours. No server-only import: the proxy runs this on the Node.js
-// runtime. Design record: docs/plan/admin-cms-adr.md, section 6.2.
+// runtime.
+//
+// The cookie's *name* is app policy (see `defineAuthKit`'s `cookies.unlock`,
+// resolved for the environment with `resolveCookieName` from ./constants) and
+// is not exported from here; every function below takes it, or the cookie
+// value, as a parameter.
 
-export const UNLOCK_COOKIE = "sahan_admin_unlock";
 export const UNLOCK_QUERY = "secret";
 export const UNLOCK_TTL_SECONDS = 2 * 60 * 60;
 
@@ -85,13 +89,19 @@ export function verifyUnlockCookie(
  * as cross-site and the browser would not send the cookie it has just received.
  * The cookie only decides whether the login page is visible; every action still
  * checks the origin and the session.
+ *
+ * Path is `/` in production and the narrower `/admin` in development: a
+ * `__Host-`-prefixed cookie name (see `resolveCookieName`) is only valid with
+ * `Path=/`, so the production cookie widens to match. This only broadens
+ * where the browser *sends* the cookie back — every reader still only cares
+ * about admin paths — so it is not a new capability, just a wider send scope.
  */
 export function unlockCookieOptions(production: boolean) {
   return {
     httpOnly: true,
     secure: production,
     sameSite: "lax" as const,
-    path: "/admin",
+    path: production ? "/" : "/admin",
     maxAge: UNLOCK_TTL_SECONDS,
   };
 }

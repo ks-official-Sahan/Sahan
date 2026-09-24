@@ -101,6 +101,13 @@ export function createMfa(deps: {
     if (status === "consumed") return { ok: false, reason: "consumed" };
     if (status === "expired") return { ok: false, reason: "expired" };
     if (status === "locked") return { ok: false, reason: "locked" };
+    // Already verified (the code was right last time): answer ok without
+    // touching the attempt counter or comparing again, so re-submitting the
+    // same code (a double click, a retried request) or polling this endpoint
+    // never burns one of the account's five guesses. The verified window
+    // itself (MFA_VERIFIED_WINDOW_SECONDS) is what bounds how long this stays
+    // true; `consumeChallenge` still enforces single use for the sign-in step.
+    if (status === "verified") return { ok: true };
 
     // Count the attempt first, atomically and only while attempts remain, then
     // compare. Parallel guesses therefore cannot exceed the limit.

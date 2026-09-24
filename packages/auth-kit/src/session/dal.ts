@@ -2,7 +2,6 @@ import { notFound, redirect } from "next/navigation";
 import { after } from "next/server";
 import { cache } from "react";
 
-import { ACCOUNT_PASSWORD_PATH, EXPIRE_PATH } from "../constants";
 import type { Permission, RoleName } from "../rbac/permissions";
 import { evaluateSession, type SessionDenial, type SessionState } from "./state";
 
@@ -29,10 +28,14 @@ export interface AuthDalDeps {
   getSessionState: (sid: string) => Promise<SessionState | null>;
   touchSession: (sid: string) => Promise<void>;
   getRolePermissions: (role: RoleName) => Promise<readonly Permission[]>;
+  /** Route Handler that clears a revoked/expired/disabled session's cookie. For example `"/api/auth/expire"`. */
+  expirePath: string;
+  /** Where a user with `mustChangePassword` is sent until they choose their own password. */
+  accountPasswordChangePath: string;
 }
 
 export function createAuthDal(deps: AuthDalDeps) {
-  const { auth, getSessionState, touchSession, getRolePermissions } = deps;
+  const { auth, getSessionState, touchSession, getRolePermissions, expirePath, accountPasswordChangePath } = deps;
 
   // One lookup per request, however many components ask.
   const resolve = cache(async (): Promise<Resolved> => {
@@ -77,11 +80,11 @@ export function createAuthDal(deps: AuthDalDeps) {
     const result = await resolve();
     if (!("user" in result)) {
       if (result.denied === "no_session") notFound();
-      redirect(EXPIRE_PATH);
+      redirect(expirePath);
     }
     // A user whose password was set by someone else (the seeded owner, an admin
     // reset) can reach nothing but the account page until they choose their own.
-    if (result.user.mustChangePassword && !options.allowPasswordChange) redirect(ACCOUNT_PASSWORD_PATH);
+    if (result.user.mustChangePassword && !options.allowPasswordChange) redirect(accountPasswordChangePath);
     return result.user;
   }
 

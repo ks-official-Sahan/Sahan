@@ -1,7 +1,6 @@
 import { createHash } from "node:crypto";
 
 import type { AuditEvent } from "./audit-event";
-import { LIMITS } from "./cache/ratelimit";
 
 import type { RoleName } from "./rbac/permissions";
 
@@ -33,6 +32,8 @@ export interface CredentialDeps {
     /** Counts this attempt and returns how many the account has made in the window. */
     reserve(email: string): Promise<number>;
     clear(email: string): Promise<void>;
+    /** Attempts allowed per window before the account is locked. The app owns the bucket this comes from. */
+    max: number;
   };
   audit(event: AuditEvent): Promise<void>;
   warn(message: string, fields: Record<string, unknown>): void;
@@ -107,7 +108,7 @@ export async function verifyCredentials(
 
   // The attempt is counted before the password is checked, so parallel requests
   // cannot each read "still under the limit" and all get a guess.
-  const max: number = LIMITS["login:acct"].max;
+  const max: number = deps.failures.max;
   let attempts = Number.POSITIVE_INFINITY;
   try {
     attempts = await deps.failures.reserve(email);
