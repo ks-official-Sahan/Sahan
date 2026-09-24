@@ -23,6 +23,13 @@ const nextConfig: NextConfig = {
         source: "/((?!admin(?:/|$)|api/admin(?:/|$)).*)",
         headers: [{ key: "Content-Security-Policy", value: buildPublicCsp({ dev }) }],
       },
+      // Skill logos (CSS-mask sources) are requested on every page that lists
+      // skills; the names are not content-hashed, so cache for a day and serve
+      // stale while revalidating rather than marking them immutable.
+      {
+        source: "/icons/skills/:file*",
+        headers: [{ key: "Cache-Control", value: "public, max-age=86400, stale-while-revalidate=604800" }],
+      },
     ];
   },
   images: {
