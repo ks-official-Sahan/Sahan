@@ -1,17 +1,14 @@
 import "server-only";
 
-import { kv } from "@/lib/cache/redis";
-import { getEnv } from "@/lib/env";
-import { createSessionStore } from "@sahan/auth-kit/session";
+import { createSessionStore } from "@ks-official-sahan/auth-kit/session";
 
+import { kv } from "@/lib/cache/redis";
+
+import { AUTH_SECRET } from "./kit";
 import { prismaAuthAdapter } from "./prisma-adapter";
 
 // Server side of a session: the Postgres row is the authority, Redis holds a
-// 30 second copy of its state so most requests skip the database. Section 6.3 of
-// docs/plan/admin-cms-adr.md.
-
-const authSecret = getEnv().AUTH_SECRET;
-if (!authSecret) throw new Error("AUTH_SECRET is not set");
+// 30 second copy of its state so most requests skip the database.
 
 export const {
   createSession,
@@ -25,6 +22,6 @@ export const {
   forceLogoutAll,
   getKnownIps,
   listSessions,
-} = createSessionStore({ adapter: prismaAuthAdapter, kv, authSecret });
+} = createSessionStore({ adapter: prismaAuthAdapter, kv, authSecret: AUTH_SECRET });
 
-export type { KnownIp, NewSession, Revoker, SessionListItem } from "@sahan/auth-kit/session";
+export type { KnownIp, NewSession, Revoker, SessionListItem } from "@ks-official-sahan/auth-kit/session";

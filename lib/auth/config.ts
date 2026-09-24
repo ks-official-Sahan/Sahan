@@ -1,6 +1,9 @@
 import "server-only";
 
+import { createAuthConfig, createMfa, ensureBootstrapOwner } from "@ks-official-sahan/auth-kit";
+import { createSessionStore } from "@ks-official-sahan/auth-kit/session";
 import NextAuth from "next-auth";
+import { after } from "next/server";
 
 import { auditSafe } from "@/lib/admin/audit";
 import { limit, LIMITS } from "@/lib/cache/ratelimit";
@@ -11,16 +14,15 @@ import { sendEmail } from "@/lib/email";
 import { mfaCode, newLogin } from "@/lib/email/templates";
 import { getEnv } from "@/lib/env";
 import { log } from "@/lib/log";
-import { createAuthConfig, createMfa, createSessionStore, ensureBootstrapOwner } from "@sahan/auth-kit";
 
+import { AUTH_SECRET, PRODUCTION } from "./kit";
+import { authKit } from "./kit-config";
 import { prismaAuthAdapter } from "./prisma-adapter";
 
 // Built once per module load; deps only ever wrap already-configured app
 // singletons (db, kv, env), so there is nothing request-scoped to defer here.
 
 const env = getEnv();
-const authSecret = env.AUTH_SECRET;
-if (!authSecret) throw new Error("AUTH_SECRET is not set");
 
 // auth-kit's deps declare `limit`/`sendEmail` with the loose (bucket: string,
 // message: { category: string }) shapes any app could have; the app's own
@@ -34,10 +36,10 @@ const sendEmailAdapter = (
   context: { actor: { id: string; email: string } }
 ) => sendEmail(message as Parameters<typeof sendEmail>[0], context);
 
-const sessionStoreImpl = createSessionStore({ adapter: prismaAuthAdapter, kv, authSecret });
+const sessionStoreImpl = createSessionStore({ adapter: prismaAuthAdapter, kv, authSecret: AUTH_SECRET });
 const mfaImpl = createMfa({
   adapter: prismaAuthAdapter,
-  authSecret,
+  authSecret: AUTH_SECRET,
   limit: limitAdapter,
   sendEmail: sendEmailAdapter,
   audit: auditSafe,
@@ -48,14 +50,20 @@ const bootstrap = () => ensureBootstrapOwner(prismaAuthAdapter, () => seedOwner(
 export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth(() =>
   createAuthConfig({
     adapter: prismaAuthAdapter,
-    authSecret,
+    authSecret: AUTH_SECRET,
+    keyPrefix: authKit.keyPrefix,
+    sessionCookieName: authKit.sessionCookieName(PRODUCTION),
+    loginPath: authKit.paths.login,
+    defaultRole: authKit.superRole,
     authTrustHost: env.AUTH_TRUST_HOST,
     authDebug: env.AUTH_DEBUG,
-    production: process.env.NODE_ENV === "production",
+    production: PRODUCTION,
     sessionStore: sessionStoreImpl,
     mfa: mfaImpl,
+    after,
     bootstrap,
     loginFailureWindowSeconds: LIMITS["login:acct"].windowSeconds,
+    loginFailureMaxAttempts: LIMITS["login:acct"].max,
     limit: limitAdapter,
     failures: {
       reserve: (key, windowSeconds) => kv.incr(key, windowSeconds),
