@@ -5,8 +5,10 @@ import { Experience } from "@/contents/experience";
 import HomePageView from "@/components/pages/HomePageView";
 
 export default async function Home() {
-  const content = await getPageContent("home");
-  const projects = await getProjects(Projects);
-  const experience = await getExperience(Experience);
+  const [content, projects, experience] = await Promise.all([
+    getPageContent("home"),
+    getProjects(Projects),
+    getExperience(Experience),
+  ]);
   return <HomePageView content={content} projects={projects} experience={experience} />;
 }

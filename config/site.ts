@@ -40,18 +40,22 @@ export const SiteMetadata = {
 export const PageMetadata = {
   about: {
     title: "About",
-    description: "Learn more about my journey and professional background.",
+    description:
+      "Sahan Sachintha is a full-stack software engineer who builds web and mobile products end to end. Read about his background, technical skills, and experience.",
   },
   works: {
     title: "Works",
-    description: "Explore my projects and professional achievements.",
+    description:
+      "App-store products, client websites, and the business systems behind them, including POS and inventory tools. Open any project for links and its story.",
   },
   updates: {
     title: "Updates",
-    description: "Read my daily updates and progress notes.",
+    description:
+      "Release notes, personal notes, bug fixes, and new features from ongoing projects — a running log of what shipped and what changed, posted as progress happens.",
   },
   contact: {
     title: "Contact",
-    description: "Let's connect and discuss your next big idea!",
+    description:
+      "Get in touch about a project, an idea, or just to say hi. Reach out by email or WhatsApp — replies come from Sahan directly, never an automated bot.",
   },
 };

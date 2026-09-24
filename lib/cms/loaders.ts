@@ -63,3 +63,43 @@ export function mergePage<P extends CmsPage>(page: P, stored: StoredPage | null)
 export async function getPageContent<P extends CmsPage>(page: P): Promise<PageContent<P>> {
   return mergePage(page, await getStoredPage(page));
 }
+
+const lastModifiedReaders = new Map<CmsPage, () => Promise<string | null>>();
+
+function lastModifiedReaderFor(page: CmsPage): () => Promise<string | null> {
+  let read = lastModifiedReaders.get(page);
+  if (!read) {
+    read = cached(
+      async () => {
+        const row = await db.contentBlock.findFirst({
+          where: { pageSlug: page, status: "PUBLISHED" },
+          orderBy: { updatedAt: "desc" },
+          select: { updatedAt: true },
+        });
+        // ISO string, not a Date: unstable_cache's data cache round-trips
+        // through JSON, so a Date instance would come back a string on a
+        // cache hit anyway and a string on a miss — returning a string
+        // always keeps the type honest for callers.
+        return row ? row.updatedAt.toISOString() : null;
+      },
+      ["cms", "page-updated-at", page],
+      { tags: [TAGS.cms, TAGS.page(page)] }
+    );
+    lastModifiedReaders.set(page, read);
+  }
+  return read;
+}
+
+/**
+ * Newest `updatedAt` among a page's published content blocks, as an ISO
+ * string, for sitemap `lastModified`. Null when the database is not
+ * configured, the page has no stored blocks yet, or the read fails during
+ * `next build` — callers should fall back to something reasonable (see
+ * app/sitemap.ts).
+ */
+export function getPageLastModified(page: CmsPage): Promise<string | null> {
+  return loadOrNull(lastModifiedReaderFor(page), {
+    onError: (error) =>
+      log.warn("cms lastModified read failed during build, falling back", { page, error: String(error) }),
+  });
+}
