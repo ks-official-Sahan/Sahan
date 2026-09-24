@@ -16,6 +16,10 @@ import { jsonLdHtml } from "@/lib/seo/json-ld";
 // page appears within the same window.
 export const revalidate = 300;
 export const dynamicParams = true;
+// No loading.tsx may sit above this route (the home and /updates skeletons
+// live in the (home) and updates/(list) route groups for that reason): a
+// Suspense boundary starts streaming a 200 before notFound() below can run,
+// so an unknown slug would answer a soft 404 instead of a real one.
 
 /** An edit counts as an update worth showing only when it lands a day or more after publishing. */
 const UPDATE_THRESHOLD_MS = 24 * 60 * 60 * 1000;
