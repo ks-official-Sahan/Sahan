@@ -94,6 +94,9 @@ const schema = z.object({
   NVIDIA_API_KEY: text,
   NVIDIA_MODEL: text,
   VERTEX_MODEL: text,
+  // Vertex AI Imagen model for the blog generator's featured/content images
+  // (lib/ai/image.ts); reuses the same GOOGLE_* service account as VERTEX_MODEL.
+  IMAGEN_MODEL: text,
   GOOGLE_CLIENT_EMAIL: text,
   GOOGLE_PRIVATE_KEY: privateKey,
   GOOGLE_CLOUD_PROJECT: text,

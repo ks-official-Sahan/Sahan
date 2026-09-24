@@ -9,6 +9,15 @@ import { MEDIA_CONFIG, getMediaKind } from "./config";
 import type { CloudinaryClient } from "./cloudinary";
 import { validateMediaUpload, validateMediaMetadata } from "./validation";
 
+const IMAGE_MIME_FORMATS: Record<string, string> = {
+  "image/png": "png",
+  "image/jpeg": "jpg",
+  "image/jpg": "jpg",
+  "image/webp": "webp",
+  "image/gif": "gif",
+  "image/avif": "avif",
+};
+
 export interface RegisterUploadInput {
   publicId: string;
   folder: string;
@@ -84,35 +93,131 @@ export async function registerUpload(
       return { ok: false, error: errorMsg };
     }
 
-    // Create the asset record
-    const asset = await db.mediaAsset.create({
-      data: {
-        provider: "CLOUDINARY",
-        kind: mediaKind,
-        publicId,
-        url: cloudinaryAsset.secure_url,
-        format: cloudinaryAsset.format,
-        width: cloudinaryAsset.width,
-        height: cloudinaryAsset.height,
-        sizeBytes: cloudinaryAsset.bytes,
-        alt: alt || (mediaKind === "IMAGE" ? "" : null), // Empty string for image, null for document
-        folder,
-        createdById: actor.id,
-      },
-    });
+    // Create the asset record and its audit row atomically: Cloudinary work
+    // (fetch, validate, and any cleanup delete above) is already done by this
+    // point, so nothing here can leave an audit row for an upload that did
+    // not actually get registered.
+    const asset = await db.$transaction(async (tx) => {
+      const created = await tx.mediaAsset.create({
+        data: {
+          provider: "CLOUDINARY",
+          kind: mediaKind,
+          publicId,
+          url: cloudinaryAsset.secure_url,
+          format: cloudinaryAsset.format,
+          width: cloudinaryAsset.width,
+          height: cloudinaryAsset.height,
+          sizeBytes: cloudinaryAsset.bytes,
+          alt: alt || (mediaKind === "IMAGE" ? "" : null), // Empty string for image, null for document
+          folder,
+          createdById: actor.id,
+        },
+      });
 
-    await audit({
-      action: "media.uploaded",
-      actor,
-      entityType: "MediaAsset",
-      entityId: asset.id,
-      after: { publicId, format: cloudinaryAsset.format, sizeBytes: cloudinaryAsset.bytes },
+      await audit(
+        {
+          action: "media.uploaded",
+          actor,
+          entityType: "MediaAsset",
+          entityId: created.id,
+          after: { publicId, format: cloudinaryAsset.format, sizeBytes: cloudinaryAsset.bytes },
+        },
+        tx
+      );
+
+      return created;
     });
 
     return { ok: true, asset: { id: asset.id, url: asset.url } };
   } catch (error) {
     return { ok: false, error: "Failed to register uploaded media" };
   }
+}
+
+export interface RegisterGeneratedImageInput {
+  /** Raw base64 image bytes (no "data:" prefix), as returned by lib/ai/image.ts. */
+  base64: string;
+  mimeType: string;
+  alt: string;
+  title?: string;
+  folder: string;
+  cloudinaryClient: CloudinaryClient;
+}
+
+/**
+ * Uploads an AI-generated image (already in memory, never a browser file) to
+ * Cloudinary and registers it as a MediaAsset, the same way registerUpload()
+ * does for a widget upload — so a generated image is a real, reusable media
+ * asset with required alt text, not a one-off URL the post alone knows
+ * about.
+ */
+export async function registerGeneratedImage(
+  input: RegisterGeneratedImageInput,
+  actor: { id: string; email: string }
+): Promise<{ ok: false; error: string } | { ok: true; asset: { id: string; url: string } }> {
+  const format = IMAGE_MIME_FORMATS[input.mimeType.toLowerCase()];
+  if (!format) return { ok: false, error: `Unsupported image type: ${input.mimeType}` };
+
+  const altValidation = validateMediaMetadata(input.alt, input.title, "IMAGE");
+  if (!altValidation.ok) {
+    return { ok: false, error: altValidation.errors?.[0]?.message || "Invalid alt text" };
+  }
+
+  let buffer: Buffer;
+  try {
+    buffer = Buffer.from(input.base64, "base64");
+  } catch {
+    return { ok: false, error: "The generated image data was invalid." };
+  }
+
+  const sizeValidation = validateMediaUpload(`generated.${format}`, buffer.length, input.folder);
+  if (!sizeValidation.ok) {
+    return { ok: false, error: sizeValidation.errors?.[0]?.message || "Generated image failed validation" };
+  }
+
+  const uploaded = await input.cloudinaryClient.uploadBase64({
+    dataUri: `data:${input.mimeType};base64,${input.base64}`,
+    folder: input.folder,
+  });
+  if (!uploaded) return { ok: false, error: "Uploading the generated image to the media store failed." };
+
+  // The Cloudinary upload above is already done by this point (nothing to
+  // roll back there); create the row and its audit entry atomically so a
+  // rolled-back write never leaves an audit row behind, matching
+  // registerUpload()'s transaction above.
+  const asset = await db.$transaction(async (tx) => {
+    const created = await tx.mediaAsset.create({
+      data: {
+        provider: "CLOUDINARY",
+        kind: "IMAGE",
+        publicId: uploaded.public_id,
+        url: uploaded.secure_url,
+        format: uploaded.format || format,
+        width: uploaded.width,
+        height: uploaded.height,
+        sizeBytes: uploaded.bytes || buffer.length,
+        alt: input.alt,
+        title: input.title || null,
+        folder: input.folder,
+        createdById: actor.id,
+      },
+    });
+
+    await audit(
+      {
+        action: "media.ai_generated",
+        actor,
+        entityType: "MediaAsset",
+        entityId: created.id,
+        after: { publicId: uploaded.public_id, format: created.format, sizeBytes: created.sizeBytes },
+      },
+      tx
+    );
+
+    return created;
+  });
+
+  return { ok: true, asset: { id: asset.id, url: asset.url } };
 }
 
 // Update media metadata (alt, title, tags)
@@ -138,26 +243,31 @@ export async function updateMediaMetadata(
     tags: asset.tags,
   };
 
-  const updated = await db.mediaAsset.update({
-    where: { id: input.mediaId },
-    data: {
-      alt: input.alt ?? asset.alt,
-      title: input.title ?? asset.title,
-      tags: input.tags ?? asset.tags,
-    },
-  });
+  await db.$transaction(async (tx) => {
+    const updated = await tx.mediaAsset.update({
+      where: { id: input.mediaId },
+      data: {
+        alt: input.alt ?? asset.alt,
+        title: input.title ?? asset.title,
+        tags: input.tags ?? asset.tags,
+      },
+    });
 
-  await audit({
-    action: "media.updated",
-    actor,
-    entityType: "MediaAsset",
-    entityId: input.mediaId,
-    before,
-    after: {
-      alt: updated.alt,
-      title: updated.title,
-      tags: updated.tags,
-    },
+    await audit(
+      {
+        action: "media.updated",
+        actor,
+        entityType: "MediaAsset",
+        entityId: input.mediaId,
+        before,
+        after: {
+          alt: updated.alt,
+          title: updated.title,
+          tags: updated.tags,
+        },
+      },
+      tx
+    );
   });
 
   return { ok: true };
@@ -190,25 +300,32 @@ export async function deleteMedia(
     };
   }
 
-  // Delete from Cloudinary first (if applicable)
+  // Delete from Cloudinary first (if applicable) — external call stays
+  // outside the DB transaction, and runs before it, so a Cloudinary failure
+  // here never reaches the DB delete or its audit row.
   if (asset.provider === "CLOUDINARY" && asset.publicId && cloudinaryClient) {
     await cloudinaryClient.deleteAsset(asset.publicId);
   }
 
-  // Then delete from database
-  await db.mediaAsset.delete({ where: { id: mediaId } });
+  // Then delete from the database and audit it atomically.
+  await db.$transaction(async (tx) => {
+    await tx.mediaAsset.delete({ where: { id: mediaId } });
 
-  await audit({
-    action: "media.deleted",
-    actor,
-    entityType: "MediaAsset",
-    entityId: mediaId,
-    before: {
-      provider: asset.provider,
-      url: asset.url,
-      publicId: asset.publicId,
-      folder: asset.folder,
-    },
+    await audit(
+      {
+        action: "media.deleted",
+        actor,
+        entityType: "MediaAsset",
+        entityId: mediaId,
+        before: {
+          provider: asset.provider,
+          url: asset.url,
+          publicId: asset.publicId,
+          folder: asset.folder,
+        },
+      },
+      tx
+    );
   });
 
   return { ok: true };

@@ -4,8 +4,10 @@ import { useEffect } from "react";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Link from "@tiptap/extension-link";
+import Image from "@tiptap/extension-image";
 
 import { isSafeHref } from "@/lib/cms/href";
+import { MediaPicker } from "@/components/admin/media/MediaPicker";
 
 // TipTap 3 editor for a post body, loaded on demand only
 // (components/admin/blog/RichEditorField.tsx dynamic-imports this with
@@ -34,6 +36,7 @@ export default function RichEditor({ value, onChange }: RichEditorProps) {
         // (lib/cms/rich-text.ts), which is what actually enforces this.
         validate: (href) => isSafeHref(href),
       }),
+      Image.configure({ inline: false }),
     ],
     content: value,
     immediatelyRender: false,
@@ -74,32 +77,67 @@ export default function RichEditor({ value, onChange }: RichEditorProps) {
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap gap-1.5" role="toolbar" aria-label="Formatting">
-        <button type="button" className={buttonClass(editor.isActive("bold"))} onClick={() => editor.chain().focus().toggleBold().run()}>
-          Bold
+        <button type="button" aria-label="Bold" title="Bold" className={buttonClass(editor.isActive("bold"))} onClick={() => editor.chain().focus().toggleBold().run()}>
+          <strong>B</strong>
         </button>
-        <button type="button" className={buttonClass(editor.isActive("italic"))} onClick={() => editor.chain().focus().toggleItalic().run()}>
-          Italic
+        <button type="button" aria-label="Italic" title="Italic" className={buttonClass(editor.isActive("italic"))} onClick={() => editor.chain().focus().toggleItalic().run()}>
+          <em>I</em>
         </button>
-        <button type="button" className={buttonClass(editor.isActive("code"))} onClick={() => editor.chain().focus().toggleCode().run()}>
-          Code
+        <button type="button" aria-label="Strikethrough" title="Strikethrough" className={buttonClass(editor.isActive("strike"))} onClick={() => editor.chain().focus().toggleStrike().run()}>
+          <s>S</s>
         </button>
-        <button type="button" className={buttonClass(editor.isActive("heading", { level: 2 }))} onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}>
+        <button type="button" aria-label="Heading 2" title="Heading 2" className={buttonClass(editor.isActive("heading", { level: 2 }))} onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}>
           H2
         </button>
-        <button type="button" className={buttonClass(editor.isActive("heading", { level: 3 }))} onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}>
+        <button type="button" aria-label="Heading 3" title="Heading 3" className={buttonClass(editor.isActive("heading", { level: 3 }))} onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}>
           H3
         </button>
-        <button type="button" className={buttonClass(editor.isActive("bulletList"))} onClick={() => editor.chain().focus().toggleBulletList().run()}>
-          Bullets
+        <button type="button" aria-label="Bullet list" title="Bullet list" className={buttonClass(editor.isActive("bulletList"))} onClick={() => editor.chain().focus().toggleBulletList().run()}>
+          • List
         </button>
-        <button type="button" className={buttonClass(editor.isActive("orderedList"))} onClick={() => editor.chain().focus().toggleOrderedList().run()}>
-          Numbered
+        <button type="button" aria-label="Numbered list" title="Numbered list" className={buttonClass(editor.isActive("orderedList"))} onClick={() => editor.chain().focus().toggleOrderedList().run()}>
+          1. List
         </button>
-        <button type="button" className={buttonClass(editor.isActive("blockquote"))} onClick={() => editor.chain().focus().toggleBlockquote().run()}>
+        <button type="button" aria-label="Blockquote" title="Blockquote" className={buttonClass(editor.isActive("blockquote"))} onClick={() => editor.chain().focus().toggleBlockquote().run()}>
           Quote
         </button>
-        <button type="button" className={buttonClass(false)} onClick={setLink}>
+        <button type="button" aria-label="Inline code" title="Inline code" className={buttonClass(editor.isActive("code"))} onClick={() => editor.chain().focus().toggleCode().run()}>
+          Code
+        </button>
+        <button type="button" aria-label="Code block" title="Code block" className={buttonClass(editor.isActive("codeBlock"))} onClick={() => editor.chain().focus().toggleCodeBlock().run()}>
+          {"</>"}
+        </button>
+        <button type="button" aria-label="Horizontal rule" title="Horizontal rule" className={buttonClass(false)} onClick={() => editor.chain().focus().setHorizontalRule().run()}>
+          HR
+        </button>
+        <button type="button" aria-label="Link" title="Link" className={buttonClass(editor.isActive("link"))} onClick={setLink}>
           Link
+        </button>
+        <MediaPicker
+          kind="IMAGE"
+          onSelect={(result) => {
+            editor.chain().focus().setImage({ src: result.src, alt: result.alt || "" }).run();
+          }}
+        />
+        <button
+          type="button"
+          aria-label="Undo"
+          title="Undo"
+          className={buttonClass(false)}
+          disabled={!editor.can().undo()}
+          onClick={() => editor.chain().focus().undo().run()}
+        >
+          ↶
+        </button>
+        <button
+          type="button"
+          aria-label="Redo"
+          title="Redo"
+          className={buttonClass(false)}
+          disabled={!editor.can().redo()}
+          onClick={() => editor.chain().focus().redo().run()}
+        >
+          ↷
         </button>
       </div>
       <EditorContent editor={editor} />

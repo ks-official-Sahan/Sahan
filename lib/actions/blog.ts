@@ -7,6 +7,7 @@ import { authorizeAction } from "@/lib/actions/guard";
 import type { ActionState } from "@/lib/actions/state";
 import { done, fail, fieldErrorsFrom } from "@/lib/actions/state";
 import { audit } from "@/lib/admin/audit";
+import { hasPermission } from "@/lib/auth/dal";
 import { invalidate } from "@/lib/cache/invalidate";
 import { forPost, forPostList } from "@/lib/cache/plan";
 import { db } from "@/lib/db/prisma";
@@ -46,6 +47,30 @@ function payloadFrom(formData: FormData): Record<string, unknown> {
   };
 }
 
+/**
+ * Resolves the create form's publish intent into a status/publishAt/
+ * publishedAt triple. `publishIntent` beyond "draft" is only honored for an
+ * actor who holds publishBlog — editBlog alone (already required by
+ * authorizeAction above) can create and edit a draft, never publish one, so
+ * an editor submitting a forged "publish" intent silently gets a draft
+ * instead of an error, same as the intent field being absent.
+ */
+function resolveCreateStatus(
+  formData: FormData,
+  canPublish: boolean
+): { status: "DRAFT" | "SCHEDULED" | "PUBLISHED"; publishAt: Date | null; publishedAt: Date | null } | { error: string } {
+  const intent = String(formData.get("publishIntent") ?? "draft");
+  if (intent !== "publish" || !canPublish) return { status: "DRAFT", publishAt: null, publishedAt: null };
+
+  const scheduleRaw = String(formData.get("scheduleAt") ?? "").trim();
+  if (!scheduleRaw) return { status: "PUBLISHED", publishAt: null, publishedAt: new Date() };
+
+  const scheduleDate = new Date(scheduleRaw);
+  if (Number.isNaN(scheduleDate.getTime())) return { error: "Invalid schedule date." };
+  if (scheduleDate.getTime() <= Date.now()) return { status: "PUBLISHED", publishAt: null, publishedAt: new Date() };
+  return { status: "SCHEDULED", publishAt: scheduleDate, publishedAt: null };
+}
+
 export async function createPostAction(_previous: ActionState, formData: FormData): Promise<ActionState> {
   const auth = await authorizeAction("editBlog");
   if (!auth.ok) return fail(auth.error);
@@ -56,6 +81,9 @@ export async function createPostAction(_previous: ActionState, formData: FormDat
   if (await slugTaken(parsed.data.slug)) {
     return fail("Some fields need attention.", { slug: "This slug is already in use." });
   }
+
+  const resolved = resolveCreateStatus(formData, hasPermission(auth.user, "publishBlog"));
+  if ("error" in resolved) return fail(resolved.error);
 
   let createdId: string;
   try {
@@ -77,16 +105,27 @@ export async function createPostAction(_previous: ActionState, formData: FormDat
           seoTitle: parsed.data.seoTitle || null,
           seoDescription: parsed.data.seoDescription || null,
           canonicalUrl: parsed.data.canonicalUrl || null,
-          status: "DRAFT",
+          status: resolved.status,
+          publishAt: resolved.publishAt,
+          publishedAt: resolved.publishedAt,
+          generatedByAI: String(formData.get("generatedByAI") ?? "") === "1",
           authorId: auth.user.id,
         },
       });
       await audit(
-        { action: "post.created", actor: auth.user, entityType: "Post", entityId: row.id, before: null, after: row },
+        {
+          action: resolved.status === "DRAFT" ? "post.created" : "post.created.published",
+          actor: auth.user,
+          entityType: "Post",
+          entityId: row.id,
+          before: null,
+          after: row,
+        },
         tx
       );
       return row;
     });
+    if (resolved.status === "PUBLISHED") invalidate(forPost(created.slug));
     revalidatePath(ADMIN_LIST_PATH);
     createdId = created.id;
   } catch (error) {
@@ -95,6 +134,19 @@ export async function createPostAction(_previous: ActionState, formData: FormDat
   }
   // redirect() throws internally; it must not be inside the try/catch above.
   redirect(`/admin/blog/${createdId}`);
+}
+
+/**
+ * Re-sanitizes arbitrary editor HTML through the exact function the public
+ * site renders with (lib/cms/rich-text.ts's sanitizeRich), so the "Live
+ * preview" pane shows precisely what /updates/[slug] would render — never a
+ * client-side approximation of the allowlist. Read-only: no mutation, so
+ * nothing to audit, but every Server Action still authorizes first.
+ */
+export async function previewPostHtmlAction(html: string): Promise<string> {
+  const auth = await authorizeAction("editBlog");
+  if (!auth.ok) return "";
+  return sanitizeRich(typeof html === "string" ? html.slice(0, 200_000) : "");
 }
 
 export async function updatePostAction(_previous: ActionState, formData: FormData): Promise<ActionState> {
