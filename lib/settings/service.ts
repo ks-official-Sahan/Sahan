@@ -62,9 +62,29 @@ export async function getSetting<K extends SettingKey>(key: K): Promise<SettingV
  * can be unit tested without going through unstable_cache.
  */
 export async function collectPublicSettings(): Promise<Partial<Record<SettingKey, unknown>>> {
-  const result: Partial<Record<SettingKey, unknown>> = {};
-  for (const key of Object.keys(DEFAULT_SETTINGS) as SettingKey[]) {
-    if (isPublicSetting(key)) result[key] = await readSettingRaw(key);
+  return readSettingsRaw((Object.keys(DEFAULT_SETTINGS) as SettingKey[]).filter(isPublicSetting));
+}
+
+/**
+ * Several settings in one query (not one round trip per key), each falling
+ * back to its default when not stored or invalid, exactly like readSettingRaw.
+ */
+async function readSettingsRaw(keys: SettingKey[]): Promise<Record<SettingKey, unknown>> {
+  let rows: { key: string; value: unknown }[] = [];
+  try {
+    rows = await db.setting.findMany({ where: { key: { in: keys } }, select: { key: true, value: true } });
+  } catch (err) {
+    log.error("Failed to read settings", { count: keys.length, error: String(err) });
+  }
+  const stored = new Map(rows.map((row) => [row.key, row.value]));
+  const result = {} as Record<SettingKey, unknown>;
+  for (const key of keys) {
+    try {
+      result[key] = stored.has(key) ? validateSetting(key, stored.get(key)) : getSettingDefault(key);
+    } catch (err) {
+      log.error("Failed to read setting", { key, error: String(err) });
+      result[key] = getSettingDefault(key);
+    }
   }
   return result;
 }
@@ -76,11 +96,7 @@ export async function getPublicSettings(): Promise<Partial<Record<SettingKey, un
 
 /** Every setting, for admin screens that hold a permission to see all of them. */
 export async function collectAllSettings(): Promise<Record<SettingKey, unknown>> {
-  const result: Record<SettingKey, unknown> = {} as Record<SettingKey, unknown>;
-  for (const key of Object.keys(DEFAULT_SETTINGS) as SettingKey[]) {
-    result[key] = await readSettingRaw(key);
-  }
-  return result;
+  return readSettingsRaw(Object.keys(DEFAULT_SETTINGS) as SettingKey[]);
 }
 
 export async function getAllSettings(): Promise<Record<SettingKey, unknown>> {
