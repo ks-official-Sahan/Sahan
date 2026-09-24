@@ -7,6 +7,10 @@ const dev = process.env.NODE_ENV !== "production";
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  // Gzip in `next start` only. In dev it buys nothing on localhost, and its
+  // per-response gzip stream is what raises MaxListenersExceededWarning [Gzip]
+  // on long streamed pages. Vercel compresses at the edge either way.
+  compress: !dev,
   async headers() {
     // Static headers for every route, plus a baseline CSP for everything
     // except /admin and /api/admin: those get their own per-request nonce
