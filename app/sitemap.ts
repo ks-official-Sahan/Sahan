@@ -42,12 +42,16 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     };
   });
 
-  const postEntries: MetadataRoute.Sitemap = posts.map((post) => ({
-    url: `${SiteMetadata.siteUrl}/updates/${post.slug}`,
-    lastModified: post.publishedAt ? new Date(post.publishedAt) : new Date(),
-    changeFrequency: "monthly",
-    priority: 0.6,
-  }));
+  const postEntries: MetadataRoute.Sitemap = posts.map((post) => {
+    // Last edit first (a corrected post should be recrawled), then publish date; never a fabricated "now".
+    const lastModified = post.updatedAt ?? post.publishedAt;
+    return {
+      url: `${SiteMetadata.siteUrl}/updates/${post.slug}`,
+      ...(lastModified ? { lastModified: new Date(lastModified) } : {}),
+      changeFrequency: "monthly",
+      priority: 0.6,
+    };
+  });
 
   return [...staticEntries, ...postEntries];
 }
