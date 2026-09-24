@@ -1,7 +1,10 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 
 import { requirePermission } from "@/lib/auth/dal";
 import { cardClass } from "@/components/admin/ui/styles";
+
+export const metadata: Metadata = { title: "Works", robots: "noindex, nofollow, nocache" };
 
 export default async function WorksPage() {
   await requirePermission("editCollections");
@@ -20,12 +23,12 @@ export default async function WorksPage() {
     {
       name: "Services",
       href: "/admin/works/services",
-      description: "Manage services and service groups (coming soon)",
+      description: "Manage services and service groups",
     },
     {
       name: "Skills",
       href: "/admin/works/skills",
-      description: "Manage skills, skill groups and their grid layout (coming soon)",
+      description: "Manage skills and skill groups",
     },
   ];
 
