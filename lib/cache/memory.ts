@@ -1,1 +1,1 @@
-export * from "@sahan/auth-kit/cache/memory";
+export * from "@ks-official-sahan/auth-kit/cache/memory";

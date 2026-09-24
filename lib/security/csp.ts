@@ -1,1 +1,1 @@
-export * from "@sahan/auth-kit/security/csp";
+export * from "@ks-official-sahan/auth-kit/security/csp";
