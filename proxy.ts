@@ -160,10 +160,12 @@ export async function proxy(request: NextRequest) {
     // 2a. Bypass query for maintenance: ?bypass-secret=...
     if (maintenance && searchParams.has(BYPASS_QUERY) && bypassKeys) {
       const callerIp = ip(request);
-      const attempt = await limit("maintenance:ip", callerIp);
-      const accepted = attempt.ok && isValidBypassSecret(searchParams.get(BYPASS_QUERY), bypassKeys);
+      // Same R22 rule as the unlock query below: an unknown IP is shared by
+      // every caller, so limiting it would let one caller lock the owner out.
+      const limited = callerIp === UNKNOWN_IP ? false : !(await limit("maintenance:ip", callerIp)).ok;
+      const accepted = !limited && isValidBypassSecret(searchParams.get(BYPASS_QUERY), bypassKeys);
       if (!accepted) {
-        log.warn("maintenance bypass refused", { ip: callerIp, limited: !attempt.ok });
+        log.warn("maintenance bypass refused", { ip: callerIp, limited });
         return maintenancePage();
       }
       const clean = request.nextUrl.clone();
