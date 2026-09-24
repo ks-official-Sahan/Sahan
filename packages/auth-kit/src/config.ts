@@ -1,22 +1,16 @@
-import { createHash } from "node:crypto";
-
 import { CredentialsSignin, type NextAuthConfig } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
-import { after, userAgent } from "next/server";
 
-import type { AuthDbAdapter, RoleName } from "./adapter";
-import type { AuditEvent } from "./audit-event";
+import type { RoleName } from "./adapter";
+import { createAuthorize, type AuthorizeDeps } from "./authorize";
 import { SESSION_MAX_AGE_SECONDS } from "./constants";
-import { verifyCredentials, type CredentialDeps } from "./credentials";
-import type { createMfa } from "./mfa/mfa";
-import { verifyPassword } from "./password";
-import { passwordFingerprint } from "./session/state";
-import type { createSessionStore } from "./session/store";
-import { clientIp, UNKNOWN_IP } from "./security/ip";
 
 // Auth.js with a credentials provider and a 24 hour JWT. The JWT only points at
-// a Postgres session row (`sid`); the row decides whether it still counts
-// (lib/auth/dal.ts). docs/plan/admin-cms-adr.md, sections 6.3 and 6.4.
+// a DB session row (`sid`); the row decides whether it still counts (the
+// app's data access layer, built with `createAuthDal`). The actual
+// credentials decision lives in `./authorize` (`createAuthorize`), kept out
+// of this file because it must not import `next-auth` — see that file's
+// header comment for why.
 
 /** Codes travel from `authorize` to the server action that called `signIn`. */
 export class InvalidLogin extends CredentialsSignin {
@@ -29,166 +23,23 @@ export class MfaLogin extends CredentialsSignin {
   code = "mfa_required";
 }
 
-function describeDevice(ua: string | null): { browser: string | null; os: string | null } {
-  if (!ua) return { browser: null, os: null };
-  const parsed = userAgent({ headers: new Headers({ "user-agent": ua }) });
-  return { browser: parsed.browser.name ?? null, os: parsed.os.name ?? null };
-}
-
-const failureKey = (keyPrefix: string, email: string) =>
-  `${keyPrefix}login:fail:${createHash("sha256").update(email).digest("hex").slice(0, 32)}`;
-
-export interface AuthConfigDeps {
-  adapter: AuthDbAdapter;
-  authSecret: string;
+export interface AuthConfigDeps extends AuthorizeDeps {
   authTrustHost: boolean;
   authDebug: boolean;
   production: boolean;
-  /** Namespaces every KV key this module writes (failure counters). For example `"myapp:"`. */
-  keyPrefix: string;
   /** Cookie name for the Auth.js session token. Resolve with `resolveCookieName` for the `__Host-`-prefixed production form. */
   sessionCookieName: string;
   /** Where `pages.signIn`/`pages.error` point. For example `"/admin/login"`. */
   loginPath: string;
   /** Role written into the session when a token carries none (defensive fallback only). */
   defaultRole: RoleName;
-  sessionStore: ReturnType<typeof createSessionStore>;
-  mfa: ReturnType<typeof createMfa>;
-  bootstrap: () => Promise<void>;
-  loginFailureWindowSeconds: number;
-  /** Attempts allowed per window before the account is locked (the app's own "login:acct"-shaped bucket). */
-  loginFailureMaxAttempts: number;
-  limit: (bucket: string, key: string) => Promise<{ ok: boolean }>;
-  failures: {
-    reserve: (key: string, windowSeconds: number) => Promise<number>;
-    clear: (key: string) => Promise<void>;
-  };
-  audit: (event: AuditEvent) => Promise<void>;
-  warn: (message: string, fields?: Record<string, unknown>) => void;
-  sendKnownDeviceEmail: (input: {
-    name: string | null;
-    email: string;
-    userId: string;
-    ip: string | null;
-    browser: string | null;
-    os: string | null;
-  }) => Promise<void>;
 }
 
 export function createAuthConfig(deps: AuthConfigDeps): NextAuthConfig {
-  const { adapter, authSecret, sessionStore, mfa, bootstrap, limit, failures, audit, warn, sendKnownDeviceEmail } = deps;
-
-  const baseCredentialDeps: CredentialDeps = {
-    ensureOwner: bootstrap,
-    findUser: async (email) => {
-      const user = await adapter.findUserForAuth(email);
-      return user ? { ...user, role: user.role as RoleName } : null;
-    },
-    compare: verifyPassword,
-    allowIp: async (ip) => {
-      if (ip === UNKNOWN_IP) {
-        warn("sign-in: client IP is unknown (set TRUSTED_PROXY_HOPS); IP rate limit skipped");
-        return true;
-      }
-      return (await limit("login:ip", ip)).ok;
-    },
-    failures: {
-      reserve: (email) => failures.reserve(failureKey(deps.keyPrefix, email), deps.loginFailureWindowSeconds),
-      clear: (email) => failures.clear(failureKey(deps.keyPrefix, email)),
-      max: deps.loginFailureMaxAttempts,
-    },
-    audit: (event) => audit(event),
-    warn,
-  };
-
-  interface SigningIn {
-    id: string;
-    email: string;
-    name: string | null;
-    role: RoleName;
-    passwordHash: string;
-  }
-
-  /** Creates the session row, records the sign-in and returns what goes into the JWT. */
-  async function finishSignIn(user: SigningIn, context: { ip: string | null; ua: string | null; mfa: boolean }) {
-    const known = await sessionStore.isKnownDevice(user.id, context.ip, context.ua);
-    const session = await sessionStore.createSession({
-      userId: user.id,
-      ip: context.ip,
-      userAgent: context.ua,
-      mfaVerified: context.mfa,
-    });
-    await adapter.updateLastLoginAt(user.id, new Date());
-    await audit({
-      action: "auth.login.success",
-      actor: { id: user.id, email: user.email },
-      entityType: "UserSession",
-      entityId: session.id,
-      meta: { mfa: context.mfa },
-      ip: context.ip,
-      userAgent: context.ua,
-    });
-
-    // Tell the owner of the account about a sign-in from a device they have not used before.
-    if (!known) {
-      const parsed = describeDevice(context.ua);
-      after(() =>
-        sendKnownDeviceEmail({
-          name: user.name,
-          email: user.email,
-          userId: user.id,
-          ip: context.ip,
-          browser: parsed.browser,
-          os: parsed.os,
-        }).catch(() => undefined)
-      );
-    }
-
-    return {
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      role: user.role,
-      sid: session.id,
-      pwf: passwordFingerprint(user.passwordHash, authSecret),
-      mfa: context.mfa,
-    };
-  }
-
-  async function authorize(credentials: Partial<Record<string, unknown>>, request: Request) {
-    const ip = clientIp(request.headers);
-    const knownIp = ip === UNKNOWN_IP ? null : ip;
-    const ua = request.headers.get("user-agent");
-
-    // Second step of an MFA sign-in: no password here, only a challenge whose code
-    // was verified in the last 60 seconds. It can be used exactly once.
-    if (typeof credentials.challengeId === "string" && credentials.email === undefined) {
-      // Same UNKNOWN_IP fail-open as allowIp above.
-      if (ip !== UNKNOWN_IP && !(await limit("login:ip", ip)).ok) throw new LimitedLogin();
-      const owner = await mfa.challengeOwner(credentials.challengeId, "SIGN_IN");
-      if (!owner || owner.user.disabledAt) throw new InvalidLogin();
-      if (!(await mfa.consumeChallenge({ challengeId: credentials.challengeId, userId: owner.userId, purpose: "SIGN_IN" }))) {
-        throw new InvalidLogin();
-      }
-      const user = await adapter.findUserById(owner.userId);
-      if (!user) throw new InvalidLogin();
-      return finishSignIn({ ...user, role: user.role as RoleName }, { ip: knownIp, ua, mfa: true });
-    }
-
-    const result = await verifyCredentials({ email: credentials.email, password: credentials.password, ip, userAgent: ua }, baseCredentialDeps);
-    if (!result.ok) {
-      if (result.reason === "limited") throw new LimitedLogin();
-      throw new InvalidLogin();
-    }
-    // A right password is not enough for an account with a second factor: the
-    // sign-in action sends the code, and the session only starts after it.
-    if (result.user.mfaEnabled) throw new MfaLogin();
-
-    return finishSignIn(result.user, { ip: knownIp, ua, mfa: false });
-  }
+  const authorize = createAuthorize(deps);
 
   return {
-    secret: authSecret,
+    secret: deps.authSecret,
     trustHost: deps.authTrustHost || !deps.production,
     // Never in production, and the debug logger stays silent either way: Auth.js
     // logs the request body (the typed password included) when authorize fails
@@ -214,7 +65,20 @@ export function createAuthConfig(deps: AuthConfigDeps): NextAuthConfig {
     providers: [
       Credentials({
         credentials: { email: {}, password: {}, challengeId: {} },
-        authorize: (credentials, request) => authorize(credentials, request),
+        async authorize(credentials, request) {
+          const result = await authorize(credentials, request);
+          switch (result.kind) {
+            case "signed_in":
+              return result.session;
+            case "limited":
+              throw new LimitedLogin();
+            case "mfa_required":
+              throw new MfaLogin();
+            case "invalid":
+            default:
+              throw new InvalidLogin();
+          }
+        },
       }),
     ],
     callbacks: {

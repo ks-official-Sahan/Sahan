@@ -13,6 +13,7 @@
 // Component" behavior `next/headers` has.
 export * from "./adapter";
 export * from "./audit-event";
+export * from "./authorize";
 export * from "./bootstrap";
 export * from "./config";
 export { resolveCookieName, SESSION_MAX_AGE_SECONDS } from "./constants";

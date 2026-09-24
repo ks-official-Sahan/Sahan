@@ -1,5 +1,3 @@
-import { notFound, redirect } from "next/navigation";
-import { after } from "next/server";
 import { cache } from "react";
 
 import type { Permission, RoleName } from "../rbac/permissions";
@@ -7,7 +5,7 @@ import { evaluateSession, type SessionDenial, type SessionState } from "./state"
 
 // Data access layer: the one place that decides who is signed in. The proxy and
 // the layouts only make optimistic checks, so every admin page, server action and
-// route handler calls in here (docs/plan/admin-cms-adr.md, section 6.1).
+// route handler calls in here.
 
 export interface AuthUser {
   id: string;
@@ -28,6 +26,21 @@ export interface AuthDalDeps {
   getSessionState: (sid: string) => Promise<SessionState | null>;
   touchSession: (sid: string) => Promise<void>;
   getRolePermissions: (role: RoleName) => Promise<readonly Permission[]>;
+  /**
+   * `next/navigation`'s `notFound`/`redirect`, injected rather than imported
+   * directly: both throw a special, framework-recognized error to end
+   * rendering, so this module takes them as dependencies the same way it
+   * takes every other framework touchpoint, and a test can pass throwing
+   * stubs instead of needing a real Next.js render context.
+   */
+  notFound: () => never;
+  redirect: (path: string) => never;
+  /**
+   * `next/server`'s `after`, injected for the same reason: it throws
+   * "called outside a request scope" outside a real Next.js request, which a
+   * unit test is not.
+   */
+  after: (fn: () => void) => void;
   /** Route Handler that clears a revoked/expired/disabled session's cookie. For example `"/api/auth/expire"`. */
   expirePath: string;
   /** Where a user with `mustChangePassword` is sent until they choose their own password. */
@@ -35,7 +48,7 @@ export interface AuthDalDeps {
 }
 
 export function createAuthDal(deps: AuthDalDeps) {
-  const { auth, getSessionState, touchSession, getRolePermissions, expirePath, accountPasswordChangePath } = deps;
+  const { auth, getSessionState, touchSession, getRolePermissions, notFound, redirect, after, expirePath, accountPasswordChangePath } = deps;
 
   // One lookup per request, however many components ask.
   const resolve = cache(async (): Promise<Resolved> => {
@@ -81,6 +94,13 @@ export function createAuthDal(deps: AuthDalDeps) {
     if (!("user" in result)) {
       if (result.denied === "no_session") notFound();
       redirect(expirePath);
+      // notFound()/redirect() are typed `never` but, being parameters rather
+      // than declared functions, TypeScript's control-flow analysis does not
+      // treat a call through them as unconditionally terminating (unlike a
+      // direct `declare function notFound(): never`). Both always throw in
+      // practice; this line only exists to satisfy that narrowing so
+      // `result.user` below is legally reachable.
+      throw new Error("unreachable: notFound()/redirect() must throw");
     }
     // A user whose password was set by someone else (the seeded owner, an admin
     // reset) can reach nothing but the account page until they choose their own.
