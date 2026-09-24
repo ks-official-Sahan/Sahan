@@ -28,7 +28,10 @@ export function GET(request: NextRequest) {
   url.search = hasSession ? "?reason=revoked" : "?reason=expired";
 
   const response = NextResponse.redirect(url, 303);
-  response.cookies.set(SESSION_COOKIE, "", { path: "/", maxAge: 0, httpOnly: true, sameSite: "lax" });
+  // Path and Secure must match how the cookie was set (config.ts) for the
+  // browser to actually clear it — this matters more once SESSION_COOKIE is
+  // __Host--prefixed in production, which requires Secure.
+  response.cookies.set(SESSION_COOKIE, "", { path: "/", maxAge: 0, httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production" });
   response.headers.set("Cache-Control", "no-store");
   return response;
 }

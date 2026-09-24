@@ -1,1 +1,1 @@
-export * from "@sahan/auth-kit/password-policy";
+export * from "@ks-official-sahan/auth-kit/password-policy";

@@ -80,13 +80,19 @@ test("the keys need both secrets", () => {
   });
 });
 
-test("cookie options are scoped to /admin and only Secure in production", () => {
+test("cookie options widen to Path=/ in production (for __Host-) and stay /admin, insecure, in development", () => {
   assert.deepEqual(unlockCookieOptions(true), {
     httpOnly: true,
     secure: true,
     sameSite: "lax",
+    path: "/",
+    maxAge: UNLOCK_TTL_SECONDS,
+  });
+  assert.deepEqual(unlockCookieOptions(false), {
+    httpOnly: true,
+    secure: false,
+    sameSite: "lax",
     path: "/admin",
     maxAge: UNLOCK_TTL_SECONDS,
   });
-  assert.equal(unlockCookieOptions(false).secure, false);
 });

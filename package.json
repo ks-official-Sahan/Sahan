@@ -24,6 +24,7 @@
   "dependencies": {
     "@ai-sdk/openai": "^4.0.71",
     "@gsap/react": "^2.1.2",
+    "@ks-official-sahan/auth-kit": "workspace:*",
     "@mantine/core": "^7.17.8",
     "@mantine/hooks": "^7.17.8",
     "@neondatabase/serverless": "^1.1.0",
@@ -35,7 +36,6 @@
     "@radix-ui/react-select": "^2.1.2",
     "@radix-ui/react-slot": "^1.1.0",
     "@react-three/fiber": "^9.7.0",
-    "@sahan/auth-kit": "workspace:*",
     "@shoelace-style/shoelace": "^2.17.1",
     "@tabler/icons-react": "^3.20.0",
     "@tiptap/extension-image": "^3.31.3",

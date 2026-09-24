@@ -1,24 +1,9 @@
+import { isUnlockSecret, signUnlockCookie, UNLOCK_QUERY, unlockCookieOptions, unlockKeysFromEnv, verifyTokenTag, verifyUnlockCookie } from "@ks-official-sahan/auth-kit";
+import { buildCsp, clientIp, generateNonce, isAllowedOrigin, isScannerPath, parseOriginList, shouldBlockAdminByAllowlist, UNKNOWN_IP } from "@ks-official-sahan/auth-kit/security";
 import { getToken } from "next-auth/jwt";
 import { NextResponse, type NextRequest } from "next/server";
 
-import {
-  isUnlockSecret,
-  signUnlockCookie,
-  UNLOCK_COOKIE,
-  UNLOCK_QUERY,
-  unlockCookieOptions,
-  unlockKeysFromEnv,
-  verifyUnlockCookie,
-  CONFIRM_EMAIL_PATH,
-  FORGOT_PASSWORD_PATH,
-  LOCKED_PATH,
-  LOGIN_PATH,
-  SESSION_COOKIE,
-  SET_PASSWORD_PATH,
-  verifyTokenTag,
-} from "@sahan/auth-kit";
-import { limit } from "@sahan/auth-kit/cache";
-import { buildCsp, generateNonce, shouldBlockAdminByAllowlist, clientIp, UNKNOWN_IP, isAllowedOrigin, isScannerPath } from "@sahan/auth-kit/security";
+import { UNLOCK_COOKIE } from "@/lib/admin/login-unlock";
 import {
   bypassKeysFromEnv,
   BYPASS_COOKIE,
@@ -29,6 +14,9 @@ import {
   signBypassCookie,
   verifyBypassCookie,
 } from "@/lib/admin/maintenance-bypass";
+import { CONFIRM_EMAIL_PATH, FORGOT_PASSWORD_PATH, LOCKED_PATH, LOGIN_PATH, SESSION_COOKIE, SET_PASSWORD_PATH } from "@/lib/auth/constants";
+import { authKit } from "@/lib/auth/kit-config";
+import { limit } from "@/lib/cache/ratelimit";
 import { log } from "@/lib/log";
 import { readKvSetting } from "@/lib/settings/kv";
 
@@ -37,6 +25,7 @@ import { readKvSetting } from "@/lib/settings/kv";
 // and 6 of docs/plan/admin-cms-adr.md, section 4.5.
 
 const UNSAFE_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+const PRODUCTION = process.env.NODE_ENV === "production";
 
 const isAdminPage = (pathname: string) => pathname === "/admin" || pathname.startsWith("/admin/");
 const isAdminApi = (pathname: string) => pathname === "/api/admin" || pathname.startsWith("/api/admin/");
@@ -51,10 +40,12 @@ function locked(request: NextRequest): NextResponse {
 }
 
 function extraOrigins(): string[] {
-  return (process.env.ADMIN_ALLOWED_ORIGINS ?? "")
-    .split(/[\s,]+/)
-    .map((entry) => entry.trim())
-    .filter(Boolean);
+  return parseOriginList(process.env.ADMIN_ALLOWED_ORIGINS);
+}
+
+/** Explicit config instead of environment-implicit trust (finding #15): the app's own authKit.trustProxy decides, not an ad hoc env read at each call site. */
+function ip(request: NextRequest): string {
+  return clientIp(request.headers, authKit.trustProxy);
 }
 
 async function sessionToken(request: NextRequest) {
@@ -112,7 +103,7 @@ function maintenancePage(): NextResponse {
 /** Nonce CSP for one admin request; Next reads the nonce from the request header. */
 function withCsp(request: NextRequest): NextResponse {
   const nonce = generateNonce();
-  const csp = buildCsp({ nonce, dev: process.env.NODE_ENV !== "production" });
+  const csp = buildCsp({ nonce, dev: !PRODUCTION, imgHosts: authKit.csp.imgHosts, connectHosts: authKit.csp.connectHosts, allowInlineStyles: authKit.csp.allowInlineStyles });
   const headers = new Headers(request.headers);
   headers.set("x-nonce", nonce);
   headers.set("content-security-policy", csp);
@@ -168,11 +159,11 @@ export async function proxy(request: NextRequest) {
 
     // 2a. Bypass query for maintenance: ?bypass-secret=...
     if (maintenance && searchParams.has(BYPASS_QUERY) && bypassKeys) {
-      const ip = clientIp(request.headers);
-      const attempt = await limit("maintenance:ip", ip);
+      const callerIp = ip(request);
+      const attempt = await limit("maintenance:ip", callerIp);
       const accepted = attempt.ok && isValidBypassSecret(searchParams.get(BYPASS_QUERY), bypassKeys);
       if (!accepted) {
-        log.warn("maintenance bypass refused", { ip, limited: !attempt.ok });
+        log.warn("maintenance bypass refused", { ip: callerIp, limited: !attempt.ok });
         return maintenancePage();
       }
       const clean = request.nextUrl.clone();
@@ -181,7 +172,7 @@ export async function proxy(request: NextRequest) {
       response.cookies.set(
         BYPASS_COOKIE,
         signBypassCookie(now, bypassKeys),
-        bypassCookieOptions(process.env.NODE_ENV === "production")
+        bypassCookieOptions(PRODUCTION)
       );
       response.headers.set("Cache-Control", "no-store");
       return response;
@@ -205,11 +196,11 @@ export async function proxy(request: NextRequest) {
   if (adminPage || adminApi) {
     const allowlist = await getIpAllowlist();
     if (allowlist.length > 0) {
-      const ip = clientIp(request.headers);
-      if (ip === UNKNOWN_IP) {
+      const callerIp = ip(request);
+      if (callerIp === UNKNOWN_IP) {
         log.warn("admin IP allowlist is on but the client IP is unknown (set TRUSTED_PROXY_HOPS); allowing through");
-      } else if (shouldBlockAdminByAllowlist(ip, allowlist)) {
-        log.warn("admin access blocked by IP allowlist", { ip });
+      } else if (shouldBlockAdminByAllowlist(callerIp, allowlist)) {
+        log.warn("admin access blocked by IP allowlist", { ip: callerIp });
         return locked(request);
       }
     }
@@ -219,17 +210,17 @@ export async function proxy(request: NextRequest) {
 
   // 4a. Unlock query: /admin or /admin/login with ?secret=...
   if (adminPage && searchParams.has(UNLOCK_QUERY) && (pathname === "/admin" || pathname === LOGIN_PATH)) {
-    const ip = clientIp(request.headers);
+    const callerIp = ip(request);
     // Same R22 fail-open rule as the IP allowlist above: without
     // TRUSTED_PROXY_HOPS (or off Vercel), every caller shares UNKNOWN_IP, so
     // rate-limiting it for real would let one caller exhaust the bucket for
     // everyone, including the owner. The unlock secret's own entropy is the
     // real defense here, not the per-IP counter.
-    const limited = ip === UNKNOWN_IP ? false : !(await limit("unlock:ip", ip)).ok;
-    if (ip === UNKNOWN_IP) log.warn("admin unlock: client IP is unknown (set TRUSTED_PROXY_HOPS); rate limit skipped");
+    const limited = callerIp === UNKNOWN_IP ? false : !(await limit("unlock:ip", callerIp)).ok;
+    if (callerIp === UNKNOWN_IP) log.warn("admin unlock: client IP is unknown (set TRUSTED_PROXY_HOPS); rate limit skipped");
     const accepted = !limited && keys !== null && isUnlockSecret(searchParams.get(UNLOCK_QUERY), keys);
     if (!accepted || !keys) {
-      log.warn("admin unlock refused", { ip, limited, configured: keys !== null });
+      log.warn("admin unlock refused", { ip: callerIp, limited, configured: keys !== null });
       return locked(request);
     }
     const clean = request.nextUrl.clone();
@@ -238,7 +229,7 @@ export async function proxy(request: NextRequest) {
     response.cookies.set(
       UNLOCK_COOKIE,
       signUnlockCookie(now, keys),
-      unlockCookieOptions(process.env.NODE_ENV === "production")
+      unlockCookieOptions(PRODUCTION)
     );
     response.headers.set("Cache-Control", "no-store");
     return response;

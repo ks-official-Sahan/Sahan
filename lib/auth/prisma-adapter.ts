@@ -1,7 +1,7 @@
 import "server-only";
 
-import type { Prisma } from "@prisma/client";
-import type { AuthDbAdapter, MfaPurpose, RoleName } from "@sahan/auth-kit/adapter";
+import type { Prisma, Role } from "@prisma/client";
+import type { AuthDbAdapter, MfaPurpose, RoleName } from "@ks-official-sahan/auth-kit/adapter";
 
 import { db } from "@/lib/db/prisma";
 
@@ -163,10 +163,14 @@ export const prismaAuthAdapter: AuthDbAdapter<Prisma.TransactionClient> = {
     return rows.map((row) => ({ ...row, role: row.role as RoleName }));
   },
   async deleteRolePermissions(roles, tx) {
-    await client(tx).rolePermission.deleteMany({ where: { role: { in: roles } } });
+    // roles/rows come in as the adapter interface's generic RoleName (a
+    // plain `string`); every value that ever reaches here does come from
+    // this app's own Role enum (createRbac is bound to it — see
+    // lib/auth/kit-config.ts), so this boundary cast is safe.
+    await client(tx).rolePermission.deleteMany({ where: { role: { in: roles as Role[] } } });
   },
   async createRolePermissions(rows, tx) {
-    await client(tx).rolePermission.createMany({ data: rows });
+    await client(tx).rolePermission.createMany({ data: rows as Prisma.RolePermissionCreateManyInput[] });
   },
 
   // -- mfa --

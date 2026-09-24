@@ -1,1 +1,1 @@
-export * from "@sahan/auth-kit/security/allowlist";
+export * from "@ks-official-sahan/auth-kit/security/allowlist";

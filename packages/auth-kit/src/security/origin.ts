@@ -20,6 +20,21 @@ function originOf(value: string): string | null {
   }
 }
 
+/**
+ * Splits a comma/whitespace separated origin list (an env var like
+ * `ADMIN_ALLOWED_ORIGINS="https://preview-1.example.com, https://preview-2.example.com"`)
+ * into trimmed, non-empty entries. The one parser for this shape, so the app
+ * (proxy.ts) and this package's own `checkOrigin` convenience wrapper agree on
+ * exactly the same list from the same raw value instead of each writing their
+ * own regex.
+ */
+export function parseOriginList(value: string | null | undefined): string[] {
+  return (value ?? "")
+    .split(/[\s,]+/)
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+}
+
 export function isAllowedOrigin(origin: string | null | undefined, context: OriginContext): boolean {
   if (!origin || origin === "null") return false;
   const parsed = originOf(origin);

@@ -34,6 +34,7 @@ function harness(overrides: Partial<CredentialDeps> & { users?: StoredUser[] } =
         return next;
       },
       clear: async (email) => void counts.delete(email),
+      max: 5,
     },
     audit: async (event) => void audits.push(event),
     warn: (message) => void warnings.push(message),

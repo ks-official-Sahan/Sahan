@@ -49,6 +49,20 @@ export function shouldBlockAdminByAllowlist(ip: string, allowlist: string[]): bo
  * Supports IPv4 (single IPs and CIDR), IPv6 (single IPs and CIDR), and exact matches.
  * Returns true if the IP is in the allowlist, or if the allowlist is empty (fail-open).
  *
+ * This is the general-purpose matcher only: it fails open on a missing IP or
+ * an empty list, but it has no opinion on the "the caller's IP could not be
+ * determined at all" case (`UNKNOWN_IP` from `./ip`) — passed a literal
+ * `"unknown"` string it simply fails to match like any other unresolved
+ * address, i.e. it fails *closed* for that case. A caller making a real
+ * allow/block security decision from a possibly-unknown client IP (the proxy,
+ * for example) must not call this function directly for that; use
+ * `shouldBlockAdminByAllowlist`, which fails open on `UNKNOWN_IP` on purpose
+ * (R22) and is the one place that decision is made. `isIpAllowed` is meant
+ * for matching an already-known, already-valid IP against the list (for
+ * example a settings screen previewing "does my current, resolved IP match
+ * this allowlist?" — see `lib/actions/settings.ts` in the app, which checks
+ * `callerIp !== UNKNOWN_IP` itself before calling this).
+ *
  * @param ip The IP address to check (IPv4 or IPv6)
  * @param allowlist Array of allowed IPs or CIDR ranges
  * @returns true if IP is allowed or list is empty
@@ -164,6 +178,13 @@ function isIpv4InCidr(ip: string, network: string, prefix: number): boolean {
 /**
  * Convert IPv4 string to a 32-bit number.
  * e.g., "192.168.1.1" -> 3232235777
+ *
+ * Each octet must be plain decimal digits with no leading zero (except "0"
+ * itself): some parsers historically read a leading-zero octet like "017" as
+ * octal (15), which lets an address that looks like it is outside a CIDR
+ * range actually fall inside it depending on which parser reads it. Rejecting
+ * leading zeros here removes that ambiguity entirely, the same way
+ * `normalizeIpv6` fixes IPv6 addresses to one comparable form.
  */
 function ipv4ToNumber(ip: string): number | null {
   const parts = ip.split(".");
@@ -171,8 +192,10 @@ function ipv4ToNumber(ip: string): number | null {
 
   let num = 0;
   for (let i = 0; i < 4; i++) {
-    const part = parseInt(parts[i], 10);
-    if (isNaN(part) || part < 0 || part > 255) return null;
+    const raw = parts[i];
+    if (!/^\d{1,3}$/.test(raw) || (raw.length > 1 && raw[0] === "0")) return null;
+    const part = Number(raw);
+    if (part > 255) return null;
     num = (num << 8) | part;
   }
 

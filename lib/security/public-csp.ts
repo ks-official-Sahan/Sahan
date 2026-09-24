@@ -2,7 +2,7 @@
 // applied statically by next.config.ts. Public pages are static/ISR cached,
 // so a per-request nonce (which /admin gets from proxy.ts) is not possible
 // here (docs/plan/admin-cms-adr.md, D18). This is NOT a shim over
-// @sahan/auth-kit/security/headers — that package stays admin-only and knows
+// @ks-official-sahan/auth-kit/security headers — that package stays admin-only and knows
 // nothing about the public site's own third-party hosts (Vercel Analytics/
 // Speed Insights, Cloudinary, ...), so the policy is defined app-side.
 // No "server-only" import: like packages/auth-kit/src/security/csp.ts, this
