@@ -1,92 +1,84 @@
 import type { PermissionRow } from "../adapter";
-import {
-  canBeGranted,
-  defaultPermissionsFor,
-  isPermission,
-  isRole,
-  NEVER_GRANTABLE,
-  PERMISSIONS,
-  ROLES,
-  type Permission,
-  type RoleName,
-} from "./permissions";
+import type { ResolvedAuthKit } from "../kit";
+import { canBeGranted, defaultPermissionsFor, isPermission, isRole } from "./permissions";
 
 export type { PermissionRow };
 
-// The pure part of role-based access: what a role may do, and who may manage
-// whom. No database and no cache here, so every rule is unit tested. The matrix
-// itself is loaded and cached by lib/auth/rbac.ts (docs/plan/admin-cms-adr.md,
-// sections 6.5 and 9).
+// The pure part of role-based access: what a role may do. No database and no
+// cache here, so every rule is unit tested. The matrix itself is loaded and
+// cached by rbac.ts. Generic over the app's own role/permission catalogue
+// (see ../kit.ts's `defineAuthKit`); `canManage`/`assignableRoles` (who may
+// manage whom) are app policy and live on the resolved kit itself, not here.
 
-export type Matrix = Record<RoleName, ReadonlySet<Permission>>;
+export type Matrix<TRole extends string, TPermission extends string> = Record<TRole, ReadonlySet<TPermission>>;
 
-/** DEVELOPER holds everything in code. The other roles come from the stored rows. */
-export function matrixFromRows(rows: readonly PermissionRow[]): Matrix {
-  const granted: Record<RoleName, Set<Permission>> = {
-    DEVELOPER: new Set(PERMISSIONS),
-    MANAGER: new Set(),
-    EDITOR: new Set(),
-  };
+type RulesKit<TRole extends string, TPermission extends string> = Pick<
+  ResolvedAuthKit<TRole, TPermission>,
+  "roles" | "permissions" | "superRole" | "neverGrantable" | "defaultGrants"
+>;
+
+/** The super role holds everything in code. The other roles come from the stored rows. */
+export function matrixFromRows<TRole extends string, TPermission extends string>(
+  kit: RulesKit<TRole, TPermission>,
+  rows: readonly PermissionRow[]
+): Matrix<TRole, TPermission> {
+  const granted = Object.fromEntries(
+    kit.roles.map((role) => [role, role === kit.superRole ? new Set<TPermission>(kit.permissions) : new Set<TPermission>()])
+  ) as Record<TRole, Set<TPermission>>;
+
   for (const { role, permission } of rows) {
-    if (role === "DEVELOPER" || !isRole(role) || !isPermission(permission)) continue;
-    if (canBeGranted(role, permission)) granted[role].add(permission);
+    if (role === kit.superRole || !isRole(kit, role) || !isPermission(kit, permission)) continue;
+    if (canBeGranted(kit, role, permission)) granted[role].add(permission);
   }
   return granted;
 }
 
-export function defaultMatrix(): Matrix {
-  return {
-    DEVELOPER: new Set(PERMISSIONS),
-    MANAGER: new Set(defaultPermissionsFor("MANAGER")),
-    EDITOR: new Set(defaultPermissionsFor("EDITOR")),
-  };
+export function defaultMatrix<TRole extends string, TPermission extends string>(kit: RulesKit<TRole, TPermission>): Matrix<TRole, TPermission> {
+  return Object.fromEntries(kit.roles.map((role) => [role, new Set(defaultPermissionsFor(kit, role))])) as Record<
+    TRole,
+    Set<TPermission>
+  >;
 }
 
-/** Rows to store: DEVELOPER needs none. */
-export function matrixToRows(matrix: Matrix): Array<{ role: "MANAGER" | "EDITOR"; permission: Permission }> {
-  const rows: Array<{ role: "MANAGER" | "EDITOR"; permission: Permission }> = [];
-  for (const role of ["MANAGER", "EDITOR"] as const) {
-    for (const permission of PERMISSIONS) {
+/** Rows to store: the super role needs none. */
+export function matrixToRows<TRole extends string, TPermission extends string>(
+  kit: Pick<RulesKit<TRole, TPermission>, "roles" | "permissions" | "superRole">,
+  matrix: Matrix<TRole, TPermission>
+): Array<{ role: TRole; permission: TPermission }> {
+  const rows: Array<{ role: TRole; permission: TPermission }> = [];
+  for (const role of kit.roles) {
+    if (role === kit.superRole) continue;
+    for (const permission of kit.permissions) {
       if (matrix[role].has(permission)) rows.push({ role, permission });
     }
   }
   return rows;
 }
 
-export function can(matrix: Matrix, role: RoleName, permission: Permission): boolean {
-  return role === "DEVELOPER" || matrix[role].has(permission);
+export function can<TRole extends string, TPermission extends string>(
+  kit: Pick<RulesKit<TRole, TPermission>, "superRole">,
+  matrix: Matrix<TRole, TPermission>,
+  role: TRole,
+  permission: TPermission
+): boolean {
+  return role === kit.superRole || matrix[role].has(permission);
 }
 
-export interface Person {
-  id: string;
-  role: RoleName;
-}
-
-/** Nobody manages themselves. A DEVELOPER manages everyone else, a MANAGER only EDITORs. */
-export function canManage(actor: Person, target: Person): boolean {
-  if (actor.id === target.id) return false;
-  if (actor.role === "DEVELOPER") return true;
-  if (actor.role === "MANAGER") return target.role === "EDITOR";
-  return false;
-}
-
-/** Roles the actor may give to another person. */
-export function assignableRoles(actorRole: RoleName): RoleName[] {
-  if (actorRole === "DEVELOPER") return [...ROLES];
-  if (actorRole === "MANAGER") return ["EDITOR"];
-  return [];
-}
-
-export interface MatrixChange {
-  role: "MANAGER" | "EDITOR";
-  permission: Permission;
+export interface MatrixChange<TRole extends string, TPermission extends string> {
+  role: TRole;
+  permission: TPermission;
   granted: boolean;
 }
 
-export function diffMatrix(before: Matrix, after: Matrix): MatrixChange[] {
-  const changes: MatrixChange[] = [];
-  for (const role of ["MANAGER", "EDITOR"] as const) {
-    for (const permission of PERMISSIONS) {
+export function diffMatrix<TRole extends string, TPermission extends string>(
+  kit: Pick<RulesKit<TRole, TPermission>, "roles" | "permissions" | "superRole">,
+  before: Matrix<TRole, TPermission>,
+  after: Matrix<TRole, TPermission>
+): MatrixChange<TRole, TPermission>[] {
+  const changes: MatrixChange<TRole, TPermission>[] = [];
+  for (const role of kit.roles) {
+    if (role === kit.superRole) continue;
+    for (const permission of kit.permissions) {
       const was = before[role].has(permission);
       const now = after[role].has(permission);
       if (was !== now) changes.push({ role, permission, granted: now });
@@ -97,10 +89,14 @@ export function diffMatrix(before: Matrix, after: Matrix): MatrixChange[] {
 
 export type MatrixCheck = { ok: true } | { ok: false; error: string };
 
-/** A proposed matrix may never grant a permission that only DEVELOPER can hold. */
-export function validateMatrix(matrix: Matrix): MatrixCheck {
-  for (const role of ["MANAGER", "EDITOR"] as const) {
-    for (const permission of NEVER_GRANTABLE) {
+/** A proposed matrix may never grant a permission that only the super role can hold. */
+export function validateMatrix<TRole extends string, TPermission extends string>(
+  kit: Pick<RulesKit<TRole, TPermission>, "roles" | "superRole" | "neverGrantable">,
+  matrix: Matrix<TRole, TPermission>
+): MatrixCheck {
+  for (const role of kit.roles) {
+    if (role === kit.superRole) continue;
+    for (const permission of kit.neverGrantable) {
       if (matrix[role].has(permission)) {
         return { ok: false, error: `${permission} cannot be granted to ${role}.` };
       }

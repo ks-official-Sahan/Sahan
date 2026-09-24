@@ -3,7 +3,14 @@
 // transaction client looks like beyond the opaque `TTx` it forwards between
 // its own transactional call and the app's injected audit-write closure.
 
-export type RoleName = "DEVELOPER" | "MANAGER" | "EDITOR";
+/**
+ * Opaque role identifier at this loose, adapter-wide level (an app's own
+ * `defineAuthKit` config — see ../kit.ts — carries the real, narrower role
+ * union and the RBAC module recovers real type safety from it). Kept as a
+ * named alias purely for readability: every `role` field below is really
+ * just a `string` the adapter's own database enforces the shape of.
+ */
+export type RoleName = string;
 export type MfaPurpose = "SIGN_IN" | "ENABLE" | "DISABLE";
 
 export interface AdapterAuthUser {
