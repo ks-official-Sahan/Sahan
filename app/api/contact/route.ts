@@ -10,7 +10,7 @@ import { findRecentDuplicate, createInquiry } from "@/lib/inquiries/service";
 import { scoreSpam } from "@/lib/inquiries/spam";
 import { notifyOwner, sendAutoReply } from "@/lib/inquiries/notify";
 import { verifyToken } from "@/lib/inquiries/token";
-import { clientIp } from "@/lib/security/ip";
+import { clientIp, UNKNOWN_IP } from "@/lib/security/ip";
 import { isAllowedOrigin } from "@/lib/security/origin";
 import { log } from "@/lib/log";
 
@@ -40,14 +40,20 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  // Get client IP (hash only if secret exists)
+  // Hash a known IP only (and only when a secret keys the hash).
   const ip = clientIp(h);
-  const ipHash = ip && env.INTERNAL_SIGNING_SECRET ? hashIp(ip, env.INTERNAL_SIGNING_SECRET) : undefined;
+  const knownIp = ip === UNKNOWN_IP ? null : ip;
+  const ipHash = knownIp && env.INTERNAL_SIGNING_SECRET ? hashIp(knownIp, env.INTERNAL_SIGNING_SECRET) : undefined;
 
-  // Rate limit by IP (open fail mode)
-  const ipLimit = await limit("contact:ip", ipHash || "unknown");
-  if (!ipLimit.ok && !ipLimit.degraded) {
-    return NextResponse.json({ error: "Too many requests" }, { status: 429, headers: { "Retry-After": String(ipLimit.resetSeconds) } });
+  // Per-IP limit (open fail mode). Skipped when the IP is unknown (R22: no
+  // TRUSTED_PROXY_HOPS, or off Vercel): every caller would then share one
+  // bucket and a single spammer could block the form for everyone. The
+  // global limit below still caps the total.
+  if (ipHash) {
+    const ipLimit = await limit("contact:ip", ipHash);
+    if (!ipLimit.ok && !ipLimit.degraded) {
+      return NextResponse.json({ error: "Too many requests" }, { status: 429, headers: { "Retry-After": String(ipLimit.resetSeconds) } });
+    }
   }
 
   // Global rate limit (open fail mode)
