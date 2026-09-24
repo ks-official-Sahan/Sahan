@@ -1,10 +1,9 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import WrapperBody from "../wrappers/WrapperBody";
 import { usePathname } from "next/navigation";
-import { motion } from "framer-motion";
-import { useDisclosure } from "@mantine/hooks";
+import { motion, useReducedMotion } from "framer-motion";
 import { Site } from "@/config/site";
 import SideBar from "./SideBar";
 import NavBar from "./Nav";
@@ -14,7 +13,11 @@ const Navigation = () => {
   const [isVisible, setIsVisible] = useState(true);
   const path = usePathname();
 
-  const [opened, { toggle, close }] = useDisclosure();
+  const [opened, setOpened] = useState(false);
+  const toggle = useCallback(() => setOpened((value) => !value), []);
+  const close = useCallback(() => setOpened(false), []);
+
+  const prefersReducedMotion = useReducedMotion();
 
   useEffect(() => {
     if (path === "/") {
@@ -46,14 +49,16 @@ const Navigation = () => {
   }, []); // stable — registered once
 
   return (
-    <motion.header
-      initial={{ y: -100 }}
-      animate={{ y: isVisible ? 0 : -100 }}
-      exit={{ y: -100 }}
-      transition={{ duration: 0.4, type: "spring" }}
-      className="w-full fixed top-0 pt-[30px] z-[100]"
-    >
-      {/* Drawer --> SideBar */}
+    <>
+      {/* Drawer --> SideBar. Rendered as a sibling of motion.header, not a
+          child: framer-motion animates the header via a CSS `transform`, and
+          a transformed ancestor becomes the containing block for any
+          `position: fixed` descendant (CSS spec), which silently broke this
+          drawer's viewport-relative sizing when it was nested inside — its
+          width/height resolved against the header's own box instead of the
+          viewport. Mantine's original Drawer never hit this because it
+          portals to document.body; this sidesteps the same problem by simply
+          not being a descendant of the transformed element. */}
       <SideBar
         title={Site.siteName}
         opened={opened}
@@ -61,15 +66,27 @@ const Navigation = () => {
         currentPath={currentPath}
       />
 
-      <WrapperBody>
-        <NavBar
-          title={Site.siteName}
-          currentPath={currentPath}
-          opened={opened}
-          toggle={toggle}
-        />
-      </WrapperBody>
-    </motion.header>
+      <motion.header
+        // initial={false}: skip the mount-only slide-in entirely under
+        // prefers-reduced-motion instead of playing it once then disabling
+        // later animations — reducedMotion is resolved synchronously (framer-
+        // motion reads matchMedia during render), so this is correct on the
+        // very first paint, not just after an effect catches up.
+        initial={prefersReducedMotion ? false : { y: -100 }}
+        animate={{ y: isVisible ? 0 : -100 }}
+        transition={prefersReducedMotion ? { duration: 0 } : { duration: 0.4, type: "spring" }}
+        className="w-full fixed top-0 pt-[30px] z-[100]"
+      >
+        <WrapperBody>
+          <NavBar
+            title={Site.siteName}
+            currentPath={currentPath}
+            opened={opened}
+            toggle={toggle}
+          />
+        </WrapperBody>
+      </motion.header>
+    </>
   );
 };
 

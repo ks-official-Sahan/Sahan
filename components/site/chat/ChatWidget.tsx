@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Bot, Send, X } from "lucide-react";
 
@@ -32,6 +32,10 @@ export default function ChatWidget({ enabled, config, siteUrl }: ChatWidgetProps
     return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
   });
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const launcherRef = useRef<HTMLButtonElement>(null);
+  const didMountRef = useRef(false);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -40,6 +44,55 @@ export default function ChatWidget({ enabled, config, siteUrl }: ChatWidgetProps
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // Move focus into the panel's input on open; return it to the launcher on
+  // close. Skips the very first render so mounting the widget never steals
+  // focus from wherever the page already put it.
+  useEffect(() => {
+    if (!didMountRef.current) {
+      didMountRef.current = true;
+      return;
+    }
+    if (isOpen) {
+      inputRef.current?.focus();
+    } else {
+      launcherRef.current?.focus();
+    }
+  }, [isOpen]);
+
+  // Escape closes; Tab is trapped inside the panel while open, so keyboard
+  // and screen-reader users can't tab out into page content the trigger
+  // visually floats above.
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setIsOpen(false);
+        return;
+      }
+      if (event.key !== "Tab" || !panelRef.current) return;
+
+      const focusable = panelRef.current.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      );
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen]);
 
   if (!enabled || !config.enabled) {
     return null;
@@ -51,20 +104,36 @@ export default function ChatWidget({ enabled, config, siteUrl }: ChatWidgetProps
     const userMessage = { role: "user" as const, content: input };
     setMessages((prev) => [...prev, userMessage]);
     setInput("");
+    // Set before the request goes out, not after it resolves, so the typing
+    // indicator (and the disabled send button below) appear the instant the
+    // message is sent instead of waiting on network latency.
     setIsLoading(true);
 
     try {
       const response = await fetch("/api/chat", {
         method: "POST",
+        // Explicit, not just relying on the fetch default: a signed visitor
+        // cookie may be set server-side for rate limiting, and this must
+        // never be weakened to "omit".
+        credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           sessionId,
-          message: input,
+          message: userMessage.content,
         }),
       });
 
       if (!response.ok) {
-        throw new Error("Failed to get response");
+        // 429 gets the server's own message ("Too many requests") since it
+        // tells the visitor something actionable (slow down); anything else
+        // stays a generic, non-technical fallback.
+        let errorMessage = "Sorry, I encountered an error. Please try again.";
+        if (response.status === 429) {
+          const body = (await response.json().catch(() => null)) as { error?: string } | null;
+          errorMessage = body?.error ?? "Too many requests. Please wait a moment before trying again.";
+        }
+        setMessages((prev) => [...prev, { role: "assistant" as const, content: errorMessage }]);
+        return;
       }
 
       const data = (await response.json()) as { response: string };
@@ -87,11 +156,16 @@ export default function ChatWidget({ enabled, config, siteUrl }: ChatWidgetProps
       {/* Panel: scales in from the trigger, never from scale(0) (see
           style/globals.css's .press/.lift for the same easing convention).
           Kept mounted so the exit transition can play instead of unmounting
-          instantly. */}
+          instantly. `inert` while closed keeps it out of both tab order and
+          the accessibility tree on top of the opacity/pointer-events already
+          hiding it visually. */}
       <div
+        ref={panelRef}
+        id="chat-widget-panel"
         role="dialog"
+        aria-modal="true"
         aria-label="Chat"
-        aria-hidden={!isOpen}
+        inert={!isOpen}
         style={{ transitionTimingFunction: "var(--ease-out)" }}
         className={`mb-3 flex h-[28rem] w-[min(22rem,calc(100vw-2.5rem))] origin-bottom-right flex-col overflow-hidden rounded-[20px] border border-bBORDERFADE bg-bCARD shadow-2xl shadow-black/20 transition-[opacity,transform] duration-200 ${
           isOpen ? "pointer-events-auto scale-100 opacity-100" : "pointer-events-none scale-95 opacity-0"
@@ -107,6 +181,7 @@ export default function ChatWidget({ enabled, config, siteUrl }: ChatWidgetProps
             <h2 className="text-sm font-semibold">Portfolio assistant</h2>
           </div>
           <button
+            type="button"
             onClick={() => setIsOpen(false)}
             className="press flex h-8 w-8 items-center justify-center rounded-full text-current opacity-70 transition-colors hover:bg-bICON_FADE hover:opacity-100"
             aria-label="Close chat"
@@ -115,9 +190,11 @@ export default function ChatWidget({ enabled, config, siteUrl }: ChatWidgetProps
           </button>
         </div>
 
-        {/* Messages */}
-        <div className="flex-1 space-y-3 overflow-y-auto p-4">
-          {messages.length === 0 && (
+        {/* Messages: role="log" + aria-live="polite" announces each new
+            message (and the typing indicator below) to screen readers as it
+            arrives, without re-reading the whole history every time. */}
+        <div role="log" aria-live="polite" aria-label="Conversation" className="flex-1 space-y-3 overflow-y-auto p-4">
+          {messages.length === 0 && !isLoading && (
             <div className="flex h-full flex-col items-center justify-center gap-1.5 text-center opacity-70">
               <p className="text-sm font-semibold">{config.greeting}</p>
               <p className="text-xs">How can I help?</p>
@@ -139,9 +216,19 @@ export default function ChatWidget({ enabled, config, siteUrl }: ChatWidgetProps
           {isLoading && (
             <div className="flex justify-start">
               <div className="flex items-center gap-1.5 rounded-[16px] rounded-bl-[6px] bg-bFCARD px-3.5 py-3">
-                <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-current opacity-60 [animation-delay:0ms]" />
-                <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-current opacity-60 [animation-delay:120ms]" />
-                <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-current opacity-60 [animation-delay:240ms]" />
+                <span className="sr-only">Portfolio assistant is typing…</span>
+                <span
+                  aria-hidden="true"
+                  className="h-1.5 w-1.5 animate-bounce rounded-full bg-current opacity-60 [animation-delay:0ms]"
+                />
+                <span
+                  aria-hidden="true"
+                  className="h-1.5 w-1.5 animate-bounce rounded-full bg-current opacity-60 [animation-delay:120ms]"
+                />
+                <span
+                  aria-hidden="true"
+                  className="h-1.5 w-1.5 animate-bounce rounded-full bg-current opacity-60 [animation-delay:240ms]"
+                />
               </div>
             </div>
           )}
@@ -152,6 +239,7 @@ export default function ChatWidget({ enabled, config, siteUrl }: ChatWidgetProps
         <div className="border-t border-bBORDERFADE p-3">
           <div className="flex items-end gap-2 rounded-full border border-bBORDERFADE bg-bFCARD px-2 py-1.5 focus-within:border-bICON">
             <input
+              ref={inputRef}
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value.slice(0, 1000))}
@@ -167,6 +255,7 @@ export default function ChatWidget({ enabled, config, siteUrl }: ChatWidgetProps
               className="min-w-0 flex-1 bg-transparent px-2 py-1.5 text-sm outline-none placeholder:opacity-50 disabled:opacity-50"
             />
             <button
+              type="button"
               onClick={handleSend}
               disabled={isLoading || !input.trim()}
               className="press flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-bICON text-white transition-opacity disabled:opacity-30 dark:text-black"
@@ -181,8 +270,11 @@ export default function ChatWidget({ enabled, config, siteUrl }: ChatWidgetProps
 
       {/* Trigger */}
       <button
+        ref={launcherRef}
+        type="button"
         onClick={() => setIsOpen((open) => !open)}
         aria-expanded={isOpen}
+        aria-controls="chat-widget-panel"
         aria-label={isOpen ? "Close chat" : "Open chat"}
         className="press flex h-11 w-11 items-center justify-center rounded-full bg-bICON text-white shadow-lg shadow-black/20 transition-transform dark:text-black"
       >
