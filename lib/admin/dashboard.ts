@@ -77,29 +77,12 @@ export async function getNewInquiriesCount() {
  * Get system health status: database connection, redis (if configured).
  */
 export async function getSystemHealth() {
-  const health = {
-    database: false,
-    redis: false,
-  };
-
-  // Database check
-  try {
-    await db.$queryRawUnsafe("SELECT 1");
-    health.database = true;
-  } catch {
-    // Database is down
-  }
-
-  // Redis check (if configured)
-  try {
-    const { kv } = await import("@/lib/cache/redis");
-    await kv.get("health-check");
-    health.redis = true;
-  } catch {
-    // Redis is not available or not configured
-  }
-
-  return health;
+  // Both probes run at once: the dashboard waits for the slower one, not the sum.
+  const [database, redis] = await Promise.allSettled([
+    db.$queryRaw`SELECT 1`,
+    import("@/lib/cache/redis").then(({ kv }) => kv.get("health-check")),
+  ]);
+  return { database: database.status === "fulfilled", redis: redis.status === "fulfilled" };
 }
 
 /**
