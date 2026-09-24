@@ -1,12 +1,25 @@
 import type { NextConfig } from "next";
 
 import { SECURITY_HEADERS } from "./lib/security/headers";
+import { buildPublicCsp } from "./lib/security/public-csp";
+
+const dev = process.env.NODE_ENV !== "production";
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
   async headers() {
-    // Static headers for every route. The CSP of /admin is per request (proxy.ts).
-    return [{ source: "/:path*", headers: SECURITY_HEADERS.map((header) => ({ ...header })) }];
+    // Static headers for every route, plus a baseline CSP for everything
+    // except /admin and /api/admin: those get their own per-request nonce
+    // CSP from proxy.ts, so this entry excludes them by source pattern —
+    // sending both would put two conflicting Content-Security-Policy headers
+    // on the same admin response.
+    return [
+      { source: "/:path*", headers: SECURITY_HEADERS.map((header) => ({ ...header })) },
+      {
+        source: "/((?!admin(?:/|$)|api/admin(?:/|$)).*)",
+        headers: [{ key: "Content-Security-Policy", value: buildPublicCsp({ dev }) }],
+      },
+    ];
   },
   images: {
     qualities: [70, 75, 80, 85, 90, 95],

@@ -1,4 +1,5 @@
 import { Site, SiteMetadata } from "@/config/site";
+import { jsonLdHtml } from "@/lib/seo/json-ld";
 
 const personJsonLd = {
   "@context": "https://schema.org",
@@ -39,11 +40,11 @@ const JsonLd = () => {
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(personJsonLd) }}
+        dangerouslySetInnerHTML={{ __html: jsonLdHtml(personJsonLd) }}
       />
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }}
+        dangerouslySetInnerHTML={{ __html: jsonLdHtml(websiteJsonLd) }}
       />
     </>
   );

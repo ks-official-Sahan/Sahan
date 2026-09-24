@@ -5,6 +5,7 @@ import { auditQueryString, parseAuditFilters } from "@/lib/admin/audit-filters";
 import { exportAuditRows } from "@/lib/admin/audit-query";
 import { toCsv } from "@/lib/admin/csv";
 import { getOptionalUser, hasPermission } from "@/lib/auth/dal";
+import { isCrossSiteFetch } from "@/lib/security/fetch-site";
 
 // CSV of the audit log, with the same filters as the screen. It needs two
 // permissions (viewAuditLogs and exportData), answers 404 to everyone else, and
@@ -17,6 +18,9 @@ const HEADERS = ["time (UTC)", "actor", "action", "entity type", "entity id", "i
 const notFound = () => new NextResponse(null, { status: 404, headers: { "Cache-Control": "no-store" } });
 
 export async function GET(request: NextRequest) {
+  // Same rule as the leads export: refuse a cross-site top-level navigation.
+  if (isCrossSiteFetch(request.headers.get("sec-fetch-site"))) return notFound();
+
   const user = await getOptionalUser();
   if (!user || user.mustChangePassword) return notFound();
   if (!hasPermission(user, "viewAuditLogs") || !hasPermission(user, "exportData")) return notFound();
