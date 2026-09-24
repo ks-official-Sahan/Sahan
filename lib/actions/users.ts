@@ -79,7 +79,7 @@ export async function inviteUser(_previous: ActionState, formData: FormData): Pr
           usedAt: null,
           revokedAt: null,
           // Never cancel an invitation for a role this actor could not have sent.
-          OR: [{ role: { in: assignableRoles(actor.role) } }, { createdById: actor.id }],
+          OR: [{ role: { in: [...assignableRoles(actor.role)] } }, { createdById: actor.id }],
         },
         data: { revokedAt: new Date() },
       });
