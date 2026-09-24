@@ -1,6 +1,7 @@
 import { createHash, createHmac } from "node:crypto";
 import { headers } from "next/headers";
 import { after, NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 
 import { createAiService, realProviders, sharedAiHealth } from "@/lib/ai/providers";
 import { limit } from "@/lib/cache/ratelimit";
@@ -8,6 +9,13 @@ import { filterModelOutput, guardUserMessage } from "@/lib/chatbot/guard";
 import { getKnowledge } from "@/lib/chatbot/knowledge";
 import { buildChatPrompt } from "@/lib/chatbot/prompts";
 import { addMessage, getSessionMessages, upsertSession } from "@/lib/chatbot/session";
+import {
+  CHAT_VISITOR_COOKIE,
+  chatVisitorCookieOptions,
+  newChatVisitorId,
+  signChatVisitorId,
+  verifyChatVisitorCookie,
+} from "@/lib/chatbot/visitor-cookie";
 import { getEnv } from "@/lib/env";
 import { log } from "@/lib/log";
 import { clientIp, UNKNOWN_IP } from "@/lib/security/ip";
@@ -20,36 +28,52 @@ function hashIp(ip: string, secret: string): string {
   return createHmac("sha256", secret).update(ip).digest("hex");
 }
 
-interface ChatRequest {
-  sessionId: string;
-  message: string;
-}
-
-const MAX_MESSAGE_LENGTH = 1000;
+// sessionId is a client-generated opaque id (see lib/chatbot/session.ts) —
+// not a secret, just a grouping key — hence the character class rather than
+// a specific format. message is what the visitor typed.
+const chatRequestSchema = z.object({
+  sessionId: z
+    .string()
+    .regex(/^[A-Za-z0-9_-]{8,128}$/, "sessionId must be 8-128 characters of letters, digits, - or _"),
+  message: z.string().trim().min(1, "message is required").max(1000, "message is too long"),
+});
 
 export async function POST(request: NextRequest) {
   const env = getEnv();
   const h = await headers();
 
+  // A visitor cookie may need to be (re)issued below when the caller's IP is
+  // unknown; every response this handler returns goes through jsonResponse()
+  // so that cookie always makes it onto the response, not just the success path.
+  let freshVisitorCookie: string | undefined;
+  function jsonResponse(body: unknown, init: ResponseInit = {}): NextResponse {
+    const response = NextResponse.json(body, init);
+    if (freshVisitorCookie) {
+      response.cookies.set(
+        CHAT_VISITOR_COOKIE,
+        freshVisitorCookie,
+        chatVisitorCookieOptions(process.env.NODE_ENV === "production")
+      );
+    }
+    return response;
+  }
+
   // Content-Type check
   const contentType = h.get("content-type");
   if (!contentType?.includes("application/json")) {
-    return NextResponse.json(
-      { error: "Content-Type must be application/json" },
-      { status: 415 }
-    );
+    return jsonResponse({ error: "Content-Type must be application/json" }, { status: 415 });
   }
 
   // Body size limit (~8 KB)
   const bodyText = await request.text();
   if (bodyText.length > 8 * 1024) {
-    return NextResponse.json({ error: "Request body too large" }, { status: 413 });
+    return jsonResponse({ error: "Request body too large" }, { status: 413 });
   }
 
   // Origin check
   const origin = h.get("origin");
   if (!isAllowedOrigin(origin, { hosts: [h.get("host")], siteUrl: env.SITE_URL })) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    return jsonResponse({ error: "Forbidden" }, { status: 403 });
   }
 
   const ip = clientIp(h);
@@ -57,16 +81,47 @@ export async function POST(request: NextRequest) {
   // Stored with the chat session only when a secret keys the hash.
   const ipHash = knownIp && env.INTERNAL_SIGNING_SECRET ? hashIp(knownIp, env.INTERNAL_SIGNING_SECRET) : undefined;
 
-  // Per-IP limit (20 per 10 minutes). Same R22 rule as sign-in: without a
-  // resolvable IP every visitor would share one bucket and one caller could
-  // silence the chat for everyone, so only the per-session limit applies then.
+  // Per-IP limit (20 per 10 minutes) when the IP is known. When it is not
+  // (R22: no TRUSTED_PROXY_HOPS, or off Vercel — every caller then shares
+  // UNKNOWN_IP), a bare per-session limit alone would let one visitor open
+  // unlimited sessions for free by rotating sessionId, so a signed,
+  // HttpOnly cookie carrying a random visitor id stands in for the IP: a
+  // valid cookie is rate-limited on the same chat:ip bucket, keyed by the
+  // visitor id instead of the IP hash. A missing or invalid cookie gets a
+  // fresh id and a stricter budget — there is no dedicated "chat:anon"
+  // bucket (adding one needs an edit to
+  // packages/auth-kit/src/cache/ratelimit.ts, off limits here), so this
+  // reuses chat:session's tighter per-minute limit, keyed by the new
+  // visitor id, for that first cookie-less request only.
   if (knownIp) {
     const ipLimit = await limit("chat:ip", createHash("sha256").update(knownIp).digest("hex").slice(0, 32));
     if (!ipLimit.ok) {
-      return NextResponse.json(
+      return jsonResponse(
         { error: "Too many requests" },
         { status: 429, headers: { "Retry-After": String(ipLimit.resetSeconds) } }
       );
+    }
+  } else if (env.INTERNAL_SIGNING_SECRET) {
+    const cookieValue = request.cookies.get(CHAT_VISITOR_COOKIE)?.value;
+    const visitorId = verifyChatVisitorCookie(cookieValue, env.INTERNAL_SIGNING_SECRET);
+    if (visitorId) {
+      const visitorLimit = await limit("chat:ip", visitorId);
+      if (!visitorLimit.ok) {
+        return jsonResponse(
+          { error: "Too many requests" },
+          { status: 429, headers: { "Retry-After": String(visitorLimit.resetSeconds) } }
+        );
+      }
+    } else {
+      const newId = newChatVisitorId();
+      freshVisitorCookie = signChatVisitorId(newId, env.INTERNAL_SIGNING_SECRET);
+      const freshLimit = await limit("chat:session", newId);
+      if (!freshLimit.ok) {
+        return jsonResponse(
+          { error: "Too many requests" },
+          { status: 429, headers: { "Retry-After": String(freshLimit.resetSeconds) } }
+        );
+      }
     }
   }
 
@@ -75,26 +130,19 @@ export async function POST(request: NextRequest) {
   try {
     data = JSON.parse(bodyText);
   } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+    return jsonResponse({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const chatReq = data as ChatRequest;
-  if (!chatReq.sessionId || !chatReq.message) {
-    return NextResponse.json({ error: "Missing sessionId or message" }, { status: 400 });
+  const parsedBody = chatRequestSchema.safeParse(data);
+  if (!parsedBody.success) {
+    return jsonResponse({ error: "Invalid request" }, { status: 400 });
   }
-
-  // Validate message length
-  if (chatReq.message.length > MAX_MESSAGE_LENGTH) {
-    return NextResponse.json(
-      { error: `Message exceeds ${MAX_MESSAGE_LENGTH} characters` },
-      { status: 400 }
-    );
-  }
+  const chatReq = parsedBody.data;
 
   // Rate limit by session (per minute, 6 messages)
   const sessionLimit = await limit("chat:session", chatReq.sessionId);
   if (!sessionLimit.ok) {
-    return NextResponse.json(
+    return jsonResponse(
       { error: "Too many messages in this session" },
       { status: 429, headers: { "Retry-After": String(sessionLimit.resetSeconds) } }
     );
@@ -106,7 +154,7 @@ export async function POST(request: NextRequest) {
     const settings = await getPublicSettings();
     const features = (settings.features as any) || { chatbotEnabled: true };
     if (!features.chatbotEnabled) {
-      return NextResponse.json({ error: "Chatbot is not available" }, { status: 503 });
+      return jsonResponse({ error: "Chatbot is not available" }, { status: 503 });
     }
 
     const chatbotConfig: ChatbotConfig = ((settings["chatbot.config"] as any) || {
@@ -117,7 +165,7 @@ export async function POST(request: NextRequest) {
     }) as ChatbotConfig;
 
     if (!chatbotConfig.enabled) {
-      return NextResponse.json({ error: "Chatbot is disabled" }, { status: 503 });
+      return jsonResponse({ error: "Chatbot is disabled" }, { status: 503 });
     }
 
     // Reads run together; history is taken before this turn is stored.
@@ -152,10 +200,7 @@ export async function POST(request: NextRequest) {
 
     if (!result.ok) {
       log.warn("AI service failed for chat", { error: result.errorClass });
-      return NextResponse.json(
-        { error: "Failed to generate response" },
-        { status: 503 }
-      );
+      return jsonResponse({ error: "Failed to generate response" }, { status: 503 });
     }
 
     // Filter output (pure function with explicit allowed hosts)
@@ -188,12 +233,12 @@ export async function POST(request: NextRequest) {
 
     // Phase timings for monitoring (no content, no identifiers).
     const serverTiming = `prep;dur=${started - t0}, ai;dur=${latencyMs};desc="${result.provider}", total;dur=${Date.now() - t0}`;
-    return NextResponse.json(
+    return jsonResponse(
       { response: filteredResponse, sessionId: chatReq.sessionId },
       { headers: { "Server-Timing": serverTiming, "Cache-Control": "no-store" } }
     );
   } catch (error) {
     log.error("Chat API error", { error: String(error) });
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return jsonResponse({ error: "Internal server error" }, { status: 500 });
   }
 }
