@@ -38,12 +38,10 @@ export default async function LeadsPage({ searchParams }: PageProps) {
   const totalPages = Math.ceil(total / limit);
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto w-full max-w-6xl space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">Contact Inquiries</h1>
-        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-          Manage incoming contact form submissions
-        </p>
+        <h1 className="text-2xl font-semibold tracking-tight">Contact Inquiries</h1>
+        <p className="mt-1 text-sm text-muted-foreground">Manage incoming contact form submissions</p>
       </div>
 
       <LeadsList inquiries={rows} total={total} page={page} totalPages={totalPages} status={status} search={search} />

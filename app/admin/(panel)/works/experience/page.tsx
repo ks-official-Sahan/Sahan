@@ -1,7 +1,9 @@
+import Link from "next/link";
+
 import { requirePermission } from "@/lib/auth/dal";
 import { db } from "@/lib/db/prisma";
-import Link from "next/link";
-import { Button } from "@/components/admin/ui/button";
+import EmptyState from "@/components/admin/ui/EmptyState";
+import { badgeClass, buttonVariants, tableClass, tdClass, thClass } from "@/components/admin/ui/styles";
 
 export default async function ExperiencePage() {
   await requirePermission("editCollections");
@@ -11,58 +13,74 @@ export default async function ExperiencePage() {
   });
 
   return (
-    <div className="space-y-8">
+    <div className="mx-auto w-full max-w-6xl space-y-8">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Experience</h1>
-          <p className="text-gray-600 dark:text-gray-400 mt-2">Manage work history and experience entries</p>
+          <h1 className="text-2xl font-semibold tracking-tight">Experience</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Manage work history and experience entries</p>
         </div>
-        <Button asChild>
-          <Link href="/admin/works/experience/new">Add Experience</Link>
-        </Button>
+        <Link href="/admin/works/experience/new" className={buttonVariants.primary}>
+          Add Experience
+        </Link>
       </div>
 
-      <div className="overflow-x-auto">
-        <table className="w-full border-collapse">
-          <thead>
-            <tr className="border-b">
-              <th className="text-left py-3 px-4 font-semibold">Company</th>
-              <th className="text-left py-3 px-4 font-semibold">Role</th>
-              <th className="text-left py-3 px-4 font-semibold">Period</th>
-              <th className="text-left py-3 px-4 font-semibold">Type</th>
-              <th className="text-left py-3 px-4 font-semibold">Published</th>
-              <th className="text-left py-3 px-4 font-semibold">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {experiences.map((exp) => (
-              <tr key={exp.id} className="border-b hover:bg-gray-50 dark:hover:bg-gray-900">
-                <td className="py-3 px-4 font-medium">{exp.company}</td>
-                <td className="py-3 px-4 text-sm">{exp.role}</td>
-                <td className="py-3 px-4 text-sm text-gray-600 dark:text-gray-400">{exp.period}</td>
-                <td className="py-3 px-4 text-sm capitalize">{exp.type}</td>
-                <td className="py-3 px-4 text-sm">
-                  <span className={exp.published ? "text-green-600" : "text-gray-500"}>
-                    {exp.published ? "Yes" : "Draft"}
-                  </span>
-                </td>
-                <td className="py-3 px-4 text-sm">
-                  <Link href={`/admin/works/experience/${exp.id}`} className="text-blue-600 hover:underline">
-                    Edit
-                  </Link>
-                </td>
+      {experiences.length === 0 ? (
+        <EmptyState
+          title="No experience entries yet"
+          description="Create your first work history entry."
+          action={
+            <Link href="/admin/works/experience/new" className={buttonVariants.primary}>
+              Create your first entry
+            </Link>
+          }
+        />
+      ) : (
+        <div className="overflow-x-auto rounded-lg border border-border">
+          <table className={tableClass}>
+            <thead className="border-b border-border bg-muted/40">
+              <tr>
+                <th scope="col" className={thClass}>
+                  Company
+                </th>
+                <th scope="col" className={thClass}>
+                  Role
+                </th>
+                <th scope="col" className={thClass}>
+                  Period
+                </th>
+                <th scope="col" className={thClass}>
+                  Type
+                </th>
+                <th scope="col" className={thClass}>
+                  Published
+                </th>
+                <th scope="col" className={thClass}>
+                  <span className="sr-only">Actions</span>
+                </th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {experiences.length === 0 && (
-        <div className="text-center py-12 text-gray-600 dark:text-gray-400">
-          <p>No experience entries yet.</p>
-          <Button asChild className="mt-4">
-            <Link href="/admin/works/experience/new">Create your first entry</Link>
-          </Button>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {experiences.map((exp) => (
+                <tr key={exp.id} className="hover:bg-muted/40">
+                  <td className={`${tdClass} font-medium`}>{exp.company}</td>
+                  <td className={tdClass}>{exp.role}</td>
+                  <td className={`${tdClass} text-muted-foreground`}>{exp.period}</td>
+                  <td className={`${tdClass} capitalize`}>{exp.type}</td>
+                  <td className={tdClass}>
+                    <span className={badgeClass}>{exp.published ? "Yes" : "Draft"}</span>
+                  </td>
+                  <td className={`${tdClass} text-right`}>
+                    <Link
+                      href={`/admin/works/experience/${exp.id}`}
+                      className="text-sm font-medium text-primary hover:underline"
+                    >
+                      Edit
+                    </Link>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
     </div>

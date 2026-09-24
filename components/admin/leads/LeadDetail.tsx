@@ -5,6 +5,7 @@ import { useActionState } from "react";
 import type { Inquiry, InquiryEmailEvent } from "@prisma/client";
 
 import { changeInquiryStatus, addInquiryNote } from "@/lib/actions/leads";
+import { badgeClass, buttonVariants, cardClass, fieldClass, textareaClass } from "@/components/admin/ui/styles";
 
 interface LeadDetailProps {
   inquiry: Inquiry & {
@@ -13,12 +14,10 @@ interface LeadDetailProps {
   };
 }
 
-const STATUS_COLORS: Record<string, string> = {
-  NEW: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
-  CONTACTED: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
-  CLOSED: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
-  SPAM: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
-};
+// A neutral badge matches every other admin list; SPAM alone gets a
+// destructive tint so it still stands out at a glance.
+const spamBadgeClass =
+  "inline-flex items-center rounded-full border border-destructive/40 bg-destructive/10 px-2 py-0.5 text-xs font-medium text-destructive";
 
 export function LeadDetail({ inquiry }: LeadDetailProps) {
   const [statusState, statusAction] = useActionState(changeInquiryStatus, {
@@ -33,148 +32,156 @@ export function LeadDetail({ inquiry }: LeadDetailProps) {
   });
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto w-full max-w-6xl space-y-6">
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-bold">{inquiry.name}</h1>
-          <p className="text-gray-600 dark:text-gray-400 mt-1">{inquiry.email}</p>
+          <h1 className="text-2xl font-semibold tracking-tight">{inquiry.name}</h1>
+          <p className="mt-1 text-sm text-muted-foreground">{inquiry.email}</p>
         </div>
-        <Link href="/admin/leads" className="text-blue-600 dark:text-blue-400 hover:underline">
+        <Link href="/admin/leads" className={buttonVariants.secondary}>
           Back to list
         </Link>
       </div>
 
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 gap-4 s768:grid-cols-3">
         {/* Contact Info */}
-        <div className="border rounded-lg p-4 space-y-3">
-          <div>
-            <div className="text-sm font-semibold text-gray-600 dark:text-gray-400">Email</div>
-            <div className="text-sm">{inquiry.email}</div>
-          </div>
-          {inquiry.phone && (
+        <div className={cardClass}>
+          <div className="space-y-3">
             <div>
-              <div className="text-sm font-semibold text-gray-600 dark:text-gray-400">Phone</div>
-              <div className="text-sm">{inquiry.phone}</div>
+              <div className="text-sm font-semibold text-muted-foreground">Email</div>
+              <div className="text-sm">{inquiry.email}</div>
             </div>
-          )}
-          {inquiry.topic && (
+            {inquiry.phone && (
+              <div>
+                <div className="text-sm font-semibold text-muted-foreground">Phone</div>
+                <div className="text-sm">{inquiry.phone}</div>
+              </div>
+            )}
+            {inquiry.topic && (
+              <div>
+                <div className="text-sm font-semibold text-muted-foreground">Topic</div>
+                <div className="text-sm">{inquiry.topic}</div>
+              </div>
+            )}
             <div>
-              <div className="text-sm font-semibold text-gray-600 dark:text-gray-400">Topic</div>
-              <div className="text-sm">{inquiry.topic}</div>
+              <div className="text-sm font-semibold text-muted-foreground">Received</div>
+              <div className="text-sm">{inquiry.createdAt.toLocaleString()}</div>
             </div>
-          )}
-          <div>
-            <div className="text-sm font-semibold text-gray-600 dark:text-gray-400">Received</div>
-            <div className="text-sm">{inquiry.createdAt.toLocaleString()}</div>
           </div>
         </div>
 
         {/* Status & Spam */}
-        <div className="border rounded-lg p-4 space-y-3">
-          <div>
-            <div className="text-sm font-semibold text-gray-600 dark:text-gray-400 mb-2">Status</div>
-            <form action={statusAction} className="flex gap-2">
-              <input type="hidden" name="inquiryId" value={inquiry.id} />
-              <select
-                name="status"
-                defaultValue={inquiry.status}
-                onChange={(e) => {
-                  const formData = new FormData();
-                  formData.set("inquiryId", inquiry.id);
-                  formData.set("status", e.target.value);
-                  statusAction(formData);
-                }}
-                className="flex-1 px-2 py-1 border rounded-md text-sm"
-              >
-                <option value="NEW">New</option>
-                <option value="CONTACTED">Contacted</option>
-                <option value="CLOSED">Closed</option>
-                <option value="SPAM">Spam</option>
-              </select>
-            </form>
-          </div>
-          <div>
-            <div className="text-sm font-semibold text-gray-600 dark:text-gray-400 mb-2">Spam Score</div>
-            <div className="flex items-center gap-2">
-              <div className="flex-1 w-32 h-4 bg-gray-200 dark:bg-gray-700 rounded overflow-hidden">
-                <div className="h-full bg-red-500" style={{ width: `${Math.min(inquiry.spamScore, 100)}%` }} />
+        <div className={cardClass}>
+          <div className="space-y-3">
+            <div>
+              <div className="mb-2 text-sm font-semibold text-muted-foreground">Status</div>
+              <form action={statusAction} className="flex gap-2">
+                <input type="hidden" name="inquiryId" value={inquiry.id} />
+                <select
+                  name="status"
+                  defaultValue={inquiry.status}
+                  onChange={(e) => {
+                    const formData = new FormData();
+                    formData.set("inquiryId", inquiry.id);
+                    formData.set("status", e.target.value);
+                    statusAction(formData);
+                  }}
+                  className={`${fieldClass} h-9 flex-1`}
+                >
+                  <option value="NEW">New</option>
+                  <option value="CONTACTED">Contacted</option>
+                  <option value="CLOSED">Closed</option>
+                  <option value="SPAM">Spam</option>
+                </select>
+              </form>
+              {statusState.error && <p className="mt-1 text-xs text-destructive">{statusState.error}</p>}
+            </div>
+            <div>
+              <div className="mb-2 text-sm font-semibold text-muted-foreground">Spam Score</div>
+              <div className="flex items-center gap-2">
+                <div className="h-4 w-32 flex-1 overflow-hidden rounded bg-muted">
+                  <div className="h-full bg-destructive" style={{ width: `${Math.min(inquiry.spamScore, 100)}%` }} />
+                </div>
+                <div className="font-mono text-sm">{inquiry.spamScore}/100</div>
               </div>
-              <div className="text-sm font-mono">{inquiry.spamScore}/100</div>
+            </div>
+            <div>
+              <span className={inquiry.status === "SPAM" ? spamBadgeClass : badgeClass}>{inquiry.status}</span>
             </div>
           </div>
         </div>
 
         {/* Meta Info */}
-        <div className="border rounded-lg p-4 space-y-3 text-sm">
-          <div>
-            <div className="font-semibold text-gray-600 dark:text-gray-400">Source</div>
-            <div className="capitalize">{inquiry.source}</div>
+        <div className={cardClass}>
+          <div className="space-y-3 text-sm">
+            <div>
+              <div className="font-semibold text-muted-foreground">Source</div>
+              <div className="capitalize">{inquiry.source}</div>
+            </div>
+            {inquiry.userAgent && (
+              <div>
+                <div className="font-semibold text-muted-foreground">User Agent</div>
+                <div className="truncate text-xs">{inquiry.userAgent}</div>
+              </div>
+            )}
+            {inquiry.pagePath && (
+              <div>
+                <div className="font-semibold text-muted-foreground">Page</div>
+                <div className="truncate text-xs">{inquiry.pagePath}</div>
+              </div>
+            )}
           </div>
-          {inquiry.userAgent && (
-            <div>
-              <div className="font-semibold text-gray-600 dark:text-gray-400">User Agent</div>
-              <div className="text-xs truncate">{inquiry.userAgent}</div>
-            </div>
-          )}
-          {inquiry.pagePath && (
-            <div>
-              <div className="font-semibold text-gray-600 dark:text-gray-400">Page</div>
-              <div className="text-xs truncate">{inquiry.pagePath}</div>
-            </div>
-          )}
         </div>
       </div>
 
       {/* Message */}
-      <div className="border rounded-lg p-4">
-        <h2 className="text-lg font-semibold mb-2">Message</h2>
-        <p className="whitespace-pre-wrap text-sm text-gray-700 dark:text-gray-300">{inquiry.message}</p>
+      <div className={cardClass}>
+        <h2 className="mb-2 text-base font-medium">Message</h2>
+        <p className="whitespace-pre-wrap text-sm text-muted-foreground">{inquiry.message}</p>
       </div>
 
       {/* Notes */}
-      <div className="border rounded-lg p-4">
-        <h2 className="text-lg font-semibold mb-3">Notes</h2>
+      <div className={cardClass}>
+        <h2 className="mb-3 text-base font-medium">Notes</h2>
         <form action={noteAction} className="space-y-2">
           <input type="hidden" name="inquiryId" value={inquiry.id} />
           <textarea
             name="note"
             defaultValue={inquiry.notes || ""}
             placeholder="Add internal notes..."
-            className="w-full p-2 border rounded-md text-sm min-h-24"
+            className={textareaClass}
           />
-          <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700">
+          <button type="submit" className={buttonVariants.primary}>
             Save Notes
           </button>
-          {noteState.error && <p className="text-red-600 text-sm">{noteState.error}</p>}
-          {noteState.message && <p className="text-green-600 text-sm">{noteState.message}</p>}
+          {noteState.error && <p className="text-sm text-destructive">{noteState.error}</p>}
+          {noteState.message && <p className="text-sm text-muted-foreground">{noteState.message}</p>}
         </form>
       </div>
 
       {/* Email Events */}
       {inquiry.events && inquiry.events.length > 0 && (
-        <div className="border rounded-lg p-4">
-          <h2 className="text-lg font-semibold mb-3">Email History</h2>
+        <div className={cardClass}>
+          <h2 className="mb-3 text-base font-medium">Email History</h2>
           <div className="space-y-2">
             {inquiry.events.map((event) => (
               <div
                 key={event.id}
-                className={`p-3 rounded-md text-sm ${
-                  event.ok
-                    ? "bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800"
-                    : "bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800"
+                className={`rounded-md border p-3 text-sm ${
+                  event.ok ? "border-border bg-muted/40" : "border-destructive/40 bg-destructive/10"
                 }`}
               >
-                <div className="flex justify-between items-start">
+                <div className="flex items-start justify-between">
                   <div>
-                    <div className="font-semibold capitalize">
+                    <div className={`font-semibold capitalize ${event.ok ? "" : "text-destructive"}`}>
                       {event.kind} {event.ok ? "✓" : "✗"}
                     </div>
-                    <div className="text-xs text-gray-600 dark:text-gray-400">
+                    <div className="text-xs text-muted-foreground">
                       {event.provider} • {event.createdAt.toLocaleString()}
                     </div>
                   </div>
-                  {event.error && <div className="text-xs">{event.error}</div>}
+                  {event.error && <div className="text-xs text-destructive">{event.error}</div>}
                 </div>
               </div>
             ))}

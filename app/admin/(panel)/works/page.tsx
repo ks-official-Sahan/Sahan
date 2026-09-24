@@ -1,6 +1,7 @@
-import { requirePermission } from "@/lib/auth/dal";
-import { Button } from "@/components/admin/ui/button";
 import Link from "next/link";
+
+import { requirePermission } from "@/lib/auth/dal";
+import { cardClass } from "@/components/admin/ui/styles";
 
 export default async function WorksPage() {
   await requirePermission("editCollections");
@@ -29,21 +30,21 @@ export default async function WorksPage() {
   ];
 
   return (
-    <div className="space-y-8">
+    <div className="mx-auto w-full max-w-6xl space-y-8">
       <div>
-        <h1 className="text-3xl font-bold">Works Collections</h1>
-        <p className="text-gray-600 dark:text-gray-400 mt-2">Manage projects, experience, services and skills</p>
+        <h1 className="text-2xl font-semibold tracking-tight">Works Collections</h1>
+        <p className="mt-1 text-sm text-muted-foreground">Manage projects, experience, services and skills</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 gap-6 s768:grid-cols-2">
         {collections.map((collection) => (
           <Link
             key={collection.href}
             href={collection.href}
-            className="block p-6 border rounded-lg hover:border-blue-500 hover:shadow-lg transition-all"
+            className={`${cardClass} block transition-colors hover:border-primary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring`}
           >
-            <h2 className="text-xl font-semibold mb-2">{collection.name}</h2>
-            <p className="text-gray-600 dark:text-gray-400 text-sm">{collection.description}</p>
+            <h2 className="text-base font-medium">{collection.name}</h2>
+            <p className="mt-1 text-sm text-muted-foreground">{collection.description}</p>
           </Link>
         ))}
       </div>
