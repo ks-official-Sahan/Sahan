@@ -1,29 +1,30 @@
-import "@mantine/core/styles.css";
-
 import { useGSAP } from "@gsap/react";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { gsap } from "gsap";
 
-import LoadingScreen from "@/components/animations/LoadingScreen";
-import ShoelaceSetup from "@/components/animations/shoelace/shoelace-setup";
 import FloatingAudioSwitch from "@/components/common/FloatingAudioSwitch";
 import Footer from "@/components/foo/Footer";
 import Navigation from "@/components/nav/Navigation";
 import JsonLd from "@/components/seo/JsonLd";
-import { MantineSyncProvider } from "@/components/theme/MantineSyncProvider";
 import { ThemeProvider } from "@/components/theme/ThemeProvider";
 import { AudioProvider } from "@/context/AudioContext";
 
 gsap.registerPlugin(useGSAP);
 
 /**
- * Public site chrome: skip link, providers, loading screen, navigation, audio
- * switch, footer. Rendered by app/(site)/layout.tsx and by the root 404
- * (app/not-found.tsx). Do not import it from the root layout or anything under
- * app/admin. The root 404 already puts its client references into every route
- * under the root layout, /admin included (see docs/plan/admin-cms-adr.md,
- * risk R19), and admin.css neutralises the Mantine CSS that comes with them.
+ * Public site chrome: skip link, providers, navigation, audio switch,
+ * footer. Rendered by app/(site)/layout.tsx and by the root 404
+ * (app/not-found.tsx). Do not import it from the root layout or anything
+ * under app/admin — admin mounts its own Mantine provider and CSS
+ * (app/admin/layout.tsx) because MediaPicker still needs them; nothing here
+ * pulls Mantine, NextUI or Shoelace into the public bundle any more (moved
+ * out of Nav.tsx/SideBar.tsx/Navigation.tsx — plain markup + framer-motion's
+ * useReducedMotion instead). The former loading-screen splash
+ * (components/animations/LoadingScreen.tsx, deleted) blocked first paint for
+ * up to 2.5s on every load with no reduced-motion check and no functional
+ * purpose (a timer, not real load state); removed rather than gated, since
+ * the page underneath renders fine without it.
  * Keep it free of Suspense boundaries and suspending awaits, or the 404 would
  * stream and answer 200.
  */
@@ -41,23 +42,18 @@ export default function SiteShell({
       >
         Skip to content
       </a>
-      <MantineSyncProvider>
-        <AudioProvider>
-          <main className="flex flex-col min-h-screen w-full overflow-x-hidden">
-            <ShoelaceSetup>
-              <LoadingScreen />
-              <Navigation />
-              <FloatingAudioSwitch />
-              <div id="main-content" className="pb-[300px]">
-                {children}
-              </div>
-              <Footer />
-              <SpeedInsights />
-              <Analytics />
-            </ShoelaceSetup>
-          </main>
-        </AudioProvider>
-      </MantineSyncProvider>
+      <AudioProvider>
+        <main className="flex flex-col min-h-screen w-full overflow-x-hidden">
+          <Navigation />
+          <FloatingAudioSwitch />
+          <div id="main-content" className="pb-[300px]">
+            {children}
+          </div>
+          <Footer />
+          <SpeedInsights />
+          <Analytics />
+        </main>
+      </AudioProvider>
     </ThemeProvider>
   );
 }
