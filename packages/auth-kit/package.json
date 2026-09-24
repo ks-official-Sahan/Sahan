@@ -1,10 +1,20 @@
 {
-  "name": "@sahan/auth-kit",
-  "version": "0.0.0",
-  "private": true,
+  "name": "@ks-official-sahan/auth-kit",
+  "version": "0.1.0",
+  "description": "Framework-agnostic core for a Next.js + Auth.js admin auth system: JWT-over-DB-session auth, RBAC, emailed-OTP MFA, hidden-login unlock gate, IP allowlist, CSRF/origin checks, CSP nonces and rate limits, generic over your own role/permission catalogue.",
+  "license": "UNLICENSED",
   "type": "module",
+  "sideEffects": false,
+  "engines": {
+    "node": ">=20"
+  },
   "exports": {
     ".": "./src/index.ts",
+    "./kit": "./src/kit.ts",
+    "./authorize": "./src/authorize.ts",
+    "./config": "./src/config.ts",
+    "./bootstrap": "./src/bootstrap.ts",
+    "./audit-event": "./src/audit-event.ts",
     "./session": "./src/session/index.ts",
     "./rbac": "./src/rbac/index.ts",
     "./mfa": "./src/mfa/index.ts",
@@ -28,23 +38,76 @@
     "./security/check-origin": "./src/security/check-origin.ts",
     "./security/request-device": "./src/security/request-device.ts",
     "./cache/ratelimit": "./src/cache/ratelimit.ts",
-    "./cache/memory": "./src/cache/memory.ts"
+    "./cache/memory": "./src/cache/memory.ts",
+    "./cache/redis": "./src/cache/redis.ts",
+    "./package.json": "./package.json"
   },
+  "types": "./src/index.ts",
+  "main": "./src/index.ts",
   "scripts": {
-    "typecheck": "tsc --noEmit",
-    "test": "node --conditions=react-server --import tsx --test \"src/**/*.test.ts\""
+    "build": "tsup",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.build.json",
+    "test": "node --conditions=react-server --import tsx --test \"src/**/*.test.ts\"",
+    "prepublishOnly": "npm run build && npm run test"
   },
   "dependencies": {
+    "@upstash/ratelimit": "^2.1.0",
     "@upstash/redis": "^1.38.4",
     "bcryptjs": "^3.0.3"
   },
   "peerDependencies": {
     "next": "^16.3.5",
-    "next-auth": "5.0.0-beta.32"
+    "next-auth": "5.0.0-beta.32",
+    "react": "^19.0.0"
   },
   "devDependencies": {
     "@types/node": "^22",
+    "tsup": "^8.3.5",
     "tsx": "^4.23.15",
     "typescript": "^5.6.3"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "publishConfig": {
+    "access": "restricted",
+    "registry": "https://registry.npmjs.org/",
+    "types": "./dist/index.d.ts",
+    "main": "./dist/index.js",
+    "exports": {
+      ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" },
+      "./kit": { "types": "./dist/kit.d.ts", "import": "./dist/kit.js" },
+      "./authorize": { "types": "./dist/authorize.d.ts", "import": "./dist/authorize.js" },
+      "./config": { "types": "./dist/config.d.ts", "import": "./dist/config.js" },
+      "./bootstrap": { "types": "./dist/bootstrap.d.ts", "import": "./dist/bootstrap.js" },
+      "./audit-event": { "types": "./dist/audit-event.d.ts", "import": "./dist/audit-event.js" },
+      "./session": { "types": "./dist/session/index.d.ts", "import": "./dist/session/index.js" },
+      "./rbac": { "types": "./dist/rbac/index.d.ts", "import": "./dist/rbac/index.js" },
+      "./mfa": { "types": "./dist/mfa/index.d.ts", "import": "./dist/mfa/index.js" },
+      "./security": { "types": "./dist/security/index.d.ts", "import": "./dist/security/index.js" },
+      "./cache": { "types": "./dist/cache/index.d.ts", "import": "./dist/cache/index.js" },
+      "./credentials": { "types": "./dist/credentials.d.ts", "import": "./dist/credentials.js" },
+      "./adapter": { "types": "./dist/adapter.d.ts", "import": "./dist/adapter.js" },
+      "./password": { "types": "./dist/password.d.ts", "import": "./dist/password.js" },
+      "./password-policy": { "types": "./dist/password-policy.d.ts", "import": "./dist/password-policy.js" },
+      "./invite-token": { "types": "./dist/invite-token.d.ts", "import": "./dist/invite-token.js" },
+      "./safe-callback-url": { "types": "./dist/safe-callback-url.d.ts", "import": "./dist/safe-callback-url.js" },
+      "./constants": { "types": "./dist/constants.d.ts", "import": "./dist/constants.js" },
+      "./login-unlock": { "types": "./dist/login-unlock.d.ts", "import": "./dist/login-unlock.js" },
+      "./unlock-request": { "types": "./dist/unlock-request.d.ts", "import": "./dist/unlock-request.js" },
+      "./security/ip": { "types": "./dist/security/ip.d.ts", "import": "./dist/security/ip.js" },
+      "./security/allowlist": { "types": "./dist/security/allowlist.d.ts", "import": "./dist/security/allowlist.js" },
+      "./security/origin": { "types": "./dist/security/origin.d.ts", "import": "./dist/security/origin.js" },
+      "./security/csp": { "types": "./dist/security/csp.d.ts", "import": "./dist/security/csp.js" },
+      "./security/headers": { "types": "./dist/security/headers.d.ts", "import": "./dist/security/headers.js" },
+      "./security/scanner-paths": { "types": "./dist/security/scanner-paths.d.ts", "import": "./dist/security/scanner-paths.js" },
+      "./security/check-origin": { "types": "./dist/security/check-origin.d.ts", "import": "./dist/security/check-origin.js" },
+      "./security/request-device": { "types": "./dist/security/request-device.d.ts", "import": "./dist/security/request-device.js" },
+      "./cache/ratelimit": { "types": "./dist/cache/ratelimit.d.ts", "import": "./dist/cache/ratelimit.js" },
+      "./cache/memory": { "types": "./dist/cache/memory.d.ts", "import": "./dist/cache/memory.js" },
+      "./cache/redis": { "types": "./dist/cache/redis.d.ts", "import": "./dist/cache/redis.js" },
+      "./package.json": "./package.json"
+    }
   }
 }

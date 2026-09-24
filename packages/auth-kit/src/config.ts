@@ -86,7 +86,12 @@ export function createAuthConfig(deps: AuthConfigDeps): NextAuthConfig {
         if (user) {
           token.sub = user.id;
           token.sid = user.sid;
-          token.role = user.role;
+          // A consuming app's own ambient augmentation of next-auth's `User`
+          // (see next-auth.d.ts) may declare `role` narrower than this
+          // package's own `string`-typed default; cast to whatever the
+          // token's own merged type actually is, the same defensive pattern
+          // the `session` callback below already uses for the same reason.
+          token.role = user.role as typeof token.role;
           token.pwf = user.pwf;
           token.mfa = user.mfa ?? false;
         }
