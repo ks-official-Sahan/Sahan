@@ -1,5 +1,6 @@
- 
+
 import React, { useEffect, useRef, useState } from "react";
+import { useReducedMotion } from "framer-motion";
 
 interface MousePosition {
   x: number;
@@ -72,7 +73,17 @@ const ParticlesX: React.FC<ParticlesProps> = ({
   const mousePosition = MousePosition();
   const mouse = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const canvasSize = useRef<{ w: number; h: number }>({ w: 0, h: 0 });
-  const dpr = typeof window !== "undefined" ? window.devicePixelRatio : 1;
+  // Capped at 2: an uncapped devicePixelRatio (3 on many phones) quadruples
+  // the canvas pixel count for a background decoration nobody can tell apart
+  // from a 2x render, and it was the single biggest cost in this loop.
+  const dpr = typeof window !== "undefined" ? Math.min(window.devicePixelRatio || 1, 2) : 1;
+  const reducedMotion = useReducedMotion();
+  // Single source of truth the rAF loop checks every frame: paused by
+  // prefers-reduced-motion, the tab being hidden, or the canvas being
+  // scrolled off-screen. Initialized synchronously from reducedMotion (that
+  // hook resolves matchMedia during render, not in an effect) so the first
+  // frame never animates when reduced motion is already on.
+  const pausedRef = useRef(!!reducedMotion);
 
   /* eslint-disable react-hooks/exhaustive-deps */
 
@@ -81,13 +92,14 @@ const ParticlesX: React.FC<ParticlesProps> = ({
       context.current = canvasRef.current.getContext("2d");
     }
     initCanvas();
-    animate();
+    if (!pausedRef.current) animate();
     window.addEventListener("resize", initCanvas);
 
     return () => {
       window.removeEventListener("resize", initCanvas);
       if (animationFrameId.current) {
         cancelAnimationFrame(animationFrameId.current);
+        animationFrameId.current = null;
       }
     };
   }, [color]);
@@ -99,6 +111,56 @@ const ParticlesX: React.FC<ParticlesProps> = ({
   useEffect(() => {
     initCanvas();
   }, [refresh]);
+
+  // Pauses/resumes the rAF loop for prefers-reduced-motion, document
+  // visibility and on-screen presence, without tearing down or re-creating
+  // the canvas — resuming just picks the loop back up where it left off.
+  useEffect(() => {
+    const applyPauseState = (hidden: boolean, offscreen: boolean, reduced: boolean) => {
+      const shouldPause = hidden || offscreen || reduced;
+      if (shouldPause === pausedRef.current) return;
+      pausedRef.current = shouldPause;
+      if (shouldPause) {
+        if (animationFrameId.current) {
+          cancelAnimationFrame(animationFrameId.current);
+          animationFrameId.current = null;
+        }
+      } else if (animationFrameId.current === null) {
+        animate();
+      }
+    };
+
+    let hidden = typeof document !== "undefined" ? document.hidden : false;
+    let offscreen = false; // assume on-screen until the observer says otherwise
+
+    const handleVisibilityChange = () => {
+      hidden = document.hidden;
+      applyPauseState(hidden, offscreen, !!reducedMotion);
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    const container = canvasContainerRef.current;
+    let observer: IntersectionObserver | undefined;
+    if (container && typeof IntersectionObserver !== "undefined") {
+      observer = new IntersectionObserver(
+        ([entry]) => {
+          offscreen = !entry.isIntersecting;
+          applyPauseState(hidden, offscreen, !!reducedMotion);
+        },
+        { threshold: 0 }
+      );
+      observer.observe(container);
+    }
+
+    // Covers prefers-reduced-motion changing while the tab stays open, not
+    // just its value at mount.
+    applyPauseState(hidden, offscreen, !!reducedMotion);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      observer?.disconnect();
+    };
+  }, [reducedMotion]);
 
   const initCanvas = () => {
     resizeCanvas();
@@ -221,6 +283,13 @@ const ParticlesX: React.FC<ParticlesProps> = ({
   };
 
   const animate = () => {
+    if (pausedRef.current) {
+      // Self-terminating: whatever resumes the loop (applyPauseState above)
+      // calls animate() again itself, so this frame just stops rescheduling
+      // instead of looping forever in the background.
+      animationFrameId.current = null;
+      return;
+    }
     clearContext();
     circles.current.forEach((circle: Circle, i: number) => {
       // Handle the alpha value
