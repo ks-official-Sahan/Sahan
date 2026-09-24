@@ -7,6 +7,7 @@ import FinalCta from "@/components/home/FinalCta";
 import { SiteMetadata } from "@/config/site";
 import { getPageContent } from "@/lib/cms/loaders";
 import { getPosts, getPostBySlug, relatedPosts, type BlogPostView } from "@/lib/blog/queries";
+import { cloudinaryImageUrl, cloudinarySrcSet } from "@/lib/media/delivery";
 import { RSS_ALTERNATES } from "@/lib/metadata";
 import { jsonLdHtml } from "@/lib/seo/json-ld";
 
@@ -18,6 +19,9 @@ export const dynamicParams = true;
 
 /** An edit counts as an update worth showing only when it lands a day or more after publishing. */
 const UPDATE_THRESHOLD_MS = 24 * 60 * 60 * 1000;
+
+/** Cover widths for srcset: phone, phone at 2x, and the 720px column at 2x. */
+const COVER_WIDTHS = [480, 960, 1440] as const;
 
 const dayFormat = new Intl.DateTimeFormat("en-US", { day: "numeric", month: "long", year: "numeric" });
 
@@ -188,7 +192,10 @@ export default async function UpdatePostPage({ params }: { params: Promise<{ slu
             {post.coverUrl ? (
               // eslint-disable-next-line @next/next/no-img-element -- remote Cloudinary or LOCAL asset, not build-time optimized here
               <img
-                src={post.coverUrl}
+                src={cloudinaryImageUrl(post.coverUrl, { width: 1440 })}
+                srcSet={cloudinarySrcSet(post.coverUrl, COVER_WIDTHS)}
+                // The article column is at most 72ch (~720px) wide.
+                sizes="(min-width: 800px) 720px, 100vw"
                 alt={post.coverAlt || ""}
                 width={post.coverWidth}
                 height={post.coverHeight}

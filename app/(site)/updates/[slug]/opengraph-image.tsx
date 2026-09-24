@@ -2,6 +2,7 @@ import { ImageResponse } from "next/og";
 
 import { SiteMetadata } from "@/config/site";
 import { getPostBySlug, getPosts } from "@/lib/blog/queries";
+import { cloudinaryImageUrl } from "@/lib/media/delivery";
 
 // Per-post social card. Not a page — a sibling file-convention image next to
 // app/(site)/updates/[slug]/page.tsx (that page is owned by another stream;
@@ -38,7 +39,8 @@ export default async function Image({ params }: { params: Promise<{ slug: string
     return new ImageResponse(
       // eslint-disable-next-line @next/next/no-img-element -- next/og's Satori renderer, not next/image
       <img
-        src={post.coverUrl}
+        // Pre-cropped JPEG at card size: Satori cannot read AVIF/WebP, and the original may be many MB.
+        src={cloudinaryImageUrl(post.coverUrl, { ...size, format: "jpg" })}
         width={size.width}
         height={size.height}
         style={{ objectFit: "cover" }}
