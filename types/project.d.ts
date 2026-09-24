@@ -42,6 +42,8 @@ export interface ProjectImage {
   background?: string;
   /** CSS object-position for "cover", to keep the useful part in frame. */
   position?: string;
+  /** Set when the image was chosen from the media library, not typed in by hand. */
+  mediaId?: string;
 }
 
 export interface Project {
