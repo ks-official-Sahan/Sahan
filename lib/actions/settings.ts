@@ -6,7 +6,7 @@ import { headers } from "next/headers";
 import { authorizeAction } from "@/lib/actions/guard";
 import { done, fail, fieldErrorsFrom, type ActionState } from "@/lib/actions/state";
 import { auditPruneJob, blogPublishJob, sessionCleanupJob } from "@/lib/cron/jobs";
-import { audit } from "@/lib/admin/audit";
+import { auditSafe } from "@/lib/admin/audit";
 import { isIpAllowed, isValidAllowlistEntry } from "@/lib/security/allowlist";
 import { clientIp, UNKNOWN_IP } from "@/lib/security/ip";
 import {
@@ -68,7 +68,10 @@ export async function updateMaintenanceAction(_previous: ActionState, formData: 
   if (!parsed.success) return fail("Could not save maintenance mode.", fieldErrorsFrom(parsed.error.issues));
 
   await updateSetting("maintenance", parsed.data, authz.user);
-  await audit({
+  // updateSetting() already saved and audited the row transactionally; this
+  // is a second, higher-level event, so a failure here must not report the
+  // already-successful save as failed.
+  await auditSafe({
     action: "maintenance.toggled",
     actor: { id: authz.user.id, email: authz.user.email },
     entityType: "Setting",
@@ -142,7 +145,7 @@ export async function updateChatbotConfigAction(_previous: ActionState, formData
   if (!parsed.success) return fail("Could not save the chatbot configuration.", fieldErrorsFrom(parsed.error.issues));
 
   await updateSetting("chatbot.config", parsed.data, authz.user);
-  await audit({
+  await auditSafe({
     action: "chatbot.config.updated",
     actor: { id: authz.user.id, email: authz.user.email },
     entityType: "Setting",
@@ -191,7 +194,7 @@ export async function clearCacheAction(_previous: ActionState, _formData: FormDa
   if (!authz.ok) return fail(authz.error);
 
   await clearAllCaches();
-  await audit({
+  await auditSafe({
     action: "cache.cleared",
     actor: { id: authz.user.id, email: authz.user.email },
     entityType: "Setting",
@@ -225,7 +228,8 @@ export async function runCronJobAction(_previous: ActionState, formData: FormDat
 
   if (result.error) return fail(`${job} failed: ${result.error}`);
 
-  await audit({
+  // The job already ran; an audit failure must not report it as failed.
+  await auditSafe({
     action: "cron.ran",
     actor: { id: authz.user.id, email: authz.user.email },
     entityType: "CronJob",

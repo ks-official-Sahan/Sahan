@@ -103,26 +103,34 @@ export async function updateSetting<K extends SettingKey>(
   const before = await readSettingRaw(key);
 
   try {
-    await db.setting.upsert({
-      where: { key },
-      create: { key, value: validated, updatedById: actor.id },
-      update: { value: validated, updatedById: actor.id },
+    await db.$transaction(async (tx) => {
+      await tx.setting.upsert({
+        where: { key },
+        create: { key, value: validated, updatedById: actor.id },
+        update: { value: validated, updatedById: actor.id },
+      });
+
+      await audit(
+        {
+          action: "settings.updated",
+          actor: { id: actor.id, email: actor.email },
+          entityType: "Setting",
+          entityId: key,
+          before,
+          after: validated,
+        },
+        tx
+      );
     });
   } catch (err) {
     log.error("Failed to update setting", { key, error: String(err) });
     throw err;
   }
 
+  // KV mirror and cache invalidation run after the commit. A mirror failure
+  // is logged inside mirrorSettingToKv and never turns a successful save into
+  // a reported failure (see the module docstring above).
   await mirrorSettingToKv(key, validated);
-
-  await audit({
-    action: "settings.updated",
-    actor: { id: actor.id, email: actor.email },
-    entityType: "Setting",
-    entityId: key,
-    before,
-    after: validated,
-  });
 
   const plan = forSettings();
   invalidate({ tags: [...new Set([`settings:${key}`, "settings", ...plan.tags])], paths: plan.paths });

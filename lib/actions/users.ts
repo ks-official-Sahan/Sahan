@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
-import { audit } from "@/lib/admin/audit";
+import { audit, auditSafe } from "@/lib/admin/audit";
 import { done, fail, fieldErrorsFrom, formValues, type ActionState } from "@/lib/actions/state";
 import { authorizeAction } from "@/lib/actions/guard";
 import { INVITE_TTL_HOURS, RESET_TTL_MINUTES, createToken } from "@/lib/auth/invite-token";
@@ -323,7 +323,10 @@ export async function setDisabled(_previous: ActionState, formData: FormData): P
     if (disabled) {
       const ended = await revokeUserSessions(target.id, { userId: access.user.id, reason: "disabled" });
       if (ended.length > 0) {
-        await audit({
+        // The user was already disabled (transaction above committed) and
+        // their sessions already revoked; an audit failure here must not
+        // report that as a failed disable.
+        await auditSafe({
           action: "auth.session.revoked",
           actor: access.user,
           entityType: "User",

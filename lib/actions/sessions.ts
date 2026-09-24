@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 import { z } from "zod";
 
-import { audit } from "@/lib/admin/audit";
+import { auditSafe } from "@/lib/admin/audit";
 import { authorizeAction } from "@/lib/actions/guard";
 import { done, fail, formValues, type ActionState } from "@/lib/actions/state";
 import { canManage } from "@/lib/auth/rbac-rules";
@@ -44,7 +44,10 @@ export async function revokeSessionAction(_previous: ActionState, formData: Form
 
   const ended = await revokeSession(sid, { userId: user.id, reason: "revoked_by_admin" });
   if (ended) {
-    await audit({
+    // Session store mutation, not a DB transaction this file controls: an
+    // audit write failure here must not turn a successful revoke into a
+    // reported failure, so this uses auditSafe (logs and never throws).
+    await auditSafe({
       action: "auth.session.revoked",
       actor: user,
       entityType: "UserSession",
@@ -70,7 +73,7 @@ export async function forceLogoutUser(_previous: ActionState, formData: FormData
   if (!canManage(user, target)) return fail("You are not allowed to sign this user out.");
 
   const ended = await revokeUserSessions(target.id, { userId: user.id, reason: "force_logout" });
-  await audit({
+  await auditSafe({
     action: "auth.session.force_logout",
     actor: user,
     entityType: "User",
@@ -105,7 +108,7 @@ export async function forceLogoutEveryone(_previous: ActionState, formData: Form
     { userId: user.id, reason: "force_logout_all" },
     { exceptUserId: includeMine ? undefined : user.id }
   );
-  await audit({
+  await auditSafe({
     action: "auth.session.force_logout",
     actor: user,
     entityType: "User",

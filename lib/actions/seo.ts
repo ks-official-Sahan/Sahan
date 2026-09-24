@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { authorizeAction } from "@/lib/actions/guard";
 import { done, fail, type ActionState } from "@/lib/actions/state";
-import { audit } from "@/lib/admin/audit";
+import { auditSafe } from "@/lib/admin/audit";
 import { collectIndexableUrls, isIndexNowConfigured, pingIndexNowWithStatus } from "@/lib/seo/indexnow";
 import { regenerateLlmsTxt } from "@/lib/seo/llms-txt";
 
@@ -19,7 +19,10 @@ export async function regenerateLlmsTxtAction(_previous: ActionState, _formData:
   if (!authz.ok) return fail(authz.error);
 
   const content = await regenerateLlmsTxt(authz.user);
-  await audit({
+  // regenerateLlmsTxt() already saves and audits the underlying setting
+  // transactionally; this is a second, higher-level event, so an audit
+  // failure here must not report an already-successful regeneration as failed.
+  await auditSafe({
     action: "seo.llmsTxt.regenerated",
     actor: { id: authz.user.id, email: authz.user.email },
     entityType: "Setting",
@@ -38,7 +41,7 @@ export async function regenerateSitemapAction(_previous: ActionState, _formData:
   if (!authz.ok) return fail(authz.error);
 
   revalidatePath("/sitemap.xml");
-  await audit({
+  await auditSafe({
     action: "seo.sitemap.regenerated",
     actor: { id: authz.user.id, email: authz.user.email },
     entityType: "Setting",
@@ -56,7 +59,7 @@ export async function pingIndexNowAction(_previous: ActionState, _formData: Form
   const urls = await collectIndexableUrls();
   const result = await pingIndexNowWithStatus(urls);
 
-  await audit({
+  await auditSafe({
     action: "seo.indexnow.pinged",
     actor: { id: authz.user.id, email: authz.user.email },
     entityType: "Setting",

@@ -146,7 +146,9 @@ export async function changePassword(_previous: ActionState, formData: FormData)
     await unstable_update({ pwf: passwordFingerprint(passwordHash, secret()) });
     await invalidateSessionState(user.sid);
     if (ended.length > 0) {
-      await audit({
+      // Session store mutation already succeeded; an audit failure here must
+      // not turn a successful password change into a reported failure.
+      await auditSafe({
         action: "auth.session.revoked",
         actor: user,
         entityType: "User",
@@ -308,7 +310,8 @@ async function confirmMfa(purpose: "ENABLE" | "DISABLE", formData: FormData): Pr
       const ended = await revokeUserSessions(user.id, { userId: user.id, reason: "mfa_enabled" }, { exceptSid: user.sid });
       await db.userSession.update({ where: { id: user.sid }, data: { mfaVerified: true } });
       if (ended.length > 0) {
-        await audit({
+        // Same rule as above: the session revoke already happened.
+        await auditSafe({
           action: "auth.session.revoked",
           actor: user,
           entityType: "User",
@@ -359,7 +362,7 @@ export async function revokeMySession(_previous: ActionState, formData: FormData
 
   const ended = await revokeSession(sid, { userId: user.id, reason: "revoked_by_user" });
   if (ended) {
-    await audit({ action: "auth.session.revoked", actor: user, entityType: "UserSession", entityId: sid });
+    await auditSafe({ action: "auth.session.revoked", actor: user, entityType: "UserSession", entityId: sid });
   }
   revalidatePath(ACCOUNT_PATH);
   return done(ended ? "Session ended." : "That session had already ended.");
@@ -376,7 +379,7 @@ export async function revokeOtherSessions(_previous: ActionState, _formData: For
     { exceptSid: user.sid }
   );
   if (ended.length > 0) {
-    await audit({
+    await auditSafe({
       action: "auth.session.revoked",
       actor: user,
       entityType: "User",
