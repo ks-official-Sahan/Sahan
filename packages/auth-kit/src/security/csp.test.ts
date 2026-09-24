@@ -36,10 +36,19 @@ test("development adds eval and sockets, production does not", () => {
   assert.ok(!prod.includes("ws:"));
 });
 
-test("images and connections are limited to self and Cloudinary", () => {
-  const csp = buildCsp({ nonce: "n" });
-  assert.equal(directive(csp, "img-src"), "img-src 'self' data: blob: https://res.cloudinary.com");
-  assert.equal(directive(csp, "connect-src"), "connect-src 'self' https://api.cloudinary.com");
+test("images and connections default to self only, and widen with configured hosts", () => {
+  const bare = buildCsp({ nonce: "n" });
+  assert.equal(directive(bare, "img-src"), "img-src 'self' data: blob:");
+  assert.equal(directive(bare, "connect-src"), "connect-src 'self'");
+
+  const withHosts = buildCsp({ nonce: "n", imgHosts: ["https://res.cloudinary.com"], connectHosts: ["https://api.cloudinary.com"] });
+  assert.equal(directive(withHosts, "img-src"), "img-src 'self' data: blob: https://res.cloudinary.com");
+  assert.equal(directive(withHosts, "connect-src"), "connect-src 'self' https://api.cloudinary.com");
+});
+
+test("style-src keeps unsafe-inline by default and drops it when disabled", () => {
+  assert.equal(directive(buildCsp({ nonce: "n" }), "style-src"), "style-src 'self' 'unsafe-inline'");
+  assert.equal(directive(buildCsp({ nonce: "n", allowInlineStyles: false }), "style-src"), "style-src 'self'");
 });
 
 test("nonces are unique, base64 and long enough", () => {

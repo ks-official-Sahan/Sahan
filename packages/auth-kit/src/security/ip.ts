@@ -26,13 +26,30 @@ function valid(value: string | undefined | null): string | null {
 }
 
 /** 0 means no proxy is trusted. */
-function hops(env: Env): number {
+function hopsFromEnv(env: Env): number {
   const parsed = Number.parseInt(env.TRUSTED_PROXY_HOPS ?? "", 10);
   return Number.isInteger(parsed) && parsed >= 1 && parsed <= 10 ? parsed : 0;
 }
 
-export function clientIp(headers: HeaderReader, env: Env = process.env): string {
-  if (env.VERCEL) {
+export interface ClientIpOptions {
+  /**
+   * Trust Vercel's own `x-vercel-forwarded-for`/`x-real-ip` headers (the
+   * platform sets these itself, so they cannot be spoofed by a caller on
+   * Vercel). Defaults to auto-detecting `process.env.VERCEL`; pass this
+   * explicitly to make the decision config instead of environment-implicit.
+   */
+  trustVercel?: boolean;
+  /**
+   * How many trusted reverse proxies of your own append to `x-forwarded-for`.
+   * Defaults to `process.env.TRUSTED_PROXY_HOPS`. 0 (the default) means no
+   * proxy is trusted and every caller reads as `UNKNOWN_IP`.
+   */
+  hops?: number;
+}
+
+export function clientIp(headers: HeaderReader, options: ClientIpOptions = {}, env: Env = process.env): string {
+  const trustVercel = options.trustVercel ?? Boolean(env.VERCEL);
+  if (trustVercel) {
     const platform = [
       headers.get("x-vercel-forwarded-for"),
       headers.get("x-real-ip"),
@@ -45,7 +62,7 @@ export function clientIp(headers: HeaderReader, env: Env = process.env): string 
     return UNKNOWN_IP;
   }
 
-  const trusted = hops(env);
+  const trusted = options.hops ?? hopsFromEnv(env);
   if (trusted === 0) return UNKNOWN_IP;
   const entries = (headers.get("x-forwarded-for") ?? "").split(",");
   return valid(entries[entries.length - trusted]) ?? UNKNOWN_IP;
