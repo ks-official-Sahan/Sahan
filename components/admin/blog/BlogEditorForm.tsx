@@ -1,10 +1,11 @@
 "use client";
 
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 
 import ActionForm, { Field, SubmitButton } from "@/components/admin/ui/ActionForm";
 import type { ActionState } from "@/lib/actions/state";
-import { cardClass, fieldClass } from "@/components/admin/ui/styles";
+import { buttonVariants, cardClass, fieldClass } from "@/components/admin/ui/styles";
+import { draftStorageKey, isDraftNewer } from "@/lib/blog/draft";
 import { slugify } from "@/lib/blog/slug";
 import { cn } from "@/lib/utils";
 
@@ -36,6 +37,8 @@ export interface EditablePost {
   seoDescription: string;
   canonicalUrl: string;
   status?: "DRAFT" | "SCHEDULED" | "PUBLISHED" | "ARCHIVED";
+  /** ISO `updatedAt`, carried in a hidden field for updatePostAction's optimistic-concurrency check. Absent for a new, unsaved post. */
+  updatedAt?: string;
 }
 
 const EMPTY_POST: EditablePost = {
@@ -52,6 +55,67 @@ const EMPTY_POST: EditablePost = {
   canonicalUrl: "",
   status: "DRAFT",
 };
+
+// ─── Local autosave (browser-only; never sent to the server) ───────────────
+// Keyed per post id ("new" for the create form) via lib/blog/draft.ts's
+// draftStorageKey. Every access is wrapped in try/catch: private browsing,
+// disabled storage, or a full quota must never break the editor.
+
+interface StoredDraft {
+  title: string;
+  slug: string;
+  excerpt: string;
+  content: string;
+  topic: string;
+  tags: string[];
+  seoTitle: string;
+  seoDescription: string;
+  coverMediaId: string;
+  coverAlt: string;
+  coverSrc: string | null;
+  savedAt: string;
+}
+
+function readDraft(key: string): StoredDraft | null {
+  try {
+    const raw = window.localStorage.getItem(key);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<StoredDraft> | null;
+    if (!parsed || typeof parsed.savedAt !== "string" || typeof parsed.title !== "string") return null;
+    return parsed as StoredDraft;
+  } catch {
+    return null;
+  }
+}
+
+function writeDraft(key: string, draft: StoredDraft): void {
+  try {
+    window.localStorage.setItem(key, JSON.stringify(draft));
+  } catch {
+    // Private mode, disabled storage, or over quota — autosave is a nicety, not a requirement.
+  }
+}
+
+function clearDraft(key: string): void {
+  try {
+    window.localStorage.removeItem(key);
+  } catch {
+    // Same as above: never let a storage failure surface as an editor error.
+  }
+}
+
+// ─── SEO field counters ─────────────────────────────────────────────────────
+
+/** Live character counter with a soft warning colour outside the aim range. Never blocks input — the field's own `maxLength` is the hard cap. */
+function FieldCounter({ id, value, max, aim }: { id: string; value: string; max: number; aim?: { min?: number; max: number } }) {
+  const length = value.length;
+  const warn = aim ? length > aim.max || (aim.min !== undefined && length > 0 && length < aim.min) : false;
+  return (
+    <p id={id} className={cn("mt-1 text-right text-xs tabular-nums", warn ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground")}>
+      {length}/{max}
+    </p>
+  );
+}
 
 export default function BlogEditorForm({
   action,
@@ -78,6 +142,7 @@ export default function BlogEditorForm({
   statusPanel?: ReactNode;
 }) {
   const initial = post ?? EMPTY_POST;
+  const storageKey = draftStorageKey(post?.id);
 
   const [title, setTitle] = useState(initial.title);
   const [slug, setSlug] = useState(initial.slug);
@@ -96,6 +161,94 @@ export default function BlogEditorForm({
   const [generatedByAI, setGeneratedByAI] = useState(false);
   const [seoBusy, setSeoBusy] = useState(false);
   const [seoError, setSeoError] = useState<string | null>(null);
+
+  // Optimistic concurrency: re-armed with the fresh value updatePostAction
+  // returns after each successful save, so a second save right after the
+  // first is never falsely flagged as a conflict.
+  const [updatedAt, setUpdatedAt] = useState(initial.updatedAt ?? "");
+
+  // Unsaved-changes tracking: `dirty` gates both the beforeunload warning and
+  // whether autosave bothers writing. It flips true the first time any
+  // tracked field changes after mount (never on the initial render, which is
+  // just the loaded — or restored — values settling in) and back to false
+  // once a save succeeds.
+  const mountedRef = useRef(false);
+  const [dirty, setDirty] = useState(false);
+  const [pendingDraft, setPendingDraft] = useState<StoredDraft | null>(null);
+
+  useEffect(() => {
+    if (!mountedRef.current) {
+      mountedRef.current = true;
+      return;
+    }
+    setDirty(true);
+    const timer = setTimeout(() => {
+      writeDraft(storageKey, {
+        title,
+        slug,
+        excerpt,
+        content,
+        topic,
+        tags,
+        seoTitle,
+        seoDescription,
+        coverMediaId,
+        coverAlt,
+        coverSrc,
+        savedAt: new Date().toISOString(),
+      });
+    }, 1000);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- storageKey only changes with the post, not worth re-running for
+  }, [title, slug, excerpt, content, topic, tags, seoTitle, seoDescription, coverMediaId, coverAlt, coverSrc]);
+
+  // Offer a locally saved draft once, on mount, if it postdates what the
+  // server actually has (lib/blog/draft.ts's isDraftNewer).
+  useEffect(() => {
+    const stored = readDraft(storageKey);
+    if (stored && isDraftNewer(stored.savedAt, initial.updatedAt ?? null)) {
+      setPendingDraft(stored);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- run once, for the post this editor opened with
+  }, []);
+
+  // Warn only while there is something unsaved to lose.
+  useEffect(() => {
+    if (!dirty) return;
+    const warn = (event: BeforeUnloadEvent) => event.preventDefault();
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [dirty]);
+
+  function handleResult(state: ActionState) {
+    if (!state.ok) return;
+    if (state.updatedAt) setUpdatedAt(state.updatedAt);
+    clearDraft(storageKey);
+    setDirty(false);
+  }
+
+  function applyDraft() {
+    if (!pendingDraft) return;
+    setTitle(pendingDraft.title);
+    setSlug(pendingDraft.slug);
+    setSlugTouched(true);
+    setExcerpt(pendingDraft.excerpt);
+    setContent(pendingDraft.content);
+    setTopic(pendingDraft.topic);
+    setTags(pendingDraft.tags);
+    setSeoTitle(pendingDraft.seoTitle);
+    setSeoDescription(pendingDraft.seoDescription);
+    setCoverMediaId(pendingDraft.coverMediaId);
+    setCoverAlt(pendingDraft.coverAlt);
+    setCoverSrc(pendingDraft.coverSrc);
+    setDirty(true);
+    setPendingDraft(null);
+  }
+
+  function discardDraft() {
+    clearDraft(storageKey);
+    setPendingDraft(null);
+  }
 
   function handleTitleChange(value: string) {
     setTitle(value);
@@ -162,14 +315,31 @@ export default function BlogEditorForm({
   }
 
   return (
-    <ActionForm action={action} className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+    <ActionForm action={action} onResult={handleResult} className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
       {post?.id ? <input type="hidden" name="id" defaultValue={post.id} /> : null}
+      {post?.id ? <input type="hidden" name="updatedAt" value={updatedAt} /> : null}
       <input type="hidden" name="content" value={content} />
       <input type="hidden" name="topic" value={topic} />
       <input type="hidden" name="tags" value={tags.join(",")} />
       <input type="hidden" name="coverMediaId" value={coverMediaId} />
       <input type="hidden" name="coverAlt" value={coverAlt} />
       <input type="hidden" name="generatedByAI" value={generatedByAI ? "1" : "0"} />
+
+      {pendingDraft ? (
+        <div role="status" className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm lg:col-span-2">
+          <span>
+            You have unsaved changes from {new Date(pendingDraft.savedAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}.
+          </span>
+          <div className="flex gap-2">
+            <button type="button" onClick={applyDraft} className={buttonVariants.small}>
+              Restore unsaved draft
+            </button>
+            <button type="button" onClick={discardDraft} className={buttonVariants.small}>
+              Discard
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       {/* Left column */}
       <div className="space-y-6">
@@ -264,8 +434,10 @@ export default function BlogEditorForm({
             value={excerpt}
             onChange={(event) => setExcerpt(event.target.value)}
             maxLength={500}
+            aria-describedby="excerpt-counter"
             className={cn(fieldClass, "mt-1.5 min-h-20 py-2")}
           />
+          <FieldCounter id="excerpt-counter" value={excerpt} max={500} />
 
           <label htmlFor="seoTitle" className="mt-3 block text-sm font-medium">
             SEO title
@@ -277,8 +449,10 @@ export default function BlogEditorForm({
             onChange={(event) => setSeoTitle(event.target.value)}
             maxLength={70}
             placeholder="Defaults to post title"
+            aria-describedby="seoTitle-counter"
             className={cn(fieldClass, "mt-1.5")}
           />
+          <FieldCounter id="seoTitle-counter" value={seoTitle} max={70} aim={{ max: 60 }} />
 
           <label htmlFor="seoDescription" className="mt-3 block text-sm font-medium">
             SEO description
@@ -289,8 +463,19 @@ export default function BlogEditorForm({
             value={seoDescription}
             onChange={(event) => setSeoDescription(event.target.value)}
             maxLength={200}
+            aria-describedby="seoDescription-counter"
             className={cn(fieldClass, "mt-1.5 min-h-16 py-2")}
           />
+          <FieldCounter id="seoDescription-counter" value={seoDescription} max={200} aim={{ min: 120, max: 160 }} />
+
+          <div className="mt-3 rounded-md border border-border bg-muted/30 p-3">
+            <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Search result preview</p>
+            <p className="mt-1 truncate text-sm text-primary">{seoTitle || title || "Untitled post"}</p>
+            <p className="truncate text-xs text-muted-foreground">
+              {siteUrl}/updates/{slug || "…"}
+            </p>
+            <p className="mt-0.5 line-clamp-2 text-sm text-muted-foreground">{seoDescription || excerpt || "No description yet."}</p>
+          </div>
 
           <Field label="Canonical URL" name="canonicalUrl" defaultValue={initial.canonicalUrl} hint="Only needed if this post was published elsewhere first." className="mt-3" />
         </div>

@@ -5,7 +5,7 @@ import { ArrowLeft } from "lucide-react";
 import { hasPermission, requirePermission } from "@/lib/auth/dal";
 import { db } from "@/lib/db/prisma";
 import { SiteMetadata } from "@/config/site";
-import ActionForm, { SubmitButton } from "@/components/admin/ui/ActionForm";
+import ActionForm, { ConfirmSubmitButton, SubmitButton } from "@/components/admin/ui/ActionForm";
 import { badgeClass, buttonVariants, fieldClass } from "@/components/admin/ui/styles";
 import { deletePostAction, setPostStatusAction, updatePostAction } from "@/lib/actions/blog";
 
@@ -120,15 +120,20 @@ export default async function EditBlogPostPage({ params }: { params: Promise<{ i
           seoDescription: post.seoDescription ?? "",
           canonicalUrl: post.canonicalUrl ?? "",
           status: post.status,
+          updatedAt: post.updatedAt.toISOString(),
         }}
       />
 
       {canDelete ? (
         <ActionForm action={deletePostAction} className="border-t border-border pt-6">
           <input type="hidden" name="id" value={post.id} />
-          <SubmitButton variant="danger" pendingLabel="Deleting…">
+          <ConfirmSubmitButton
+            variant="danger"
+            pendingLabel="Deleting…"
+            confirmMessage={`Delete "${post.title}"? This cannot be undone.`}
+          >
             Delete post
-          </SubmitButton>
+          </ConfirmSubmitButton>
         </ActionForm>
       ) : null}
     </div>

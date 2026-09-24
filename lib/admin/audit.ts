@@ -44,23 +44,42 @@ async function requestContext(): Promise<{ ip?: string; userAgent?: string }> {
   }
 }
 
+export interface AuditManyClient {
+  auditLog: {
+    createMany(args: { data: Prisma.AuditLogCreateManyInput[] }): Promise<unknown>;
+  };
+}
+
+function row(event: AuditEvent, context: { ip?: string; userAgent?: string }): Prisma.AuditLogUncheckedCreateInput {
+  return {
+    action: event.action,
+    actorId: event.actor?.id ?? null,
+    actorEmail: event.actor?.email ?? null,
+    entityType: event.entityType,
+    entityId: event.entityId ?? null,
+    before: json(event.before),
+    after: json(event.after),
+    meta: json(event.meta),
+    ip: event.ip ?? context.ip ?? null,
+    userAgent: (event.userAgent ?? context.userAgent ?? null)?.slice(0, 512) ?? null,
+  };
+}
+
 /** Writes one row. Throws when the write fails. */
 export async function audit(event: AuditEvent, client: AuditClient = db): Promise<void> {
   const context = event.ip || event.userAgent ? {} : await requestContext();
-  await client.auditLog.create({
-    data: {
-      action: event.action,
-      actorId: event.actor?.id ?? null,
-      actorEmail: event.actor?.email ?? null,
-      entityType: event.entityType,
-      entityId: event.entityId ?? null,
-      before: json(event.before),
-      after: json(event.after),
-      meta: json(event.meta),
-      ip: event.ip ?? context.ip ?? null,
-      userAgent: (event.userAgent ?? context.userAgent ?? null)?.slice(0, 512) ?? null,
-    },
-  });
+  await client.auditLog.create({ data: row(event, context) });
+}
+
+/**
+ * Writes one row per event in a single insert, for bulk actions: inside an
+ * interactive transaction one round trip per row would add up fast (and can
+ * outrun the transaction timeout). Throws when the write fails.
+ */
+export async function auditMany(events: AuditEvent[], client: AuditManyClient = db): Promise<void> {
+  if (events.length === 0) return;
+  const context = await requestContext();
+  await client.auditLog.createMany({ data: events.map((event) => row(event, context)) });
 }
 
 /**

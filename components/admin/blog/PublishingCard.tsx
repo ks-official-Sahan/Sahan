@@ -100,6 +100,7 @@ export default function PublishingCard({
           value={topic}
           onChange={(event) => onTopicChange(event.target.value)}
           placeholder="Or type a new category"
+          aria-label="Category"
           maxLength={50}
         />
       </div>
@@ -117,9 +118,14 @@ export default function PublishingCard({
               <ChipToggle key={tag} label={tag} active={false} onClick={() => addTag(tag)} />
             ))}
         </div>
+        {/* Native datalist: keyboard-accessible autocomplete from every tag already
+            in use, without a bespoke combobox widget (existing tags also come pre-
+            suggested as chips above). */}
         <input
           className={cn(fieldClass, "mt-2")}
           placeholder="Type a tag and press Enter"
+          aria-label="Add a tag"
+          list="tag-suggestions"
           maxLength={30}
           onKeyDown={(event) => {
             if (event.key !== "Enter" && event.key !== ",") return;
@@ -128,6 +134,13 @@ export default function PublishingCard({
             event.currentTarget.value = "";
           }}
         />
+        <datalist id="tag-suggestions">
+          {existingTags
+            .filter((tag) => !tags.includes(tag))
+            .map((tag) => (
+              <option key={tag} value={tag} />
+            ))}
+        </datalist>
       </div>
 
       {statusPanel ? (

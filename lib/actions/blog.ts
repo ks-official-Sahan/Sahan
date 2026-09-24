@@ -6,13 +6,14 @@ import { redirect } from "next/navigation";
 import { authorizeAction } from "@/lib/actions/guard";
 import type { ActionState } from "@/lib/actions/state";
 import { done, fail, fieldErrorsFrom } from "@/lib/actions/state";
-import { audit } from "@/lib/admin/audit";
+import { audit, auditMany } from "@/lib/admin/audit";
 import { hasPermission } from "@/lib/auth/dal";
 import { invalidate } from "@/lib/cache/invalidate";
 import { forPost, forPostList } from "@/lib/cache/plan";
 import { db } from "@/lib/db/prisma";
 import { extractText, sanitizeRich } from "@/lib/cms/rich-text";
 import { postInputSchema, publishActionSchema } from "@/lib/blog/schema";
+import { parseSubmittedUpdatedAt, UPDATE_CONFLICT_MESSAGE } from "@/lib/blog/concurrency";
 import { computeReadMinutes } from "@/lib/blog/readtime";
 import { log } from "@/lib/log";
 
@@ -26,6 +27,19 @@ import { log } from "@/lib/log";
 // call that commits the change.
 
 const ADMIN_LIST_PATH = "/admin/blog";
+
+/** Thrown inside updatePostAction's transaction when the conditional
+ * `updateMany` touches zero rows — someone else changed the post since the
+ * editor loaded it. Caught by the surrounding try/catch, same "abort the
+ * transaction with a typed reason" idiom as lib/cms/service.ts's `Abort`. */
+class UpdateConflictError extends Error {}
+
+/** True for a Prisma unique-constraint violation (P2002) — used to map a
+ * slug collision to a field error instead of a 500, whether it came from the
+ * slugTaken() pre-check missing a race or a row edited directly elsewhere. */
+function isUniqueConstraintError(error: unknown): boolean {
+  return Boolean(error && typeof error === "object" && (error as { code?: string }).code === "P2002");
+}
 
 function computed(content: string) {
   const contentHtml = sanitizeRich(content);
@@ -129,6 +143,9 @@ export async function createPostAction(_previous: ActionState, formData: FormDat
     revalidatePath(ADMIN_LIST_PATH);
     createdId = created.id;
   } catch (error) {
+    if (isUniqueConstraintError(error)) {
+      return fail("Some fields need attention.", { slug: "This slug is already in use." });
+    }
     log.error("create post failed", { error: error instanceof Error ? error.message : String(error) });
     return fail("Something went wrong. Please try again.");
   }
@@ -149,12 +166,27 @@ export async function previewPostHtmlAction(html: string): Promise<string> {
   return sanitizeRich(typeof html === "string" ? html.slice(0, 200_000) : "");
 }
 
+/**
+ * Optimistic concurrency (docs/plan/admin-cms-adr.md, Step 12 hardening): the
+ * edit form carries the post's `updatedAt` in a hidden field
+ * (BlogEditorForm), and the actual write is conditional on that timestamp
+ * still matching — `updateMany` inside the transaction, never a plain
+ * `update`, so a save that lands after someone else's edit touches zero rows
+ * instead of overwriting their text. On a conflict, no audit row is written
+ * (the transaction throws before reaching audit()) and the caller's typed
+ * text is untouched — ActionForm's own state keeps it.
+ */
 export async function updatePostAction(_previous: ActionState, formData: FormData): Promise<ActionState> {
   const auth = await authorizeAction("editBlog");
   if (!auth.ok) return fail(auth.error);
 
   const id = String(formData.get("id") ?? "");
   if (!id) return fail("Post ID is required.");
+
+  const submittedUpdatedAt = parseSubmittedUpdatedAt(formData.get("updatedAt"));
+  if (!submittedUpdatedAt) {
+    return fail("Missing version info. Reload the page and try again.");
+  }
 
   const parsed = postInputSchema.safeParse(payloadFrom(formData));
   if (!parsed.success) return fail("Some fields need attention.", fieldErrorsFrom(parsed.error.issues));
@@ -169,8 +201,8 @@ export async function updatePostAction(_previous: ActionState, formData: FormDat
 
     const extra = computed(parsed.data.content);
     const updated = await db.$transaction(async (tx) => {
-      const row = await tx.post.update({
-        where: { id },
+      const result = await tx.post.updateMany({
+        where: { id, updatedAt: submittedUpdatedAt },
         data: {
           slug: parsed.data.slug,
           title: parsed.data.title,
@@ -188,6 +220,9 @@ export async function updatePostAction(_previous: ActionState, formData: FormDat
           canonicalUrl: parsed.data.canonicalUrl || null,
         },
       });
+      if (result.count !== 1) throw new UpdateConflictError();
+
+      const row = await tx.post.findUniqueOrThrow({ where: { id } });
       await audit(
         { action: "post.updated", actor: auth.user, entityType: "Post", entityId: id, before, after: row },
         tx
@@ -202,11 +237,34 @@ export async function updatePostAction(_previous: ActionState, formData: FormDat
       if (updated.slug !== before.slug) invalidate(forPost(updated.slug));
     }
     revalidatePath(ADMIN_LIST_PATH);
-    return done("Post updated.");
+    // The fresh updatedAt travels back so the form can re-arm its hidden
+    // field — otherwise a second save right after this one would report a
+    // false conflict against the timestamp it just made stale itself.
+    return { ...done("Post updated."), updatedAt: updated.updatedAt.toISOString() };
   } catch (error) {
+    if (error instanceof UpdateConflictError) return fail(UPDATE_CONFLICT_MESSAGE);
+    if (isUniqueConstraintError(error)) {
+      return fail("Some fields need attention.", { slug: "This slug is already in use." });
+    }
     log.error("update post failed", { error: error instanceof Error ? error.message : String(error) });
     return fail("Something went wrong. Please try again.");
   }
+}
+
+/** Deletes one post (audit row in the same transaction) and invalidates the
+ * public cache if it was ever visible. Shared by deletePostAction and
+ * bulkDeletePostsAction, same split as applyStatus/setPostStatusAction. */
+async function deleteOne(id: string, actor: { id: string; email: string }): Promise<boolean> {
+  const before = await db.post.findUnique({ where: { id } });
+  if (!before) return false;
+
+  await db.$transaction(async (tx) => {
+    await tx.post.delete({ where: { id } });
+    await audit({ action: "post.deleted", actor, entityType: "Post", entityId: id, before, after: null }, tx);
+  });
+
+  if (before.status === "PUBLISHED" || before.status === "SCHEDULED") invalidate(forPost(before.slug));
+  return true;
 }
 
 export async function deletePostAction(_previous: ActionState, formData: FormData): Promise<ActionState> {
@@ -217,18 +275,9 @@ export async function deletePostAction(_previous: ActionState, formData: FormDat
   if (!id) return fail("Post ID is required.");
 
   try {
-    const before = await db.post.findUnique({ where: { id } });
-    if (!before) return fail("Post not found.");
+    const deleted = await deleteOne(id, auth.user);
+    if (!deleted) return fail("Post not found.");
 
-    await db.$transaction(async (tx) => {
-      await tx.post.delete({ where: { id } });
-      await audit(
-        { action: "post.deleted", actor: auth.user, entityType: "Post", entityId: id, before, after: null },
-        tx
-      );
-    });
-
-    if (before.status === "PUBLISHED" || before.status === "SCHEDULED") invalidate(forPost(before.slug));
     revalidatePath(ADMIN_LIST_PATH);
     return done("Post deleted.");
   } catch (error) {
@@ -237,9 +286,29 @@ export async function deletePostAction(_previous: ActionState, formData: FormDat
   }
 }
 
+type StatusAction = "publish" | "schedule" | "unpublish" | "archive";
+
+const STATUS_AUDIT_ACTION: Record<StatusAction, string> = {
+  publish: "post.published",
+  schedule: "post.scheduled",
+  unpublish: "post.unpublished",
+  archive: "post.archived",
+};
+
+/** The columns a status change writes. */
+function statusData(action: StatusAction, publishAt: Date | null) {
+  return action === "publish"
+    ? { status: "PUBLISHED" as const, publishAt: null, publishedAt: new Date() }
+    : action === "schedule"
+      ? { status: "SCHEDULED" as const, publishAt, publishedAt: null }
+      : action === "unpublish"
+        ? { status: "DRAFT" as const, publishAt: null, publishedAt: null }
+        : { status: "ARCHIVED" as const, publishAt: null };
+}
+
 async function applyStatus(
   id: string,
-  action: "publish" | "schedule" | "unpublish" | "archive",
+  action: StatusAction,
   publishAt: Date | null,
   actor: { id: string; email: string }
 ): Promise<ActionState> {
@@ -247,27 +316,13 @@ async function applyStatus(
     const before = await db.post.findUnique({ where: { id } });
     if (!before) return fail("Post not found.");
 
-    const data =
-      action === "publish"
-        ? { status: "PUBLISHED" as const, publishAt: null, publishedAt: new Date() }
-        : action === "schedule"
-          ? { status: "SCHEDULED" as const, publishAt, publishedAt: null }
-          : action === "unpublish"
-            ? { status: "DRAFT" as const, publishAt: null, publishedAt: null }
-            : { status: "ARCHIVED" as const, publishAt: null };
+    const data = statusData(action, publishAt);
 
     const updated = await db.$transaction(async (tx) => {
       const row = await tx.post.update({ where: { id }, data });
       await audit(
         {
-          action:
-            action === "publish"
-              ? "post.published"
-              : action === "schedule"
-                ? "post.scheduled"
-                : action === "unpublish"
-                  ? "post.unpublished"
-                  : "post.archived",
+          action: STATUS_AUDIT_ACTION[action],
           actor,
           entityType: "Post",
           entityId: id,
@@ -323,32 +378,108 @@ export async function setPostStatusAction(_previous: ActionState, formData: Form
 
 const MAX_BULK = 100;
 
-export async function bulkPostStatusAction(_previous: ActionState, formData: FormData): Promise<ActionState> {
-  const auth = await authorizeAction("publishBlog");
-  if (!auth.ok) return fail(auth.error);
-
-  const actionParsed = publishActionSchema.safeParse(formData.get("action"));
+/** Shared by every bulk action: the `ids` hidden field is a JSON array of
+ * strings, capped at MAX_BULK. `fail(...)` on anything else, else the list. */
+function parseBulkIds(formData: FormData): { ok: true; ids: string[] } | { ok: false; state: ActionState } {
   const idsRaw = String(formData.get("ids") ?? "");
-  if (!actionParsed.success || actionParsed.data === "schedule") {
-    return fail("Bulk schedule is not supported; open each post to schedule it.");
-  }
-
   let ids: string[];
   try {
     ids = JSON.parse(idsRaw);
     if (!Array.isArray(ids) || ids.some((id) => typeof id !== "string")) throw new Error("bad shape");
   } catch {
-    return fail("Invalid selection.");
+    return { ok: false, state: fail("Invalid selection.") };
   }
-  if (ids.length === 0) return fail("Select at least one post.");
-  if (ids.length > MAX_BULK) return fail(`Select ${MAX_BULK} posts or fewer at a time.`);
+  if (ids.length === 0) return { ok: false, state: fail("Select at least one post.") };
+  if (ids.length > MAX_BULK) return { ok: false, state: fail(`Select ${MAX_BULK} posts or fewer at a time.`) };
+  return { ok: true, ids };
+}
 
-  let changed = 0;
-  for (const id of ids) {
-    const result = await applyStatus(id, actionParsed.data, null, auth.user);
-    if (result.ok) changed += 1;
+export async function bulkPostStatusAction(_previous: ActionState, formData: FormData): Promise<ActionState> {
+  const auth = await authorizeAction("publishBlog");
+  if (!auth.ok) return fail(auth.error);
+
+  const actionParsed = publishActionSchema.safeParse(formData.get("action"));
+  if (!actionParsed.success || actionParsed.data === "schedule") {
+    return fail("Bulk schedule is not supported; open each post to schedule it.");
   }
 
-  revalidatePath(ADMIN_LIST_PATH);
-  return done(`Updated ${changed} of ${ids.length} posts.`);
+  const parsedIds = parseBulkIds(formData);
+  if (!parsedIds.ok) return parsedIds.state;
+
+  // One read, one write and one audit insert for the whole selection (not
+  // three round trips per post), all or nothing in a single transaction.
+  const action = actionParsed.data;
+  try {
+    const befores = await db.post.findMany({ where: { id: { in: parsedIds.ids } } });
+    if (befores.length === 0) return fail("None of the selected posts exist any more.");
+    const data = statusData(action, null);
+    const ids = befores.map((post) => post.id);
+
+    await db.$transaction(async (tx) => {
+      await tx.post.updateMany({ where: { id: { in: ids } }, data });
+      await auditMany(
+        befores.map((before) => ({
+          action: STATUS_AUDIT_ACTION[action],
+          actor: auth.user,
+          entityType: "Post",
+          entityId: before.id,
+          before,
+          after: { ...before, ...data },
+        })),
+        tx
+      );
+    });
+
+    // Anything that was or now is public needs its pages refreshed.
+    for (const before of befores) {
+      if (before.status === "PUBLISHED" || data.status === "PUBLISHED") invalidate(forPost(before.slug));
+    }
+    revalidatePath(ADMIN_LIST_PATH);
+    return done(`Updated ${befores.length} of ${parsedIds.ids.length} posts.`);
+  } catch (error) {
+    log.error("bulk post status change failed", { error: error instanceof Error ? error.message : String(error), action });
+    return fail("Something went wrong. Nothing was changed.");
+  }
+}
+
+/** Deletes several posts at once (the confirmed selection from
+ * BlogListClient's bulk toolbar). Requires deleteBlog, same as the
+ * single-post delete on the edit page — publishBlog alone (bulkPostStatusAction's
+ * gate) must not be able to destroy rows. */
+export async function bulkDeletePostsAction(_previous: ActionState, formData: FormData): Promise<ActionState> {
+  const auth = await authorizeAction("deleteBlog");
+  if (!auth.ok) return fail(auth.error);
+
+  const parsedIds = parseBulkIds(formData);
+  if (!parsedIds.ok) return parsedIds.state;
+
+  // Same shape as the bulk status change: one read, one delete, one audit insert.
+  try {
+    const befores = await db.post.findMany({ where: { id: { in: parsedIds.ids } } });
+    if (befores.length === 0) return fail("None of the selected posts exist any more.");
+
+    await db.$transaction(async (tx) => {
+      await tx.post.deleteMany({ where: { id: { in: befores.map((post) => post.id) } } });
+      await auditMany(
+        befores.map((before) => ({
+          action: "post.deleted",
+          actor: auth.user,
+          entityType: "Post",
+          entityId: before.id,
+          before,
+          after: null,
+        })),
+        tx
+      );
+    });
+
+    for (const before of befores) {
+      if (before.status === "PUBLISHED" || before.status === "SCHEDULED") invalidate(forPost(before.slug));
+    }
+    revalidatePath(ADMIN_LIST_PATH);
+    return done(`Deleted ${befores.length} of ${parsedIds.ids.length} posts.`);
+  } catch (error) {
+    log.error("bulk delete posts failed", { error: error instanceof Error ? error.message : String(error) });
+    return fail("Something went wrong. Nothing was deleted.");
+  }
 }

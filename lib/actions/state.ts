@@ -12,6 +12,14 @@ export interface ActionState {
   fieldErrors?: Record<string, string>;
   /** Set by the first step of a two step action (a code was emailed). */
   challengeId?: string;
+  /**
+   * ISO `updatedAt` after a successful save that carries a fresh version
+   * forward (lib/actions/blog.ts's updatePostAction, for optimistic
+   * concurrency) — so the form's hidden field can be re-armed without a
+   * reload, and a second save right after the first does not falsely
+   * conflict with itself.
+   */
+  updatedAt?: string;
 }
 
 export const idleState: ActionState = { ok: false, message: null, error: null };
