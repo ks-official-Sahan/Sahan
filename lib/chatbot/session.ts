@@ -3,6 +3,8 @@ import "server-only";
 import { db } from "@/lib/db/prisma";
 import type { ChatSession, ChatMessage } from "@prisma/client";
 
+import type { ChatSessionSummary } from "./session-summaries";
+
 // Session management for chat: create/read sessions, add messages, track lead capture.
 
 export interface CreateSessionInput {
@@ -38,21 +40,23 @@ export async function upsertSession(input: CreateSessionInput): Promise<ChatSess
 }
 
 export async function addMessage(input: AddMessageInput): Promise<ChatMessage> {
-  // Increment message count
-  await db.chatSession.update({
-    where: { sessionId: input.sessionId },
-    data: { messagesCount: { increment: 1 } },
-  });
-
-  return db.chatMessage.create({
-    data: {
-      sessionId: input.sessionId,
-      role: input.role,
-      content: input.content,
-      tokens: input.tokens || null,
-      latencyMs: input.latencyMs || null,
-    },
-  });
+  // The count bump and the insert are independent: one round trip of latency, not two.
+  const [, message] = await Promise.all([
+    db.chatSession.update({
+      where: { sessionId: input.sessionId },
+      data: { messagesCount: { increment: 1 } },
+    }),
+    db.chatMessage.create({
+      data: {
+        sessionId: input.sessionId,
+        role: input.role,
+        content: input.content,
+        tokens: input.tokens || null,
+        latencyMs: input.latencyMs || null,
+      },
+    }),
+  ]);
+  return message;
 }
 
 export async function getSession(sessionId: string): Promise<SessionWithMessages | null> {
@@ -94,21 +98,20 @@ export async function linkInquiry(sessionId: string, inquiryId: string): Promise
   });
 }
 
-export async function listSessions(options?: {
-  limit?: number;
-  offset?: number;
-  withInquiry?: boolean;
-}): Promise<SessionWithMessages[]> {
-  const limit = options?.limit ?? 50;
-  const offset = options?.offset ?? 0;
-
-  const where = options?.withInquiry ? { inquiryId: { not: null } } : {};
-
-  return db.chatSession.findMany({
-    where,
-    include: { messages: true },
+/** One page of the admin conversations list, newest first, in a single query with no message bodies. */
+export async function listSessionSummaries(options: { limit: number; offset: number }): Promise<ChatSessionSummary[]> {
+  const rows = await db.chatSession.findMany({
+    select: {
+      id: true,
+      sessionId: true,
+      messagesCount: true,
+      createdAt: true,
+      capturedLead: true,
+      inquiry: { select: { id: true, email: true, status: true } },
+    },
     orderBy: { createdAt: "desc" },
-    take: limit,
-    skip: offset,
+    take: options.limit,
+    skip: options.offset,
   });
+  return rows.map((row) => ({ ...row, createdAt: row.createdAt.toISOString() }));
 }

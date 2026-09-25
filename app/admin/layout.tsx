@@ -5,6 +5,7 @@ import { headers } from "next/headers";
 
 import { ThemeProvider } from "@/components/theme/ThemeProvider";
 import { MantineSyncProvider } from "@/components/theme/MantineSyncProvider";
+import { AdminQueryProvider } from "@/lib/cache/react-query";
 
 // No DOM, no metadata, no site chrome. It forces dynamic rendering, which the
 // nonce based CSP needs, and mounts the theme provider with that nonce: the
@@ -30,7 +31,9 @@ export default async function AdminLayout({
 
   return (
     <ThemeProvider nonce={nonce} enableSystem attribute="class" defaultTheme="dark">
-      <MantineSyncProvider>{children}</MantineSyncProvider>
+      <MantineSyncProvider>
+        <AdminQueryProvider>{children}</AdminQueryProvider>
+      </MantineSyncProvider>
     </ThemeProvider>
   );
 }

@@ -1,100 +1,94 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
 
 import ActionForm, { ConfirmSubmitButton, SubmitButton } from "@/components/admin/ui/ActionForm";
 import { badgeClass, buttonVariants, fieldClass, tableClass, tdClass, thClass } from "@/components/admin/ui/styles";
 import type { ActionState } from "@/lib/actions/state";
 import { bulkDeletePostsAction, bulkPostStatusAction } from "@/lib/actions/blog";
+import { useAdminBlogPosts, useInvalidateAdminBlogPosts } from "@/lib/admin/hooks/use-blog-posts";
+import {
+  ADMIN_POST_STATUS_FILTERS,
+  ADMIN_POSTS_PAGE_SIZE,
+  adminPostListSearch,
+  parseAdminPostListParams,
+  type AdminPostListParams,
+  type AdminPostRow,
+  type AdminPostStatusFilter,
+} from "@/lib/blog/admin-list-params";
 import { cn } from "@/lib/utils";
 
-export interface BlogListRow {
-  id: string;
-  slug: string;
-  title: string;
-  topic: string;
-  status: "DRAFT" | "SCHEDULED" | "PUBLISHED" | "ARCHIVED";
-  publishAt: string | null;
-  publishedAt: string | null;
-  updatedAt: string;
-}
+export type BlogListRow = AdminPostRow;
 
-const STATUS_LABEL: Record<BlogListRow["status"], string> = {
+const STATUS_LABEL: Record<AdminPostStatusFilter, string> = {
+  all: "All statuses",
   DRAFT: "Draft",
   SCHEDULED: "Scheduled",
   PUBLISHED: "Published",
   ARCHIVED: "Archived",
 };
 
-export default function BlogListClient({
-  posts,
-  canPublish,
-  canDelete,
-  q,
-  page,
-  totalPages,
-  total,
-}: {
-  /** One page (up to 20 rows) from the server, already title-filtered by `q`. */
-  posts: BlogListRow[];
-  canPublish: boolean;
-  canDelete: boolean;
-  q: string;
-  page: number;
-  totalPages: number;
-  total: number;
-}) {
-  const router = useRouter();
+const SEARCH_DEBOUNCE_MS = 300;
+const EMPTY_SELECTION: ReadonlySet<string> = new Set();
+
+// The URL (?page, ?q, ?status) is the list's only state, so a filtered view
+// can be bookmarked and Back works. Changes go through history.pushState /
+// replaceState, which Next's router syncs into useSearchParams without a
+// server round trip; React Query then fetches just the list JSON.
+function navigate(params: AdminPostListParams, mode: "push" | "replace") {
+  const search = adminPostListSearch(params);
+  const url = search ? `?${search}` : window.location.pathname;
+  if (mode === "push") window.history.pushState(null, "", url);
+  else window.history.replaceState(null, "", url);
+}
+
+export default function BlogListClient({ canPublish, canDelete }: { canPublish: boolean; canDelete: boolean }) {
   const searchParams = useSearchParams();
+  const params = useMemo(() => parseAdminPostListParams(searchParams), [searchParams]);
 
-  const [searchInput, setSearchInput] = useState(q);
-  const [status, setStatus] = useState<"all" | BlogListRow["status"]>("all");
-  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const { data, isFetching, isError, error } = useAdminBlogPosts(params);
+  const invalidate = useInvalidateAdminBlogPosts();
+  const posts = useMemo(() => data?.posts ?? [], [data]);
+  const total = data?.total ?? 0;
+  const totalPages = data?.totalPages ?? 1;
 
-  // Debounced (~400ms) push of `q` into the URL, so the server re-runs the
-  // title search without a full-page reload on every keystroke.
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  // Both are keyed to the URL they were made against, so Back/Forward or a new
+  // filter resets them during render instead of through an effect.
+  const urlKey = adminPostListSearch(params);
+  const [search, setSearch] = useState({ q: params.q, value: params.q });
+  const searchInput = search.q === params.q ? search.value : params.q;
+  const [selection, setSelection] = useState({ key: urlKey, ids: new Set<string>() });
+  const selected = selection.key === urlKey ? selection.ids : EMPTY_SELECTION;
+
+  // Typing replaces the history entry (no Back step per keystroke) once it pauses.
   useEffect(() => {
-    if (searchInput === q) return;
-    clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => {
-      const params = new URLSearchParams(searchParams);
-      if (searchInput) params.set("q", searchInput);
-      else params.delete("q");
-      params.set("page", "1");
-      router.push(`/admin/blog?${params.toString()}`);
-    }, 400);
-    return () => clearTimeout(debounceRef.current);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- only the typed value should re-arm the debounce
-  }, [searchInput]);
+    const q = searchInput.trim();
+    if (q === params.q) return;
+    const timer = setTimeout(() => navigate({ ...params, q, page: 1 }, "replace"), SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [searchInput, params]);
 
-  const goToPage = (newPage: number) => {
-    const params = new URLSearchParams(searchParams);
-    params.set("page", String(newPage));
-    router.push(`/admin/blog?${params.toString()}`);
+  const setSelected = (ids: Set<string>) => setSelection({ key: urlKey, ids });
+
+  const toggle = (id: string) => {
+    const next = new Set(selected);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setSelected(next);
   };
 
-  // Status stays a client-side refinement over the current page of results
-  // (server-side pagination/search covers `page` and `q` only).
-  const visible = useMemo(() => posts.filter((post) => status === "all" || post.status === status), [posts, status]);
-
-  const toggle = (id: string) =>
-    setSelected((current) => {
-      const next = new Set(current);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-
-  const toggleAll = () =>
-    setSelected((current) => (current.size === visible.length ? new Set() : new Set(visible.map((post) => post.id))));
+  const toggleAll = () => setSelected(selected.size === posts.length ? new Set() : new Set(posts.map((post) => post.id)));
 
   const idsJson = JSON.stringify([...selected]);
-  const clearSelection = (state: ActionState) => {
-    if (state.ok) setSelected(new Set());
+  const afterBulkAction = (state: ActionState) => {
+    if (!state.ok) return;
+    setSelected(new Set());
+    void invalidate();
   };
+
+  const firstRow = posts.length === 0 ? 0 : (params.page - 1) * ADMIN_POSTS_PAGE_SIZE + 1;
 
   return (
     <div className="space-y-4">
@@ -102,31 +96,39 @@ export default function BlogListClient({
         <input
           type="search"
           value={searchInput}
-          onChange={(event) => setSearchInput(event.target.value)}
+          onChange={(event) => setSearch({ q: params.q, value: event.target.value })}
           placeholder="Search title"
           aria-label="Search posts by title"
           className={cn(fieldClass, "max-w-xs")}
         />
         <select
-          value={status}
-          onChange={(event) => setStatus(event.target.value as typeof status)}
+          value={params.status}
+          onChange={(event) => navigate({ ...params, status: event.target.value as AdminPostStatusFilter, page: 1 }, "push")}
           aria-label="Filter by status"
           className={fieldClass}
         >
-          <option value="all">All statuses</option>
-          {(Object.keys(STATUS_LABEL) as Array<BlogListRow["status"]>).map((value) => (
+          {ADMIN_POST_STATUS_FILTERS.map((value) => (
             <option key={value} value={value}>
               {STATUS_LABEL[value]}
             </option>
           ))}
         </select>
+        <span aria-live="polite" className="text-xs text-muted-foreground">
+          {isFetching ? "Updating…" : ""}
+        </span>
       </div>
+
+      {isError ? (
+        <p role="alert" className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm">
+          {error instanceof Error ? error.message : "Could not load posts."}
+        </p>
+      ) : null}
 
       {selected.size > 0 ? (
         <div className="flex flex-wrap items-center gap-2 rounded-md border border-border bg-muted/40 p-3">
           <span className="text-sm text-muted-foreground">{selected.size} selected</span>
           {canPublish ? (
-            <ActionForm action={bulkPostStatusAction} onResult={clearSelection} className="flex flex-wrap items-center gap-2">
+            <ActionForm action={bulkPostStatusAction} onResult={afterBulkAction} className="flex flex-wrap items-center gap-2">
               <input type="hidden" name="ids" value={idsJson} />
               <SubmitButton name="action" value="publish" variant="small" pendingLabel="Working…">
                 Publish
@@ -140,7 +142,7 @@ export default function BlogListClient({
             </ActionForm>
           ) : null}
           {canDelete ? (
-            <ActionForm action={bulkDeletePostsAction} onResult={clearSelection} className="flex items-center gap-2">
+            <ActionForm action={bulkDeletePostsAction} onResult={afterBulkAction} className="flex items-center gap-2">
               <input type="hidden" name="ids" value={idsJson} />
               <ConfirmSubmitButton
                 variant="smallDanger"
@@ -154,16 +156,16 @@ export default function BlogListClient({
         </div>
       ) : null}
 
-      <div className="overflow-x-auto">
-        <table className={tableClass}>
+      <div className="overflow-x-auto" aria-busy={isFetching}>
+        <table className={cn(tableClass, isFetching && "opacity-70 transition-opacity")}>
           <thead>
             <tr className="border-b border-border">
               {canPublish || canDelete ? (
                 <th className={thClass}>
                   <input
                     type="checkbox"
-                    aria-label="Select all visible posts"
-                    checked={visible.length > 0 && selected.size === visible.length}
+                    aria-label="Select all posts on this page"
+                    checked={posts.length > 0 && selected.size === posts.length}
                     onChange={toggleAll}
                   />
                 </th>
@@ -178,7 +180,7 @@ export default function BlogListClient({
             </tr>
           </thead>
           <tbody>
-            {visible.map((post) => (
+            {posts.map((post) => (
               <tr key={post.id} className="border-b border-border/60">
                 {canPublish || canDelete ? (
                   <td className={tdClass}>
@@ -210,31 +212,36 @@ export default function BlogListClient({
             ))}
           </tbody>
         </table>
-        {visible.length === 0 ? <p className="py-8 text-center text-sm text-muted-foreground">No posts match.</p> : null}
+        {posts.length === 0 && !isFetching ? <p className="py-8 text-center text-sm text-muted-foreground">No posts match.</p> : null}
       </div>
 
       {totalPages > 1 ? (
-        <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
+        <nav aria-label="Pagination" className="flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
           <span>
-            Showing {posts.length === 0 ? 0 : (page - 1) * 20 + 1} to {Math.min(page * 20, total)} of {total}
+            Showing {firstRow} to {Math.min(params.page * ADMIN_POSTS_PAGE_SIZE, total)} of {total}
           </span>
           <div className="flex items-center gap-2">
-            <button type="button" onClick={() => goToPage(Math.max(1, page - 1))} disabled={page <= 1} className={buttonVariants.small}>
+            <button
+              type="button"
+              onClick={() => navigate({ ...params, page: Math.max(1, params.page - 1) }, "push")}
+              disabled={params.page <= 1}
+              className={buttonVariants.small}
+            >
               Previous
             </button>
             <span>
-              Page {page} of {totalPages}
+              Page {params.page} of {totalPages}
             </span>
             <button
               type="button"
-              onClick={() => goToPage(Math.min(totalPages, page + 1))}
-              disabled={page >= totalPages}
+              onClick={() => navigate({ ...params, page: Math.min(totalPages, params.page + 1) }, "push")}
+              disabled={params.page >= totalPages}
               className={buttonVariants.small}
             >
               Next
             </button>
           </div>
-        </div>
+        </nav>
       ) : null}
     </div>
   );

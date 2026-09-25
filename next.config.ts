@@ -23,6 +23,21 @@ const nextConfig: NextConfig = {
         source: "/((?!admin(?:/|$)|api/admin(?:/|$)).*)",
         headers: [{ key: "Content-Security-Policy", value: buildPublicCsp({ dev }) }],
       },
+      // Admin pages and admin APIs: strictly private, no-store, no-cache so proxies and browsers never retain sensitive data
+      {
+        source: "/admin/:path*",
+        headers: [
+          { key: "Cache-Control", value: "private, no-cache, no-store, max-age=0, must-revalidate" },
+          { key: "Pragma", value: "no-cache" },
+        ],
+      },
+      {
+        source: "/api/admin/:path*",
+        headers: [
+          { key: "Cache-Control", value: "private, no-cache, no-store, max-age=0, must-revalidate" },
+          { key: "Pragma", value: "no-cache" },
+        ],
+      },
       // Skill logos (CSS-mask sources) are requested on every page that lists
       // skills; the names are not content-hashed, so cache for a day and serve
       // stale while revalidating rather than marking them immutable.

@@ -1,10 +1,12 @@
 import { Metadata } from "next";
-import Link from "next/link";
+import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
 
 import { requirePermission } from "@/lib/auth/dal";
-import { db } from "@/lib/db/prisma";
-import EmptyState from "@/components/admin/ui/EmptyState";
-import { badgeClass, tableClass, tdClass, thClass } from "@/components/admin/ui/styles";
+import { getServerQueryClient } from "@/lib/cache/query-client.server";
+import { queryKeys } from "@/lib/cache/query-keys";
+import { listSessionSummaries } from "@/lib/chatbot/session";
+import { CHAT_SESSIONS_PAGE_SIZE } from "@/lib/chatbot/session-summaries";
+import ConversationsClient from "@/components/admin/chatbot/ConversationsClient";
 
 export const metadata: Metadata = {
   title: "Conversations",
@@ -14,24 +16,12 @@ export const metadata: Metadata = {
 export default async function ConversationsPage() {
   await requirePermission("viewChatHistory");
 
-  // Get recent sessions with message count
-  const sessions = await db.chatSession.findMany({
-    select: {
-      id: true,
-      sessionId: true,
-      messagesCount: true,
-      createdAt: true,
-      capturedLead: true,
-      inquiry: {
-        select: {
-          id: true,
-          email: true,
-          status: true,
-        },
-      },
-    },
-    orderBy: { createdAt: "desc" },
-    take: 50,
+  // First page rendered from the server; the client then polls for new chats.
+  const params = { limit: CHAT_SESSIONS_PAGE_SIZE, offset: 0 };
+  const queryClient = getServerQueryClient();
+  await queryClient.prefetchQuery({
+    queryKey: queryKeys.admin.chatbotSessions.list(params),
+    queryFn: () => listSessionSummaries(params),
   });
 
   return (
@@ -43,57 +33,9 @@ export default async function ConversationsPage() {
         </p>
       </div>
 
-      {sessions.length === 0 ? (
-        <EmptyState title="No conversations yet" description="Visitor chats will appear here once someone uses the chatbot." />
-      ) : (
-        <div className="overflow-x-auto rounded-lg border border-border">
-          <table className={tableClass}>
-            <thead className="border-b border-border bg-muted/40">
-              <tr>
-                <th scope="col" className={thClass}>
-                  Session ID
-                </th>
-                <th scope="col" className={thClass}>
-                  Messages
-                </th>
-                <th scope="col" className={thClass}>
-                  Lead Captured
-                </th>
-                <th scope="col" className={thClass}>
-                  Contact
-                </th>
-                <th scope="col" className={thClass}>
-                  Date
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {sessions.map((session) => (
-                <tr key={session.id} className="hover:bg-muted/40">
-                  <td className={tdClass}>
-                    <Link
-                      href={`/admin/chatbot/conversations/${session.sessionId}`}
-                      className="font-mono text-sm text-primary hover:underline"
-                    >
-                      {session.sessionId.slice(0, 8)}...
-                    </Link>
-                  </td>
-                  <td className={tdClass}>{session.messagesCount}</td>
-                  <td className={tdClass}>
-                    {session.capturedLead ? (
-                      <span className={badgeClass}>Yes</span>
-                    ) : (
-                      <span className="text-muted-foreground">No</span>
-                    )}
-                  </td>
-                  <td className={tdClass}>{session.inquiry?.email || "-"}</td>
-                  <td className={`${tdClass} text-muted-foreground`}>{session.createdAt.toLocaleDateString()}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+      <HydrationBoundary state={dehydrate(queryClient)}>
+        <ConversationsClient />
+      </HydrationBoundary>
     </div>
   );
 }

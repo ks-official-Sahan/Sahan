@@ -41,6 +41,9 @@ importers:
       '@tabler/icons-react':
         specifier: ^3.20.0
         version: 3.47.0(react@19.2.8)
+      '@tanstack/react-query':
+        specifier: ^5.103.2
+        version: 5.103.2(react@19.2.8)
       '@tiptap/extension-image':
         specifier: ^3.31.3
         version: 3.31.3(@tiptap/core@3.31.3(@tiptap/pm@3.31.3))
@@ -1384,6 +1387,14 @@ packages:
 
   '@tabler/icons@3.47.0':
     resolution: {integrity: sha512-aCbSemVrGvSA3w0sJi8mka6QrnQCN8wCD1jKNXXIR/h6Q4ffov/yFPyzjTULDM8ETtK4DABUZhWdYlygqy3npA==}
+
+  '@tanstack/query-core@5.103.2':
+    resolution: {integrity: sha512-I8DkFXls5jXLqtm8+QpOhEmG07hIblhSZFzafg9wHsMSEvMzULy9hK17wU1T/ahfhMbtITJhbxutwwCoihkR7A==}
+
+  '@tanstack/react-query@5.103.2':
+    resolution: {integrity: sha512-B+fWiYZBc+0uUD5zDZAeLw9dKj7XEsdnuu6zRZ+no6LNKpeE3P3bJ+N6HINjcIlWR6fW3vUoTneEaGa2V6ehqw==}
+    peerDependencies:
+      react: ^18 || ^19
 
   '@tiptap/core@3.31.3':
     resolution: {integrity: sha512-Cz50pvciQrxdSxgTkHOVz0uD0Yl/8Xt0QatGD6ILm47jW8EzyHR9RkUGs/D5IqzXKuVPntfw1ttaT926vXfiRg==}
@@ -4959,6 +4970,13 @@ snapshots:
       react: 19.2.8
 
   '@tabler/icons@3.47.0': {}
+
+  '@tanstack/query-core@5.103.2': {}
+
+  '@tanstack/react-query@5.103.2(react@19.2.8)':
+    dependencies:
+      '@tanstack/query-core': 5.103.2
+      react: 19.2.8
 
   '@tiptap/core@3.31.3(@tiptap/pm@3.31.3)':
     dependencies:
