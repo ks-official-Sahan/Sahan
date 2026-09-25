@@ -5,7 +5,7 @@ import { headers } from "next/headers";
 
 import { authorizeAction } from "@/lib/actions/guard";
 import { done, fail, fieldErrorsFrom, type ActionState } from "@/lib/actions/state";
-import { auditPruneJob, blogPublishJob, sessionCleanupJob } from "@/lib/cron/jobs";
+import { blogPublishJob, housekeepingPruneJob, sessionCleanupJob } from "@/lib/cron/jobs";
 import { auditSafe } from "@/lib/admin/audit";
 import { isIpAllowed, isValidAllowlistEntry } from "@/lib/security/allowlist";
 import { clientIp, UNKNOWN_IP } from "@/lib/security/ip";
@@ -224,7 +224,7 @@ export async function runCronJobAction(_previous: ActionState, formData: FormDat
   if (!authz.ok) return fail(authz.error);
 
   const result =
-    job === "blog-publish" ? await blogPublishJob() : job === "session-cleanup" ? await sessionCleanupJob() : await auditPruneJob();
+    job === "blog-publish" ? await blogPublishJob() : job === "session-cleanup" ? await sessionCleanupJob() : await housekeepingPruneJob();
 
   if (result.error) return fail(`${job} failed: ${result.error}`);
 

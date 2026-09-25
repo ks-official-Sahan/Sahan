@@ -3,12 +3,11 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 
 import {
-  getDraftCount,
+  getContentCounts,
   getEmailHealth,
   getNewInquiriesCount,
   getRecentActivity,
   getSystemHealth,
-  getUnpublishedCount,
   getUserSecurityStatus,
 } from "@/lib/admin/dashboard";
 import { hasPermission, requirePermission } from "@/lib/auth/dal";
@@ -28,10 +27,9 @@ export default async function DashboardPage() {
   // Every query tolerates an unconfigured database and returns a safe empty
   // value instead of throwing (lib/admin/dashboard.ts). Only the queries the
   // viewer's permissions cover are run at all.
-  const [activity, drafts, unpublished, inquiries, health, emailHealth, securityStatus] = await Promise.all([
+  const [activity, { drafts, unpublished }, inquiries, health, emailHealth, securityStatus] = await Promise.all([
     canViewAudit ? getRecentActivity(5) : Promise.resolve([]),
-    canViewContent ? getDraftCount() : Promise.resolve(0),
-    canViewContent ? getUnpublishedCount() : Promise.resolve(0),
+    canViewContent ? getContentCounts() : Promise.resolve({ drafts: 0, unpublished: 0 }),
     canViewLeads ? getNewInquiriesCount() : Promise.resolve(0),
     canViewSecurityStatus ? getSystemHealth() : Promise.resolve(null),
     canViewSecurityStatus ? getEmailHealth() : Promise.resolve(null),

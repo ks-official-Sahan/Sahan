@@ -1,7 +1,7 @@
 import { test, describe } from "node:test";
 import { strict as assert } from "node:assert";
 
-import { auditPruneJob, blogPublishJob, sessionCleanupJob, CLEANUP_GRACE_MS } from "./jobs";
+import { auditPruneJob, blogPublishJob, revisionPruneJob, sessionCleanupJob, CLEANUP_GRACE_MS } from "./jobs";
 
 // Fakes stand in for Prisma. Each mimics only the subset of behaviour the job
 // touches (status/date filtering), which is enough to prove the job logic
@@ -11,11 +11,6 @@ describe("blogPublishJob", () => {
   function fakeDb(posts: Array<{ id: string; slug: string; status: string; publishAt: Date | null; publishedAt: Date | null }>) {
     return {
       post: {
-        async findMany({ where }: any) {
-          return posts.filter(
-            (p) => p.status === where.status && p.publishAt && p.publishAt.getTime() <= where.publishAt.lte.getTime()
-          );
-        },
         async updateMany({ where, data }: any) {
           let count = 0;
           for (const p of posts) {
@@ -64,7 +59,7 @@ describe("blogPublishJob", () => {
   });
 
   test("db failure is caught and reported, not thrown", async () => {
-    const db = { post: { findMany: async () => { throw new Error("db down"); }, updateMany: async () => ({ count: 0 }) } };
+    const db = { post: { updateMany: async () => { throw new Error("db down"); } } };
     const result = await blogPublishJob(db as never);
     assert.equal(result.published, 0);
     assert.ok(result.error);
@@ -169,10 +164,6 @@ describe("auditPruneJob", () => {
     return {
       db: {
         auditLog: {
-          async count({ where }: any) {
-            const cutoff: Date = where.createdAt.lt;
-            return rows.filter((r) => r.createdAt.getTime() < cutoff.getTime()).length;
-          },
           async deleteMany({ where }: any) {
             const cutoff: Date = where.createdAt.lt;
             const before = rows.length;
@@ -219,5 +210,29 @@ describe("auditPruneJob", () => {
     const { db } = fakeDb(rows);
     const result = await auditPruneJob({ retentionDays: 5 }, db as never);
     assert.equal(result.deleted, 1);
+  });
+});
+
+describe("revisionPruneJob", () => {
+  test("runs one statement capped at the kept count and reports the rows deleted", async () => {
+    const calls: Array<{ sql: string; values: unknown[] }> = [];
+    const db = {
+      async $executeRaw(strings: TemplateStringsArray, ...values: unknown[]) {
+        calls.push({ sql: strings.join("?"), values });
+        return 7;
+      },
+    };
+    const result = await revisionPruneJob(db as never);
+    assert.equal(result.deleted, 7);
+    assert.equal(calls.length, 1);
+    assert.match(calls[0].sql, /row_number\(\) OVER \(PARTITION BY "postId" ORDER BY "createdAt" DESC\)/);
+    assert.equal(typeof calls[0].values[0], "number");
+  });
+
+  test("db failure is caught and reported, not thrown", async () => {
+    const db = { $executeRaw: async () => { throw new Error("db down"); } };
+    const result = await revisionPruneJob(db as never);
+    assert.equal(result.deleted, 0);
+    assert.ok(result.error);
   });
 });

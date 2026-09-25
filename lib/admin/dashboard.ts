@@ -30,33 +30,19 @@ export async function getRecentActivity(limit = 10) {
 }
 
 /**
- * Count draft content blocks (status = DRAFT).
+ * Draft content blocks, and everything not yet public (draft blocks plus
+ * draft or scheduled posts). Two counts run in parallel; the block count is
+ * shared by both numbers instead of being queried twice.
  */
-export async function getDraftCount() {
+export async function getContentCounts(): Promise<{ drafts: number; unpublished: number }> {
   try {
-    return await db.contentBlock.count({
-      where: { status: "DRAFT" },
-    });
+    const [blocks, posts] = await Promise.all([
+      db.contentBlock.count({ where: { status: "DRAFT" } }),
+      db.post.count({ where: { status: { in: ["DRAFT", "SCHEDULED"] } } }),
+    ]);
+    return { drafts: blocks, unpublished: blocks + posts };
   } catch {
-    return 0;
-  }
-}
-
-/**
- * Count unpublished changes in the database.
- * This is content blocks with status DRAFT or posts with status DRAFT.
- */
-export async function getUnpublishedCount() {
-  try {
-    const blocks = await db.contentBlock.count({
-      where: { status: "DRAFT" },
-    });
-    const posts = await db.post.count({
-      where: { status: { in: ["DRAFT", "SCHEDULED"] } },
-    });
-    return blocks + posts;
-  } catch {
-    return 0;
+    return { drafts: 0, unpublished: 0 };
   }
 }
 
