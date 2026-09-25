@@ -64,6 +64,11 @@ test("the memory limiter sweeps fully-aged-out keys once the map grows large", a
   assert.ok(limiter.size() <= 2, `expected old entries to be swept, got ${limiter.size()}`);
 });
 
+test("an unknown bucket name fails with a named error", async () => {
+  const { limit } = createRateLimit(RULES, { backend: new MemoryLimiter() });
+  await assert.rejects(() => limit("nope:ip" as keyof typeof RULES, "a"), /Unknown rate-limit bucket "nope:ip"/);
+});
+
 test("createRateLimit uses the backend result when it works", async () => {
   const backend: LimitBackend = {
     async check() {

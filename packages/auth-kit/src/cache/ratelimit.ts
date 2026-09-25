@@ -177,6 +177,10 @@ export function createRateLimit<TRules extends Record<string, LimitRule>>(
     callOptions: { backend?: LimitBackend; timeoutMs?: number } = {}
   ): Promise<LimitResult> {
     const rule = rules[name];
+    // Typed names make this unreachable in a fresh build; a dev server that
+    // hot-reloads a caller before the catalogue gets here instead of failing
+    // with an unexplained "reading 'failMode'" TypeError.
+    if (!rule) throw new Error(`Unknown rate-limit bucket "${name}". Add it to the rules passed to createRateLimit (restart the dev server if you just did).`);
     try {
       return await withTimeout(
         (callOptions.backend ?? resolveBackend()).check(name, identifier, rule),
