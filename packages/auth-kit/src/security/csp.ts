@@ -1,15 +1,8 @@
-import { createHash, randomBytes } from "node:crypto";
+import { randomBytes } from "node:crypto";
 
 // Content Security Policy for the admin surface. A nonce needs dynamic
 // rendering, so this is meant for a per-request build (the proxy calls it),
 // not a static one. No server-only import: the proxy builds it.
-
-/** Inline script in the root layout. Its hash is fixed, so it can be allowed. */
-export const LIT_FLAG_SCRIPT = "window.litDisableDevMode = true;";
-
-export function sha256Source(script: string): string {
-  return `'sha256-${createHash("sha256").update(script).digest("base64")}'`;
-}
 
 export function generateNonce(): string {
   return randomBytes(16).toString("base64");
@@ -37,7 +30,7 @@ export interface CspOptions {
 }
 
 export function buildCsp({ nonce, dev = false, imgHosts = [], connectHosts = [], allowInlineStyles = true }: CspOptions): string {
-  const script = ["'self'", `'nonce-${nonce}'`, "'strict-dynamic'", sha256Source(LIT_FLAG_SCRIPT)];
+  const script = ["'self'", `'nonce-${nonce}'`, "'strict-dynamic'"];
   if (dev) script.push("'unsafe-eval'");
 
   const style = allowInlineStyles ? "'self' 'unsafe-inline'" : "'self'";

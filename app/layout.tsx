@@ -54,13 +54,6 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <head>
-        <script
-          dangerouslySetInnerHTML={{
-            __html: "window.litDisableDevMode = true;",
-          }}
-        />
-      </head>
       <body className={`${poppins.className} antialiased relative`}>{children}</body>
     </html>
   );
