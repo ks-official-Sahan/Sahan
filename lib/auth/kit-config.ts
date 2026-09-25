@@ -175,7 +175,7 @@ export const LIMITS = {
   "reset:email": { windowSeconds: 3600, max: 3, failMode: "closed" },
   "email-change:user": { windowSeconds: 3600, max: 3, failMode: "closed" },
   "upload:sign:user": { windowSeconds: 600, max: 30, failMode: "closed" },
-  "ai:admin:user": { windowSeconds: 3600, max: 30, failMode: "closed" },
+  "ai:admin:user": { windowSeconds: 3600, max: 60, failMode: "open" },
   "contact:ip": { windowSeconds: 3600, max: 5, failMode: "open" },
   "contact:global": { windowSeconds: 3600, max: 100, failMode: "open" },
   "chat:ip": { windowSeconds: 600, max: 20, failMode: "closed" },

@@ -92,7 +92,11 @@ export async function POST(request: NextRequest) {
 
       try {
         send("stage", { stage: "writing" });
-        const result = await generateBlogPost(input, defaultAiDeps());
+        const result = await generateBlogPost(input, defaultAiDeps(), {
+          onStatus: (status) => {
+            send("provider_status", status);
+          },
+        });
         if (!result.ok) {
           send("error", { error: result.error });
           return;

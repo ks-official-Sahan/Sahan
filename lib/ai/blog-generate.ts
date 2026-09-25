@@ -4,7 +4,7 @@ import { z } from "zod";
 
 import { looksLikeLeak } from "./guard";
 import { buildBlogGenerationPrompt, buildRepairPrompt, buildSeoSuggestPrompt, contentImageToken, type BlogGenerationInput } from "./blog-prompts";
-import { createAiService, realProviders, sharedAiHealth, type AiProvider } from "./providers";
+import { createAiService, realProviders, sharedAiHealth, type AiAttemptStatus, type AiProvider } from "./providers";
 import { getEnv } from "@/lib/env";
 
 // Full blog-post generation (AGENTS.md "AI blog" feature). Providers are
@@ -58,7 +58,7 @@ export function defaultAiDeps(): AiDeps {
 
 /** Generous budgets for a full post (title + body + SEO + image prompts), per the task's guidance. */
 const GENERATION_BUDGETS = { timeoutMs: 45_000, deadlineMs: 90_000, hedgeAfterMs: 15_000 } as const;
-const GENERATION_MAX_TOKENS = 4500;
+const GENERATION_MAX_TOKENS = 8192;
 
 /** Strips a ```json ... ``` (or bare ```) fence and isolates the outermost {...} object. */
 export function extractJsonObject(text: string): string | null {
@@ -67,9 +67,91 @@ export function extractJsonObject(text: string): string | null {
   if (fenced) candidate = fenced[1].trim();
 
   const start = candidate.indexOf("{");
+  if (start === -1) return null;
   const end = candidate.lastIndexOf("}");
-  if (start === -1 || end === -1 || end < start) return null;
+  if (end === -1 || end < start) return candidate.slice(start);
   return candidate.slice(start, end + 1);
+}
+
+/** Known property names for blog generation to guide unescaped quote identification. */
+const KNOWN_JSON_KEYS = new Set([
+  "title", "excerpt", "bodyMarkdown", "seoTitle", "seoDescription",
+  "topic", "tags", "featuredImage", "contentImages", "token", "prompt", "alt", "caption"
+]);
+
+/**
+ * Resiliently repairs unescaped double quotes and unescaped control characters in JSON string values,
+ * and completes unclosed strings/braces if the LLM output was truncated.
+ */
+export function repairJsonString(jsonStr: string): string {
+  let inString = false;
+  let isEscaped = false;
+  let result = "";
+
+  for (let i = 0; i < jsonStr.length; i++) {
+    const char = jsonStr[i];
+
+    if (char === "\\" && inString) {
+      isEscaped = !isEscaped;
+      result += char;
+      continue;
+    }
+
+    if (char === '"' && !isEscaped) {
+      if (!inString) {
+        inString = true;
+        result += char;
+      } else {
+        const rest = jsonStr.slice(i + 1);
+        const isKeyClose = /^\s*:/.test(rest);
+        const isObjectOrArrayClose = /^\s*[}\]]/.test(rest);
+        const commaMatch = rest.match(/^\s*,\s*(?:"([^"]+)"|([}\]]))/);
+        const isNextKeyOrItem = commaMatch ? (commaMatch[2] ? true : KNOWN_JSON_KEYS.has(commaMatch[1])) : false;
+
+        if (isKeyClose || isObjectOrArrayClose || isNextKeyOrItem) {
+          inString = false;
+          result += char;
+        } else {
+          result += '\\"';
+        }
+      }
+      isEscaped = false;
+      continue;
+    }
+
+    if (inString && !isEscaped) {
+      if (char === "\n") { result += "\\n"; continue; }
+      if (char === "\r") { result += "\\r"; continue; }
+      if (char === "\t") { result += "\\t"; continue; }
+    }
+
+    isEscaped = false;
+    result += char;
+  }
+
+  if (inString) result += '"';
+
+  let openBraces = 0;
+  let openBrackets = 0;
+  let inStr = false;
+  let esc = false;
+  for (let i = 0; i < result.length; i++) {
+    const c = result[i];
+    if (c === "\\" && inStr) { esc = !esc; continue; }
+    if (c === '"' && !esc) { inStr = !inStr; }
+    if (!inStr) {
+      if (c === "{") openBraces++;
+      else if (c === "}") openBraces--;
+      else if (c === "[") openBrackets++;
+      else if (c === "]") openBrackets--;
+    }
+    esc = false;
+  }
+
+  while (openBrackets > 0) { result += "]"; openBrackets--; }
+  while (openBraces > 0) { result += "}"; openBraces--; }
+
+  return result;
 }
 
 export type ParseResult<T> = { ok: true; data: T } | { ok: false; error: string };
@@ -81,8 +163,18 @@ function parseJsonWith<T>(text: string, schema: z.ZodType<T>): ParseResult<T> {
   let raw: unknown;
   try {
     raw = JSON.parse(jsonText);
-  } catch (error) {
-    return { ok: false, error: `Invalid JSON: ${error instanceof Error ? error.message : "parse failed"}` };
+  } catch (originalError) {
+    try {
+      const repaired = repairJsonString(jsonText);
+      const candidateRaw = JSON.parse(repaired);
+      const parsedCandidate = schema.safeParse(candidateRaw);
+      if (parsedCandidate.success) {
+        return { ok: true, data: parsedCandidate.data };
+      }
+    } catch {
+      // ignore repair failure, return original error below
+    }
+    return { ok: false, error: `Invalid JSON: ${originalError instanceof Error ? originalError.message : "parse failed"}` };
   }
 
   const parsed = schema.safeParse(raw);
@@ -194,6 +286,12 @@ export function validateStructure(bodyMarkdown: string, length: BlogGenerationIn
   return issues;
 }
 
+export type BlogGenerationStatusCallback = (status: {
+  provider: string;
+  status: "start" | "failure" | "fallback" | "success";
+  message: string;
+}) => void;
+
 /**
  * Generates a full post as validated, well-structured JSON. Retries once
  * with a repair prompt (asking the model to fix its own malformed reply, or
@@ -202,12 +300,37 @@ export function validateStructure(bodyMarkdown: string, length: BlogGenerationIn
  * a model that cannot produce a valid, structured post fails fast (or is
  * returned best-effort after the one repair) rather than looping.
  */
-export async function generateBlogPost(input: BlogGenerationInput, deps: AiDeps): Promise<GenerateBlogPostResult | AiHelperFailure> {
+export async function generateBlogPost(
+  input: BlogGenerationInput,
+  deps: AiDeps,
+  options?: { onStatus?: BlogGenerationStatusCallback }
+): Promise<GenerateBlogPostResult | AiHelperFailure> {
   const service = createAiService({ providers: deps.providers, health: sharedAiHealth, ...GENERATION_BUDGETS });
 
-  const first = await service.generate(buildBlogGenerationPrompt(input), { maxTokens: GENERATION_MAX_TOKENS, jsonMode: true });
+  const handleAttempt = (status: AiAttemptStatus) => {
+    let message = "";
+    if (status.stage === "start") {
+      message = `Writing post with ${status.provider}...`;
+    } else if (status.stage === "fallback") {
+      message = `${status.provider} was busy or rate-limited (${status.errorClass ?? "failed"}). Automatically falling back to ${status.fallbackTo}...`;
+    } else if (status.stage === "failure") {
+      message = `${status.provider} failed (${status.errorClass ?? "error"}).`;
+    } else if (status.stage === "success") {
+      message = `Draft completed with ${status.provider}.`;
+    }
+    options?.onStatus?.({ provider: status.provider, status: status.stage, message });
+  };
+
+  const first = await service.generate(buildBlogGenerationPrompt(input), {
+    maxTokens: GENERATION_MAX_TOKENS,
+    jsonMode: true,
+    onAttempt: handleAttempt,
+  });
   if (!first.ok || !first.text) {
-    return { ok: false, error: "No AI provider is configured or reachable right now." };
+    const attemptSummary = first.attempts?.length
+      ? ` (${first.attempts.map((a) => `${a.provider}: ${a.errorClass ?? (a.ok ? "ok" : "failed")}`).join(", ")})`
+      : "";
+    return { ok: false, error: `No AI provider is reachable right now${attemptSummary}.` };
   }
   if (looksLikeLeak(first.text)) {
     return { ok: false, error: "The AI response looked unsafe and was discarded. Try a different brief." };
@@ -225,9 +348,22 @@ export async function generateBlogPost(input: BlogGenerationInput, deps: AiDeps)
     issue = firstParsed.error;
   }
 
-  const repair = await service.generate(buildRepairPrompt(input, first.text, issue), { maxTokens: GENERATION_MAX_TOKENS, jsonMode: true });
+  options?.onStatus?.({
+    provider: first.provider ?? "ai",
+    status: "start",
+    message: "Refining and repairing post structure...",
+  });
+
+  const repair = await service.generate(buildRepairPrompt(input, first.text, issue), {
+    maxTokens: GENERATION_MAX_TOKENS,
+    jsonMode: true,
+    onAttempt: handleAttempt,
+  });
   if (!repair.ok || !repair.text) {
-    return { ok: false, error: `The AI response could not be parsed (${issue}), and the repair attempt failed too.` };
+    const attemptSummary = repair.attempts?.length
+      ? ` (${repair.attempts.map((a) => `${a.provider}: ${a.errorClass ?? (a.ok ? "ok" : "failed")}`).join(", ")})`
+      : "";
+    return { ok: false, error: `The AI response could not be parsed (${issue}), and the repair attempt failed too${attemptSummary}.` };
   }
   if (looksLikeLeak(repair.text)) {
     return { ok: false, error: "The AI response looked unsafe and was discarded. Try a different brief." };

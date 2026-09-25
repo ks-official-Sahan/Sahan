@@ -116,7 +116,14 @@ export interface AiServiceDeps {
   now?: () => number;
 }
 
-const HEDGE = Symbol("hedge");
+export type AiAttemptStatus = {
+  provider: string;
+  stage: "start" | "failure" | "fallback" | "success";
+  errorClass?: string;
+  fallbackTo?: string;
+};
+
+export const HEDGE = Symbol("hedge");
 
 /**
  * Tries providers until one succeeds, a non-retryable failure stops the chain,
@@ -136,7 +143,10 @@ export function createAiService(deps: AiServiceDeps) {
     return [...deps.providers].sort((a, b) => cooling(a) - cooling(b) || speed(a) - speed(b));
   }
 
-  async function generate(prompt: ModelPrompt, options?: { maxTokens?: number; jsonMode?: boolean }): Promise<AiResult> {
+  async function generate(
+    prompt: ModelPrompt,
+    options?: { maxTokens?: number; jsonMode?: boolean; onAttempt?: (status: AiAttemptStatus) => void }
+  ): Promise<AiResult> {
     if (deps.providers.length === 0) {
       return { ok: false, provider: null, errorClass: "no_provider", attempts: [] };
     }
@@ -155,6 +165,7 @@ export function createAiService(deps: AiServiceDeps) {
       const remaining = deps.deadlineMs === undefined ? timeoutMs : deps.deadlineMs - (now() - startedAll);
       if (remaining <= 250) return false;
       const provider = ordered[next++];
+      options?.onAttempt?.({ provider: provider.name, stage: "start" });
       const started = now();
       const run = attempt(provider, prompt, options?.maxTokens, Math.min(timeoutMs, remaining), cancelLosers.signal, options?.jsonMode).then((outcome) => {
         if (result) return; // Lost the race; its failure is not the provider's fault.
@@ -165,10 +176,18 @@ export function createAiService(deps: AiServiceDeps) {
           health.latencyMs.set(provider.name, previous === undefined ? ms : Math.round(previous * 0.7 + ms * 0.3));
           attempts.push({ provider: provider.name, ok: true, ms });
           result = { ok: true, provider: provider.name, text: outcome.text, attempts };
+          options?.onAttempt?.({ provider: provider.name, stage: "success" });
           cancelLosers.abort();
           return;
         }
         attempts.push({ provider: provider.name, ok: false, errorClass: outcome.errorClass, ms });
+        const fallbackTo = next < ordered.length ? ordered[next].name : undefined;
+        options?.onAttempt?.({
+          provider: provider.name,
+          stage: fallbackTo ? "fallback" : "failure",
+          errorClass: outcome.errorClass,
+          fallbackTo,
+        });
         const cooldown = cooldownFor(outcome);
         if (cooldown) health.cooldownUntil.set(provider.name, now() + cooldown);
         log.warn("ai provider failed", { provider: provider.name, errorClass: outcome.errorClass, ms });
@@ -377,7 +396,10 @@ export function vertexProvider(config: {
             body: JSON.stringify({
               systemInstruction: { parts: [{ text: prompt.system }] },
               contents: [{ role: "user", parts: [{ text: prompt.user }] }],
-              generationConfig: { maxOutputTokens: options?.maxTokens ?? 1800 },
+              generationConfig: {
+                maxOutputTokens: options?.maxTokens ?? 1800,
+                ...(options?.jsonMode ? { responseMimeType: "application/json" } : {}),
+              },
             }),
           }
         );

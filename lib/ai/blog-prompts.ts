@@ -77,6 +77,7 @@ const SYSTEM = [
   STRUCTURE_RULES,
   "Write in clear, specific, non-generic language grounded in real software-engineering practice; avoid filler and marketing fluff.",
   "Use 0 to 3 entries in contentImages, only where an image genuinely helps (a diagram, a concept, a scene) — an entirely textual/code-focused post can have 0.",
+  "CRITICAL JSON FORMATTING: The entire response must be strictly valid JSON. Inside bodyMarkdown and any other string properties, always escape double quotes as \\\" (or prefer single quotes '...' or backticks `...`). Never leave unescaped quotes or invalid control characters.",
 ].join(" ");
 
 export function buildBlogGenerationPrompt(input: BlogGenerationInput): ModelPrompt {
@@ -99,9 +100,9 @@ export function buildRepairPrompt(input: BlogGenerationInput, brokenText: string
   const base = buildBlogGenerationPrompt(input);
   const user = [
     base.user,
-    `Your previous reply had a problem (${wrapUserData(issue)}). Here is what you sent:`,
+    `Your previous reply had a problem (${wrapUserData(issue)}). Here is what you sent (or the beginning of it):`,
     wrapUserData(brokenText.slice(0, 6000)),
-    "Reply again with only a single corrected JSON object matching the required shape and structure rules above, fixing the specific problem described. No code fence, no commentary.",
+    "Reply again with only a single complete, valid JSON object matching the required shape and structure rules above, fixing the specific problem described. Ensure all internal double quotes in markdown or code blocks are properly escaped as \\\", with no trailing commas and no truncation. No code fence, no commentary.",
   ].join("\n\n");
   return { system: base.system, user };
 }
