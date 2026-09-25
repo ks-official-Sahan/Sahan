@@ -25,6 +25,8 @@ export interface AiGenerateOptions {
   maxTokens?: number;
   /** Aborted when the attempt times out, so a slow provider stops consuming a socket. */
   signal?: AbortSignal;
+  /** When true, providers that support it (Gemini) will request JSON output. */
+  jsonMode?: boolean;
 }
 
 export interface AiProvider {
@@ -56,7 +58,8 @@ async function attempt(
   prompt: ModelPrompt,
   maxTokens: number | undefined,
   ms: number,
-  cancel: AbortSignal
+  cancel: AbortSignal,
+  jsonMode?: boolean
 ): Promise<AiOutcome> {
   const controller = new AbortController();
   const onCancel = () => controller.abort();
@@ -69,7 +72,7 @@ async function attempt(
     }, ms);
   });
   try {
-    return await Promise.race([provider.generate(prompt, { maxTokens, signal: controller.signal }), timeout]);
+    return await Promise.race([provider.generate(prompt, { maxTokens, signal: controller.signal, jsonMode }), timeout]);
   } catch {
     return { ok: false, errorClass: "transport", retryable: true };
   } finally {
@@ -133,7 +136,7 @@ export function createAiService(deps: AiServiceDeps) {
     return [...deps.providers].sort((a, b) => cooling(a) - cooling(b) || speed(a) - speed(b));
   }
 
-  async function generate(prompt: ModelPrompt, options?: { maxTokens?: number }): Promise<AiResult> {
+  async function generate(prompt: ModelPrompt, options?: { maxTokens?: number; jsonMode?: boolean }): Promise<AiResult> {
     if (deps.providers.length === 0) {
       return { ok: false, provider: null, errorClass: "no_provider", attempts: [] };
     }
@@ -153,7 +156,7 @@ export function createAiService(deps: AiServiceDeps) {
       if (remaining <= 250) return false;
       const provider = ordered[next++];
       const started = now();
-      const run = attempt(provider, prompt, options?.maxTokens, Math.min(timeoutMs, remaining), cancelLosers.signal).then((outcome) => {
+      const run = attempt(provider, prompt, options?.maxTokens, Math.min(timeoutMs, remaining), cancelLosers.signal, options?.jsonMode).then((outcome) => {
         if (result) return; // Lost the race; its failure is not the provider's fault.
         const ms = now() - started;
         if (outcome.ok) {
@@ -269,13 +272,28 @@ export function nvidiaProvider(config: { apiKey: string; model: string; fetch?: 
 
 /** Gemini's own REST API (not OpenAI-compatible), called directly so no extra SDK is added for one provider. */
 export function geminiProvider(config: { apiKey: string; model?: string; fetchImpl?: typeof fetch }): AiProvider {
-  const model = config.model || "gemini-3.6-flash";
+  const model = config.model || "gemini-2.5-flash";
   const fetchImpl = config.fetchImpl ?? fetch;
 
   return {
     name: "gemini",
     async generate(prompt, options) {
       try {
+        const maxOutputTokens = options?.maxTokens ?? 2400;
+        // Thinking tokens count against maxOutputTokens. On a short reply
+        // (the chat widget asks for 500) any budget can use up the whole cap
+        // and return no text, so short outputs get none; long structured
+        // outputs (blog JSON) get a modest share.
+        const thinkingBudget = maxOutputTokens >= 2000 ? Math.min(800, Math.floor(maxOutputTokens / 5)) : 0;
+        const generationConfig: Record<string, unknown> = {
+          maxOutputTokens,
+          thinkingConfig: { thinkingBudget },
+        };
+        // When JSON mode is requested, ask the model to respond with valid JSON.
+        // This dramatically improves structured output reliability for blog generation.
+        if (options?.jsonMode) {
+          generationConfig.responseMimeType = "application/json";
+        }
         const response = await fetchImpl(
           `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
           {
@@ -286,16 +304,7 @@ export function geminiProvider(config: { apiKey: string; model?: string; fetchIm
             body: JSON.stringify({
               systemInstruction: { parts: [{ text: prompt.system }] },
               contents: [{ role: "user", parts: [{ text: prompt.user }] }],
-              // Newer Gemini models spend tokens on internal reasoning before
-              // any visible text (usageMetadata.thoughtsTokenCount), which can
-              // consume the whole maxOutputTokens budget and leave an empty
-              // reply (finishReason MAX_TOKENS) for a plain chat answer that
-              // needs no extended thinking. Confirmed against the live API:
-              // thinkingBudget 0 turns that into a normal STOP with real text.
-              generationConfig: {
-                maxOutputTokens: options?.maxTokens ?? 1200,
-                thinkingConfig: { thinkingBudget: 0 },
-              },
+              generationConfig,
             }),
           }
         );
@@ -347,7 +356,7 @@ export function vertexProvider(config: {
             body: JSON.stringify({
               systemInstruction: { parts: [{ text: prompt.system }] },
               contents: [{ role: "user", parts: [{ text: prompt.user }] }],
-              generationConfig: { maxOutputTokens: options?.maxTokens ?? 1200 },
+              generationConfig: { maxOutputTokens: options?.maxTokens ?? 1800 },
             }),
           }
         );
@@ -365,13 +374,35 @@ export function vertexProvider(config: {
   };
 }
 
-/** The chain from decision D15, using whichever keys are configured. Empty when none are set. */
+/**
+ * The chain from decision D15, reordered for reliability:
+ * 1. Gemini (free, fast, reliable with a valid API key)
+ * 2. Vertex (service account, slowest but most reliable)
+ * 3. OpenRouter (free-tier models are heavily rate-limited)
+ * 4. NVIDIA (last — key may be dead or model retired)
+ */
 export function realProviders(env: AppEnv, fetchImpl?: typeof fetch): AiProvider[] {
   const providers: AiProvider[] = [];
+
+  // 1. Gemini direct — fastest, most reliable, supports JSON mode
+  if (env.GEMINI_API_KEY) providers.push(geminiProvider({ apiKey: env.GEMINI_API_KEY, model: env.GEMINI_MODEL, fetchImpl }));
+
+  // 2. Vertex AI — service-account auth, slower cold start but reliable
+  if (env.GOOGLE_CLIENT_EMAIL && env.GOOGLE_PRIVATE_KEY && env.GOOGLE_CLOUD_PROJECT && env.GOOGLE_TOKEN_URI) {
+    providers.push(
+      vertexProvider({
+        clientEmail: env.GOOGLE_CLIENT_EMAIL,
+        privateKey: env.GOOGLE_PRIVATE_KEY,
+        tokenUri: env.GOOGLE_TOKEN_URI,
+        project: env.GOOGLE_CLOUD_PROJECT,
+        model: env.VERTEX_MODEL,
+        fetchImpl,
+      })
+    );
+  }
+
+  // 3. OpenRouter — free-tier models are heavily rate-limited (429 common)
   const openRouterModel = env.OPENROUTER_MODEL || "google/gemma-4-31b-it:free";
-  // Two keys are two quota pools on the same provider: both go in the chain
-  // (named distinctly for the audit trail), so a rate-limited first key falls
-  // through to the second before the chain moves on to Gemini.
   if (env.OPENROUTER_API_KEY) {
     providers.push(
       openRouterProvider({
@@ -395,21 +426,11 @@ export function realProviders(env: AppEnv, fetchImpl?: typeof fetch): AiProvider
       })
     );
   }
-  if (env.GEMINI_API_KEY) providers.push(geminiProvider({ apiKey: env.GEMINI_API_KEY, model: env.GEMINI_MODEL, fetchImpl }));
+
+  // 4. NVIDIA NIM — last; key may be invalid or model may be retired
   if (env.NVIDIA_API_KEY) {
     providers.push(nvidiaProvider({ apiKey: env.NVIDIA_API_KEY, model: env.NVIDIA_MODEL || "meta/llama-3.3-70b-instruct", fetch: fetchImpl }));
   }
-  if (env.GOOGLE_CLIENT_EMAIL && env.GOOGLE_PRIVATE_KEY && env.GOOGLE_CLOUD_PROJECT && env.GOOGLE_TOKEN_URI) {
-    providers.push(
-      vertexProvider({
-        clientEmail: env.GOOGLE_CLIENT_EMAIL,
-        privateKey: env.GOOGLE_PRIVATE_KEY,
-        tokenUri: env.GOOGLE_TOKEN_URI,
-        project: env.GOOGLE_CLOUD_PROJECT,
-        model: env.VERTEX_MODEL,
-        fetchImpl,
-      })
-    );
-  }
+
   return providers;
 }
