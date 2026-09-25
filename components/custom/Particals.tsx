@@ -2,8 +2,10 @@
 
 import { useTheme } from "next-themes";
 import { useReducedMotion } from "@/lib/use-reduced-motion";
-import React, { useEffect, useState } from "react";
+import React, { useSyncExternalStore } from "react";
 import ParticlesX from "../animations/ParticlesX";
+
+const subscribeNever = () => () => {};
 
 const Particals = ({
   className = "absolute inset-0",
@@ -11,26 +13,15 @@ const Particals = ({
   size = 0.5,
 }) => {
   const { theme } = useTheme();
-  const [color, setColor] = useState("#ffffff");
-  const [mounted, setMounted] = useState(false);
+  // Client-only: false during SSR and hydration, true afterwards, with no
+  // extra state-in-effect render (the theme is unknown on the server).
+  const mounted = useSyncExternalStore(subscribeNever, () => true, () => false);
   const reduceMotion = useReducedMotion();
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  useEffect(() => {
-    if (mounted)
-      setColor(
-        theme === "dark"
-          ? "#ffffff"
-          : theme === "system"
-          ? "#a855f7"
-          : "#000000"
-      );
-  }, [theme, mounted]);
-
   if (!mounted || reduceMotion) return null;
+
+  const color =
+    theme === "dark" ? "#ffffff" : theme === "system" ? "#a855f7" : "#000000";
 
   return (
     <>
