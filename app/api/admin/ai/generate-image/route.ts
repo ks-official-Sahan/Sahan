@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { getOptionalUser, hasPermission } from "@/lib/auth/dal";
 import { limit } from "@/lib/cache/ratelimit";
+import { rateLimitedResponse } from "@/lib/admin/rate-limited";
 import { checkOrigin } from "@/lib/security/check-origin";
 import { getEnv } from "@/lib/env";
 import { generateImageVertex, vertexImageConfigFromEnv } from "@/lib/ai/image";
@@ -11,7 +12,7 @@ import { cloudinary } from "@/lib/media/cloudinary";
 import { MEDIA_CONFIG } from "@/lib/media/config";
 
 // POST /api/admin/ai/generate-image. Requires generateAI, rate limited per
-// user (ai:admin:user, shared with the other AI helpers). Body:
+// user (ai:image:user). Body:
 // { prompt, alt }. Generates one image and registers it as a media asset —
 // the Featured image card's "AI Image Prompt" button uses this to set the
 // featured image directly (lib/media/service.ts's registerGeneratedImage,
@@ -38,8 +39,8 @@ export async function POST(request: NextRequest) {
 
   if (!checkOrigin(request.headers, request)) return forbidden();
 
-  const limited = await limit("ai:admin:user", user.id);
-  if (!limited.ok) return new NextResponse(null, { status: 429, headers: { "Cache-Control": "no-store" } });
+  const limited = await limit("ai:image:user", user.id);
+  if (!limited.ok) return rateLimitedResponse(limited.resetSeconds, "Image generation");
 
   let body: unknown;
   try {

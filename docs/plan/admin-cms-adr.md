@@ -264,7 +264,9 @@ Upstash sliding window with an in-memory fallback when Upstash is not configured
 | `mfa:send:user` | 10 min | 3 | closed |
 | `invite:actor` | 1 h | 20 | closed |
 | `upload:sign:user` | 10 min | 30 | closed |
-| `ai:admin:user` | 1 h | 30 | closed |
+| `ai:post:user` | 1 h | 20 full-post generations | open |
+| `ai:image:user` | 1 h | 40 single images | open |
+| `ai:text:user` | 1 h | 120 SEO/draft/cover calls | open |
 | `contact:ip` | 1 h | 5 | open (plus database cap by `ipHash`) |
 | `contact:global` | 1 h | 100 | open |
 | `chat:ip` | 10 min | 20 messages | closed (protects AI spend) |

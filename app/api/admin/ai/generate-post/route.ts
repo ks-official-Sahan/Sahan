@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { getOptionalUser, hasPermission } from "@/lib/auth/dal";
 import { limit } from "@/lib/cache/ratelimit";
+import { rateLimitedResponse } from "@/lib/admin/rate-limited";
 import { checkOrigin } from "@/lib/security/check-origin";
 import { getEnv } from "@/lib/env";
 import { defaultAiDeps, generateBlogPost } from "@/lib/ai/blog-generate";
@@ -16,7 +17,7 @@ import { ensureUniqueSlug, slugify } from "@/lib/blog/slug";
 import { log } from "@/lib/log";
 
 // POST /api/admin/ai/generate-post. Requires generateAI, rate limited per
-// user (ai:admin:user, shared with /draft and /cover). Streams progress as
+// user (ai:post:user). Streams progress as
 // the generation runs: the model call in lib/ai/blog-generate.ts is a single
 // non-streaming request per provider (createAiService wraps generateText,
 // not streamText, across the whole fallback chain — see lib/ai/providers.ts,
@@ -58,8 +59,8 @@ export async function POST(request: NextRequest) {
 
   if (!checkOrigin(request.headers, request)) return forbidden();
 
-  const limited = await limit("ai:admin:user", user.id);
-  if (!limited.ok) return new NextResponse(null, { status: 429, headers: { "Cache-Control": "no-store" } });
+  const limited = await limit("ai:post:user", user.id);
+  if (!limited.ok) return rateLimitedResponse(limited.resetSeconds, "Post generation");
 
   let body: unknown;
   try {

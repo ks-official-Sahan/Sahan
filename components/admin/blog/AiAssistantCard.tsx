@@ -126,11 +126,9 @@ export default function AiAssistantCard({
       });
 
       if (!response.ok || !response.body) {
-        const message =
-          response.status === 429
-            ? "Admin AI request rate limit reached. Please wait a moment before trying again."
-            : "The AI assistant is unreachable right now.";
-        setError(message);
+        // Error responses are JSON { ok: false, error } (a 429 says when to retry).
+        const data = (await response.json().catch(() => null)) as { error?: string } | null;
+        setError(data?.error || "The AI assistant is unreachable right now.");
         return;
       }
 

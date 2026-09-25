@@ -175,7 +175,11 @@ export const LIMITS = {
   "reset:email": { windowSeconds: 3600, max: 3, failMode: "closed" },
   "email-change:user": { windowSeconds: 3600, max: 3, failMode: "closed" },
   "upload:sign:user": { windowSeconds: 600, max: 30, failMode: "closed" },
-  "ai:admin:user": { windowSeconds: 3600, max: 60, failMode: "open" },
+  // Admin AI, split by cost so cheap text helpers (SEO, draft, cover prompt)
+  // never use up the budget for full posts, which run text + up to 4 images.
+  "ai:post:user": { windowSeconds: 3600, max: 20, failMode: "open" },
+  "ai:image:user": { windowSeconds: 3600, max: 40, failMode: "open" },
+  "ai:text:user": { windowSeconds: 3600, max: 120, failMode: "open" },
   "contact:ip": { windowSeconds: 3600, max: 5, failMode: "open" },
   "contact:global": { windowSeconds: 3600, max: 100, failMode: "open" },
   "chat:ip": { windowSeconds: 600, max: 20, failMode: "closed" },
