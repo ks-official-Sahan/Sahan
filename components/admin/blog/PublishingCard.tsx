@@ -3,21 +3,24 @@
 import { type ReactNode } from "react";
 import { useFormStatus } from "react-dom";
 
+import LocalDateTimeField from "@/components/admin/ui/LocalDateTimeField";
 import { badgeClass, buttonVariants, fieldClass } from "@/components/admin/ui/styles";
 import { cn } from "@/lib/utils";
 
+import SidebarCard from "./SidebarCard";
+
 // "Publishing" card: status, a category (topic, single-select chips from the
-// site's existing taxonomy) and tags (multi, free-form + suggestions),
-// schedule datetime, and Save Draft / Publish Now.
+// site's existing taxonomy) and tags (multi, free-form + suggestions), and
+// (create only) a schedule datetime. Save Draft / Publish Now / Update live
+// in the sticky top bar instead (BlogEditorForm) — PublishButton is exported
+// so that top bar can submit the *same* create-form fields (`publishIntent`)
+// this card's schedule input feeds, without a second copy of the button.
 //
 // On the edit page the actual publish/schedule/archive transitions already
 // have a battle-tested Server Action (setPostStatusAction in
 // lib/actions/blog.ts, wired up in app/admin/(panel)/blog/[id]/page.tsx) —
 // `statusPanel` lets that page render its own form here instead of this
-// card inventing a second, parallel way to change status. On the new-post
-// page there is no post yet, so this card renders its own minimal Save
-// Draft / Publish Now buttons, which submit the *same* create form via
-// `publishIntent`/`scheduleAt` (see resolveCreateStatus in lib/actions/blog.ts).
+// card inventing a second, parallel way to change status.
 
 function ChipToggle({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
   return (
@@ -35,7 +38,7 @@ function ChipToggle({ label, active, onClick }: { label: string; active: boolean
   );
 }
 
-function PublishButton({ intent, canPublish, label, pendingLabel }: { intent: "draft" | "publish"; canPublish: boolean; label: string; pendingLabel: string }) {
+export function PublishButton({ intent, canPublish, label, pendingLabel }: { intent: "draft" | "publish"; canPublish: boolean; label: string; pendingLabel: string }) {
   const { pending } = useFormStatus();
   if (intent === "publish" && !canPublish) return null;
   return (
@@ -80,9 +83,7 @@ export default function PublishingCard({
   };
 
   return (
-    <div className="rounded-lg border border-border bg-card p-5 text-card-foreground">
-      <h2 className="mb-3 text-sm font-semibold">Publishing</h2>
-
+    <SidebarCard title="Publishing">
       <div className="flex items-center justify-between">
         <span className="text-sm text-muted-foreground">Status</span>
         <span className={badgeClass}>{status}</span>
@@ -145,18 +146,17 @@ export default function PublishingCard({
 
       {statusPanel ? (
         <div className="mt-5 border-t border-border pt-4">{statusPanel}</div>
-      ) : (
-        <div className="mt-5 space-y-3 border-t border-border pt-4">
+      ) : canPublish ? (
+        <div className="mt-5 space-y-1.5 border-t border-border pt-4">
           <label htmlFor="scheduleAt" className="text-sm font-medium">
             Schedule publish (optional)
           </label>
-          <input id="scheduleAt" type="datetime-local" name="scheduleAt" className={fieldClass} />
-          <div className="flex flex-wrap gap-2">
-            <PublishButton intent="draft" canPublish={canPublish} label="Save draft" pendingLabel="Saving…" />
-            <PublishButton intent="publish" canPublish={canPublish} label="Publish now" pendingLabel="Publishing…" />
-          </div>
+          <LocalDateTimeField id="scheduleAt" name="scheduleAt" className={fieldClass} />
+          <p className="text-xs text-muted-foreground">
+            Set a time, then use &ldquo;Publish now&rdquo; in the top bar. It publishes immediately, or at this time if it&apos;s in the future.
+          </p>
         </div>
-      )}
-    </div>
+      ) : null}
+    </SidebarCard>
   );
 }

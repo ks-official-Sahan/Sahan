@@ -7,6 +7,7 @@ import FinalCta from "@/components/home/FinalCta";
 import { SiteMetadata } from "@/config/site";
 import { getPageContent } from "@/lib/cms/loaders";
 import { getPosts, getPostBySlug, relatedPosts, type BlogPostView } from "@/lib/blog/queries";
+import { extractToc, renderPostContent } from "@/lib/blog/render";
 import { cloudinaryImageUrl, cloudinarySrcSet } from "@/lib/media/delivery";
 import { RSS_ALTERNATES } from "@/lib/metadata";
 import { jsonLdHtml } from "@/lib/seo/json-ld";
@@ -63,6 +64,8 @@ export async function generateMetadata({
     authors: [{ name: author, url: SiteMetadata.siteUrl }],
     keywords: post.tags,
     alternates: { canonical: url, types: RSS_ALTERNATES },
+    // Readable by visitors, kept out of search results; links still followed.
+    ...(post.noindex ? { robots: { index: false, follow: true } } : {}),
     openGraph: {
       type: "article",
       siteName: SiteMetadata.ogSiteName,
@@ -138,6 +141,10 @@ export default async function UpdatePostPage({ params }: { params: Promise<{ slu
 
   const related = relatedPosts(post, posts);
   const author = post.authorName || SiteMetadata.author;
+  // contentHtml is sanitized on save and again by getPostBySlug(); this only
+  // adds chart SVGs and table scroll regions (lib/blog/render.ts).
+  const bodyHtml = renderPostContent(post.contentHtml);
+  const toc = extractToc(bodyHtml);
 
   return (
     <div className="w-full overflow-hidden font-medium">
@@ -210,11 +217,26 @@ export default async function UpdatePostPage({ params }: { params: Promise<{ slu
               />
             ) : null}
 
+            {toc.length >= 3 ? (
+              <nav aria-labelledby="toc-title" className="mt-8 rounded-[20px] border border-bBORDERFADE bg-bCARD p-5 text-sm">
+                <p id="toc-title" className="text-xs font-semibold uppercase tracking-[0.08em] opacity-70">
+                  On this page
+                </p>
+                <ol className="mt-3 space-y-1.5">
+                  {toc.map((item) => (
+                    <li key={item.id} className={item.level === 3 ? "pl-4 opacity-80" : undefined}>
+                      <a href={`#${item.id}`} className="hover:text-bICON hover:underline">
+                        {item.text}
+                      </a>
+                    </li>
+                  ))}
+                </ol>
+              </nav>
+            ) : null}
+
             <div
-              className="prose prose-invert mt-8 max-w-none text-[15px] leading-relaxed s768:text-base"
-              // contentHtml is sanitized on save and again by getPostBySlug()
-              // before it ever reaches this component (lib/cms/rich-text.ts).
-              dangerouslySetInnerHTML={{ __html: post.contentHtml }}
+              className="post-content mt-8 text-[15px] s768:text-[17px]"
+              dangerouslySetInnerHTML={{ __html: bodyHtml }}
             />
 
             {post.tags.length > 0 ? (

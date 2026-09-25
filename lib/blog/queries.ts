@@ -45,6 +45,8 @@ export interface BlogPostSummary {
   seoDescription?: string;
   canonicalUrl?: string;
   authorName?: string;
+  /** Published but kept out of search engines, the sitemap, RSS and llms.txt. */
+  noindex?: boolean;
 }
 
 export interface BlogPostView extends BlogPostSummary {
@@ -106,6 +108,7 @@ const SUMMARY_SELECT = {
   seoTitle: true,
   seoDescription: true,
   canonicalUrl: true,
+  noindex: true,
   author: { select: { name: true } },
 } as const;
 
@@ -125,6 +128,7 @@ interface PostRow {
   seoTitle: string | null;
   seoDescription: string | null;
   canonicalUrl: string | null;
+  noindex: boolean;
   author: { name: string | null } | null;
 }
 
@@ -156,6 +160,7 @@ function toSummary(row: PostRow): BlogPostSummary {
     seoDescription: row.seoDescription || undefined,
     canonicalUrl: row.canonicalUrl || undefined,
     authorName: row.author?.name || undefined,
+    noindex: row.noindex || undefined,
   };
 }
 
@@ -192,7 +197,7 @@ export async function readPublishedPost(slug: string, client: PostOneDb = db.pos
   });
 }
 
-const cachedSummaries = cached(async () => (await readPublishedPosts()).map(toSummary), ["blog", "list", "v2"], {
+const cachedSummaries = cached(async () => (await readPublishedPosts()).map(toSummary), ["blog", "list", "v3"], {
   tags: [TAGS.blogList],
   revalidate: 300,
 });
@@ -220,6 +225,11 @@ async function publishedSummaries(): Promise<BlogPostSummary[] | null> {
  */
 export async function getPosts(defaults?: BlogPostView[]): Promise<BlogPostSummary[]> {
   return (await publishedSummaries()) ?? defaults ?? defaultPosts();
+}
+
+/** Published posts search engines and AI crawlers may see: the sitemap, RSS and llms.txt. */
+export async function getIndexablePosts(): Promise<BlogPostSummary[]> {
+  return (await getPosts()).filter((post) => !post.noindex);
 }
 
 /**

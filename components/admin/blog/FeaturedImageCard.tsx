@@ -2,9 +2,11 @@
 
 import { useState } from "react";
 
-import { cardClass, buttonVariants, fieldClass } from "@/components/admin/ui/styles";
+import { buttonVariants, fieldClass } from "@/components/admin/ui/styles";
 import { MediaPicker } from "@/components/admin/media/MediaPicker";
 import { cn } from "@/lib/utils";
+
+import SidebarCard from "./SidebarCard";
 
 // "Featured image" card: preview, choose-from-library, clear, and one AI
 // image prompt that generates a fresh media asset and sets it as featured
@@ -51,9 +53,7 @@ export default function FeaturedImageCard({
   }
 
   return (
-    <div className={cardClass}>
-      <h2 className="mb-3 text-sm font-semibold">Featured image</h2>
-
+    <SidebarCard title="Featured image">
       <div className="flex min-h-[160px] items-center justify-center overflow-hidden rounded-md border border-dashed border-border bg-muted/30">
         {src ? (
           // eslint-disable-next-line @next/next/no-img-element -- admin preview of a Cloudinary/LOCAL asset
@@ -114,6 +114,6 @@ export default function FeaturedImageCard({
           </p>
         ) : null}
       </div>
-    </div>
+    </SidebarCard>
   );
 }

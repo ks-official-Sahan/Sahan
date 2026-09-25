@@ -6,6 +6,7 @@ import {
   generateBlogPost,
   generateSeoSuggestion,
   parseBlogGeneration,
+  validateStructure,
 } from "./blog-generate";
 import type { AiOutcome, AiProvider } from "./providers";
 import type { ModelPrompt } from "./guard";
@@ -166,4 +167,106 @@ test("generateSeoSuggestion fails on an invalid response", async () => {
   const provider = fakeProvider("fake", { ok: true, text: "{}" });
   const result = await generateSeoSuggestion({ title: "T", contentText: "C" }, { providers: [provider] });
   assert.equal(result.ok, false);
+});
+
+// ─── validateStructure ────────────────────────────────────────────────────
+
+/** n distinct, deterministic words — for hitting an exact word-count target without hand-writing prose. */
+function words(n: number): string {
+  return Array.from({ length: n }, (_, i) => `word${i % 11}`).join(" ");
+}
+
+function wellStructuredBody(): string {
+  return [
+    "## TL;DR",
+    "",
+    "- First takeaway.",
+    "- Second takeaway.",
+    "- Third takeaway.",
+    "",
+    "## Background",
+    "",
+    `${words(118)}.`,
+    "",
+    `${words(118)}.`,
+    "",
+    "## Approach",
+    "",
+    `${words(118)}.`,
+    "",
+    "### Step by step",
+    "",
+    "1. Do this first.",
+    "2. Then this.",
+    "",
+    "## FAQ",
+    "",
+    "### Is this real?",
+    "",
+    `${words(118)}.`,
+    "",
+    "## Conclusion",
+    "",
+    `${words(118)}.`,
+  ].join("\n");
+}
+
+test("validateStructure accepts a body with enough H2 sections, a list, short paragraphs and an in-range word count", () => {
+  const issues = validateStructure(wellStructuredBody(), "Medium");
+  assert.deepEqual(issues, []);
+});
+
+test("validateStructure flags too few H2 sections", () => {
+  const issues = validateStructure("## Only one\n\nSome text here.", "Short");
+  assert.ok(issues.some((issue) => /"##" section/.test(issue)));
+});
+
+test("validateStructure flags a missing list", () => {
+  const body = ["## A", "", `${words(60)}.`, "", "## B", "", `${words(60)}.`, "", "## C", "", `${words(60)}.`].join("\n");
+  const issues = validateStructure(body, "Short");
+  assert.ok(issues.some((issue) => /list/.test(issue)));
+});
+
+test("validateStructure flags a paragraph over 120 words", () => {
+  const body = ["## A", "", "- a point", "", `${words(130)}.`, "", "## B", "", "text", "", "## C", "", "text"].join("\n");
+  const issues = validateStructure(body, "Short");
+  assert.ok(issues.some((issue) => /exceeds 120 words/.test(issue)));
+});
+
+test("validateStructure ignores fenced code content when checking paragraph length", () => {
+  const body = ["## A", "", "- a point", "", "```", words(200), "```", "", "## B", "", "text", "", "## C", "", "text"].join("\n");
+  const issues = validateStructure(body, "Short");
+  assert.ok(!issues.some((issue) => /exceeds 120 words/.test(issue)));
+});
+
+test("validateStructure flags a body far outside the target word range", () => {
+  const tooShort = validateStructure("## A\n\n- x\n\n## B\n\ntext\n\n## C\n\ntext", "Long");
+  assert.ok(tooShort.some((issue) => /aim for/.test(issue)));
+});
+
+// ─── generateBlogPost + validateStructure integration ─────────────────────
+
+test("generateBlogPost repairs once when the first response parses but is under-structured, then succeeds", async () => {
+  let call = 0;
+  const provider: AiProvider = {
+    name: "fake",
+    generate: async () => {
+      call += 1;
+      const post = call === 1 ? VALID_POST : { ...VALID_POST, bodyMarkdown: wellStructuredBody() };
+      return { ok: true, text: JSON.stringify(post) };
+    },
+  };
+  const result = await generateBlogPost({ ...INPUT, length: "Medium" }, { providers: [provider] });
+  assert.equal(call, 2);
+  assert.equal(result.ok, true);
+  if (result.ok) assert.equal(validateStructure(result.post.bodyMarkdown, "Medium").length, 0);
+});
+
+test("generateBlogPost returns the repaired post best-effort even if it is still under-structured", async () => {
+  const provider = fakeProvider("fake", { ok: true, text: JSON.stringify(VALID_POST) });
+  const result = await generateBlogPost({ ...INPUT, length: "Medium" }, { providers: [provider] });
+  // VALID_POST's body has only one "##" section; both the first attempt and
+  // the repair return it, so the repair is exercised but the result is still
+  // accepted (best-effort — a structurally imperfect post beats none).
+  assert.equal(result.ok, true);
 });

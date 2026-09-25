@@ -1,10 +1,13 @@
 "use client";
 
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import { type ReactNode, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useFormStatus } from "react-dom";
+import { ArrowLeft, Eye, EyeOff } from "lucide-react";
 
 import ActionForm, { Field, SubmitButton } from "@/components/admin/ui/ActionForm";
 import type { ActionState } from "@/lib/actions/state";
-import { buttonVariants, cardClass, fieldClass } from "@/components/admin/ui/styles";
+import { buttonVariants, cardClass } from "@/components/admin/ui/styles";
 import { draftStorageKey, isDraftNewer } from "@/lib/blog/draft";
 import { slugify } from "@/lib/blog/slug";
 import { cn } from "@/lib/utils";
@@ -12,14 +15,20 @@ import { cn } from "@/lib/utils";
 import AiAssistantCard, { type AiPatch } from "./AiAssistantCard";
 import BodyEditorCard, { type BodyMode } from "./BodyEditorCard";
 import FeaturedImageCard from "./FeaturedImageCard";
-import PublishingCard from "./PublishingCard";
+import PostPreviewPane from "./PostPreviewPane";
+import PublishingCard, { PublishButton } from "./PublishingCard";
+import SeoCard from "./SeoCard";
+import SidebarCard from "./SidebarCard";
 
 // The blog post editor: create and update share this component (per the
-// task, "new and edit should share the same editor component"). Field
-// changes (title, slug, body, cover, SEO, topic/tags) go through
-// createPostAction/updatePostAction as before; the AI Assistant card only
-// ever writes into this component's own state via onPatch — it never talks
-// to the database directly.
+// task, "new and edit should share the same editor component"). A calm,
+// dense editor in the Linear/Notion/Ghost mold: a sticky top bar (save
+// state, Preview toggle, the primary/secondary submit actions) over a large
+// borderless title, the body editor, the AI assistant, and a collapsible
+// sidebar (SidebarCard) of Featured image / Publishing / SEO cards. Field
+// changes go through createPostAction/updatePostAction as before; the AI
+// Assistant card only ever writes into this component's own state via
+// onPatch — it never talks to the database directly.
 
 export interface EditablePost {
   id?: string;
@@ -36,6 +45,8 @@ export interface EditablePost {
   seoTitle: string;
   seoDescription: string;
   canonicalUrl: string;
+  /** Kept out of search results, sitemap, RSS and llms.txt; still readable by URL. */
+  noindex?: boolean;
   status?: "DRAFT" | "SCHEDULED" | "PUBLISHED" | "ARCHIVED";
   /** ISO `updatedAt`, carried in a hidden field for updatePostAction's optimistic-concurrency check. Absent for a new, unsaved post. */
   updatedAt?: string;
@@ -53,6 +64,7 @@ const EMPTY_POST: EditablePost = {
   seoTitle: "",
   seoDescription: "",
   canonicalUrl: "",
+  noindex: false,
   status: "DRAFT",
 };
 
@@ -73,13 +85,22 @@ interface StoredDraft {
   coverMediaId: string;
   coverAlt: string;
   coverSrc: string | null;
+  /** Absent in drafts saved before the field existed. */
+  noindex?: boolean;
   savedAt: string;
 }
 
-function readDraft(key: string): StoredDraft | null {
+function readDraftRaw(key: string): string | null {
   try {
-    const raw = window.localStorage.getItem(key);
-    if (!raw) return null;
+    return window.localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function parseDraft(raw: string | null): StoredDraft | null {
+  if (!raw) return null;
+  try {
     const parsed = JSON.parse(raw) as Partial<StoredDraft> | null;
     if (!parsed || typeof parsed.savedAt !== "string" || typeof parsed.title !== "string") return null;
     return parsed as StoredDraft;
@@ -87,6 +108,10 @@ function readDraft(key: string): StoredDraft | null {
     return null;
   }
 }
+
+// localStorage has no same-tab change event worth subscribing to; the value
+// is re-read on each render instead (useSyncExternalStore's snapshot).
+const subscribeNever = () => () => {};
 
 function writeDraft(key: string, draft: StoredDraft): void {
   try {
@@ -104,16 +129,35 @@ function clearDraft(key: string): void {
   }
 }
 
-// ─── SEO field counters ─────────────────────────────────────────────────────
+// ─── Save-state text ("Saved • 2m ago" / "Unsaved changes") ────────────────
 
-/** Live character counter with a soft warning colour outside the aim range. Never blocks input — the field's own `maxLength` is the hard cap. */
-function FieldCounter({ id, value, max, aim }: { id: string; value: string; max: number; aim?: { min?: number; max: number } }) {
-  const length = value.length;
-  const warn = aim ? length > aim.max || (aim.min !== undefined && length > 0 && length < aim.min) : false;
+const RELATIVE_TIME = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
+
+function relativeTime(from: Date, now: Date): string {
+  const seconds = Math.round((from.getTime() - now.getTime()) / 1000);
+  if (Math.abs(seconds) < 45) return "just now";
+  const minutes = Math.round(seconds / 60);
+  if (Math.abs(minutes) < 60) return RELATIVE_TIME.format(minutes, "minute");
+  const hours = Math.round(minutes / 60);
+  if (Math.abs(hours) < 24) return RELATIVE_TIME.format(hours, "hour");
+  return RELATIVE_TIME.format(Math.round(hours / 24), "day");
+}
+
+/** Rendered inside the ActionForm it reports on, so useFormStatus() reads that form's own pending state directly — no prop threading needed. */
+function SaveState({ dirty, savedAt }: { dirty: boolean; savedAt: Date | null }) {
+  const { pending } = useFormStatus();
+  // Ticks once a minute purely so the relative "Xm ago" text stays fresh.
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const timer = setInterval(() => setTick((value) => value + 1), 30_000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const text = pending ? "Saving…" : dirty ? "Unsaved changes" : savedAt ? `Saved • ${relativeTime(savedAt, new Date())}` : "Not saved yet";
   return (
-    <p id={id} className={cn("mt-1 text-right text-xs tabular-nums", warn ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground")}>
-      {length}/{max}
-    </p>
+    <span role="status" aria-live="polite" className={cn("text-xs", dirty && !pending ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground")}>
+      {text}
+    </span>
   );
 }
 
@@ -126,6 +170,7 @@ export default function BlogEditorForm({
   existingTags = [],
   siteUrl,
   statusPanel,
+  historyPanel,
 }: {
   action: (previous: ActionState, formData: FormData) => Promise<ActionState>;
   post?: EditablePost;
@@ -138,8 +183,10 @@ export default function BlogEditorForm({
   existingTags?: string[];
   /** This site's own origin, e.g. "sahansachintha.com" — for the "<site>/updates/<slug>" line. */
   siteUrl: string;
-  /** Edit page only: its existing publish/schedule/archive form, rendered inside the Publishing card. */
+  /** Edit page only: publish/schedule/archive controls, rendered inside the Publishing card. Buttons with a formAction, never a nested <form>. */
   statusPanel?: ReactNode;
+  /** Edit page only: the saved-versions card (RevisionHistoryCard). */
+  historyPanel?: ReactNode;
 }) {
   const initial = post ?? EMPTY_POST;
   const storageKey = draftStorageKey(post?.id);
@@ -161,58 +208,49 @@ export default function BlogEditorForm({
   const [generatedByAI, setGeneratedByAI] = useState(false);
   const [seoBusy, setSeoBusy] = useState(false);
   const [seoError, setSeoError] = useState<string | null>(null);
+  const [noindex, setNoindex] = useState(initial.noindex ?? false);
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   // Optimistic concurrency: re-armed with the fresh value updatePostAction
   // returns after each successful save, so a second save right after the
   // first is never falsely flagged as a conflict.
   const [updatedAt, setUpdatedAt] = useState(initial.updatedAt ?? "");
+  const [savedAt, setSavedAt] = useState<Date | null>(initial.updatedAt ? new Date(initial.updatedAt) : null);
+  const rootRef = useRef<HTMLDivElement>(null);
 
-  // Unsaved-changes tracking: `dirty` gates both the beforeunload warning and
-  // whether autosave bothers writing. It flips true the first time any
-  // tracked field changes after mount (never on the initial render, which is
-  // just the loaded — or restored — values settling in) and back to false
-  // once a save succeeds.
-  const mountedRef = useRef(false);
-  const [dirty, setDirty] = useState(false);
-  const [pendingDraft, setPendingDraft] = useState<StoredDraft | null>(null);
+  // Unsaved-changes tracking, derived rather than stored: the form is dirty
+  // when its fields differ from the last saved (or first loaded) values. No
+  // "skip the first effect run" flag, so React's dev double-invoke of effects
+  // can't mark a freshly opened post as edited.
+  const snapshotKey = JSON.stringify({ title, slug, excerpt, content, topic, tags, seoTitle, seoDescription, coverMediaId, coverAlt, coverSrc, noindex });
+  const [savedKey, setSavedKey] = useState(snapshotKey);
+  const dirty = snapshotKey !== savedKey;
 
+  // Local autosave, one second after the last change, only while dirty.
   useEffect(() => {
-    if (!mountedRef.current) {
-      mountedRef.current = true;
-      return;
-    }
-    setDirty(true);
+    if (!dirty) return;
     const timer = setTimeout(() => {
-      writeDraft(storageKey, {
-        title,
-        slug,
-        excerpt,
-        content,
-        topic,
-        tags,
-        seoTitle,
-        seoDescription,
-        coverMediaId,
-        coverAlt,
-        coverSrc,
-        savedAt: new Date().toISOString(),
-      });
+      const fields = JSON.parse(snapshotKey) as Omit<StoredDraft, "savedAt">;
+      writeDraft(storageKey, { ...fields, savedAt: new Date().toISOString() });
     }, 1000);
     return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- storageKey only changes with the post, not worth re-running for
-  }, [title, slug, excerpt, content, topic, tags, seoTitle, seoDescription, coverMediaId, coverAlt, coverSrc]);
+  }, [dirty, snapshotKey, storageKey]);
 
-  // Offer a locally saved draft once, on mount, if it postdates what the
-  // server actually has (lib/blog/draft.ts's isDraftNewer).
-  useEffect(() => {
-    const stored = readDraft(storageKey);
-    if (stored && isDraftNewer(stored.savedAt, initial.updatedAt ?? null)) {
-      setPendingDraft(stored);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- run once, for the post this editor opened with
-  }, []);
+  // Offer a locally saved draft if it postdates what the server has
+  // (lib/blog/draft.ts's isDraftNewer). Read through useSyncExternalStore so
+  // the server render and hydration agree (no draft), then the browser shows
+  // it. Once the admin edits, autosave overwrites that draft anyway, so the
+  // offer is withdrawn rather than left pointing at data that is gone.
+  const draftRaw = useSyncExternalStore(subscribeNever, () => readDraftRaw(storageKey), () => null);
+  const [draftDismissed, setDraftDismissed] = useState(false);
+  const pendingDraft = useMemo(() => {
+    if (dirty || draftDismissed) return null;
+    const stored = parseDraft(draftRaw);
+    return stored && isDraftNewer(stored.savedAt, initial.updatedAt ?? null) ? stored : null;
+  }, [dirty, draftDismissed, draftRaw, initial.updatedAt]);
 
-  // Warn only while there is something unsaved to lose.
+  // Warn on a hard navigation (refresh/close-tab) while there is something
+  // unsaved to lose.
   useEffect(() => {
     if (!dirty) return;
     const warn = (event: BeforeUnloadEvent) => event.preventDefault();
@@ -220,11 +258,51 @@ export default function BlogEditorForm({
     return () => window.removeEventListener("beforeunload", warn);
   }, [dirty]);
 
+  // Warn on an in-app navigation too (clicking a sidebar link, "Back to
+  // posts", etc.): Next's App Router has no imperative "confirm before
+  // navigating" hook, so this listens for a same-page anchor click in the
+  // capture phase and asks first, closing over the same `dirty` state
+  // beforeunload uses. Same-page hash links (PostPreviewPane's table of
+  // contents) just scroll, so they're excluded rather than falsely confirmed.
+  useEffect(() => {
+    const guard = (event: MouseEvent) => {
+      if (!dirty) return;
+      const anchor = (event.target as HTMLElement | null)?.closest("a[href]");
+      const href = anchor?.getAttribute("href");
+      if (!href || href.startsWith("#")) return;
+      if (!window.confirm("You have unsaved changes. Leave this page?")) event.preventDefault();
+    };
+    document.addEventListener("click", guard, true);
+    return () => document.removeEventListener("click", guard, true);
+  }, [dirty]);
+
+  // Keyboard shortcuts: Ctrl/Cmd+S saves, Ctrl/Cmd+Shift+P toggles Preview.
+  // ActionForm (components/admin/ui/ActionForm.tsx) owns the <form> element
+  // and doesn't forward a ref, so Ctrl/Cmd+S finds it the same way any
+  // keyboard shortcut would target a form it doesn't own: by DOM query
+  // within this component's own root.
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      const meta = event.ctrlKey || event.metaKey;
+      if (!meta) return;
+      if (event.key.toLowerCase() === "s") {
+        event.preventDefault();
+        rootRef.current?.querySelector("form")?.requestSubmit();
+      } else if (event.shiftKey && event.key.toLowerCase() === "p") {
+        event.preventDefault();
+        setPreviewOpen((value) => !value);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+
   function handleResult(state: ActionState) {
     if (!state.ok) return;
     if (state.updatedAt) setUpdatedAt(state.updatedAt);
     clearDraft(storageKey);
-    setDirty(false);
+    setSavedKey(snapshotKey);
+    setSavedAt(new Date());
   }
 
   function applyDraft() {
@@ -241,13 +319,13 @@ export default function BlogEditorForm({
     setCoverMediaId(pendingDraft.coverMediaId);
     setCoverAlt(pendingDraft.coverAlt);
     setCoverSrc(pendingDraft.coverSrc);
-    setDirty(true);
-    setPendingDraft(null);
+    if (typeof pendingDraft.noindex === "boolean") setNoindex(pendingDraft.noindex);
+    setDraftDismissed(true);
   }
 
   function discardDraft() {
     clearDraft(storageKey);
-    setPendingDraft(null);
+    setDraftDismissed(true);
   }
 
   function handleTitleChange(value: string) {
@@ -314,8 +392,11 @@ export default function BlogEditorForm({
     }
   }
 
+  const previewData = { title, excerpt, topic, coverSrc, coverAlt, html: content };
+
   return (
-    <ActionForm action={action} onResult={handleResult} className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+    <div ref={rootRef}>
+    <ActionForm action={action} onResult={handleResult} className="space-y-6">
       {post?.id ? <input type="hidden" name="id" defaultValue={post.id} /> : null}
       {post?.id ? <input type="hidden" name="updatedAt" value={updatedAt} /> : null}
       <input type="hidden" name="content" value={content} />
@@ -325,8 +406,47 @@ export default function BlogEditorForm({
       <input type="hidden" name="coverAlt" value={coverAlt} />
       <input type="hidden" name="generatedByAI" value={generatedByAI ? "1" : "0"} />
 
+      {/* Sticky top bar: breadcrumb, save state, Preview toggle, the primary/secondary submit actions. Sits just under AdminShell's own Topbar (h-14, z-30). */}
+      <div className="sticky top-14 z-20 -mx-4 flex flex-wrap items-center gap-3 border-b border-border bg-background/95 px-4 py-3 backdrop-blur s768:-mx-8 s768:px-8">
+        <Link
+          href="/admin/blog"
+          aria-label="Back to posts"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-border bg-card text-muted-foreground hover:text-foreground"
+        >
+          <ArrowLeft size={16} />
+        </Link>
+        <div className="min-w-0">
+          <h1 className="truncate text-sm font-medium">{title || (post?.id ? "Edit post" : "New post")}</h1>
+          <SaveState dirty={dirty} savedAt={savedAt} />
+        </div>
+
+        <div className="ml-auto flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setPreviewOpen((value) => !value)}
+            aria-pressed={previewOpen}
+            className={cn(buttonVariants.secondary, "gap-1.5")}
+            title="Preview (Ctrl/Cmd+Shift+P)"
+          >
+            {previewOpen ? <EyeOff size={15} aria-hidden /> : <Eye size={15} aria-hidden />}
+            {previewOpen ? "Back to editing" : "Preview"}
+          </button>
+
+          {statusPanel ? (
+            <span title="Save (Ctrl/Cmd+S)">
+              <SubmitButton pendingLabel="Saving…">{post?.id ? "Update" : "Save"}</SubmitButton>
+            </span>
+          ) : (
+            <>
+              <PublishButton intent="draft" canPublish={canPublish} label="Save draft" pendingLabel="Saving…" />
+              <PublishButton intent="publish" canPublish={canPublish} label="Publish now" pendingLabel="Publishing…" />
+            </>
+          )}
+        </div>
+      </div>
+
       {pendingDraft ? (
-        <div role="status" className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm lg:col-span-2">
+        <div role="status" className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
           <span>
             You have unsaved changes from {new Date(pendingDraft.savedAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}.
           </span>
@@ -341,153 +461,121 @@ export default function BlogEditorForm({
         </div>
       ) : null}
 
-      {/* Left column */}
-      <div className="space-y-6">
-        <div className={cardClass}>
-          <label htmlFor="post-title" className="sr-only">
-            Post title
-          </label>
-          <input
-            id="post-title"
-            name="title"
-            value={title}
-            onChange={(event) => handleTitleChange(event.target.value)}
-            placeholder="Post Title…"
-            required
-            maxLength={200}
-            className="w-full border-0 bg-transparent text-2xl font-semibold tracking-tight text-foreground placeholder:text-muted-foreground focus-visible:outline-none"
-          />
-          <div className="mt-2 flex flex-wrap items-center gap-1 text-sm text-muted-foreground">
-            <span>{siteUrl}/updates/</span>
-            <input
-              name="slug"
-              value={slug}
-              onChange={(event) => {
-                setSlug(slugify(event.target.value));
-                setSlugTouched(true);
+      {previewOpen ? <PostPreviewPane post={previewData} /> : null}
+
+      {/* Hidden, never unmounted, while previewing: every named field must
+          stay in the form, or a Ctrl/Cmd+S from the preview would save the
+          title, slug, excerpt and SEO fields as empty. */}
+      <div hidden={previewOpen}>
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+          {/* Main column */}
+          <div className="space-y-6">
+            <div className={cardClass}>
+              <label htmlFor="post-title" className="sr-only">
+                Post title
+              </label>
+              <input
+                id="post-title"
+                name="title"
+                value={title}
+                onChange={(event) => handleTitleChange(event.target.value)}
+                placeholder="Post Title…"
+                required
+                maxLength={200}
+                className="w-full border-0 bg-transparent text-2xl font-semibold tracking-tight text-foreground placeholder:text-muted-foreground focus-visible:outline-none s768:text-3xl"
+              />
+              <div className="mt-2 flex flex-wrap items-center gap-1 text-sm text-muted-foreground">
+                <span>{siteUrl}/updates/</span>
+                <input
+                  name="slug"
+                  value={slug}
+                  onChange={(event) => {
+                    setSlug(slugify(event.target.value));
+                    setSlugTouched(true);
+                  }}
+                  required
+                  maxLength={96}
+                  aria-label="Slug"
+                  className="min-w-0 flex-1 border-0 bg-transparent font-mono text-sm text-primary focus-visible:outline-none"
+                />
+              </div>
+            </div>
+
+            <BodyEditorCard content={content} onChange={setContent} mode={bodyMode} onModeChange={setBodyMode} />
+
+            {canUseAi ? <AiAssistantCard onPatch={handleAiPatch} existingContent={content} /> : null}
+          </div>
+
+          {/* Sidebar */}
+          <div className="space-y-6">
+            <FeaturedImageCard
+              src={coverSrc}
+              alt={coverAlt}
+              onAltChange={setCoverAlt}
+              onSelect={(result) => {
+                setCoverMediaId(result.mediaId);
+                setCoverSrc(result.src);
+                if (!coverAlt) setCoverAlt(result.alt);
               }}
-              required
-              maxLength={96}
-              aria-label="Slug"
-              className="min-w-0 flex-1 border-0 bg-transparent font-mono text-sm text-primary focus-visible:outline-none"
+              onClear={() => {
+                setCoverMediaId("");
+                setCoverSrc(null);
+              }}
+            />
+            {coverBusy ? <p className="text-xs text-muted-foreground">Generating featured image…</p> : null}
+
+            <PublishingCard
+              status={initial.status ?? "DRAFT"}
+              topic={topic}
+              onTopicChange={setTopic}
+              existingTopics={existingTopics}
+              tags={tags}
+              onTagsChange={setTags}
+              existingTags={existingTags}
+              statusPanel={statusPanel}
+              canPublish={canPublish}
+            />
+
+            <SidebarCard title="Search visibility" defaultOpen={noindex}>
+              <label className="flex items-start gap-2.5 text-sm">
+                <input
+                  type="checkbox"
+                  name="noindex"
+                  checked={noindex}
+                  onChange={(event) => setNoindex(event.target.checked)}
+                  className="mt-0.5 h-4 w-4 shrink-0 accent-primary"
+                />
+                <span>
+                  <span className="font-medium">Hide from search engines</span>
+                  <span className="mt-0.5 block text-xs text-muted-foreground">
+                    Adds noindex and leaves the post out of the sitemap, RSS and llms.txt. Anyone with the link can still read it.
+                  </span>
+                </span>
+              </label>
+            </SidebarCard>
+
+            {historyPanel}
+
+            <SeoCard
+              title={title}
+              slug={slug}
+              siteUrl={siteUrl}
+              excerpt={excerpt}
+              onExcerptChange={setExcerpt}
+              seoTitle={seoTitle}
+              onSeoTitleChange={setSeoTitle}
+              seoDescription={seoDescription}
+              onSeoDescriptionChange={setSeoDescription}
+              canonicalUrl={initial.canonicalUrl}
+              canUseAi={canUseAi}
+              seoBusy={seoBusy}
+              seoError={seoError}
+              onSuggest={suggestSeo}
             />
           </div>
         </div>
-
-        <BodyEditorCard content={content} onChange={setContent} mode={bodyMode} onModeChange={setBodyMode} />
-
-        {canUseAi ? <AiAssistantCard onPatch={handleAiPatch} /> : null}
-      </div>
-
-      {/* Right column */}
-      <div className="space-y-6">
-        <FeaturedImageCard
-          src={coverSrc}
-          alt={coverAlt}
-          onAltChange={setCoverAlt}
-          onSelect={(result) => {
-            setCoverMediaId(result.mediaId);
-            setCoverSrc(result.src);
-            if (!coverAlt) setCoverAlt(result.alt);
-          }}
-          onClear={() => {
-            setCoverMediaId("");
-            setCoverSrc(null);
-          }}
-        />
-        {coverBusy ? <p className="text-xs text-muted-foreground">Generating featured image…</p> : null}
-
-        <PublishingCard
-          status={initial.status ?? "DRAFT"}
-          topic={topic}
-          onTopicChange={setTopic}
-          existingTopics={existingTopics}
-          tags={tags}
-          onTagsChange={setTags}
-          existingTags={existingTags}
-          statusPanel={statusPanel}
-          canPublish={canPublish}
-        />
-
-        <div className={cardClass}>
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-sm font-semibold">SEO &amp; Metadata</h2>
-            {canUseAi ? (
-              <button
-                type="button"
-                onClick={suggestSeo}
-                disabled={seoBusy || !title}
-                className="rounded-md border border-input bg-background px-3 py-1 text-xs font-medium hover:bg-muted disabled:opacity-60"
-              >
-                {seoBusy ? "Suggesting…" : "✨ Suggest SEO"}
-              </button>
-            ) : null}
-          </div>
-          {seoError ? <p className="mb-2 text-xs text-destructive">{seoError}</p> : null}
-
-          <label htmlFor="excerpt" className="text-sm font-medium">
-            Excerpt (short summary)
-          </label>
-          <textarea
-            id="excerpt"
-            name="excerpt"
-            value={excerpt}
-            onChange={(event) => setExcerpt(event.target.value)}
-            maxLength={500}
-            aria-describedby="excerpt-counter"
-            className={cn(fieldClass, "mt-1.5 min-h-20 py-2")}
-          />
-          <FieldCounter id="excerpt-counter" value={excerpt} max={500} />
-
-          <label htmlFor="seoTitle" className="mt-3 block text-sm font-medium">
-            SEO title
-          </label>
-          <input
-            id="seoTitle"
-            name="seoTitle"
-            value={seoTitle}
-            onChange={(event) => setSeoTitle(event.target.value)}
-            maxLength={70}
-            placeholder="Defaults to post title"
-            aria-describedby="seoTitle-counter"
-            className={cn(fieldClass, "mt-1.5")}
-          />
-          <FieldCounter id="seoTitle-counter" value={seoTitle} max={70} aim={{ max: 60 }} />
-
-          <label htmlFor="seoDescription" className="mt-3 block text-sm font-medium">
-            SEO description
-          </label>
-          <textarea
-            id="seoDescription"
-            name="seoDescription"
-            value={seoDescription}
-            onChange={(event) => setSeoDescription(event.target.value)}
-            maxLength={200}
-            aria-describedby="seoDescription-counter"
-            className={cn(fieldClass, "mt-1.5 min-h-16 py-2")}
-          />
-          <FieldCounter id="seoDescription-counter" value={seoDescription} max={200} aim={{ min: 120, max: 160 }} />
-
-          <div className="mt-3 rounded-md border border-border bg-muted/30 p-3">
-            <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Search result preview</p>
-            <p className="mt-1 truncate text-sm text-primary">{seoTitle || title || "Untitled post"}</p>
-            <p className="truncate text-xs text-muted-foreground">
-              {siteUrl}/updates/{slug || "…"}
-            </p>
-            <p className="mt-0.5 line-clamp-2 text-sm text-muted-foreground">{seoDescription || excerpt || "No description yet."}</p>
-          </div>
-
-          <Field label="Canonical URL" name="canonicalUrl" defaultValue={initial.canonicalUrl} hint="Only needed if this post was published elsewhere first." className="mt-3" />
-        </div>
-
-        {statusPanel ? (
-          <div className={cardClass}>
-            <SubmitButton pendingLabel="Saving…" className="w-full">
-              Save changes
-            </SubmitButton>
-          </div>
-        ) : null}
       </div>
     </ActionForm>
+    </div>
   );
 }

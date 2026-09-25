@@ -1,15 +1,16 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
 
 import { hasPermission, requirePermission } from "@/lib/auth/dal";
 import { db } from "@/lib/db/prisma";
 import { SiteMetadata } from "@/config/site";
-import ActionForm, { ConfirmSubmitButton, SubmitButton } from "@/components/admin/ui/ActionForm";
-import { badgeClass, buttonVariants, fieldClass } from "@/components/admin/ui/styles";
-import { deletePostAction, setPostStatusAction, updatePostAction } from "@/lib/actions/blog";
+import ActionForm, { ConfirmSubmitButton } from "@/components/admin/ui/ActionForm";
+import { badgeClass } from "@/components/admin/ui/styles";
+import { deletePostAction, updatePostAction } from "@/lib/actions/blog";
+import { listPostRevisions } from "@/lib/blog/revision-queries";
 
 import BlogEditorForm from "@/components/admin/blog/BlogEditorForm";
+import PostStatusControls from "@/components/admin/blog/PostStatusControls";
+import RevisionHistoryCard from "@/components/admin/blog/RevisionHistoryCard";
 
 export const metadata = { title: "Edit post" };
 
@@ -28,83 +29,41 @@ export default async function EditBlogPostPage({ params }: { params: Promise<{ i
   const { id } = await params;
   const user = await requirePermission("editBlog");
 
-  const post = await db.post.findUnique({ where: { id }, include: { coverMedia: { select: { url: true } } } });
+  // One round trip of independent reads: none of them needs the post first.
+  const [post, { topics, tags }, revisions] = await Promise.all([
+    db.post.findUnique({ where: { id }, include: { coverMedia: { select: { url: true } } } }),
+    loadTaxonomy(id),
+    listPostRevisions(id),
+  ]);
   if (!post) notFound();
 
   const canPublish = hasPermission(user, "publishBlog");
   const canDelete = hasPermission(user, "deleteBlog");
-  const { topics, tags } = await loadTaxonomy(id);
   const siteUrl = new URL(SiteMetadata.siteUrl).host;
 
-  const statusPanel = canPublish ? (
-    <div className="space-y-3">
-      <ActionForm action={setPostStatusAction} className="flex flex-wrap items-center gap-2">
-        <input type="hidden" name="id" value={post.id} />
-        {post.status !== "PUBLISHED" ? (
-          <button type="submit" name="action" value="publish" className={buttonVariants.small}>
-            Publish now
-          </button>
-        ) : null}
-        {post.status !== "ARCHIVED" ? (
-          <button type="submit" name="action" value="unpublish" className={buttonVariants.small}>
-            Move to draft
-          </button>
-        ) : null}
-        {post.status !== "ARCHIVED" ? (
-          <button type="submit" name="action" value="archive" className={buttonVariants.smallDanger}>
-            Archive
-          </button>
-        ) : null}
-      </ActionForm>
-
-      <details>
-        <summary className="cursor-pointer text-xs text-muted-foreground">Schedule for later</summary>
-        <ActionForm action={setPostStatusAction} className="mt-2 flex flex-wrap items-center gap-2">
-          <input type="hidden" name="id" value={post.id} />
-          <input type="hidden" name="action" value="schedule" />
-          <input
-            type="datetime-local"
-            name="publishAt"
-            required
-            className={fieldClass}
-            defaultValue={post.publishAt ? post.publishAt.toISOString().slice(0, 16) : undefined}
-          />
-          <SubmitButton variant="secondary" pendingLabel="Scheduling…">
-            Schedule
-          </SubmitButton>
-        </ActionForm>
-      </details>
-    </div>
-  ) : (
-    <span className={badgeClass}>{post.status}</span>
-  );
+  // A restore writes a "restore" revision; keying the editor on the newest
+  // one remounts it with the restored fields. An ordinary save never changes
+  // this key, so saving never resets the editor mid-typing.
+  const editorKey = revisions.find((revision) => revision.reason === "restore")?.id ?? "base";
 
   return (
     <div className="max-w-6xl space-y-6">
-      <div className="flex items-center gap-3">
-        <Link
-          href="/admin/blog"
-          aria-label="Back to posts"
-          className="flex h-9 w-9 items-center justify-center rounded-full border border-border bg-card text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft size={16} />
-        </Link>
-        <div>
-          <h1 className="text-2xl font-semibold">{post.title}</h1>
-          <p className="text-sm text-muted-foreground">
-            <span className={badgeClass}>{post.status}</span> · /updates/{post.slug}
-          </p>
-        </div>
-      </div>
-
       <BlogEditorForm
+        key={editorKey}
         action={updatePostAction}
         canUseAi={hasPermission(user, "generateAI")}
         canPublish={canPublish}
         existingTopics={topics}
         existingTags={tags}
         siteUrl={siteUrl}
-        statusPanel={statusPanel}
+        statusPanel={
+          canPublish ? (
+            <PostStatusControls status={post.status} publishAt={post.publishAt?.toISOString() ?? null} />
+          ) : (
+            <span className={badgeClass}>{post.status}</span>
+          )
+        }
+        historyPanel={<RevisionHistoryCard postId={post.id} revisions={revisions} />}
         post={{
           id: post.id,
           slug: post.slug,
@@ -119,6 +78,7 @@ export default async function EditBlogPostPage({ params }: { params: Promise<{ i
           seoTitle: post.seoTitle ?? "",
           seoDescription: post.seoDescription ?? "",
           canonicalUrl: post.canonicalUrl ?? "",
+          noindex: post.noindex,
           status: post.status,
           updatedAt: post.updatedAt.toISOString(),
         }}

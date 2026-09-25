@@ -594,6 +594,233 @@ body:has(dialog[open]) {
   transition: transform 2s ease-in-out;
 }
 
+/* Blog post body: sanitized CMS HTML (lib/cms/rich-text.ts) after
+   lib/blog/render.ts. One layer shared by /updates/[slug] and the admin live
+   preview, so the preview is the real thing. Colours come from the site
+   tokens, which .dark re-scopes, so both themes work in both places.
+   Deliberately outside @layer: Tailwind purges layered rules whose classes
+   it cannot find, and .post-table/.post-chart-svg are only written by
+   lib/blog (not in tailwind.config.ts's content globs). */
+@media all {
+  .post-content {
+    font-weight: 400;
+    line-height: 1.75;
+    overflow-wrap: break-word;
+  }
+  .post-content > * + * {
+    margin-top: 1.25em;
+  }
+  .post-content > :first-child {
+    margin-top: 0;
+  }
+  .post-content p {
+    text-wrap: pretty;
+  }
+  .post-content :where(h2, h3, h4) {
+    font-weight: 600;
+    line-height: 1.25;
+    letter-spacing: -0.015em;
+    text-wrap: balance;
+    scroll-margin-top: 6rem;
+  }
+  .post-content h2 {
+    margin-top: 2.25em;
+    font-size: 1.5em;
+  }
+  .post-content h3 {
+    margin-top: 1.75em;
+    font-size: 1.2em;
+  }
+  .post-content h4 {
+    margin-top: 1.5em;
+    font-size: 1.05em;
+  }
+  .post-content :where(h2, h3, h4) + :where(p, ul, ol) {
+    margin-top: 0.6em;
+  }
+  .post-content a {
+    color: var(--b-icon);
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 3px;
+  }
+  .post-content a:hover {
+    text-decoration-thickness: 2px;
+  }
+  .post-content :where(strong, b) {
+    font-weight: 650;
+  }
+  .post-content :where(ul, ol) {
+    padding-left: 1.4em;
+  }
+  .post-content ul {
+    list-style: disc;
+  }
+  .post-content ol {
+    list-style: decimal;
+  }
+  .post-content li + li,
+  .post-content li > :where(ul, ol) {
+    margin-top: 0.4em;
+  }
+  .post-content li::marker {
+    color: var(--b-icon);
+  }
+  .post-content blockquote {
+    border-left: 3px solid var(--b-icon);
+    padding: 0.2em 0 0.2em 1em;
+    font-style: italic;
+  }
+  .post-content hr {
+    margin-block: 2.5em;
+    border: 0;
+    border-top: 1px solid var(--b-border-fade);
+  }
+  .post-content code {
+    border-radius: 6px;
+    background: var(--b-chip);
+    padding: 0.15em 0.4em;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.875em;
+  }
+  .post-content pre {
+    overflow-x: auto;
+    border: 1px solid var(--b-border-fade);
+    border-radius: 14px;
+    background: var(--b-fcard);
+    padding: 1em 1.2em;
+    font-size: 0.875em;
+    line-height: 1.65;
+  }
+  .post-content pre code {
+    background: none;
+    padding: 0;
+    font-size: inherit;
+  }
+  .post-content img {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    border: 1px solid var(--b-border-fade);
+    border-radius: 14px;
+  }
+  .post-content figure {
+    /* Full shorthand: the browser default adds 40px side margins. */
+    margin: 2em 0;
+  }
+  .post-content figcaption {
+    margin-top: 0.6em;
+    text-align: center;
+    text-wrap: balance;
+    font-size: 0.85em;
+    opacity: 0.7;
+  }
+
+  /* Tables scroll inside their own region (lib/blog/render.ts adds it). */
+  .post-content .post-table {
+    overflow-x: auto;
+    border: 1px solid var(--b-border-fade);
+    border-radius: 14px;
+  }
+  .post-content .post-table:focus-visible {
+    outline: 2px solid var(--b-icon);
+    outline-offset: 2px;
+  }
+  .post-content table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9em;
+    line-height: 1.55;
+  }
+  .post-content :where(th, td) {
+    border-bottom: 1px solid var(--b-border-fade);
+    padding: 0.65em 0.9em;
+    text-align: left;
+    vertical-align: top;
+  }
+  .post-content thead th {
+    background: var(--b-fcard);
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .post-content tbody th {
+    font-weight: 600;
+  }
+  .post-content tbody tr:last-child > * {
+    border-bottom: 0;
+  }
+
+  /* Callouts: "> [!NOTE]" / "[!TIP]" / "[!WARNING]" (lib/blog/markdown.ts). */
+  .post-content aside[data-callout] {
+    --callout: hsl(var(--color-3));
+    border: 1px solid color-mix(in oklab, var(--callout) 35%, transparent);
+    border-left: 4px solid var(--callout);
+    border-radius: 12px;
+    background: color-mix(in oklab, var(--callout) 8%, transparent);
+    padding: 0.9em 1.1em;
+  }
+  .post-content aside[data-callout="tip"] {
+    --callout: var(--b-icon);
+  }
+  .post-content aside[data-callout="warning"] {
+    --callout: hsl(38 92% 50%);
+  }
+  .post-content aside[data-callout]::before {
+    content: "Note";
+    display: block;
+    margin-bottom: 0.3em;
+    color: var(--callout);
+    font-size: 0.75em;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .post-content aside[data-callout="tip"]::before {
+    content: "Tip";
+  }
+  .post-content aside[data-callout="warning"]::before {
+    content: "Warning";
+  }
+  .post-content aside > * + * {
+    margin-top: 0.6em;
+  }
+
+  /* Charts: a caption, the computed SVG, then the data table on demand. */
+  .post-content figure[data-chart] {
+    border: 1px solid var(--b-border-fade);
+    border-radius: 16px;
+    background: var(--b-fcard);
+    padding: 1em 1.1em;
+  }
+  .post-content figure[data-chart] figcaption {
+    margin: 0 0 0.75em;
+    text-align: left;
+    font-size: 0.95em;
+    font-weight: 600;
+    opacity: 1;
+  }
+  .post-content .post-chart-svg {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+  .post-content details {
+    margin-top: 0.75em;
+  }
+  .post-content summary {
+    width: fit-content;
+    cursor: pointer;
+    font-size: 0.85em;
+    opacity: 0.75;
+  }
+  .post-content summary:hover {
+    opacity: 1;
+  }
+  .post-content details[open] > .post-table {
+    margin-top: 0.6em;
+  }
+}
+
 /* services-container */
 /* align-items: stretch; */
 /* Ensures all cards stretch to the same height */

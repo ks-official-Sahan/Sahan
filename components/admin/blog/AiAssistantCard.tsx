@@ -1,18 +1,24 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { Check, Loader2 } from "lucide-react";
 
 import { buttonVariants, fieldClass, textareaClass } from "@/components/admin/ui/styles";
 import { applyImageToken } from "@/lib/blog/ai-image-tokens";
 import { markdownToHtml } from "@/lib/blog/markdown";
 import { cn } from "@/lib/utils";
 
+import SidebarCard from "./SidebarCard";
+
 // "AI Assistant" card: one Generate click produces a complete post (title,
-// slug, excerpt, Markdown body with inline image placeholders, SEO fields,
-// topic, tags, and a featured-image prompt) via
+// slug, excerpt, structured Markdown body with inline image placeholders,
+// SEO fields, topic, tags, and a featured-image prompt) via
 // app/api/admin/ai/generate-post/route.ts, which streams staged
 // Server-Sent Events. Images are requested after the text and resolved in
 // parallel (per-image progress), never blocking the text from appearing.
+// When the body already has content, Generate first asks Replace or Insert
+// (work item 3's "diff-free Replace/Insert choice") rather than silently
+// clobbering what's there.
 
 export type Tone = "Professional" | "Friendly" | "Technical" | "Casual";
 export type Length = "Short" | "Medium" | "Long";
@@ -32,6 +38,8 @@ interface ContentImageMeta {
   caption?: string;
 }
 
+type ImageStatus = "start" | "done" | "error" | "unavailable";
+
 function parseSseChunk(chunk: string): { event: string; data: unknown } | null {
   const eventMatch = chunk.match(/^event:\s*(.+)$/m);
   const dataMatch = chunk.match(/^data:\s*(.+)$/m);
@@ -43,23 +51,60 @@ function parseSseChunk(chunk: string): { event: string; data: unknown } | null {
   }
 }
 
-export default function AiAssistantCard({ onPatch }: { onPatch: (patch: AiPatch) => void }) {
+/** A single row in the generation-progress stepper. */
+function StepRow({ state, label }: { state: "pending" | "active" | "done"; label: string }) {
+  return (
+    <li className="flex items-center gap-2 text-xs">
+      {state === "done" ? (
+        <Check size={13} className="shrink-0 text-emerald-600 dark:text-emerald-400" aria-hidden />
+      ) : state === "active" ? (
+        <Loader2 size={13} className="shrink-0 animate-spin text-primary" aria-hidden />
+      ) : (
+        <span aria-hidden className="h-3 w-3 shrink-0 rounded-full border border-muted-foreground/40" />
+      )}
+      <span className={state === "pending" ? "text-muted-foreground" : "text-foreground"}>{label}</span>
+    </li>
+  );
+}
+
+export default function AiAssistantCard({
+  onPatch,
+  existingContent,
+}: {
+  onPatch: (patch: AiPatch) => void;
+  /** The body's current HTML, so a non-empty body triggers the Replace/Insert choice instead of a silent overwrite. */
+  existingContent: string;
+}) {
   const [tone, setTone] = useState<Tone>("Professional");
   const [length, setLength] = useState<Length>("Medium");
   const [imageScene, setImageScene] = useState("");
   const [prompt, setPrompt] = useState("");
   const [busy, setBusy] = useState(false);
-  const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [askReplaceInsert, setAskReplaceInsert] = useState(false);
+
+  const [draftStep, setDraftStep] = useState<"pending" | "active" | "done">("pending");
+  const [imagesStep, setImagesStep] = useState<"pending" | "active" | "done">("pending");
+  const [imageStatuses, setImageStatuses] = useState<Record<string, ImageStatus>>({});
+
+  const [hasContentImages, setHasContentImages] = useState(false);
 
   const bodyMarkdownRef = useRef("");
-  const contentImagesRef = useRef<ContentImageMeta[]>([]);
+  const insertModeRef = useRef(false);
+  const baseContentRef = useRef("");
 
-  async function generate() {
-    if (!prompt.trim() || busy) return;
+  /** Converts the current Markdown source to HTML and pushes it up, merged with the pre-generation content when the admin chose Insert. */
+  function emitBody() {
+    const html = markdownToHtml(bodyMarkdownRef.current);
+    onPatch({ type: "body", html: insertModeRef.current && baseContentRef.current ? `${baseContentRef.current}\n${html}` : html });
+  }
+
+  async function runGeneration() {
     setBusy(true);
     setError(null);
-    setStatus("Writing the post…");
+    setDraftStep("active");
+    setImagesStep("pending");
+    setImageStatuses({});
     onPatch({ type: "start" });
 
     try {
@@ -78,7 +123,6 @@ export default function AiAssistantCard({ onPatch }: { onPatch: (patch: AiPatch)
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
-      let sawDone = false;
 
       while (true) {
         const { value, done: streamDone } = await reader.read();
@@ -95,9 +139,7 @@ export default function AiAssistantCard({ onPatch }: { onPatch: (patch: AiPatch)
           if (!parsed) continue;
           const { event, data } = parsed;
 
-          if (event === "stage") {
-            setStatus("Writing the post…");
-          } else if (event === "content") {
+          if (event === "content") {
             const payload = data as {
               title: string;
               slug: string;
@@ -111,7 +153,9 @@ export default function AiAssistantCard({ onPatch }: { onPatch: (patch: AiPatch)
               contentImages: ContentImageMeta[];
             };
             bodyMarkdownRef.current = payload.bodyMarkdown;
-            contentImagesRef.current = payload.contentImages;
+            setHasContentImages(payload.contentImages.length > 0);
+            setDraftStep("done");
+            setImagesStep("active");
             onPatch({
               type: "meta",
               title: payload.title,
@@ -122,11 +166,12 @@ export default function AiAssistantCard({ onPatch }: { onPatch: (patch: AiPatch)
               topic: payload.topic,
               tags: payload.tags,
             });
-            onPatch({ type: "body", html: markdownToHtml(payload.bodyMarkdown) });
+            emitBody();
             onPatch({ type: "featuredAlt", alt: payload.featuredImageAlt });
-            setStatus("Generating images…");
           } else if (event === "image") {
-            const payload = data as { which: string; status: string; url?: string; mediaId?: string; alt?: string; error?: string };
+            const payload = data as { which: string; status: ImageStatus; url?: string; mediaId?: string; alt?: string; error?: string };
+            setImageStatuses((current) => ({ ...current, [payload.which]: payload.status }));
+
             if (payload.which === "featured") {
               if (payload.status === "start") onPatch({ type: "featuredImageBusy", busy: true });
               else {
@@ -135,26 +180,22 @@ export default function AiAssistantCard({ onPatch }: { onPatch: (patch: AiPatch)
                   onPatch({ type: "featuredImage", mediaId: payload.mediaId, url: payload.url, alt: payload.alt || "" });
                 }
               }
-            } else {
+            } else if (payload.status !== "start") {
               // A content-image token: resolve (or placeholder) it in the
               // Markdown source and push the re-rendered HTML up.
-              if (payload.status === "start") continue;
               const resolved = payload.status === "done" && payload.url ? { url: payload.url, alt: payload.alt || "" } : null;
               bodyMarkdownRef.current = applyImageToken(bodyMarkdownRef.current, payload.which, resolved);
-              onPatch({ type: "body", html: markdownToHtml(bodyMarkdownRef.current) });
+              emitBody();
             }
-            setStatus("Generating images…");
           } else if (event === "error") {
             const payload = data as { error: string };
             setError(payload.error);
             onPatch({ type: "error", message: payload.error });
           } else if (event === "done") {
-            sawDone = true;
+            setImagesStep("done");
           }
         }
       }
-
-      setStatus(sawDone ? "Done." : null);
     } catch {
       setError("The AI assistant is unreachable right now.");
     } finally {
@@ -162,12 +203,32 @@ export default function AiAssistantCard({ onPatch }: { onPatch: (patch: AiPatch)
     }
   }
 
+  function startGenerate() {
+    if (!prompt.trim() || busy) return;
+    setError(null);
+    // A non-empty body always asks first; clicking Generate again while the
+    // question is open must not silently replace the body.
+    if (existingContent.trim()) {
+      setAskReplaceInsert(true);
+      return;
+    }
+    // Empty body: always a plain replace. Without this reset, an Insert
+    // chosen on an earlier run would prepend that run's stale base content.
+    chooseAndGenerate(false);
+  }
+
+  function chooseAndGenerate(insert: boolean) {
+    insertModeRef.current = insert;
+    baseContentRef.current = insert ? existingContent : "";
+    setAskReplaceInsert(false);
+    void runGeneration();
+  }
+
   return (
-    <div className="rounded-lg border border-border bg-card p-5 text-card-foreground">
-      <h2 className="mb-1 text-sm font-semibold">AI Assistant</h2>
+    <SidebarCard title="AI Assistant" defaultOpen>
       <p className="mb-4 text-sm text-muted-foreground">
-        Describe what you want to write about. The assistant generates the whole post — title, body, SEO fields, images — then fills every field
-        below.
+        Describe what you want to write about. The assistant generates the whole post — title, structured body, SEO fields, images — then fills every
+        field below.
       </p>
 
       <div className="grid gap-4 s640:grid-cols-2">
@@ -225,7 +286,7 @@ export default function AiAssistantCard({ onPatch }: { onPatch: (patch: AiPatch)
         />
         <button
           type="button"
-          onClick={generate}
+          onClick={startGenerate}
           disabled={busy || !prompt.trim()}
           aria-label="Generate with AI"
           title="Generate with AI"
@@ -235,16 +296,49 @@ export default function AiAssistantCard({ onPatch }: { onPatch: (patch: AiPatch)
         </button>
       </div>
 
-      {status && !error ? (
-        <p role="status" aria-live="polite" className="mt-2 text-xs text-muted-foreground">
-          {status}
-        </p>
+      {askReplaceInsert ? (
+        <div role="alertdialog" aria-label="Replace or insert" className="mt-3 rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
+          <p>The body already has content. Replace it, or insert the new draft below what&apos;s there?</p>
+          <div className="mt-2 flex gap-2">
+            <button type="button" onClick={() => chooseAndGenerate(false)} className="rounded-md border border-input bg-background px-3 py-1 text-xs font-medium hover:bg-muted">
+              Replace
+            </button>
+            <button type="button" onClick={() => chooseAndGenerate(true)} className="rounded-md border border-input bg-background px-3 py-1 text-xs font-medium hover:bg-muted">
+              Insert below
+            </button>
+            <button type="button" onClick={() => setAskReplaceInsert(false)} className="ml-auto text-xs text-muted-foreground hover:text-foreground">
+              Cancel
+            </button>
+          </div>
+        </div>
       ) : null}
+
+      {busy || draftStep === "done" ? (
+        <ul aria-live="polite" className="mt-3 space-y-1.5 rounded-md border border-border bg-muted/20 p-3">
+          <StepRow state={draftStep} label="Drafting & structuring the post" />
+          {draftStep !== "pending" ? (
+            <StepRow state={imagesStep} label={hasContentImages || imagesStep !== "pending" ? "Generating images" : "Generating images (none needed)"} />
+          ) : null}
+          {Object.entries(imageStatuses).map(([token, status]) => (
+            <li key={token} className="ml-5 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+              <span
+                aria-hidden
+                className={cn(
+                  "h-1.5 w-1.5 rounded-full",
+                  status === "done" ? "bg-emerald-500" : status === "error" || status === "unavailable" ? "bg-amber-500" : "bg-primary animate-pulse"
+                )}
+              />
+              {token === "featured" ? "Featured image" : "Inline image"} — {status}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+
       {error ? (
         <p role="alert" className="mt-2 text-xs text-destructive">
           {error}
         </p>
       ) : null}
-    </div>
+    </SidebarCard>
   );
 }

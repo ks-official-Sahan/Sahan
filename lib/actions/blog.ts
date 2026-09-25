@@ -15,6 +15,7 @@ import { extractText, sanitizeRich } from "@/lib/cms/rich-text";
 import { postInputSchema, publishActionSchema } from "@/lib/blog/schema";
 import { parseSubmittedUpdatedAt, UPDATE_CONFLICT_MESSAGE } from "@/lib/blog/concurrency";
 import { computeReadMinutes } from "@/lib/blog/readtime";
+import { parseSnapshot, sameSnapshot, snapshotOf, type PostSnapshot } from "@/lib/blog/revisions";
 import { log } from "@/lib/log";
 
 // Blog CRUD and status actions (docs/plan/admin-cms-adr.md, Step 12). Draft
@@ -29,7 +30,7 @@ import { log } from "@/lib/log";
 const ADMIN_LIST_PATH = "/admin/blog";
 
 /** Thrown inside updatePostAction's transaction when the conditional
- * `updateMany` touches zero rows — someone else changed the post since the
+ * update matches no row (P2025) — someone else changed the post since the
  * editor loaded it. Caught by the surrounding try/catch, same "abort the
  * transaction with a typed reason" idiom as lib/cms/service.ts's `Abort`. */
 class UpdateConflictError extends Error {}
@@ -39,6 +40,11 @@ class UpdateConflictError extends Error {}
  * slugTaken() pre-check missing a race or a row edited directly elsewhere. */
 function isUniqueConstraintError(error: unknown): boolean {
   return Boolean(error && typeof error === "object" && (error as { code?: string }).code === "P2002");
+}
+
+/** True for Prisma's "record to update not found" (P2025). */
+function isNotFoundError(error: unknown): boolean {
+  return Boolean(error && typeof error === "object" && (error as { code?: string }).code === "P2025");
 }
 
 function computed(content: string) {
@@ -119,6 +125,7 @@ export async function createPostAction(_previous: ActionState, formData: FormDat
           seoTitle: parsed.data.seoTitle || null,
           seoDescription: parsed.data.seoDescription || null,
           canonicalUrl: parsed.data.canonicalUrl || null,
+          noindex: parsed.data.noindex,
           status: resolved.status,
           publishAt: resolved.publishAt,
           publishedAt: resolved.publishedAt,
@@ -170,8 +177,8 @@ export async function previewPostHtmlAction(html: string): Promise<string> {
  * Optimistic concurrency (docs/plan/admin-cms-adr.md, Step 12 hardening): the
  * edit form carries the post's `updatedAt` in a hidden field
  * (BlogEditorForm), and the actual write is conditional on that timestamp
- * still matching — `updateMany` inside the transaction, never a plain
- * `update`, so a save that lands after someone else's edit touches zero rows
+ * still matching — an update filtered on it inside the transaction, never a
+ * bare one by id, so a save that lands after someone else's edit touches zero rows
  * instead of overwriting their text. On a conflict, no audit row is written
  * (the transaction throws before reaching audit()) and the caller's typed
  * text is untouched — ActionForm's own state keeps it.
@@ -199,30 +206,36 @@ export async function updatePostAction(_previous: ActionState, formData: FormDat
       return fail("Some fields need attention.", { slug: "This slug is already in use." });
     }
 
+    const next: PostSnapshot = {
+      slug: parsed.data.slug,
+      title: parsed.data.title,
+      excerpt: parsed.data.excerpt || null,
+      content: parsed.data.content,
+      topic: parsed.data.topic,
+      tags: parsed.data.tags,
+      coverMediaId: parsed.data.coverMediaId || null,
+      coverAlt: parsed.data.coverAlt || null,
+      seoTitle: parsed.data.seoTitle || null,
+      seoDescription: parsed.data.seoDescription || null,
+      canonicalUrl: parsed.data.canonicalUrl || null,
+      noindex: parsed.data.noindex,
+    };
+    const previous = snapshotOf(before);
     const extra = computed(parsed.data.content);
     const updated = await db.$transaction(async (tx) => {
-      const result = await tx.post.updateMany({
-        where: { id, updatedAt: submittedUpdatedAt },
-        data: {
-          slug: parsed.data.slug,
-          title: parsed.data.title,
-          excerpt: parsed.data.excerpt || null,
-          content: parsed.data.content,
-          contentHtml: extra.contentHtml,
-          contentText: extra.contentText,
-          readMinutes: extra.readMinutes,
-          topic: parsed.data.topic,
-          tags: parsed.data.tags,
-          coverMediaId: parsed.data.coverMediaId || null,
-          coverAlt: parsed.data.coverAlt || null,
-          seoTitle: parsed.data.seoTitle || null,
-          seoDescription: parsed.data.seoDescription || null,
-          canonicalUrl: parsed.data.canonicalUrl || null,
-        },
-      });
-      if (result.count !== 1) throw new UpdateConflictError();
-
-      const row = await tx.post.findUniqueOrThrow({ where: { id } });
+      // The updatedAt filter is the concurrency check: no match (P2025) means
+      // someone else saved since this editor loaded, so nothing is written.
+      const row = await tx.post
+        .update({ where: { id, updatedAt: submittedUpdatedAt }, data: { ...next, ...extra } })
+        .catch((error: unknown) => {
+          throw isNotFoundError(error) ? new UpdateConflictError() : error;
+        });
+      // A save that changed nothing editable leaves no revision behind.
+      if (!sameSnapshot(previous, next)) {
+        await tx.postRevision.create({
+          data: { postId: id, title: previous.title, data: previous, reason: "update", createdById: auth.user.id },
+        });
+      }
       await audit(
         { action: "post.updated", actor: auth.user, entityType: "Post", entityId: id, before, after: row },
         tx
@@ -247,6 +260,79 @@ export async function updatePostAction(_previous: ActionState, formData: FormDat
       return fail("Some fields need attention.", { slug: "This slug is already in use." });
     }
     log.error("update post failed", { error: error instanceof Error ? error.message : String(error) });
+    return fail("Something went wrong. Please try again.");
+  }
+}
+
+/**
+ * Puts an earlier revision's fields back. The version being replaced is
+ * stored as a revision first (reason "restore"), so a restore can itself be
+ * undone. Same concurrency rule as updatePostAction: the write is conditional
+ * on the updatedAt this action read, so a save racing the restore wins cleanly
+ * instead of being overwritten.
+ */
+export async function restorePostRevisionAction(_previous: ActionState, formData: FormData): Promise<ActionState> {
+  const auth = await authorizeAction("editBlog");
+  if (!auth.ok) return fail(auth.error);
+
+  const postId = String(formData.get("postId") ?? "");
+  const revisionId = String(formData.get("revisionId") ?? "");
+  if (!postId || !revisionId) return fail("Revision not found.");
+
+  try {
+    const [before, revision] = await Promise.all([
+      db.post.findUnique({ where: { id: postId } }),
+      db.postRevision.findFirst({ where: { id: revisionId, postId }, select: { data: true } }),
+    ]);
+    if (!before || !revision) return fail("Revision not found.");
+
+    const snapshot = parseSnapshot(revision.data);
+    if (!snapshot) return fail("This revision can no longer be restored.");
+    if (snapshot.slug !== before.slug && (await slugTaken(snapshot.slug, postId))) {
+      return fail("Another post now uses this revision's slug. Change that post's slug first.");
+    }
+    // The cover may have been deleted from the library since; restore without it.
+    if (snapshot.coverMediaId) {
+      const cover = await db.mediaAsset.findUnique({ where: { id: snapshot.coverMediaId }, select: { id: true } });
+      if (!cover) snapshot.coverMediaId = null;
+    }
+
+    const extra = computed(snapshot.content);
+    const restored = await db.$transaction(async (tx) => {
+      const row = await tx.post
+        .update({ where: { id: postId, updatedAt: before.updatedAt }, data: { ...snapshot, ...extra } })
+        .catch((error: unknown) => {
+          throw isNotFoundError(error) ? new UpdateConflictError() : error;
+        });
+      await tx.postRevision.create({
+        data: { postId, title: before.title, data: snapshotOf(before), reason: "restore", createdById: auth.user.id },
+      });
+      await audit(
+        {
+          action: "post.restored",
+          actor: auth.user,
+          entityType: "Post",
+          entityId: postId,
+          before,
+          after: row,
+          meta: { revisionId },
+        },
+        tx
+      );
+      return row;
+    });
+
+    if (before.status === "PUBLISHED" || restored.slug !== before.slug) {
+      invalidate(forPost(before.slug));
+      if (restored.slug !== before.slug) invalidate(forPost(restored.slug));
+    }
+    revalidatePath(ADMIN_LIST_PATH);
+    revalidatePath(`${ADMIN_LIST_PATH}/${postId}`);
+    return { ...done("Revision restored."), updatedAt: restored.updatedAt.toISOString() };
+  } catch (error) {
+    if (error instanceof UpdateConflictError) return fail(UPDATE_CONFLICT_MESSAGE);
+    if (isUniqueConstraintError(error)) return fail("Another post now uses this revision's slug.");
+    log.error("restore post revision failed", { error: error instanceof Error ? error.message : String(error) });
     return fail("Something went wrong. Please try again.");
   }
 }
@@ -341,6 +427,8 @@ async function applyStatus(
       invalidate(forPost(before.slug));
     }
     revalidatePath(ADMIN_LIST_PATH);
+    // The edit page shows the status too; without this its controls stay stale until a reload.
+    revalidatePath(`${ADMIN_LIST_PATH}/${id}`);
 
     const messages = {
       publish: "Post published.",
