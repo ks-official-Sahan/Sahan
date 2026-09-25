@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef } from "react";
-import { useReducedMotion } from "framer-motion";
+import { useReducedMotion } from "@/lib/use-reduced-motion";
 import { X } from "lucide-react";
 import NavItem from "./NavItem";
 import ThemeSwitch from "../theme/theme-switch";

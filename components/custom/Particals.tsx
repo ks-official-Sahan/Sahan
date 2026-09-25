@@ -1,7 +1,7 @@
 "use client";
 
 import { useTheme } from "next-themes";
-import { useReducedMotion } from "framer-motion";
+import { useReducedMotion } from "@/lib/use-reduced-motion";
 import React, { useEffect, useState } from "react";
 import ParticlesX from "../animations/ParticlesX";
 

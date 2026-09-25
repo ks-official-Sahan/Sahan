@@ -8,7 +8,6 @@ import {
 } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import React, { useEffect, useState } from "react";
-import { motion } from "framer-motion";
 
 const FooterNav = ({ className }: { className?: string }) => {
   const [currentPath, setCurrentPath] = useState("");
@@ -142,13 +141,10 @@ const FooterNav = ({ className }: { className?: string }) => {
             }
             `}
       >
-        <motion.div
-          initial={{ rotate: -90 }}
-          className="w-[84px] h-[34px] px-[13px] rounded-full border flex items-center gap-[4px]"
-        >
+        <div className="-rotate-90 w-[84px] h-[34px] px-[13px] rounded-full border flex items-center gap-[4px]">
           <Handshake size={12} />{" "}
           <span className="text-[10px] font-semibold ">Contact</span>
-        </motion.div>
+        </div>
       </button>
     </nav>
   );

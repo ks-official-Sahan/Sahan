@@ -1,43 +1,31 @@
 "use client";
 import React, { useRef, useEffect, useState } from "react";
-import { motion } from "framer-motion";
 
-export const TextHoverEffect = ({
-  text,
-  duration,
-}: {
-  text: string;
-  duration?: number;
-  automatic?: boolean;
-}) => {
+export const TextHoverEffect = ({ text }: { text: string }) => {
   const svgRef = useRef<SVGSVGElement>(null);
-  const [cursor, setCursor] = useState({ x: 0, y: 0 });
   const [hovered, setHovered] = useState(false);
   const [maskPosition, setMaskPosition] = useState({ cx: "50%", cy: "50%" });
   const rafId = useRef<number | null>(null);
 
-  useEffect(() => {
-    if (!svgRef.current) return;
+  useEffect(
+    () => () => {
+      if (rafId.current) cancelAnimationFrame(rafId.current);
+    },
+    []
+  );
 
-    const { x, y } = cursor;
-    if (!Number.isFinite(x) || !Number.isFinite(y)) return;
-
-    const svgRect = svgRef.current.getBoundingClientRect();
-    const width = svgRect.width || 0;
-    const height = svgRect.height || 0;
-
+  // One state update per frame at most: the reveal mask follows the cursor
+  // directly (it was an instant, zero-duration animation before).
+  const moveMask = (x: number, y: number) => {
+    const svg = svgRef.current;
+    if (!svg) return;
+    const { left, top, width, height } = svg.getBoundingClientRect();
     if (!width || !height) return;
-
-    const cxPercentage = ((x - svgRect.left) / width) * 100;
-    const cyPercentage = ((y - svgRect.top) / height) * 100;
-
-    if (!Number.isFinite(cxPercentage) || !Number.isFinite(cyPercentage)) return;
-
     setMaskPosition({
-      cx: `${cxPercentage}%`,
-      cy: `${cyPercentage}%`,
+      cx: `${((x - left) / width) * 100}%`,
+      cy: `${((y - top) / height) * 100}%`,
     });
-  }, [cursor]);
+  };
 
   return (
     <svg
@@ -52,7 +40,7 @@ export const TextHoverEffect = ({
         const x = e.clientX;
         const y = e.clientY;
         if (rafId.current) cancelAnimationFrame(rafId.current);
-        rafId.current = requestAnimationFrame(() => setCursor({ x, y }));
+        rafId.current = requestAnimationFrame(() => moveMask(x, y));
       }}
       className="select-none"
     >
@@ -75,25 +63,16 @@ export const TextHoverEffect = ({
           )}
         </linearGradient>
 
-        <motion.radialGradient
+        <radialGradient
           id="revealMask"
           gradientUnits="userSpaceOnUse"
           r="20%"
-          initial={{ cx: "50%", cy: "50%" }}
-          animate={maskPosition}
-          transition={{ duration: duration ?? 0, ease: "easeOut" }}
-
-        // example for a smoother animation below
-
-        // transition={{
-        //   type: "spring",
-        //   stiffness: 800,
-        //   damping: 100,
-        // }}
+          cx={maskPosition.cx}
+          cy={maskPosition.cy}
         >
           <stop offset="0%" stopColor="white" />
           <stop offset="100%" stopColor="black" />
-        </motion.radialGradient>
+        </radialGradient>
         <mask id="textMask">
           <rect
             x="0"
@@ -115,25 +94,16 @@ export const TextHoverEffect = ({
       >
         {text}
       </text>
-      <motion.text
+      <text
         x="50%"
         y="50%"
         textAnchor="middle"
         dominantBaseline="middle"
         strokeWidth="0.3"
-        className="font-[helvetica] font-bold fill-transparent text-7xl   stroke-neutral-200 dark:stroke-neutral-800"
-        initial={{ strokeDashoffset: 1000, strokeDasharray: 1000 }}
-        animate={{
-          strokeDashoffset: 0,
-          strokeDasharray: 1000,
-        }}
-        transition={{
-          duration: 4,
-          ease: "easeInOut",
-        }}
+        className="stroke-draw font-[helvetica] font-bold fill-transparent text-7xl   stroke-neutral-200 dark:stroke-neutral-800"
       >
         {text}
-      </motion.text>
+      </text>
       <text
         x="50%"
         y="50%"

@@ -19,8 +19,8 @@ gsap.registerPlugin(useGSAP);
  * under app/admin — admin mounts its own Mantine provider and CSS
  * (app/admin/layout.tsx) because MediaPicker still needs them; nothing here
  * pulls Mantine, NextUI or Shoelace into the public bundle any more (moved
- * out of Nav.tsx/SideBar.tsx/Navigation.tsx — plain markup + framer-motion's
- * useReducedMotion instead). The former loading-screen splash
+ * out of Nav.tsx/SideBar.tsx/Navigation.tsx — plain markup, CSS transitions
+ * and lib/use-reduced-motion instead). The former loading-screen splash
  * (components/animations/LoadingScreen.tsx, deleted) blocked first paint for
  * up to 2.5s on every load with no reduced-motion check and no functional
  * purpose (a timer, not real load state); removed rather than gated, since

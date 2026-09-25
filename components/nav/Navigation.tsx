@@ -3,37 +3,28 @@
 import React, { useCallback, useEffect, useState } from "react";
 import WrapperBody from "../wrappers/WrapperBody";
 import { usePathname } from "next/navigation";
-import { motion, useReducedMotion } from "framer-motion";
 import { Site } from "@/config/site";
 import SideBar from "./SideBar";
 import NavBar from "./Nav";
 
+const SECTIONS = new Set(["about", "works", "updates", "blog", "contact"]);
+
+// Active nav section from the first path segment, so nested pages such as
+// /updates/<slug> keep their section lit. Derived during render, so the
+// server HTML already carries the active state.
+const sectionFor = (path: string) => {
+  if (path === "/") return "home";
+  const first = path.split("/")[1] ?? "";
+  return SECTIONS.has(first) ? first : "";
+};
+
 const Navigation = () => {
-  const [currentPath, setCurrentPath] = useState("");
   const [isVisible, setIsVisible] = useState(true);
-  const path = usePathname();
+  const currentPath = sectionFor(usePathname());
 
   const [opened, setOpened] = useState(false);
   const toggle = useCallback(() => setOpened((value) => !value), []);
   const close = useCallback(() => setOpened(false), []);
-
-  const prefersReducedMotion = useReducedMotion();
-
-  useEffect(() => {
-    if (path === "/") {
-      setCurrentPath("home");
-    } else if (path.endsWith("about")) {
-      setCurrentPath("about");
-    } else if (path.endsWith("works")) {
-      setCurrentPath("works");
-    } else if (path.endsWith("updates")) {
-      setCurrentPath("updates");
-    } else if (path.endsWith("blog")) {
-      setCurrentPath("blog");
-    } else if (path.endsWith("contact")) {
-      setCurrentPath("contact");
-    }
-  }, [path]);
 
   const lastScrollY = React.useRef(0);
 
@@ -50,8 +41,8 @@ const Navigation = () => {
 
   return (
     <>
-      {/* Drawer --> SideBar. Rendered as a sibling of motion.header, not a
-          child: framer-motion animates the header via a CSS `transform`, and
+      {/* Drawer --> SideBar. Rendered as a sibling of the header, not a
+          child: the header hides and slides in via a CSS `transform`, and
           a transformed ancestor becomes the containing block for any
           `position: fixed` descendant (CSS spec), which silently broke this
           drawer's viewport-relative sizing when it was nested inside — its
@@ -66,16 +57,13 @@ const Navigation = () => {
         currentPath={currentPath}
       />
 
-      <motion.header
-        // initial={false}: skip the mount-only slide-in entirely under
-        // prefers-reduced-motion instead of playing it once then disabling
-        // later animations — reducedMotion is resolved synchronously (framer-
-        // motion reads matchMedia during render), so this is correct on the
-        // very first paint, not just after an effect catches up.
-        initial={prefersReducedMotion ? false : { y: -100 }}
-        animate={{ y: isVisible ? 0 : -100 }}
-        transition={prefersReducedMotion ? { duration: 0 } : { duration: 0.4, type: "spring" }}
-        className="w-full fixed top-0 pt-[30px] z-[100]"
+      {/* .site-header (style/globals.css) plays the slide-in from CSS, so the
+          header is on screen from the first paint rather than after
+          hydration, and transitions this inline transform when scrolling.
+          Both are switched off under prefers-reduced-motion. */}
+      <header
+        style={{ transform: isVisible ? "none" : "translateY(-100%)" }}
+        className="site-header w-full fixed top-0 pt-[30px] z-[100]"
       >
         <WrapperBody>
           <NavBar
@@ -85,7 +73,7 @@ const Navigation = () => {
             toggle={toggle}
           />
         </WrapperBody>
-      </motion.header>
+      </header>
     </>
   );
 };

@@ -1,7 +1,7 @@
 "use client";
 
 import Particals from "@/components/custom/Particals";
-import { useReducedMotion } from "framer-motion";
+import { useReducedMotion } from "@/lib/use-reduced-motion";
 import React, { useEffect, useRef } from "react";
 
 // Hero atmosphere, all decorative (aria-hidden, pointer-events none):

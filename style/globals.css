@@ -358,6 +358,45 @@ body:has(dialog[open]) {
   display: none;
 }
 
+/* Site header: slides in on first paint (no JS needed), then follows the
+   inline transform Navigation sets to hide on scroll down. `backwards` fill
+   only, so once the entrance ends the inline transform (and its transition)
+   is what applies. */
+@keyframes site-header-in {
+  from {
+    transform: translateY(-100%);
+  }
+}
+.site-header {
+  animation: site-header-in 400ms var(--ease-out) backwards;
+  transition: transform 400ms var(--ease-out);
+}
+
+/* Floating audio switch: the inner glow pulses while audio plays. */
+@keyframes audio-glow {
+  to {
+    transform: scale(0.8);
+    opacity: 0.5;
+  }
+}
+.audio-glow {
+  opacity: 0.4;
+}
+.audio-glow[data-playing="true"] {
+  animation: audio-glow 500ms ease-in-out infinite alternate;
+}
+
+/* Footer wordmark: the outline draws itself in once. */
+@keyframes stroke-draw {
+  from {
+    stroke-dashoffset: 1000;
+  }
+}
+.stroke-draw {
+  stroke-dasharray: 1000;
+  animation: stroke-draw 4s ease-in-out backwards;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .hero-glow {
     animation: none;
@@ -374,8 +413,14 @@ body:has(dialog[open]) {
     animation-name: home-fade;
   }
   .status-ping::after,
-  .animate-border-beam {
+  .animate-border-beam,
+  .audio-glow[data-playing="true"],
+  .stroke-draw {
     animation: none;
+  }
+  .site-header {
+    animation: none;
+    transition: none;
   }
   .press:active {
     transform: none;
