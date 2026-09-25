@@ -48,6 +48,7 @@ export async function POST(request: NextRequest) {
   let freshVisitorCookie: string | undefined;
   function jsonResponse(body: unknown, init: ResponseInit = {}): NextResponse {
     const response = NextResponse.json(body, init);
+    response.headers.set("Cache-Control", "private, no-cache, no-store, max-age=0, must-revalidate");
     if (freshVisitorCookie) {
       response.cookies.set(
         CHAT_VISITOR_COOKIE,
@@ -150,30 +151,53 @@ export async function POST(request: NextRequest) {
 
   const t0 = Date.now();
   try {
-    // Check if chatbot is enabled
-    const settings = await getPublicSettings();
-    const features = (settings.features as any) || { chatbotEnabled: true };
-    if (!features.chatbotEnabled) {
-      return jsonResponse({ error: "Chatbot is not available" }, { status: 503 });
-    }
-
-    const chatbotConfig: ChatbotConfig = ((settings["chatbot.config"] as any) || {
+    // Check if chatbot is enabled with safe fallbacks
+    let chatbotEnabled = true;
+    let chatbotConfig: ChatbotConfig = {
       enabled: true,
       tone: "professional",
       greeting: "Hi! How can I help?",
       trainingDataVersion: 0,
-    }) as ChatbotConfig;
+    };
 
+    try {
+      const settings = await getPublicSettings();
+      const features = settings?.features as { chatbotEnabled?: boolean } | undefined;
+      if (features && typeof features.chatbotEnabled === "boolean") {
+        chatbotEnabled = features.chatbotEnabled;
+      }
+      if (settings?.["chatbot.config"]) {
+        chatbotConfig = { ...chatbotConfig, ...(settings["chatbot.config"] as Partial<ChatbotConfig>) };
+      }
+    } catch (err) {
+      log.warn("Failed to load settings in chat route, proceeding with defaults", { error: String(err) });
+    }
+
+    if (!chatbotEnabled) {
+      return jsonResponse({ error: "Chatbot is not available" }, { status: 503 });
+    }
     if (!chatbotConfig.enabled) {
       return jsonResponse({ error: "Chatbot is disabled" }, { status: 503 });
     }
 
     // Reads run together; history is taken before this turn is stored.
-    const [history, knowledge] = await Promise.all([
-      getSessionMessages(chatReq.sessionId, 10),
-      getKnowledge(),
-      upsertSession({ sessionId: chatReq.sessionId, ipHash, userAgent: h.get("user-agent") || undefined }),
-    ]);
+    let history: { role: string; content: string }[] = [];
+    let knowledge: string | null = null;
+    try {
+      const [hist, kn] = await Promise.all([
+        getSessionMessages(chatReq.sessionId, 10).catch(() => []),
+        getKnowledge().catch(() => null),
+        upsertSession({ sessionId: chatReq.sessionId, ipHash, userAgent: h.get("user-agent") || undefined }).catch((err) => {
+          log.warn("Failed to upsert chat session", { error: String(err) });
+          return null;
+        }),
+      ]);
+      history = hist;
+      knowledge = kn;
+    } catch (err) {
+      log.warn("Failed gathering session/knowledge context for chat", { error: String(err) });
+    }
+
     const storedUserMessage = addMessage({ sessionId: chatReq.sessionId, role: "user", content: chatReq.message }).catch((error) =>
       log.warn("Failed to store chat message", { error: String(error) })
     );

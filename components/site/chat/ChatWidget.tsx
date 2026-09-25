@@ -5,6 +5,9 @@ import { useEffect, useRef, useState } from "react";
 import { Bot, Send, X } from "lucide-react";
 
 import type { ChatbotConfig } from "@/lib/settings/schema";
+import { useChat } from "@/lib/chatbot/use-chat";
+
+import ChatMarkdown from "./ChatMarkdown";
 
 interface ChatMessage {
   role: "user" | "assistant";
@@ -26,11 +29,11 @@ export default function ChatWidget({ enabled, config, siteUrl }: ChatWidgetProps
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
   const [sessionId] = useState(() => {
     // Generate a simple UUID-like sessionId
     return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
   });
+  const { send, isPending: isLoading } = useChat(sessionId);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -104,51 +107,10 @@ export default function ChatWidget({ enabled, config, siteUrl }: ChatWidgetProps
     const userMessage = { role: "user" as const, content: input };
     setMessages((prev) => [...prev, userMessage]);
     setInput("");
-    // Set before the request goes out, not after it resolves, so the typing
-    // indicator (and the disabled send button below) appear the instant the
-    // message is sent instead of waiting on network latency.
-    setIsLoading(true);
 
-    try {
-      const response = await fetch("/api/chat", {
-        method: "POST",
-        // Explicit, not just relying on the fetch default: a signed visitor
-        // cookie may be set server-side for rate limiting, and this must
-        // never be weakened to "omit".
-        credentials: "same-origin",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          sessionId,
-          message: userMessage.content,
-        }),
-      });
-
-      if (!response.ok) {
-        // 429 gets the server's own message ("Too many requests") since it
-        // tells the visitor something actionable (slow down); anything else
-        // stays a generic, non-technical fallback.
-        let errorMessage = "Sorry, I encountered an error. Please try again.";
-        if (response.status === 429) {
-          const body = (await response.json().catch(() => null)) as { error?: string } | null;
-          errorMessage = body?.error ?? "Too many requests. Please wait a moment before trying again.";
-        }
-        setMessages((prev) => [...prev, { role: "assistant" as const, content: errorMessage }]);
-        return;
-      }
-
-      const data = (await response.json()) as { response: string };
-      const assistantMessage = { role: "assistant" as const, content: data.response };
-      setMessages((prev) => [...prev, assistantMessage]);
-    } catch (error) {
-      console.error("Chat error:", error);
-      const errorMessage = {
-        role: "assistant" as const,
-        content: "Sorry, I encountered an error. Please try again.",
-      };
-      setMessages((prev) => [...prev, errorMessage]);
-    } finally {
-      setIsLoading(false);
-    }
+    const result = await send(userMessage.content);
+    const content = result.ok ? result.reply : result.error;
+    setMessages((prev) => [...prev, { role: "assistant" as const, content }]);
   };
 
   return (
@@ -209,7 +171,11 @@ export default function ChatWidget({ enabled, config, siteUrl }: ChatWidgetProps
                     : "rounded-bl-[6px] bg-bFCARD"
                 }`}
               >
-                <p className="break-words leading-relaxed">{msg.content}</p>
+                {msg.role === "assistant" ? (
+                  <ChatMarkdown text={msg.content} />
+                ) : (
+                  <p className="break-words leading-relaxed">{msg.content}</p>
+                )}
               </div>
             </div>
           ))}

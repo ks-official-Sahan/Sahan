@@ -10,6 +10,7 @@ import { getPageContent } from "@/lib/cms/loaders";
 import { getExperience, getProjects } from "@/lib/collections";
 import { Experience } from "@/contents/experience";
 import { Projects } from "@/contents/projects";
+import { Site, SiteMetadata } from "@/config/site";
 
 // Builds the knowledge base for the chatbot from published CMS content and
 // active training entries. Cached under the `chatbot:knowledge` tag and
@@ -17,6 +18,18 @@ import { Projects } from "@/contents/projects";
 
 async function buildKnowledge(): Promise<string> {
   const parts: string[] = [];
+
+  // Developer Profile - ensures the chatbot always knows who Sahan Sachintha is
+  parts.push("### Developer Profile\n");
+  parts.push(`- **Full Name:** ${Site.authorFullName} (${Site.author})\n`);
+  parts.push(`- **Role:** ${Site.myRole}\n`);
+  parts.push(`- **Current Position:** ${Site.companyRole}\n`);
+  parts.push(`- **Location:** ${Site.location}\n`);
+  parts.push(`- **Tagline:** ${Site.tagline}\n`);
+  parts.push(`- **Email:** ${Site.email}\n`);
+  parts.push(`- **WhatsApp:** ${Site.phoneDisplay}\n`);
+  parts.push(`- **GitHub:** ${Site.gitHubUrl}\n`);
+  parts.push(`- **Bio / Overview:** ${SiteMetadata.description}\n\n`);
 
   try {
     const [home, about, works, contact] = await Promise.all([
@@ -114,7 +127,7 @@ async function buildKnowledge(): Promise<string> {
 export async function getKnowledge(): Promise<string | null> {
   return loadOrNull(
     // Bump the version when the knowledge format changes, so stale entries are not served.
-    cached(buildKnowledge, ["chatbot", "knowledge", "v2"], {
+    cached(buildKnowledge, ["chatbot", "knowledge", "v3"], {
       tags: [TAGS.chatbotKnowledge],
       revalidate: 3600,
     }),
