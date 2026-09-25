@@ -1,4 +1,5 @@
 import { extractChartSpec, renderChartSvg, stripTags, unescapeHtml } from "./chart";
+import { slugify } from "./slug";
 
 // Presentation-time post-processing of already-sanitized post HTML, shared
 // by the public post page (app/(site)/updates/[slug]/page.tsx) and the admin
@@ -27,7 +28,7 @@ const TABLE_OPEN = '<div class="post-table" role="region" aria-label="Table" tab
  */
 export function renderPostContent(html: string): string {
   if (!html) return "";
-  return html
+  return ensureHeadingIds(html)
     .replace(CHART_FIGURE_RE, (figureHtml) => {
       const spec = extractChartSpec(figureHtml);
       if (!spec) return figureHtml;
@@ -36,6 +37,31 @@ export function renderPostContent(html: string): string {
     })
     .replace(/<table>/g, TABLE_OPEN)
     .replace(/<\/table>/g, "</table></div>");
+}
+
+const ANY_HEADING_RE = /<h([234])((?:\s[^>]*)?)>([\s\S]*?)<\/h\1>/g;
+const ID_ATTR_RE = /\sid="([^"]*)"/;
+
+/**
+ * Gives every h2-h4 a unique slug id, keeping ids already there. Stored HTML
+ * does not always carry them: the visual editor (TipTap) drops heading
+ * attributes on save, and older posts never had any. Deriving them here
+ * keeps table-of-contents links working whatever edited the post.
+ */
+export function ensureHeadingIds(html: string): string {
+  const seen = new Set<string>();
+  for (const match of html.matchAll(ANY_HEADING_RE)) {
+    const existing = ID_ATTR_RE.exec(match[2])?.[1];
+    if (existing) seen.add(existing);
+  }
+  return html.replace(ANY_HEADING_RE, (whole, level: string, attrs: string, inner: string) => {
+    if (ID_ATTR_RE.test(attrs)) return whole;
+    const base = slugify(unescapeHtml(stripTags(inner))) || "section";
+    let id = base;
+    for (let n = 2; seen.has(id); n += 1) id = `${base}-${n}`;
+    seen.add(id);
+    return `<h${level}${attrs} id="${id}">${inner}</h${level}>`;
+  });
 }
 
 export interface TocItem {

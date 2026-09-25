@@ -3,7 +3,10 @@
 @tailwind utilities;
 
 @layer base {
-  :root {
+  /* .light re-applies the light tokens inside a dark page (the admin live
+     preview's theme toggle); .dark below does the reverse. */
+  :root,
+  .light {
     --color-1: 0 100% 63%;
     --color-2: 270 100% 63%;
     --color-3: 210 100% 63%;
@@ -818,6 +821,34 @@ body:has(dialog[open]) {
   }
   .post-content details[open] > .post-table {
     margin-top: 0.6em;
+  }
+
+  /* Visual editor: a block kept whole by components/admin/blog/PreservedBlock.ts. */
+  .post-content .preserved-block {
+    position: relative;
+    margin-top: 1.25em;
+    border: 1px dashed var(--b-border-fade);
+    border-radius: 14px;
+    padding: 1.6em 0.75em 0.75em;
+    cursor: grab;
+  }
+  .post-content .preserved-block::before {
+    content: attr(data-label);
+    position: absolute;
+    top: 0.45em;
+    left: 0.9em;
+    font-size: 0.7em;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    opacity: 0.6;
+  }
+  .post-content .preserved-block > * {
+    margin-block: 0;
+  }
+  .post-content .ProseMirror-selectednode.preserved-block {
+    outline: 2px solid var(--b-icon);
+    outline-offset: 2px;
   }
 }
 

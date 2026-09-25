@@ -1,5 +1,7 @@
 "use client";
 
+import { cn } from "@/lib/utils";
+
 // Tab-friendly Markdown textarea for the Body card's "Markdown" mode
 // (components/admin/blog/BodyEditorCard.tsx). Plain and monospace by
 // design — no client-side Markdown linting/highlighting library was added
@@ -10,10 +12,13 @@ export default function MarkdownField({
   value,
   onChange,
   placeholder,
+  className,
 }: {
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
+  /** Sizing from the parent (Split mode gives it a fixed, viewport-based height). */
+  className?: string;
 }) {
   return (
     <textarea
@@ -35,7 +40,10 @@ export default function MarkdownField({
       placeholder={placeholder}
       spellCheck={false}
       aria-label="Post body, Markdown"
-      className="block min-h-[320px] w-full resize-y rounded-md border border-input bg-background px-3 py-2 font-mono text-sm leading-relaxed text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className={cn(
+        "block min-h-[320px] w-full resize-y rounded-md border border-input bg-background px-4 py-3 font-mono text-[13px] leading-relaxed text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        className
+      )}
     />
   );
 }

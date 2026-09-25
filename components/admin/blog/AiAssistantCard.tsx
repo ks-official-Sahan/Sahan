@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Check, Loader2 } from "lucide-react";
+import { Check, Loader2, Sparkles } from "lucide-react";
 
 import { buttonVariants, fieldClass, textareaClass } from "@/components/admin/ui/styles";
 import { applyImageToken } from "@/lib/blog/ai-image-tokens";
@@ -70,14 +70,23 @@ function StepRow({ state, label }: { state: "pending" | "active" | "done"; label
 export default function AiAssistantCard({
   onPatch,
   existingContent,
+  hasFeaturedImage,
+  defaultOpen = true,
 }: {
   onPatch: (patch: AiPatch) => void;
   /** The body's current HTML, so a non-empty body triggers the Replace/Insert choice instead of a silent overwrite. */
   existingContent: string;
+  /** A featured image is already set: generating a new one becomes an explicit "replace" choice, off by default. */
+  hasFeaturedImage: boolean;
+  defaultOpen?: boolean;
 }) {
   const [tone, setTone] = useState<Tone>("Professional");
   const [length, setLength] = useState<Length>("Medium");
-  const [imageScene, setImageScene] = useState("");
+  // null = follow the default (on only while there is no featured image), so
+  // choosing an image from the library flips it off without an effect.
+  const [featuredChoice, setFeaturedChoice] = useState<boolean | null>(null);
+  const withFeatured = featuredChoice ?? !hasFeaturedImage;
+  const [withInline, setWithInline] = useState(true);
   const [prompt, setPrompt] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -111,7 +120,7 @@ export default function AiAssistantCard({
       const response = await fetch("/api/admin/ai/generate-post", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ prompt, tone, length, imageScene: imageScene || undefined }),
+        body: JSON.stringify({ prompt, tone, length, featuredImage: withFeatured, inlineImages: withInline }),
       });
 
       if (!response.ok || !response.body) {
@@ -225,18 +234,35 @@ export default function AiAssistantCard({
   }
 
   return (
-    <SidebarCard title="AI Assistant" defaultOpen>
-      <p className="mb-4 text-sm text-muted-foreground">
-        Describe what you want to write about. The assistant generates the whole post — title, structured body, SEO fields, images — then fills every
-        field below.
+    <SidebarCard title="AI Assistant" defaultOpen={defaultOpen}>
+      <label htmlFor="ai-prompt" className="block text-sm font-medium">
+        What should this post be about?
+      </label>
+      <p className="mt-0.5 text-xs text-muted-foreground">
+        The assistant writes the whole post (title, structured body, SEO fields, tags) and fills every field.
       </p>
+      <textarea
+        id="ai-prompt"
+        className={cn(textareaClass, "mt-2 min-h-24")}
+        value={prompt}
+        onChange={(event) => setPrompt(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
+            event.preventDefault();
+            startGenerate();
+          }
+        }}
+        placeholder="E.g., Write a post about debugging a tricky race condition in a Next.js server action…"
+        maxLength={2000}
+        disabled={busy}
+      />
 
-      <div className="grid gap-4 s640:grid-cols-2">
+      <div className="mt-3 grid gap-3 s640:grid-cols-2 xl:grid-cols-4">
         <div>
-          <label htmlFor="ai-tone" className="text-sm font-medium">
+          <label htmlFor="ai-tone" className="text-xs font-medium text-muted-foreground">
             Tone
           </label>
-          <select id="ai-tone" className={cn(fieldClass, "mt-1.5")} value={tone} onChange={(event) => setTone(event.target.value as Tone)} disabled={busy}>
+          <select id="ai-tone" className={cn(fieldClass, "mt-1")} value={tone} onChange={(event) => setTone(event.target.value as Tone)} disabled={busy}>
             {(["Professional", "Friendly", "Technical", "Casual"] as const).map((option) => (
               <option key={option} value={option}>
                 {option}
@@ -245,10 +271,10 @@ export default function AiAssistantCard({
           </select>
         </div>
         <div>
-          <label htmlFor="ai-length" className="text-sm font-medium">
+          <label htmlFor="ai-length" className="text-xs font-medium text-muted-foreground">
             Length
           </label>
-          <select id="ai-length" className={cn(fieldClass, "mt-1.5")} value={length} onChange={(event) => setLength(event.target.value as Length)} disabled={busy}>
+          <select id="ai-length" className={cn(fieldClass, "mt-1")} value={length} onChange={(event) => setLength(event.target.value as Length)} disabled={busy}>
             {(["Short", "Medium", "Long"] as const).map((option) => (
               <option key={option} value={option}>
                 {option}
@@ -256,43 +282,36 @@ export default function AiAssistantCard({
             ))}
           </select>
         </div>
+        <fieldset className="s640:col-span-2" disabled={busy}>
+          <legend className="text-xs font-medium text-muted-foreground">Images</legend>
+          <div className="mt-1 flex min-h-10 flex-wrap items-center gap-x-5 gap-y-2 text-sm">
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={withFeatured}
+                onChange={(event) => setFeaturedChoice(event.target.checked)}
+                className="h-4 w-4 accent-primary"
+              />
+              {hasFeaturedImage ? "Replace featured image" : "Featured image"}
+            </label>
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={withInline}
+                onChange={(event) => setWithInline(event.target.checked)}
+                className="h-4 w-4 accent-primary"
+              />
+              Inline images (up to 3)
+            </label>
+          </div>
+        </fieldset>
       </div>
 
-      <label htmlFor="ai-image-scene" className="mt-4 block text-sm font-medium">
-        Featured image / hero scene (optional)
-      </label>
-      <textarea
-        id="ai-image-scene"
-        className={cn(textareaClass, "mt-1.5 min-h-16")}
-        value={imageScene}
-        onChange={(event) => setImageScene(event.target.value)}
-        placeholder="Short visual notes for the image (e.g. a terminal at night, a system diagram)…"
-        maxLength={500}
-        disabled={busy}
-      />
-
-      <label htmlFor="ai-prompt" className="mt-4 block text-sm font-medium">
-        What should this post be about?
-      </label>
-      <div className="mt-1.5 flex items-start gap-2">
-        <textarea
-          id="ai-prompt"
-          className={cn(textareaClass, "min-h-16 flex-1")}
-          value={prompt}
-          onChange={(event) => setPrompt(event.target.value)}
-          placeholder="E.g., Write a post about debugging a tricky race condition in a Next.js server action…"
-          maxLength={2000}
-          disabled={busy}
-        />
-        <button
-          type="button"
-          onClick={startGenerate}
-          disabled={busy || !prompt.trim()}
-          aria-label="Generate with AI"
-          title="Generate with AI"
-          className={cn(buttonVariants.primary, "h-16 w-16 shrink-0 px-0 text-lg")}
-        >
-          {busy ? <span aria-hidden className="animate-pulse">…</span> : <span aria-hidden>✨</span>}
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+        <p className="text-xs text-muted-foreground">Ctrl/Cmd + Enter to generate</p>
+        <button type="button" onClick={startGenerate} disabled={busy || !prompt.trim()} className={cn(buttonVariants.primary, "gap-2")}>
+          {busy ? <Loader2 size={15} className="animate-spin" aria-hidden /> : <Sparkles size={15} aria-hidden />}
+          {busy ? "Generating…" : "Generate post"}
         </button>
       </div>
 

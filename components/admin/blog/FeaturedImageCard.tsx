@@ -18,12 +18,15 @@ export default function FeaturedImageCard({
   onAltChange,
   onSelect,
   onClear,
+  generating = false,
 }: {
   src: string | null;
   alt: string;
   onAltChange: (alt: string) => void;
   onSelect: (result: { mediaId: string; src: string; alt: string }) => void;
   onClear: () => void;
+  /** The AI assistant is generating the featured image with the post. */
+  generating?: boolean;
 }) {
   const [prompt, setPrompt] = useState("");
   const [busy, setBusy] = useState(false);
@@ -54,13 +57,22 @@ export default function FeaturedImageCard({
 
   return (
     <SidebarCard title="Featured image">
-      <div className="flex min-h-[160px] items-center justify-center overflow-hidden rounded-md border border-dashed border-border bg-muted/30">
+      <div
+        className="relative flex aspect-video items-center justify-center overflow-hidden rounded-md border border-dashed border-border bg-muted/30"
+        aria-busy={generating || busy}
+      >
         {src ? (
           // eslint-disable-next-line @next/next/no-img-element -- admin preview of a Cloudinary/LOCAL asset
-          <img src={src} alt={alt || ""} className="h-full max-h-[220px] w-full object-cover" />
+          <img src={src} alt={alt || ""} className="h-full w-full object-cover" />
         ) : (
           <span className="text-sm text-muted-foreground">No image selected</span>
         )}
+        {generating || busy ? (
+          <span className="absolute inset-0 flex items-center justify-center gap-2 bg-background/70 text-sm font-medium backdrop-blur-sm">
+            <span aria-hidden className="h-2 w-2 animate-pulse rounded-full bg-primary" />
+            Generating image…
+          </span>
+        ) : null}
       </div>
 
       <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -92,7 +104,7 @@ export default function FeaturedImageCard({
             className={fieldClass}
             value={prompt}
             onChange={(event) => setPrompt(event.target.value)}
-            placeholder="AI Image Prompt (e.g. Skyline at sunset)"
+            placeholder="Generate one: describe the image…"
             maxLength={500}
             disabled={busy}
           />

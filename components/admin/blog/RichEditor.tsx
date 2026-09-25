@@ -3,11 +3,13 @@
 import { useEffect } from "react";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
-import Link from "@tiptap/extension-link";
 import Image from "@tiptap/extension-image";
 
 import { isSafeHref } from "@/lib/cms/href";
 import { MediaPicker } from "@/components/admin/media/MediaPicker";
+import { cn } from "@/lib/utils";
+
+import { PreservedBlock } from "./PreservedBlock";
 
 // TipTap 3 editor for a post body, loaded on demand only
 // (components/admin/blog/RichEditorField.tsx dynamic-imports this with
@@ -21,29 +23,38 @@ interface RichEditorProps {
   value: string;
   onChange: (html: string) => void;
   placeholder?: string;
+  /** Sizing for the editable area (e.g. a fixed height in Split mode); it scrolls inside. */
+  className?: string;
 }
 
-export default function RichEditor({ value, onChange }: RichEditorProps) {
+export default function RichEditor({ value, onChange, className }: RichEditorProps) {
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
         heading: { levels: [2, 3, 4] },
-      }),
-      Link.configure({
-        openOnClick: false,
-        autolink: false,
-        // A defense-in-depth check alongside the server-side allowlist
-        // (lib/cms/rich-text.ts), which is what actually enforces this.
-        validate: (href) => isSafeHref(href),
+        // StarterKit 3 bundles Link; configuring it here (not adding a second
+        // Link extension) avoids TipTap's duplicate-extension warning.
+        link: {
+          openOnClick: false,
+          autolink: false,
+          // A defense-in-depth check alongside the server-side allowlist
+          // (lib/cms/rich-text.ts), which is what actually enforces this.
+          isAllowedUri: (url) => isSafeHref(url),
+        },
       }),
       Image.configure({ inline: false }),
+      PreservedBlock,
     ],
     content: value,
     immediatelyRender: false,
     onUpdate: ({ editor: instance }) => onChange(instance.getHTML()),
     editorProps: {
       attributes: {
-        class: "prose prose-sm min-h-[320px] max-w-none rounded-md border border-input bg-background px-3 py-2 focus-visible:outline-none",
+        // The same typography as the published post, so Visual mode is WYSIWYG.
+        class: cn(
+          "post-content min-h-[320px] overflow-y-auto rounded-md border border-input bg-background px-4 py-3 text-[15px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+          className
+        ),
       },
     },
   });

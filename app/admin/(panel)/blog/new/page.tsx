@@ -24,7 +24,7 @@ export default async function NewBlogPostPage() {
   const siteUrl = new URL(SiteMetadata.siteUrl).host;
 
   return (
-    <div className="max-w-6xl">
+    <div className="mx-auto w-full max-w-[1800px]">
       <BlogEditorForm
         action={createPostAction}
         canUseAi={hasPermission(user, "generateAI")}

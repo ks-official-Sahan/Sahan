@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { type ReactNode, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useFormStatus } from "react-dom";
-import { ArrowLeft, Eye, EyeOff } from "lucide-react";
+import { ArrowLeft, Eye } from "lucide-react";
 
 import ActionForm, { Field, SubmitButton } from "@/components/admin/ui/ActionForm";
 import type { ActionState } from "@/lib/actions/state";
@@ -13,7 +13,7 @@ import { slugify } from "@/lib/blog/slug";
 import { cn } from "@/lib/utils";
 
 import AiAssistantCard, { type AiPatch } from "./AiAssistantCard";
-import BodyEditorCard, { type BodyMode } from "./BodyEditorCard";
+import BodyEditorCard from "./BodyEditorCard";
 import FeaturedImageCard from "./FeaturedImageCard";
 import PostPreviewPane from "./PostPreviewPane";
 import PublishingCard, { PublishButton } from "./PublishingCard";
@@ -196,7 +196,6 @@ export default function BlogEditorForm({
   const [slugTouched, setSlugTouched] = useState(Boolean(initial.slug));
   const [excerpt, setExcerpt] = useState(initial.excerpt);
   const [content, setContent] = useState(initial.content);
-  const [bodyMode, setBodyMode] = useState<BodyMode>("visual");
   const [topic, setTopic] = useState(initial.topic);
   const [tags, setTags] = useState<string[]>(initial.tags);
   const [seoTitle, setSeoTitle] = useState(initial.seoTitle);
@@ -336,7 +335,6 @@ export default function BlogEditorForm({
   function handleAiPatch(patch: AiPatch) {
     switch (patch.type) {
       case "start":
-        setBodyMode("visual");
         setGeneratedByAI(true);
         break;
       case "meta":
@@ -428,8 +426,8 @@ export default function BlogEditorForm({
             className={cn(buttonVariants.secondary, "gap-1.5")}
             title="Preview (Ctrl/Cmd+Shift+P)"
           >
-            {previewOpen ? <EyeOff size={15} aria-hidden /> : <Eye size={15} aria-hidden />}
-            {previewOpen ? "Back to editing" : "Preview"}
+            <Eye size={15} aria-hidden />
+            Preview
           </button>
 
           {statusPanel ? (
@@ -461,15 +459,17 @@ export default function BlogEditorForm({
         </div>
       ) : null}
 
-      {previewOpen ? <PostPreviewPane post={previewData} /> : null}
+      {/* Whole-post preview opens full screen over the editor, which stays
+          mounted underneath: every named field remains in the form, so a
+          Ctrl/Cmd+S while previewing saves exactly what is being edited. */}
+      {previewOpen ? <PostPreviewPane post={previewData} defaultExpanded onCollapse={() => setPreviewOpen(false)} /> : null}
 
-      {/* Hidden, never unmounted, while previewing: every named field must
-          stay in the form, or a Ctrl/Cmd+S from the preview would save the
-          title, slug, excerpt and SEO fields as empty. */}
-      <div hidden={previewOpen}>
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+      <div>
+        {/* One column below xl; from xl the sidebar sits beside the main
+            column and scrolls on its own, so long posts keep it in reach. */}
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px] 2xl:grid-cols-[minmax(0,1fr)_400px]">
           {/* Main column */}
-          <div className="space-y-6">
+          <div className="min-w-0 space-y-6">
             <div className={cardClass}>
               <label htmlFor="post-title" className="sr-only">
                 Post title
@@ -501,14 +501,23 @@ export default function BlogEditorForm({
               </div>
             </div>
 
-            <BodyEditorCard content={content} onChange={setContent} mode={bodyMode} onModeChange={setBodyMode} />
+            {canUseAi ? (
+              <AiAssistantCard
+                onPatch={handleAiPatch}
+                existingContent={content}
+                hasFeaturedImage={Boolean(coverMediaId)}
+                // Open for a new, empty post; a slim collapsed bar once there is a body.
+                defaultOpen={!initial.content.trim()}
+              />
+            ) : null}
 
-            {canUseAi ? <AiAssistantCard onPatch={handleAiPatch} existingContent={content} /> : null}
+            <BodyEditorCard content={content} onChange={setContent} />
           </div>
 
-          {/* Sidebar */}
-          <div className="space-y-6">
+          {/* Sidebar: two columns of cards on tablets, one sticky column from xl. */}
+          <div className="grid content-start gap-6 lg:grid-cols-2 xl:sticky xl:top-[8.5rem] xl:max-h-[calc(100dvh-9.5rem)] xl:grid-cols-1 xl:overflow-y-auto xl:overscroll-contain xl:pb-2 xl:pr-1">
             <FeaturedImageCard
+              generating={coverBusy}
               src={coverSrc}
               alt={coverAlt}
               onAltChange={setCoverAlt}
@@ -522,7 +531,6 @@ export default function BlogEditorForm({
                 setCoverSrc(null);
               }}
             />
-            {coverBusy ? <p className="text-xs text-muted-foreground">Generating featured image…</p> : null}
 
             <PublishingCard
               status={initial.status ?? "DRAFT"}

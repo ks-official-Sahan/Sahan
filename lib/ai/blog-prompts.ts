@@ -20,7 +20,8 @@ export interface BlogGenerationInput {
   prompt: string;
   tone: "Professional" | "Friendly" | "Technical" | "Casual";
   length: "Short" | "Medium" | "Long";
-  imageScene?: string;
+  /** False when the admin turned inline images off: the model is told to use none. Default true. */
+  inlineImages?: boolean;
 }
 
 const LENGTH_WORDS: Record<BlogGenerationInput["length"], string> = {
@@ -85,10 +86,11 @@ export function buildBlogGenerationPrompt(input: BlogGenerationInput): ModelProm
     `Tone: ${wrapUserData(input.tone)}`,
     `Target length: ${LENGTH_WORDS[input.length]}`,
   ];
-  if (input.imageScene && input.imageScene.trim()) {
-    parts.push(`Hero image / scene notes (for featuredImage.prompt only):\n${wrapUserData(input.imageScene)}`);
-  }
-  parts.push(`Available content-image tokens for contentImages[].token, in order: ${tokens}. Use each token at most once, and only tokens from this list.`);
+  parts.push(
+    input.inlineImages === false
+      ? "Inline images are turned off for this post: contentImages must be an empty array and bodyMarkdown must contain no images."
+      : `Available content-image tokens for contentImages[].token, in order: ${tokens}. Use each token at most once, and only tokens from this list.`
+  );
   return { system: SYSTEM, user: parts.join("\n\n") };
 }
 

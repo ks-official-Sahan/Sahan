@@ -18,6 +18,8 @@ import { MEDIA_CONFIG } from "@/lib/media/config";
 // the same path the streamed full-post generator uses for its images).
 
 export const dynamic = "force-dynamic";
+// One image takes ~10-20 s, and a fallback model can add another attempt.
+export const maxDuration = 120;
 
 const bodySchema = z.object({
   prompt: z.string().trim().min(1).max(500),

@@ -28,6 +28,18 @@ test("renderPostContent degrades to the plain table when a figure's data can't b
   assert.ok(rendered.includes("<summary>View data table</summary>"));
 });
 
+test("renderPostContent adds unique slug ids to headings that have none, keeping existing ones", () => {
+  const rendered = renderPostContent('<h2>Why caching</h2><h2 id="why-caching">Kept</h2><h3>Why caching</h3><h4>Deep <em>dive</em></h4>');
+  assert.equal(
+    rendered,
+    '<h2 id="why-caching-2">Why caching</h2><h2 id="why-caching">Kept</h2><h3 id="why-caching-3">Why caching</h3><h4 id="deep-dive">Deep <em>dive</em></h4>'
+  );
+  assert.deepEqual(
+    extractToc(rendered).map((item) => item.id),
+    ["why-caching-2", "why-caching", "why-caching-3"]
+  );
+});
+
 test("renderPostContent wraps every table in a focusable scroll region", () => {
   const rendered = renderPostContent("<table><tbody><tr><td>1</td></tr></tbody></table>");
   assert.equal(

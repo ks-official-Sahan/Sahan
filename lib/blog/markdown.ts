@@ -93,6 +93,12 @@ function buildRenderer(): Renderer {
     return spec ? `${chartFigureHtml(spec)}\n` : "";
   };
 
+  // Raw HTML in the Markdown source is shown as text, never passed through.
+  // Every tag this module emits comes from a renderer above, with its text
+  // escaped, so model output or pasted Markdown can't smuggle markup (an
+  // <img onerror>, a <script>) into the editor before the server sanitizes.
+  renderer.html = ({ text }: Tokens.HTML | Tokens.Tag) => escapeHtml(text);
+
   // Table header cells get scope="col" for accessibility; the alignment
   // attribute marked would otherwise add isn't in sanitizeRich's allowlist,
   // so it's dropped here rather than silently stripped later.

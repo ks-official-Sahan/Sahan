@@ -7,6 +7,7 @@ import { checkOrigin } from "@/lib/security/check-origin";
 import { getEnv } from "@/lib/env";
 import { defaultAiDeps, generateBlogPost } from "@/lib/ai/blog-generate";
 import { generateImageVertex, vertexImageConfigFromEnv } from "@/lib/ai/image";
+import { removeImageToken } from "@/lib/blog/ai-image-tokens";
 import { registerGeneratedImage } from "@/lib/media/service";
 import { cloudinary } from "@/lib/media/cloudinary";
 import { MEDIA_CONFIG } from "@/lib/media/config";
@@ -24,15 +25,21 @@ import { log } from "@/lib/log";
 // the model writes, one `content` event with the complete parsed post the
 // moment it is ready, then one `image` event per image (featured + up to 3
 // content images) as each finishes generating in parallel, and a final
-// `done`. Body: { prompt, tone, length, imageScene? }.
+// `done`. Body: { prompt, tone, length, featuredImage?, inlineImages? }:
+// the two switches default to on, and an image that is switched off is
+// never requested from the model or the image provider.
 
 export const dynamic = "force-dynamic";
+// Text generation (plus one repair) and image generation (~10-20 s each, in
+// parallel) can outlast a platform's short default function timeout.
+export const maxDuration = 300;
 
 const bodySchema = z.object({
   prompt: z.string().trim().min(1).max(2000),
   tone: z.enum(["Professional", "Friendly", "Technical", "Casual"]),
   length: z.enum(["Short", "Medium", "Long"]),
-  imageScene: z.string().trim().max(500).optional(),
+  featuredImage: z.boolean().default(true),
+  inlineImages: z.boolean().default(true),
 });
 
 const notFound = () => new NextResponse(null, { status: 404, headers: { "Cache-Control": "no-store" } });
@@ -91,6 +98,12 @@ export async function POST(request: NextRequest) {
           return;
         }
         const { post } = result;
+        // The prompt already asks for no inline images when they are off; a
+        // model that adds some anyway has them removed, not generated.
+        if (!input.inlineImages) {
+          for (const image of post.contentImages) post.bodyMarkdown = removeImageToken(post.bodyMarkdown, image.token);
+          post.contentImages = [];
+        }
 
         // Uniqueness only needs to check slugs that could collide with a
         // suffixed variant of this candidate, not the whole table.
@@ -114,7 +127,7 @@ export async function POST(request: NextRequest) {
 
         const imageConfig = vertexImageConfigFromEnv(env);
         if (!imageConfig) {
-          send("image", { which: "featured", status: "unavailable" });
+          if (input.featuredImage) send("image", { which: "featured", status: "unavailable" });
           for (const image of post.contentImages) send("image", { which: image.token, status: "unavailable" });
           send("done", {});
           return;
@@ -122,7 +135,7 @@ export async function POST(request: NextRequest) {
 
         const jobs: Promise<void>[] = [];
 
-        jobs.push(
+        if (input.featuredImage) jobs.push(
           (async () => {
             send("image", { which: "featured", status: "start" });
             const outcome = await generateImageVertex(post.featuredImage.prompt, imageConfig, { aspectRatio: "16:9" });

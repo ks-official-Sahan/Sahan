@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import { test, beforeEach } from "node:test";
 
-import { generateImageVertex, imageGenerationAvailable, vertexImageConfigFromEnv } from "./image";
+import { DEFAULT_IMAGE_MODELS, generateImageVertex, imageGenerationAvailable, imageModelChain, vertexImageConfigFromEnv } from "./image";
 import { resetVertexTokenCache } from "./vertex";
-import type { AppEnv } from "@/lib/env";
+import { DEFAULT_AI_MODELS, type AppEnv } from "@/lib/env";
 
 // A syntactically valid RSA private key is required for crypto.createSign to
 // succeed (same fixture as lib/ai/vertex.test.ts).
@@ -95,6 +95,43 @@ test("generateImageVertex fails gracefully when the token exchange throws", asyn
   assert.equal(result.ok, false);
 });
 
+test("generateImageVertex reads a Gemini inlineData image and calls generateContent on the global endpoint", async () => {
+  const urls: string[] = [];
+  const responses = [
+    { status: 200, body: { access_token: "tok-1", expires_in: 3600 } },
+    { status: 200, body: { candidates: [{ content: { parts: [{ text: "here" }, { inlineData: { data: "BBBB", mimeType: "image/png" } }] } }] } },
+  ];
+  const fetchImpl = async (url: string) => {
+    urls.push(url);
+    const entry = responses[Math.min(urls.length - 1, responses.length - 1)];
+    return new Response(JSON.stringify(entry.body), { status: entry.status });
+  };
+  const result = await generateImageVertex("a skyline", CONFIG, { fetchImpl: fetchImpl as unknown as typeof fetch });
+  assert.deepEqual(result, { ok: true, base64: "BBBB", mimeType: "image/png" });
+  assert.match(urls[1], /^https:\/\/aiplatform\.googleapis\.com\/.*\/locations\/global\/.*gemini-3\.1-flash-image:generateContent$/);
+});
+
+test("generateImageVertex falls through to the next model after a 404", async () => {
+  const fetchImpl = fetchSequence([
+    { status: 200, body: { access_token: "tok-1", expires_in: 3600 } },
+    { status: 404, body: { error: { code: 404 } } },
+    { status: 200, body: { candidates: [{ content: { parts: [{ inlineData: { data: "CCCC", mimeType: "image/png" } }] } }] } },
+  ]);
+  const result = await generateImageVertex("a skyline", CONFIG, { fetchImpl: fetchImpl as unknown as typeof fetch });
+  assert.equal(result.ok, true);
+});
+
+test("imageModelChain puts a configured model first and never repeats one", () => {
+  assert.deepEqual(
+    imageModelChain({}).map((entry) => entry.model),
+    DEFAULT_IMAGE_MODELS.map((entry) => entry.model)
+  );
+  const chain = imageModelChain({ model: "imagen-4.0-generate-001" });
+  assert.deepEqual(chain[0], { model: "imagen-4.0-generate-001", location: "us-central1" });
+  assert.equal(chain.length, DEFAULT_IMAGE_MODELS.length + 1);
+  assert.equal(imageModelChain({ model: "gemini-2.5-flash-image" }).length, DEFAULT_IMAGE_MODELS.length);
+});
+
 // ─── env wiring ────────────────────────────────────────────────────────────
 
 const BASE_ENV = {} as AppEnv;
@@ -126,4 +163,11 @@ test("vertexImageConfigFromEnv returns null when not configured, and a config ob
   const config = vertexImageConfigFromEnv(env);
   assert.ok(config);
   assert.equal(config?.project, "proj");
+  assert.equal(config?.model, DEFAULT_AI_MODELS.IMAGEN_MODEL);
+
+  const customEnv = {
+    ...env,
+    IMAGEN_MODEL: "custom-imagen-model",
+  } as AppEnv;
+  assert.equal(vertexImageConfigFromEnv(customEnv)?.model, "custom-imagen-model");
 });

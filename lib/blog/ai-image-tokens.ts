@@ -25,6 +25,13 @@ function escapeRegExp(value: string): string {
  * or failed), so the admin gets a prompt to fill it in from the library
  * instead of a dead `<img>` tag.
  */
+/** Removes every `![alt](token "caption")` image that uses `token`, with its line, for a post whose inline images are turned off. */
+export function removeImageToken(markdown: string, token: string): string {
+  if (!markdown.includes(token)) return markdown;
+  const pattern = new RegExp(`[ \\t]*!\\[[^\\]]*\\]\\(${escapeRegExp(token)}(?:\\s+"[^"]*")?\\)[ \\t]*\\n?`, "g");
+  return markdown.replace(pattern, "").replace(/\n{3,}/g, "\n\n");
+}
+
 export function applyImageToken(markdown: string, token: string, resolved: ResolvedImage | null): string {
   if (!markdown.includes(token)) return markdown;
   if (resolved) return markdown.split(token).join(resolved.url);

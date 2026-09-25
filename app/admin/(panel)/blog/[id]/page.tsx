@@ -47,7 +47,7 @@ export default async function EditBlogPostPage({ params }: { params: Promise<{ i
   const editorKey = revisions.find((revision) => revision.reason === "restore")?.id ?? "base";
 
   return (
-    <div className="max-w-6xl space-y-6">
+    <div className="mx-auto w-full max-w-[1800px] space-y-6">
       <BlogEditorForm
         key={editorKey}
         action={updatePostAction}
