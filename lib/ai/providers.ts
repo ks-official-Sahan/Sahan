@@ -3,7 +3,7 @@ import "server-only";
 import { createOpenAI } from "@ai-sdk/openai";
 import { generateText } from "ai";
 
-import type { AppEnv } from "@/lib/env";
+import { DEFAULT_AI_MODELS, type AppEnv } from "@/lib/env";
 import { log } from "@/lib/log";
 
 import type { ModelPrompt } from "./guard";
@@ -213,12 +213,13 @@ const FREE_SUFFIX = ":free";
 /** OpenRouter, OpenAI-compatible. Refuses a paid model id unless the owner opted in. */
 export function openRouterProvider(config: {
   apiKey: string;
-  model: string;
+  model?: string;
   baseUrl?: string;
   allowPaidModels: boolean;
   fetch?: typeof fetch;
   name?: string;
 }): AiProvider {
+  const model = config.model || DEFAULT_AI_MODELS.OPENROUTER_MODEL;
   const client = createOpenAI({
     apiKey: config.apiKey,
     baseURL: config.baseUrl || "https://openrouter.ai/api/v1",
@@ -228,10 +229,10 @@ export function openRouterProvider(config: {
   return {
     name: config.name ?? "openrouter",
     async generate(prompt, options) {
-      if (!config.allowPaidModels && !config.model.endsWith(FREE_SUFFIX)) {
+      if (!config.allowPaidModels && !model.endsWith(FREE_SUFFIX)) {
         return { ok: false, errorClass: "paid_model_blocked", retryable: true };
       }
-      return sdkGenerate(client(config.model), prompt, options);
+      return sdkGenerate(client(model), prompt, options);
     },
   };
 }
@@ -257,7 +258,8 @@ async function sdkGenerate(model: Parameters<typeof generateText>[0]["model"], p
 }
 
 /** NVIDIA NIM, OpenAI-compatible. */
-export function nvidiaProvider(config: { apiKey: string; model: string; fetch?: typeof fetch }): AiProvider {
+export function nvidiaProvider(config: { apiKey: string; model?: string; fetch?: typeof fetch }): AiProvider {
+  const model = config.model || DEFAULT_AI_MODELS.NVIDIA_MODEL;
   const client = createOpenAI({
     apiKey: config.apiKey,
     baseURL: "https://integrate.api.nvidia.com/v1",
@@ -266,13 +268,13 @@ export function nvidiaProvider(config: { apiKey: string; model: string; fetch?: 
 
   return {
     name: "nvidia",
-    generate: (prompt, options) => sdkGenerate(client(config.model), prompt, options),
+    generate: (prompt, options) => sdkGenerate(client(model), prompt, options),
   };
 }
 
 /** Gemini's own REST API (not OpenAI-compatible), called directly so no extra SDK is added for one provider. */
 export function geminiProvider(config: { apiKey: string; model?: string; fetchImpl?: typeof fetch }): AiProvider {
-  const model = config.model || "gemini-2.5-flash";
+  const model = config.model || DEFAULT_AI_MODELS.GEMINI_MODEL;
   const fetchImpl = config.fetchImpl ?? fetch;
 
   return {
@@ -336,7 +338,7 @@ export function vertexProvider(config: {
   fetchImpl?: typeof fetch;
 }): AiProvider {
   const location = config.location ?? "us-central1";
-  const model = config.model || "gemini-2.5-flash";
+  const model = config.model || DEFAULT_AI_MODELS.VERTEX_MODEL;
   const fetchImpl = config.fetchImpl ?? fetch;
 
   return {
@@ -385,7 +387,9 @@ export function realProviders(env: AppEnv, fetchImpl?: typeof fetch): AiProvider
   const providers: AiProvider[] = [];
 
   // 1. Gemini direct — fastest, most reliable, supports JSON mode
-  if (env.GEMINI_API_KEY) providers.push(geminiProvider({ apiKey: env.GEMINI_API_KEY, model: env.GEMINI_MODEL, fetchImpl }));
+  if (env.GEMINI_API_KEY) {
+    providers.push(geminiProvider({ apiKey: env.GEMINI_API_KEY, model: env.GEMINI_MODEL || DEFAULT_AI_MODELS.GEMINI_MODEL, fetchImpl }));
+  }
 
   // 2. Vertex AI — service-account auth, slower cold start but reliable
   if (env.GOOGLE_CLIENT_EMAIL && env.GOOGLE_PRIVATE_KEY && env.GOOGLE_CLOUD_PROJECT && env.GOOGLE_TOKEN_URI) {
@@ -395,14 +399,14 @@ export function realProviders(env: AppEnv, fetchImpl?: typeof fetch): AiProvider
         privateKey: env.GOOGLE_PRIVATE_KEY,
         tokenUri: env.GOOGLE_TOKEN_URI,
         project: env.GOOGLE_CLOUD_PROJECT,
-        model: env.VERTEX_MODEL,
+        model: env.VERTEX_MODEL || DEFAULT_AI_MODELS.VERTEX_MODEL,
         fetchImpl,
       })
     );
   }
 
   // 3. OpenRouter — free-tier models are heavily rate-limited (429 common)
-  const openRouterModel = env.OPENROUTER_MODEL || "google/gemma-4-31b-it:free";
+  const openRouterModel = env.OPENROUTER_MODEL || DEFAULT_AI_MODELS.OPENROUTER_MODEL;
   if (env.OPENROUTER_API_KEY) {
     providers.push(
       openRouterProvider({
@@ -429,7 +433,13 @@ export function realProviders(env: AppEnv, fetchImpl?: typeof fetch): AiProvider
 
   // 4. NVIDIA NIM — last; key may be invalid or model may be retired
   if (env.NVIDIA_API_KEY) {
-    providers.push(nvidiaProvider({ apiKey: env.NVIDIA_API_KEY, model: env.NVIDIA_MODEL || "meta/llama-3.3-70b-instruct", fetch: fetchImpl }));
+    providers.push(
+      nvidiaProvider({
+        apiKey: env.NVIDIA_API_KEY,
+        model: env.NVIDIA_MODEL || DEFAULT_AI_MODELS.NVIDIA_MODEL,
+        fetch: fetchImpl,
+      })
+    );
   }
 
   return providers;
