@@ -3,8 +3,8 @@ import "server-only";
 import type { Prisma } from "@prisma/client";
 import { headers } from "next/headers";
 
-import type { AuditEvent } from "@ks-official-sahan/auth-kit";
-import { clientIp, UNKNOWN_IP } from "@ks-official-sahan/auth-kit/security";
+import type { AuditEvent } from "@sahan-sac/auth-kit";
+import { clientIp, UNKNOWN_IP } from "@sahan-sac/auth-kit/security";
 
 import { db } from "@/lib/db/prisma";
 import { AUDIT_SENSITIVE_KEY, log, redact as redactValue } from "@/lib/log";

@@ -1,4 +1,4 @@
-# @ks-official-sahan/auth-kit
+# @sahan-sac/auth-kit
 
 A framework-agnostic core for a **Next.js (App Router) + Auth.js v5** admin
 authentication system: JWT-over-database-session auth, RBAC generic over your
@@ -66,18 +66,18 @@ config object (`defineAuthKit`) instead of being hardcoded.
 ## Install
 
 ```bash
-npm install @ks-official-sahan/auth-kit next-auth@5.0.0-beta.32 next react
+npm install @sahan-sac/auth-kit next-auth@5.0.0-beta.32 next react
 ```
 
 This package is published under a **private, restricted** scope
-(`@ks-official-sahan`). Installing it requires:
+(`@sahan-sac`). Installing it requires:
 
-1. A paid npm organization plan for `ks-official-sahan` (private scoped
+1. A paid npm organization plan for `sahan-sac` (private scoped
    packages are not available on npm's free tier).
 2. An npm auth token with read access to that org in your `.npmrc`:
    ```
    //registry.npmjs.org/:_authToken=${NPM_TOKEN}
-   @ks-official-sahan:registry=https://registry.npmjs.org/
+   @sahan-sac:registry=https://registry.npmjs.org/
    ```
 
 ### Peer dependencies
@@ -214,7 +214,7 @@ model AuthToken {
 ```ts
 // lib/auth/kit.ts
 import "server-only";
-import { defineAuthKit } from "@ks-official-sahan/auth-kit/kit";
+import { defineAuthKit } from "@sahan-sac/auth-kit/kit";
 
 export const ROLES = ["OWNER", "MANAGER", "EDITOR"] as const;
 export type RoleName = (typeof ROLES)[number];
@@ -265,7 +265,7 @@ the mutation it is auditing.
 import "server-only";
 import NextAuth from "next-auth";
 import { after } from "next/server";
-import { createAuthConfig, createMfa, createSessionStore, ensureBootstrapOwner, resolveCookieName } from "@ks-official-sahan/auth-kit";
+import { createAuthConfig, createMfa, createSessionStore, ensureBootstrapOwner, resolveCookieName } from "@sahan-sac/auth-kit";
 import { authKit } from "./kit";
 import { myAdapter } from "./adapter";
 // ... your own kv, limit(), audit(), email sender, env resolution
@@ -318,7 +318,7 @@ buckets from `./cache`, `buildCsp`/`generateNonce`/`shouldBlockAdminByAllowlist`
 import "server-only";
 import { after } from "next/server";
 import { notFound, redirect } from "next/navigation";
-import { createAuthDal } from "@ks-official-sahan/auth-kit/session";
+import { createAuthDal } from "@sahan-sac/auth-kit/session";
 import { auth } from "./config";
 import { getRolePermissions } from "./rbac";
 import { getSessionState, touchSession } from "./session-store";
@@ -370,7 +370,7 @@ calls `consumeChallenge` for you.
 
 ```ts
 // lib/cache/ratelimit.ts
-import { createRateLimit } from "@ks-official-sahan/auth-kit/cache/ratelimit";
+import { createRateLimit } from "@sahan-sac/auth-kit/cache/ratelimit";
 import { authKit } from "@/lib/auth/kit";
 import { getRedis } from "./redis";
 
@@ -426,11 +426,11 @@ safe to import from a Client Component or a plain (non-Next.js) test runner
 ## Versioning and publishing
 
 ```bash
-pnpm --filter @ks-official-sahan/auth-kit typecheck
-pnpm --filter @ks-official-sahan/auth-kit test
-pnpm --filter @ks-official-sahan/auth-kit build   # emits dist/, runs prepublishOnly's checks again on publish
-npm login                                          # interactive; requires access to the ks-official-sahan org
-pnpm --filter @ks-official-sahan/auth-kit publish --access restricted
+pnpm --filter @sahan-sac/auth-kit typecheck
+pnpm --filter @sahan-sac/auth-kit test
+pnpm --filter @sahan-sac/auth-kit build   # emits dist/, runs prepublishOnly's checks again on publish
+npm login                                          # interactive; requires access to the sahan-sac org
+pnpm --filter @sahan-sac/auth-kit publish --access restricted
 ```
 
 `pnpm pack --dry-run` (run from `packages/auth-kit` after `build`) should

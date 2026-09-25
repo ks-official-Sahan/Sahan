@@ -1,6 +1,6 @@
 // The generic RBAC engine's types and matrix/rbac factories.
-export type { Matrix, MatrixChange, MatrixCheck, PermissionRow } from "@ks-official-sahan/auth-kit/rbac";
-export { createRbac } from "@ks-official-sahan/auth-kit/rbac";
+export type { Matrix, MatrixChange, MatrixCheck, PermissionRow } from "@sahan-sac/auth-kit/rbac";
+export { createRbac } from "@sahan-sac/auth-kit/rbac";
 
 // The app's own catalogue (lib/auth/kit-config.ts), including
 // isPermission/isRole/defaultPermissionsFor/canBeGranted bound to authKit so

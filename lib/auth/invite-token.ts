@@ -1,1 +1,1 @@
-export * from "@ks-official-sahan/auth-kit/invite-token";
+export * from "@sahan-sac/auth-kit/invite-token";

@@ -1,4 +1,4 @@
-export * from "@ks-official-sahan/auth-kit/login-unlock";
+export * from "@sahan-sac/auth-kit/login-unlock";
 
 import { authKit } from "@/lib/auth/kit-config";
 

@@ -1,1 +1,1 @@
-export * from "@ks-official-sahan/auth-kit/security/request-device";
+export * from "@sahan-sac/auth-kit/security/request-device";

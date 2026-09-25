@@ -1,6 +1,6 @@
 import "server-only";
 
-import { createSessionStore } from "@ks-official-sahan/auth-kit/session";
+import { createSessionStore } from "@sahan-sac/auth-kit/session";
 
 import { kv } from "@/lib/cache/redis";
 
@@ -24,4 +24,4 @@ export const {
   listSessions,
 } = createSessionStore({ adapter: prismaAuthAdapter, kv, authSecret: AUTH_SECRET });
 
-export type { KnownIp, NewSession, Revoker, SessionListItem } from "@ks-official-sahan/auth-kit/session";
+export type { KnownIp, NewSession, Revoker, SessionListItem } from "@sahan-sac/auth-kit/session";

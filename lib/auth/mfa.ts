@@ -1,6 +1,6 @@
 import "server-only";
 
-import { createMfa } from "@ks-official-sahan/auth-kit/mfa";
+import { createMfa } from "@sahan-sac/auth-kit/mfa";
 
 import { auditSafe } from "@/lib/admin/audit";
 import { limit } from "@/lib/cache/ratelimit";
@@ -31,4 +31,4 @@ export const { issueChallenge, verifyChallenge, consumeChallenge, challengeOwner
   renderMfaCode: mfaCode,
 });
 
-export type { IssueResult, MfaPurpose, VerifyResult } from "@ks-official-sahan/auth-kit/mfa";
+export type { IssueResult, MfaPurpose, VerifyResult } from "@sahan-sac/auth-kit/mfa";

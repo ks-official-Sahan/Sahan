@@ -1,6 +1,6 @@
 import "server-only";
 
-import { createRbac } from "@ks-official-sahan/auth-kit/rbac";
+import { createRbac } from "@sahan-sac/auth-kit/rbac";
 
 import { audit } from "@/lib/admin/audit";
 import { kv } from "@/lib/cache/redis";

@@ -1,4 +1,4 @@
-import { SESSION_MAX_AGE_SECONDS } from "@ks-official-sahan/auth-kit/constants";
+import { SESSION_MAX_AGE_SECONDS } from "@sahan-sac/auth-kit/constants";
 
 import { authKit } from "./kit-config";
 

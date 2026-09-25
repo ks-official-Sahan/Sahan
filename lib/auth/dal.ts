@@ -1,6 +1,6 @@
 import "server-only";
 
-import { createAuthDal, type AuthUser as PackageAuthUser } from "@ks-official-sahan/auth-kit/session";
+import { createAuthDal, type AuthUser as PackageAuthUser } from "@sahan-sac/auth-kit/session";
 import { notFound, redirect } from "next/navigation";
 import { after } from "next/server";
 

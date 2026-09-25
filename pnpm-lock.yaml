@@ -14,7 +14,7 @@ importers:
       '@gsap/react':
         specifier: ^2.1.2
         version: 2.1.2(gsap@3.15.0)(react@19.2.8)
-      '@ks-official-sahan/auth-kit':
+      '@sahan-sac/auth-kit':
         specifier: workspace:*
         version: link:packages/auth-kit
       '@mantine/core':

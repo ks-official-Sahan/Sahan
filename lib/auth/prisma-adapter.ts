@@ -1,7 +1,7 @@
 import "server-only";
 
 import type { Prisma, Role } from "@prisma/client";
-import type { AuthDbAdapter, MfaPurpose, RoleName } from "@ks-official-sahan/auth-kit/adapter";
+import type { AuthDbAdapter, MfaPurpose, RoleName } from "@sahan-sac/auth-kit/adapter";
 
 import { db } from "@/lib/db/prisma";
 

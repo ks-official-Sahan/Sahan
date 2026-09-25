@@ -1,6 +1,6 @@
 import "server-only";
 
-import { createRateLimit } from "@ks-official-sahan/auth-kit/cache/ratelimit";
+import { createRateLimit } from "@sahan-sac/auth-kit/cache/ratelimit";
 
 import { authKit, LIMITS, type LimitName } from "@/lib/auth/kit-config";
 
@@ -12,7 +12,7 @@ import { getRedis } from "./redis";
 
 export { LIMITS };
 export type { LimitName };
-export type { FailMode, LimitBackend, LimitResult, LimitRule } from "@ks-official-sahan/auth-kit/cache/ratelimit";
+export type { FailMode, LimitBackend, LimitResult, LimitRule } from "@sahan-sac/auth-kit/cache/ratelimit";
 
 const { limit } = createRateLimit(LIMITS, { redis: getRedis(), keyPrefix: `${authKit.keyPrefix}rl:` });
 

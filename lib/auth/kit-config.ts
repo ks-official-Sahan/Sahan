@@ -1,5 +1,5 @@
-import { defineAuthKit, type Person as GenericPerson } from "@ks-official-sahan/auth-kit/kit";
-import type { LimitRule } from "@ks-official-sahan/auth-kit/cache/ratelimit";
+import { defineAuthKit, type Person as GenericPerson } from "@sahan-sac/auth-kit/kit";
+import type { LimitRule } from "@sahan-sac/auth-kit/cache/ratelimit";
 import {
   canBeGranted as canBeGrantedGeneric,
   defaultPermissionsFor as defaultPermissionsForGeneric,
@@ -15,12 +15,12 @@ import {
   type MatrixChange,
   type MatrixCheck,
   type PermissionRow,
-} from "@ks-official-sahan/auth-kit/rbac";
+} from "@sahan-sac/auth-kit/rbac";
 
 import { log } from "@/lib/log";
 
 // The app's own RBAC catalogue, paths, cookie names, rate-limit buckets and
-// CSP hosts — everything @ks-official-sahan/auth-kit is generic over. This
+// CSP hosts — everything @sahan-sac/auth-kit is generic over. This
 // file deliberately has no `server-only` import and reads only the public
 // TRUSTED_PROXY_HOPS env var directly (never a secret, never `@/lib/env`'s
 // `getEnv()`), so it can be imported from proxy.ts (Edge middleware, where

@@ -1,7 +1,7 @@
 import "server-only";
 
-import { unlockKeysFromEnv } from "@ks-official-sahan/auth-kit/login-unlock";
-import { hasValidUnlock as packageHasValidUnlock } from "@ks-official-sahan/auth-kit/unlock-request";
+import { unlockKeysFromEnv } from "@sahan-sac/auth-kit/login-unlock";
+import { hasValidUnlock as packageHasValidUnlock } from "@sahan-sac/auth-kit/unlock-request";
 
 import { UNLOCK_COOKIE } from "@/lib/admin/login-unlock";
 

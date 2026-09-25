@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { createAiHealth, createAiService, type AiOutcome, type AiProvider } from "./providers";
+import { createAiHealth, createAiService, geminiProvider, realProviders, type AiOutcome, type AiProvider } from "./providers";
+import { DEFAULT_AI_MODELS, type AppEnv } from "@/lib/env";
 import type { ModelPrompt } from "./guard";
 
 const PROMPT: ModelPrompt = { system: "sys", user: "user" };
@@ -118,4 +119,32 @@ test("the deadline stops the chain before a later provider starts", async () => 
   const result = await service.generate(PROMPT);
   assert.equal(result.ok, false);
   assert.deepEqual(result.attempts.map((a) => a.provider), ["a"]);
+});
+
+test("geminiProvider uses custom model when provided, DEFAULT_AI_MODELS otherwise", async () => {
+  let requestedUrl = "";
+  const dummyFetch = (async (url: string | URL | Request) => {
+    requestedUrl = String(url);
+    return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: "response" }] } }] }), { status: 200 });
+  }) as unknown as typeof fetch;
+
+  const defaultGemini = geminiProvider({ apiKey: "test-key", fetchImpl: dummyFetch });
+  await defaultGemini.generate(PROMPT);
+  assert.ok(requestedUrl.includes(DEFAULT_AI_MODELS.GEMINI_MODEL));
+
+  const customGemini = geminiProvider({ apiKey: "test-key", model: "custom-gemini-pro", fetchImpl: dummyFetch });
+  await customGemini.generate(PROMPT);
+  assert.ok(requestedUrl.includes("custom-gemini-pro"));
+});
+
+test("realProviders instantiates configured providers and defaults missing models", () => {
+  const dummyEnv = {
+    GEMINI_API_KEY: "dummy-gemini-key",
+    NVIDIA_API_KEY: "dummy-nvidia-key",
+    OPENROUTER_API_KEY: "dummy-openrouter-key",
+  } as unknown as AppEnv;
+
+  const providers = realProviders(dummyEnv);
+  assert.equal(providers.length, 3);
+  assert.deepEqual(providers.map((p) => p.name), ["gemini", "openrouter", "nvidia"]);
 });

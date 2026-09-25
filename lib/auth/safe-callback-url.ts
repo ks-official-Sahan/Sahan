@@ -1,1 +1,1 @@
-export * from "@ks-official-sahan/auth-kit/safe-callback-url";
+export * from "@sahan-sac/auth-kit/safe-callback-url";

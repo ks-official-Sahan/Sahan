@@ -1,6 +1,6 @@
 import { createHmac } from "node:crypto";
 
-import { constantTimeEqual } from "@ks-official-sahan/auth-kit/login-unlock";
+import { constantTimeEqual } from "@sahan-sac/auth-kit/login-unlock";
 
 // Maintenance bypass cookie: allows a developer to see the real site while
 // maintenance mode is on. Similar to the unlock cookie pattern. Design:

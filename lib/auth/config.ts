@@ -1,7 +1,7 @@
 import "server-only";
 
-import { createAuthConfig, createMfa, ensureBootstrapOwner } from "@ks-official-sahan/auth-kit";
-import { createSessionStore } from "@ks-official-sahan/auth-kit/session";
+import { createAuthConfig, createMfa, ensureBootstrapOwner } from "@sahan-sac/auth-kit";
+import { createSessionStore } from "@sahan-sac/auth-kit/session";
 import NextAuth from "next-auth";
 import { after } from "next/server";
 
