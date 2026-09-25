@@ -232,7 +232,7 @@ export function openRouterProvider(config: {
       if (!config.allowPaidModels && !model.endsWith(FREE_SUFFIX)) {
         return { ok: false, errorClass: "paid_model_blocked", retryable: true };
       }
-      return sdkGenerate(client(model), prompt, options);
+      return sdkGenerate(client.chat(model), prompt, options);
     },
   };
 }
@@ -268,7 +268,7 @@ export function nvidiaProvider(config: { apiKey: string; model?: string; fetch?:
 
   return {
     name: "nvidia",
-    generate: (prompt, options) => sdkGenerate(client(model), prompt, options),
+    generate: (prompt, options) => sdkGenerate(client.chat(model), prompt, options),
   };
 }
 
@@ -296,7 +296,7 @@ export function geminiProvider(config: { apiKey: string; model?: string; fetchIm
         if (options?.jsonMode) {
           generationConfig.responseMimeType = "application/json";
         }
-        const response = await fetchImpl(
+        let response = await fetchImpl(
           `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
           {
             method: "POST",
@@ -310,6 +310,25 @@ export function geminiProvider(config: { apiKey: string; model?: string; fetchIm
             }),
           }
         );
+        if (response.status === 503 && !options?.signal?.aborted) {
+          // 503 is a temporary capacity spike on Google AI Studio; retry once after 500ms
+          await new Promise((r) => setTimeout(r, 500));
+          if (!options?.signal?.aborted) {
+            response = await fetchImpl(
+              `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
+              {
+                method: "POST",
+                headers: { "content-type": "application/json", "x-goog-api-key": config.apiKey },
+                signal: options?.signal,
+                body: JSON.stringify({
+                  systemInstruction: { parts: [{ text: prompt.system }] },
+                  contents: [{ role: "user", parts: [{ text: prompt.user }] }],
+                  generationConfig,
+                }),
+              }
+            );
+          }
+        }
         if (!response.ok) return httpOutcome(response.status);
         const data = (await response.json()) as {
           candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
