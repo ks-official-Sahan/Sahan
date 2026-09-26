@@ -72,7 +72,13 @@ export async function POST(request: NextRequest) {
     { id: user.id, email: user.email }
   );
   if (!registered.ok) {
-    return NextResponse.json({ ok: false, error: registered.error }, { status: 502, headers: { "Cache-Control": "no-store" } });
+    // The image itself was generated: send it back so the editor can show it,
+    // offer a download, and retry the upload from the browser instead of the
+    // admin losing a paid generation.
+    return NextResponse.json(
+      { ok: false, error: registered.error, image: { base64: outcome.base64, mimeType: outcome.mimeType } },
+      { status: 502, headers: { "Cache-Control": "no-store" } }
+    );
   }
 
   return NextResponse.json(
