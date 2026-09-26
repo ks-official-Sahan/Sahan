@@ -3,11 +3,12 @@ import { z } from "zod";
 
 import { getOptionalUser, hasPermission } from "@/lib/auth/dal";
 import { limit } from "@/lib/cache/ratelimit";
+import { rateLimitedResponse } from "@/lib/admin/rate-limited";
 import { checkOrigin } from "@/lib/security/check-origin";
 import { defaultAiDeps, generateFullPost } from "@/lib/ai/blog";
 
 // POST /api/admin/ai/generate-full. Requires generateAI, rate limited per
-// user (ai:admin:user, shared with /draft and /cover). Body:
+// user (ai:post:user, shared with the streamed generate-post). Body:
 // { prompt, tone, length }. `prompt` is untrusted admin input, fenced as
 // data by lib/ai/guard.ts before it reaches a model
 // (docs/plan/admin-cms-adr.md, Step 12). Returns every field the blog editor
@@ -31,8 +32,8 @@ export async function POST(request: NextRequest) {
 
   if (!checkOrigin(request.headers, request)) return forbidden();
 
-  const limited = await limit("ai:admin:user", user.id);
-  if (!limited.ok) return new NextResponse(null, { status: 429, headers: { "Cache-Control": "no-store" } });
+  const limited = await limit("ai:post:user", user.id);
+  if (!limited.ok) return rateLimitedResponse(limited.resetSeconds, "Post generation");
 
   let body: unknown;
   try {
