@@ -169,7 +169,9 @@ export const LIMITS = {
   "login:ip": { windowSeconds: 600, max: 10, failMode: "closed" },
   "login:acct": { windowSeconds: 900, max: 5, failMode: "closed" },
   "maintenance:ip": { windowSeconds: 600, max: 10, failMode: "closed" },
-  "mfa:send:user": { windowSeconds: 600, max: 3, failMode: "closed" },
+  // Wrong tries carry over between codes, so a few more sends do not help guessing;
+  // this only caps email volume, and a flaky mail send still uses one.
+  "mfa:send:user": { windowSeconds: 600, max: 5, failMode: "closed" },
   "invite:actor": { windowSeconds: 3600, max: 20, failMode: "closed" },
   "reset:ip": { windowSeconds: 3600, max: 8, failMode: "closed" },
   "reset:email": { windowSeconds: 3600, max: 3, failMode: "closed" },

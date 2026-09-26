@@ -18,7 +18,10 @@ import {
 
 export type { MfaPurpose };
 
-export type IssueResult = { ok: true; challengeId: string } | { ok: false; error: "limited" | "locked" | "send_failed" };
+/** `retryAfterSeconds` is set on "limited" when the limiter reports when the window frees up. */
+export type IssueResult =
+  | { ok: true; challengeId: string }
+  | { ok: false; error: "limited" | "locked" | "send_failed"; retryAfterSeconds?: number };
 export type VerifyResult = { ok: true } | { ok: false; reason: "invalid" | "locked" | "expired" | "consumed" };
 
 export interface RenderedEmail {
@@ -30,7 +33,7 @@ export interface RenderedEmail {
 export function createMfa(deps: {
   adapter: AuthDbAdapter;
   authSecret: string;
-  limit: (bucket: string, key: string) => Promise<{ ok: boolean }>;
+  limit: (bucket: string, key: string) => Promise<{ ok: boolean; resetSeconds?: number }>;
   sendEmail: (
     message: { to: string; subject: string; html: string; text: string; category: string },
     context: { actor: { id: string; email: string } }
@@ -43,8 +46,14 @@ export function createMfa(deps: {
   async function issueChallenge(input: { userId: string; email: string; name: string | null; purpose: MfaPurpose }): Promise<IssueResult> {
     const now = Date.now();
 
-    // Three codes per user per ten minutes, however they are asked for.
-    if (!(await limit("mfa:send:user", input.userId)).ok) return { ok: false, error: "limited" };
+    // A per-user send ceiling ("mfa:send:user", however the code is asked for).
+    // Wrong tries carry over between codes, so this bounds email volume, not guessing.
+    const sendLimit = await limit("mfa:send:user", input.userId);
+    if (!sendLimit.ok) {
+      return sendLimit.resetSeconds && sendLimit.resetSeconds > 0
+        ? { ok: false, error: "limited", retryAfterSeconds: sendLimit.resetSeconds }
+        : { ok: false, error: "limited" };
+    }
 
     // Older open codes carry their own counters, so the new code starts from the
     // highest of them and the older ones stop working. Otherwise every resend would

@@ -7,7 +7,7 @@ import { MFA_MAX_ATTEMPTS } from "./rules";
 
 const AUTH_SECRET = "test-auth-secret-0123456789-abcdefghijklmnop";
 
-function harness(options: { limited?: boolean; sendFails?: boolean } = {}) {
+function harness(options: { limited?: boolean; resetSeconds?: number; sendFails?: boolean } = {}) {
   const adapter = new FakeAdapter();
   const user = adapter.addUser({ email: "owner@example.com", passwordHash: "x", role: "DEVELOPER", name: "Owner" });
   const sent: Array<{ to: string; subject: string; text: string }> = [];
@@ -17,7 +17,7 @@ function harness(options: { limited?: boolean; sendFails?: boolean } = {}) {
   const mfa = createMfa({
     adapter,
     authSecret: AUTH_SECRET,
-    limit: async () => ({ ok: !options.limited }),
+    limit: async () => ({ ok: !options.limited, resetSeconds: options.resetSeconds }),
     sendEmail: async (message) => {
       if (options.sendFails) return { ok: false };
       sent.push({ to: message.to, subject: message.subject, text: message.text });
@@ -46,6 +46,12 @@ test("issueChallenge is refused when the per-user send limit is hit", async () =
   const result = await mfa.issueChallenge({ userId: user.id, email: user.email, name: user.name, purpose: "SIGN_IN" });
   assert.deepEqual(result, { ok: false, error: "limited" });
   assert.equal(sent.length, 0);
+});
+
+test("a limited issue reports when the send window frees up", async () => {
+  const { mfa, user } = harness({ limited: true, resetSeconds: 240 });
+  const result = await mfa.issueChallenge({ userId: user.id, email: user.email, name: user.name, purpose: "SIGN_IN" });
+  assert.deepEqual(result, { ok: false, error: "limited", retryAfterSeconds: 240 });
 });
 
 test("issueChallenge expires the row it just created when the email fails to send", async () => {

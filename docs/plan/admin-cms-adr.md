@@ -261,7 +261,7 @@ Upstash sliding window with an in-memory fallback when Upstash is not configured
 | `unlock:ip` | 10 min | 10 | closed |
 | `login:ip` | 10 min | 10 | closed |
 | `login:acct` | 15 min | 5 failures | closed (a Kv counter of failed passwords per SHA-256 of the email, not the sliding window: only failures count, and a success clears it) |
-| `mfa:send:user` | 10 min | 3 | closed |
+| `mfa:send:user` | 10 min | 5 | closed |
 | `invite:actor` | 1 h | 20 | closed |
 | `upload:sign:user` | 10 min | 30 | closed |
 | `ai:post:user` | 1 h | 20 full-post generations | open |
