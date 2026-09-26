@@ -56,8 +56,13 @@ export function defaultAiDeps(): AiDeps {
   return { providers: realProviders(getEnv()) };
 }
 
-/** Generous budgets for a full post (title + body + SEO + image prompts), per the task's guidance. */
-const GENERATION_BUDGETS = { timeoutMs: 45_000, deadlineMs: 90_000, hedgeAfterMs: 15_000 } as const;
+/**
+ * Budgets for a full post (title + body + SEO + image prompts). A Long post
+ * with thinking takes Gemini 40-70 s, so a 45 s attempt cap timed out good
+ * replies and handed the post to weaker fallbacks. Two calls (first + one
+ * repair) stay inside the route's 300 s maxDuration.
+ */
+const GENERATION_BUDGETS = { timeoutMs: 80_000, deadlineMs: 130_000, hedgeAfterMs: 25_000 } as const;
 const GENERATION_MAX_TOKENS = 8192;
 
 /** Strips a ```json ... ``` (or bare ```) fence and isolates the outermost {...} object. */
@@ -321,22 +326,32 @@ export async function generateBlogPost(
     options?.onStatus?.({ provider: status.provider, status: status.stage, message });
   };
 
+  // Only a reply that parses into a valid post counts as a provider's
+  // success, so with hedging a fast malformed or cut-off reply from one
+  // provider no longer wins over a slower valid one; it falls through to the
+  // next provider instead, and the last one turned down seeds the repair.
+  const accept = (text: string) => {
+    const parsed = parseBlogGeneration(text);
+    return parsed.ok ? null : parsed.error;
+  };
+  const summarize = (attempts: { provider: string; ok: boolean; errorClass?: string }[] | undefined) =>
+    attempts?.length ? ` (${attempts.map((a) => `${a.provider}: ${a.errorClass ?? (a.ok ? "ok" : "failed")}`).join(", ")})` : "";
+
   const first = await service.generate(buildBlogGenerationPrompt(input), {
     maxTokens: GENERATION_MAX_TOKENS,
     jsonMode: true,
     onAttempt: handleAttempt,
+    accept,
   });
-  if (!first.ok || !first.text) {
-    const attemptSummary = first.attempts?.length
-      ? ` (${first.attempts.map((a) => `${a.provider}: ${a.errorClass ?? (a.ok ? "ok" : "failed")}`).join(", ")})`
-      : "";
-    return { ok: false, error: `No AI provider is reachable right now${attemptSummary}.` };
+  const firstText = first.ok ? first.text : first.rejected?.text;
+  if (!firstText) {
+    return { ok: false, error: `No AI provider returned a complete post${summarize(first.attempts)}.` };
   }
-  if (looksLikeLeak(first.text)) {
+  if (looksLikeLeak(firstText)) {
     return { ok: false, error: "The AI response looked unsafe and was discarded. Try a different brief." };
   }
 
-  const firstParsed = parseBlogGeneration(first.text);
+  const firstParsed = parseBlogGeneration(firstText);
   let issue: string;
   if (firstParsed.ok) {
     const structureIssues = validateStructure(firstParsed.data.bodyMarkdown, input.length);
@@ -354,16 +369,16 @@ export async function generateBlogPost(
     message: "Refining and repairing post structure...",
   });
 
-  const repair = await service.generate(buildRepairPrompt(input, first.text, issue), {
+  const repair = await service.generate(buildRepairPrompt(input, firstText, issue), {
     maxTokens: GENERATION_MAX_TOKENS,
     jsonMode: true,
     onAttempt: handleAttempt,
+    accept,
   });
   if (!repair.ok || !repair.text) {
-    const attemptSummary = repair.attempts?.length
-      ? ` (${repair.attempts.map((a) => `${a.provider}: ${a.errorClass ?? (a.ok ? "ok" : "failed")}`).join(", ")})`
-      : "";
-    return { ok: false, error: `The AI response could not be parsed (${issue}), and the repair attempt failed too${attemptSummary}.` };
+    // A structurally weak first post is still better than nothing.
+    if (firstParsed.ok) return { ok: true, post: firstParsed.data, provider: first.provider ?? "unknown" };
+    return { ok: false, error: `The AI could not produce a valid post after one repair attempt (${repair.rejected?.reason ?? issue})${summarize(repair.attempts)}.` };
   }
   if (looksLikeLeak(repair.text)) {
     return { ok: false, error: "The AI response looked unsafe and was discarded. Try a different brief." };

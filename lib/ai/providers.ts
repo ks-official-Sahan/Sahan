@@ -47,6 +47,8 @@ export interface AiResult {
   text?: string;
   errorClass?: string;
   attempts: AiAttempt[];
+  /** The last reply `accept` turned down, kept so a caller can ask a model to repair it. */
+  rejected?: { provider: string; text: string; reason: string };
 }
 
 export const AI_TIMEOUT_MS = 25_000;
@@ -145,7 +147,18 @@ export function createAiService(deps: AiServiceDeps) {
 
   async function generate(
     prompt: ModelPrompt,
-    options?: { maxTokens?: number; jsonMode?: boolean; onAttempt?: (status: AiAttemptStatus) => void }
+    options?: {
+      maxTokens?: number;
+      jsonMode?: boolean;
+      onAttempt?: (status: AiAttemptStatus) => void;
+      /**
+       * Output check run on each reply before it counts as a success: return
+       * null to accept, or a reason to treat the reply as that provider's
+       * failure. With hedging on, this is what stops a fast but broken reply
+       * (malformed JSON from a weak model) from beating a slower valid one.
+       */
+      accept?: (text: string) => string | null;
+    }
   ): Promise<AiResult> {
     if (deps.providers.length === 0) {
       return { ok: false, provider: null, errorClass: "no_provider", attempts: [] };
@@ -159,6 +172,7 @@ export function createAiService(deps: AiServiceDeps) {
     let next = 0;
     let stopped = false;
     let result: AiResult | null = null;
+    let rejected: AiResult["rejected"];
 
     const launch = (): boolean => {
       if (result || stopped || next >= ordered.length) return false;
@@ -167,9 +181,17 @@ export function createAiService(deps: AiServiceDeps) {
       const provider = ordered[next++];
       options?.onAttempt?.({ provider: provider.name, stage: "start" });
       const started = now();
-      const run = attempt(provider, prompt, options?.maxTokens, Math.min(timeoutMs, remaining), cancelLosers.signal, options?.jsonMode).then((outcome) => {
+      const run = attempt(provider, prompt, options?.maxTokens, Math.min(timeoutMs, remaining), cancelLosers.signal, options?.jsonMode).then((raw) => {
         if (result) return; // Lost the race; its failure is not the provider's fault.
         const ms = now() - started;
+        let outcome = raw;
+        if (outcome.ok && options?.accept) {
+          const reason = options.accept(outcome.text);
+          if (reason) {
+            rejected = { provider: provider.name, text: outcome.text, reason };
+            outcome = { ok: false, errorClass: "invalid_output", retryable: true };
+          }
+        }
         if (outcome.ok) {
           health.cooldownUntil.delete(provider.name);
           const previous = health.latencyMs.get(provider.name);
@@ -210,7 +232,7 @@ export function createAiService(deps: AiServiceDeps) {
       if (first === HEDGE) launch();
     }
 
-    return result ?? { ok: false, provider: null, errorClass: attempts[attempts.length - 1]?.errorClass ?? "deadline", attempts };
+    return result ?? { ok: false, provider: null, errorClass: attempts[attempts.length - 1]?.errorClass ?? "deadline", attempts, rejected };
   }
 
   return { generate };
@@ -268,6 +290,7 @@ async function sdkGenerate(model: Parameters<typeof generateText>[0]["model"], p
       abortSignal: options?.signal,
     });
     if (!result.text) return { ok: false, errorClass: "empty_response", retryable: true };
+    if (result.finishReason === "length") return { ok: false, errorClass: "truncated", retryable: true };
     return { ok: true, text: result.text };
   } catch (error) {
     const status = (error as { statusCode?: number; status?: number })?.statusCode ?? (error as { status?: number })?.status;
@@ -291,6 +314,27 @@ export function nvidiaProvider(config: { apiKey: string; model?: string; fetch?:
   };
 }
 
+/**
+ * Thinking tokens count against maxOutputTokens. On a short reply (the chat
+ * widget asks for 500) any budget can use up the whole cap and return no text,
+ * so short outputs get none; long structured outputs (blog JSON) get a modest
+ * share.
+ */
+export function thinkingBudgetFor(maxOutputTokens: number): number {
+  return maxOutputTokens >= 2000 ? Math.min(800, Math.floor(maxOutputTokens / 5)) : 0;
+}
+
+type GeminiResponse = { candidates?: Array<{ finishReason?: string; content?: { parts?: Array<{ text?: string; thought?: boolean }> } }> };
+
+/** Text of a Gemini/Vertex generateContent reply; a reply stopped at the token cap is "truncated", not a success. */
+export function geminiOutcome(data: unknown): AiOutcome {
+  const candidate = (data as GeminiResponse).candidates?.[0];
+  const text = candidate?.content?.parts?.filter((part) => !part.thought).map((part) => part.text ?? "").join("") ?? "";
+  if (candidate?.finishReason === "MAX_TOKENS") return { ok: false, errorClass: "truncated", retryable: true };
+  if (!text) return { ok: false, errorClass: "empty_response", retryable: true };
+  return { ok: true, text };
+}
+
 /** Gemini's own REST API (not OpenAI-compatible), called directly so no extra SDK is added for one provider. */
 export function geminiProvider(config: { apiKey: string; model?: string; fetchImpl?: typeof fetch }): AiProvider {
   const model = config.model || DEFAULT_AI_MODELS.GEMINI_MODEL;
@@ -301,14 +345,9 @@ export function geminiProvider(config: { apiKey: string; model?: string; fetchIm
     async generate(prompt, options) {
       try {
         const maxOutputTokens = options?.maxTokens ?? 2400;
-        // Thinking tokens count against maxOutputTokens. On a short reply
-        // (the chat widget asks for 500) any budget can use up the whole cap
-        // and return no text, so short outputs get none; long structured
-        // outputs (blog JSON) get a modest share.
-        const thinkingBudget = maxOutputTokens >= 2000 ? Math.min(800, Math.floor(maxOutputTokens / 5)) : 0;
         const generationConfig: Record<string, unknown> = {
           maxOutputTokens,
-          thinkingConfig: { thinkingBudget },
+          thinkingConfig: { thinkingBudget: thinkingBudgetFor(maxOutputTokens) },
         };
         // When JSON mode is requested, ask the model to respond with valid JSON.
         // This dramatically improves structured output reliability for blog generation.
@@ -349,12 +388,7 @@ export function geminiProvider(config: { apiKey: string; model?: string; fetchIm
           }
         }
         if (!response.ok) return httpOutcome(response.status);
-        const data = (await response.json()) as {
-          candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
-        };
-        const text = data.candidates?.[0]?.content?.parts?.map((part) => part.text ?? "").join("") ?? "";
-        if (!text) return { ok: false, errorClass: "empty_response", retryable: true };
-        return { ok: true, text };
+        return geminiOutcome(await response.json());
       } catch {
         return { ok: false, errorClass: options?.signal?.aborted ? "timeout" : "transport", retryable: true };
       }
@@ -398,18 +432,14 @@ export function vertexProvider(config: {
               contents: [{ role: "user", parts: [{ text: prompt.user }] }],
               generationConfig: {
                 maxOutputTokens: options?.maxTokens ?? 1800,
+                thinkingConfig: { thinkingBudget: thinkingBudgetFor(options?.maxTokens ?? 1800) },
                 ...(options?.jsonMode ? { responseMimeType: "application/json" } : {}),
               },
             }),
           }
         );
         if (!response.ok) return httpOutcome(response.status);
-        const data = (await response.json()) as {
-          candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
-        };
-        const text = data.candidates?.[0]?.content?.parts?.map((part) => part.text ?? "").join("") ?? "";
-        if (!text) return { ok: false, errorClass: "empty_response", retryable: true };
-        return { ok: true, text };
+        return geminiOutcome(await response.json());
       } catch {
         return { ok: false, errorClass: "transport", retryable: true };
       }

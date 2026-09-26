@@ -60,13 +60,13 @@ const STRUCTURE_RULES = [
 const JSON_SHAPE = `{
   "title": string (<= 100 chars, no surrounding quotes),
   "excerpt": string (<= 200 chars, a one or two sentence summary),
-  "bodyMarkdown": string (the full post body in the constrained GFM dialect described above),
   "seoTitle": string (<= 60 chars),
   "seoDescription": string (<= 155 chars),
   "topic": string (one short category, <= 30 chars, Title Case, e.g. "Engineering" or "Career"),
   "tags": string[] (3 to 6 short lowercase tags),
   "featuredImage": { "prompt": string (a concrete visual prompt for an image generator, no text/words in the image), "alt": string (<= 150 chars, descriptive alt text) },
-  "contentImages": [{ "token": string (exactly one of the tokens given below), "prompt": string, "alt": string (<= 150 chars), "caption": string (<= 150 chars, a short caption) }]
+  "contentImages": [{ "token": string (exactly one of the tokens given below), "prompt": string, "alt": string (<= 150 chars), "caption": string (<= 150 chars, a short caption) }],
+  "bodyMarkdown": string (the full post body in the constrained GFM dialect described above; always the LAST property)
 }`;
 
 const SYSTEM = [
