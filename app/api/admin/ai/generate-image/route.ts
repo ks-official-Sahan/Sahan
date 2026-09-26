@@ -62,7 +62,9 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const outcome = await generateImageVertex(parsed.data.prompt, imageConfig, { aspectRatio: "16:9" });
+  // Stops before maxDuration, and when the admin leaves (image calls are billed).
+  const signal = AbortSignal.any([request.signal, AbortSignal.timeout(100_000)]);
+  const outcome = await generateImageVertex(parsed.data.prompt, imageConfig, { aspectRatio: "16:9", signal });
   if (!outcome.ok) {
     return NextResponse.json({ ok: false, error: outcome.error }, { status: 502, headers: { "Cache-Control": "no-store" } });
   }
