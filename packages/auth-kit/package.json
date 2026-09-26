@@ -1,6 +1,6 @@
 {
   "name": "@sahan-sac/auth-kit",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Framework-agnostic core for a Next.js + Auth.js admin auth system: JWT-over-DB-session auth, RBAC, emailed-OTP MFA, hidden-login unlock gate, IP allowlist, CSRF/origin checks, CSP nonces and rate limits, generic over your own role/permission catalogue.",
   "license": "UNLICENSED",
   "type": "module",
