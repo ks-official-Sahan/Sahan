@@ -69,6 +69,24 @@ test("geminiOutcome treats a MAX_TOKENS stop as truncated and skips thought part
   assert.equal(geminiOutcome({}).ok, false);
 });
 
+test("a lastResort provider goes after every other one, even when it was fastest", async () => {
+  const health = createAiHealth();
+  health.latencyMs.set("paid", 1);
+  health.latencyMs.set("free", 9_000);
+  health.cooldownUntil.set("free", Date.now() + 60_000);
+  const order: string[] = [];
+  const provider = (name: string, lastResort = false): AiProvider => ({
+    name,
+    lastResort,
+    generate: async () => {
+      order.push(name);
+      return { ok: false, errorClass: "http_500", retryable: true };
+    },
+  });
+  await createAiService({ providers: [provider("paid", true), provider("free")], health }).generate(PROMPT);
+  assert.deepEqual(order, ["free", "paid"]);
+});
+
 test("stops at a non-retryable failure without trying later providers", async () => {
   const service = createAiService({
     providers: [

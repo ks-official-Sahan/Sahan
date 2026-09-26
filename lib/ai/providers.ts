@@ -31,6 +31,8 @@ export interface AiGenerateOptions {
 
 export interface AiProvider {
   readonly name: string;
+  /** Paid or otherwise costly: tried only after every other provider, whatever its speed or health. */
+  readonly lastResort?: boolean;
   generate(prompt: ModelPrompt, options?: AiGenerateOptions): Promise<AiOutcome>;
 }
 
@@ -141,8 +143,9 @@ export function createAiService(deps: AiServiceDeps) {
   function rank(at: number): AiProvider[] {
     const cooling = (p: AiProvider) => Number((health.cooldownUntil.get(p.name) ?? 0) > at);
     const speed = (p: AiProvider) => health.latencyMs.get(p.name) ?? Number.POSITIVE_INFINITY;
+    const costly = (p: AiProvider) => Number(Boolean(p.lastResort));
     // Array.prototype.sort is stable, so unmeasured providers keep the configured order.
-    return [...deps.providers].sort((a, b) => cooling(a) - cooling(b) || speed(a) - speed(b));
+    return [...deps.providers].sort((a, b) => costly(a) - costly(b) || cooling(a) - cooling(b) || speed(a) - speed(b));
   }
 
   async function generate(
@@ -212,7 +215,12 @@ export function createAiService(deps: AiServiceDeps) {
         });
         const cooldown = cooldownFor(outcome);
         if (cooldown) health.cooldownUntil.set(provider.name, now() + cooldown);
-        log.warn("ai provider failed", { provider: provider.name, errorClass: outcome.errorClass, ms });
+        log.warn("ai provider failed", {
+          provider: provider.name,
+          errorClass: outcome.errorClass,
+          ms,
+          ...(outcome.errorClass === "invalid_output" && rejected ? { reason: rejected.reason.slice(0, 160) } : {}),
+        });
         if (!outcome.retryable) stopped = true;
       });
       const tracked: Promise<void> = run.finally(() => running.delete(tracked));
@@ -415,6 +423,7 @@ export function vertexProvider(config: {
 
   return {
     name: "vertex",
+    lastResort: true,
     async generate(prompt, options) {
       try {
         const accessToken = await getVertexAccessToken(
@@ -448,11 +457,11 @@ export function vertexProvider(config: {
 }
 
 /**
- * The chain from decision D15, reordered for reliability:
- * 1. Gemini (free, fast, reliable with a valid API key)
- * 2. Vertex (service account, slowest but most reliable)
- * 3. OpenRouter (free-tier models are heavily rate-limited)
- * 4. NVIDIA (last — key may be dead or model retired)
+ * The chain from decision D15, free tiers first and paid last:
+ * 1. Gemini (free API key, fast)
+ * 2. OpenRouter (free-tier models, heavily rate-limited)
+ * 3. NVIDIA (key may be dead or model retired)
+ * 4. Vertex (pay-as-you-go on the Cloud project: only when the free ones fail)
  */
 export function realProviders(env: AppEnv, fetchImpl?: typeof fetch): AiProvider[] {
   const providers: AiProvider[] = [];
@@ -462,21 +471,7 @@ export function realProviders(env: AppEnv, fetchImpl?: typeof fetch): AiProvider
     providers.push(geminiProvider({ apiKey: env.GEMINI_API_KEY, model: env.GEMINI_MODEL || DEFAULT_AI_MODELS.GEMINI_MODEL, fetchImpl }));
   }
 
-  // 2. Vertex AI — service-account auth, slower cold start but reliable
-  if (env.GOOGLE_CLIENT_EMAIL && env.GOOGLE_PRIVATE_KEY && env.GOOGLE_CLOUD_PROJECT && env.GOOGLE_TOKEN_URI) {
-    providers.push(
-      vertexProvider({
-        clientEmail: env.GOOGLE_CLIENT_EMAIL,
-        privateKey: env.GOOGLE_PRIVATE_KEY,
-        tokenUri: env.GOOGLE_TOKEN_URI,
-        project: env.GOOGLE_CLOUD_PROJECT,
-        model: env.VERTEX_MODEL || DEFAULT_AI_MODELS.VERTEX_MODEL,
-        fetchImpl,
-      })
-    );
-  }
-
-  // 3. OpenRouter — free-tier models are heavily rate-limited (429 common)
+  // 2. OpenRouter — free-tier models are heavily rate-limited (429 common)
   const openRouterModel = env.OPENROUTER_MODEL || DEFAULT_AI_MODELS.OPENROUTER_MODEL;
   if (env.OPENROUTER_API_KEY) {
     providers.push(
@@ -502,13 +497,28 @@ export function realProviders(env: AppEnv, fetchImpl?: typeof fetch): AiProvider
     );
   }
 
-  // 4. NVIDIA NIM — last; key may be invalid or model may be retired
+  // 3. NVIDIA NIM — key may be invalid or model may be retired
   if (env.NVIDIA_API_KEY) {
     providers.push(
       nvidiaProvider({
         apiKey: env.NVIDIA_API_KEY,
         model: env.NVIDIA_MODEL || DEFAULT_AI_MODELS.NVIDIA_MODEL,
         fetch: fetchImpl,
+      })
+    );
+  }
+
+  // 4. Vertex AI — last resort: it bills pay-as-you-go on the Cloud project,
+  // while the others are free tiers.
+  if (env.GOOGLE_CLIENT_EMAIL && env.GOOGLE_PRIVATE_KEY && env.GOOGLE_CLOUD_PROJECT && env.GOOGLE_TOKEN_URI) {
+    providers.push(
+      vertexProvider({
+        clientEmail: env.GOOGLE_CLIENT_EMAIL,
+        privateKey: env.GOOGLE_PRIVATE_KEY,
+        tokenUri: env.GOOGLE_TOKEN_URI,
+        project: env.GOOGLE_CLOUD_PROJECT,
+        model: env.VERTEX_MODEL || DEFAULT_AI_MODELS.VERTEX_MODEL,
+        fetchImpl,
       })
     );
   }
