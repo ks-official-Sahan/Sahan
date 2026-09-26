@@ -67,6 +67,17 @@ test("parseBlogGeneration accepts the object wrapped in a code fence", () => {
   assert.equal(result.ok, true);
 });
 
+test("parseBlogGeneration keeps a body that has its own chart and code fences", () => {
+  // Regression: the first ``` inside bodyMarkdown was taken as the reply's
+  // wrapper fence, cutting out "{ \"type\": ..." and failing at position 2.
+  const bodyMarkdown = `${VALID_POST.bodyMarkdown}\n\`\`\`chart\n{ "type": "bar", "title": "T", "labels": ["a"], "series": [{ "name": "n", "data": [1] }] }\n\`\`\`\n\n\`\`\`ts\nconst a = { b: 1 };\n\`\`\`\n`;
+  for (const text of [JSON.stringify({ ...VALID_POST, bodyMarkdown }), `\`\`\`json\n${JSON.stringify({ ...VALID_POST, bodyMarkdown })}\n\`\`\``]) {
+    const result = parseBlogGeneration(text);
+    assert.equal(result.ok, true, result.ok ? "" : result.error);
+    if (result.ok) assert.equal(result.data.bodyMarkdown, bodyMarkdown.trim());
+  }
+});
+
 test("parseBlogGeneration repairs and accepts valid post with unescaped internal quotes in bodyMarkdown", () => {
   const postText = `{
     "title": "Shipping Fast Without Breaking Things",

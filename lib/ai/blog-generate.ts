@@ -65,12 +65,15 @@ export function defaultAiDeps(): AiDeps {
 const GENERATION_BUDGETS = { timeoutMs: 80_000, deadlineMs: 130_000, hedgeAfterMs: 25_000 } as const;
 const GENERATION_MAX_TOKENS = 8192;
 
-/** Strips a ```json ... ``` (or bare ```) fence and isolates the outermost {...} object. */
+/**
+ * Isolates the outermost {...} object, which also drops a ```json fence or
+ * any prose around it. No fence matching on purpose: bodyMarkdown itself
+ * holds ```chart and code fences, and matching the first fence in the reply
+ * cut the object out of the middle of that string (the "Expected property
+ * name or '}' at position 2" failures).
+ */
 export function extractJsonObject(text: string): string | null {
-  let candidate = text.trim();
-  const fenced = candidate.match(/```(?:json)?\s*([\s\S]*?)```/i);
-  if (fenced) candidate = fenced[1].trim();
-
+  const candidate = text.trim();
   const start = candidate.indexOf("{");
   if (start === -1) return null;
   const end = candidate.lastIndexOf("}");
