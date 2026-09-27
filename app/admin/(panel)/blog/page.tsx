@@ -1,31 +1,39 @@
 import Link from "next/link";
+import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
 
 import { hasPermission, requirePermission } from "@/lib/auth/dal";
-import { db } from "@/lib/db/prisma";
+import { listAdminPosts } from "@/lib/blog/admin-list";
+import { parseAdminPostListParams } from "@/lib/blog/admin-list-params";
+import { getServerQueryClient } from "@/lib/cache/query-client.server";
+import { queryKeys } from "@/lib/cache/query-keys";
 import { buttonVariants } from "@/components/admin/ui/styles";
 
-import BlogListClient, { type BlogListRow } from "@/components/admin/blog/BlogListClient";
+import BlogListClient from "@/components/admin/blog/BlogListClient";
 
 export const metadata = { title: "Blog" };
 
-export default async function BlogListPage() {
+interface PageProps {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}
+
+export default async function BlogListPage({ searchParams }: PageProps) {
   const user = await requirePermission("viewBlog");
 
-  const rows = await db.post.findMany({
-    orderBy: { updatedAt: "desc" },
-    select: { id: true, slug: true, title: true, topic: true, status: true, publishAt: true, publishedAt: true, updatedAt: true },
+  const raw = await searchParams;
+  const params = parseAdminPostListParams({
+    get: (name) => {
+      const value = raw[name];
+      return typeof value === "string" ? value : null;
+    },
   });
 
-  const posts: BlogListRow[] = rows.map((row) => ({
-    id: row.id,
-    slug: row.slug,
-    title: row.title,
-    topic: row.topic,
-    status: row.status,
-    publishAt: row.publishAt?.toISOString() ?? null,
-    publishedAt: row.publishedAt?.toISOString() ?? null,
-    updatedAt: row.updatedAt.toISOString(),
-  }));
+  // The first page is fetched here, on the server, and handed to the client's
+  // React Query cache; the list's own later requests go to /api/admin/blog.
+  const queryClient = getServerQueryClient();
+  await queryClient.prefetchQuery({
+    queryKey: queryKeys.admin.blogPosts.list(params),
+    queryFn: () => listAdminPosts(params),
+  });
 
   return (
     <div className="space-y-6">
@@ -41,7 +49,9 @@ export default async function BlogListPage() {
         ) : null}
       </div>
 
-      <BlogListClient posts={posts} canPublish={hasPermission(user, "publishBlog")} />
+      <HydrationBoundary state={dehydrate(queryClient)}>
+        <BlogListClient canPublish={hasPermission(user, "publishBlog")} canDelete={hasPermission(user, "deleteBlog")} />
+      </HydrationBoundary>
     </div>
   );
 }

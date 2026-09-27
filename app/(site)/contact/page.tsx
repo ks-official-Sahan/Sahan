@@ -10,8 +10,10 @@ export async function generateMetadata() {
 }
 
 async function Contact() {
-  const contact = await getPageContent("contact");
-  const home = await getPageContent("home");
+  const [contact, home] = await Promise.all([
+    getPageContent("contact"),
+    getPageContent("home"),
+  ]);
 
   return <ContactPageView content={contact} home={home} />;
 }

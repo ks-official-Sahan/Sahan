@@ -33,6 +33,11 @@ export function forContentPublish(
 
   const paths: PathEntry[] = [...(options.consumers ?? PAGE_PATHS[page])];
   if (page === "site" && options.section === "seo") paths.push("/sitemap.xml");
+  // llms-txt.ts's generateLlmsTxt() reads the About page's hero/bento sections
+  // for its "## Author" bio line — publishing either revalidates /llms.txt too.
+  if (page === "about" && (options.section === "hero" || options.section === "bento")) {
+    paths.push("/llms.txt");
+  }
 
   return { tags: unique(tags), paths: unique(paths) };
 }
@@ -46,6 +51,10 @@ export function forCollection(name: CollectionName): InvalidationPlan {
   if (name === "projects") {
     // Already included: "/", "/about", "/works"
   }
+  // llms-txt.ts's generateLlmsTxt() reads getProjects()/getExperience() for its
+  // "Featured projects" and "Current role" sections — those two collections
+  // feed the file directly. services/skills do not, so they stay off this list.
+  if (name === "projects" || name === "experience") paths.push("/llms.txt");
   return {
     tags: [TAGS.collection(name), TAGS.chatbotKnowledge],
     paths: [...new Set(paths)],
@@ -56,7 +65,10 @@ export function forCollection(name: CollectionName): InvalidationPlan {
 export function forPost(slug: string): InvalidationPlan {
   return {
     tags: [TAGS.blogList, TAGS.blogPost(slug), TAGS.blogTaxonomy, TAGS.chatbotKnowledge],
-    paths: ["/updates", `/updates/${slug}`, "/sitemap.xml", "/rss.xml"],
+    // llms.txt's "Recent updates" section is built from the same getPosts()
+    // read as /updates and /rss.xml, so a post change revalidates it too
+    // (lib/seo/llms-txt.ts, app/llms.txt/route.ts).
+    paths: ["/updates", `/updates/${slug}`, "/sitemap.xml", "/rss.xml", "/llms.txt"],
   };
 }
 
@@ -64,7 +76,7 @@ export function forPost(slug: string): InvalidationPlan {
 export function forPostList(): InvalidationPlan {
   return {
     tags: [TAGS.blogList, TAGS.blogTaxonomy, TAGS.chatbotKnowledge],
-    paths: ["/updates", "/sitemap.xml", "/rss.xml"],
+    paths: ["/updates", "/sitemap.xml", "/rss.xml", "/llms.txt"],
   };
 }
 

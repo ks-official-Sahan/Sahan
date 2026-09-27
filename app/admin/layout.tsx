@@ -5,6 +5,7 @@ import { headers } from "next/headers";
 
 import { ThemeProvider } from "@/components/theme/ThemeProvider";
 import { MantineSyncProvider } from "@/components/theme/MantineSyncProvider";
+import { AdminQueryProvider } from "@/lib/cache/react-query";
 
 // No DOM, no metadata, no site chrome. It forces dynamic rendering, which the
 // nonce based CSP needs, and mounts the theme provider with that nonce: the
@@ -15,8 +16,10 @@ import { MantineSyncProvider } from "@/components/theme/MantineSyncProvider";
 // MantineSyncProvider is nested inside so its useTheme() call reads the same
 // next-themes context; MediaPicker (components/admin/media/MediaPicker.tsx)
 // uses @mantine/core's Button/Modal/etc and throws "MantineProvider was not
-// found" without this — the public site's SiteShell.tsx has its own
-// MantineSyncProvider for the mobile nav Drawer, but /admin never did.
+// found" without this. The public site's SiteShell.tsx used to mount its own
+// MantineSyncProvider too (for the mobile nav Drawer), but that drawer is now
+// plain accessible markup with no Mantine dependency, so this is the only
+// place Mantine still loads.
 export const dynamic = "force-dynamic";
 
 export default async function AdminLayout({
@@ -28,7 +31,9 @@ export default async function AdminLayout({
 
   return (
     <ThemeProvider nonce={nonce} enableSystem attribute="class" defaultTheme="dark">
-      <MantineSyncProvider>{children}</MantineSyncProvider>
+      <MantineSyncProvider>
+        <AdminQueryProvider>{children}</AdminQueryProvider>
+      </MantineSyncProvider>
     </ThemeProvider>
   );
 }

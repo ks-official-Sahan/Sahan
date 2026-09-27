@@ -31,12 +31,53 @@ const ALLOWED_TAGS = [
   "blockquote",
   "a",
   "img",
+  // Structured-article tags (work item 1: tables, figures with captions,
+  // callouts, a native no-JS disclosure for a chart's data table). Each is
+  // the minimum needed for lib/blog/markdown.ts's output — nothing decorative.
+  "table",
+  "thead",
+  "tbody",
+  "tr",
+  "th",
+  "td",
+  "figure",
+  "figcaption",
+  "aside",
+  "details",
+  "summary",
 ];
+
+const ALLOWED_CALLOUTS = new Set(["note", "tip", "warning"]);
+const ALLOWED_CHART_TYPES = new Set(["bar", "line", "pie"]);
 
 const ALLOWED_ATTRIBUTES: sanitizeHtml.IOptions["allowedAttributes"] = {
   a: ["href", "title"],
   img: ["src", "alt", "title", "width", "height"],
+  h2: ["id"],
+  h3: ["id"],
+  h4: ["id"],
+  th: ["scope", "colspan"],
+  td: ["colspan"],
+  // Value is checked below (exclusiveFilter), not just the attribute name:
+  // an aside/figure whose marker isn't one of the known values is dropped
+  // outright rather than kept with an attribute sanitizeRich can't vouch for.
+  aside: ["data-callout"],
+  figure: ["data-chart"],
 };
+
+const HEADING_ID = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+/**
+ * Keeps a heading's id only when it is slug-shaped (what lib/blog/markdown.ts
+ * generates for table-of-contents anchors). Anything else is dropped, so
+ * stored HTML can never plant ids like `__proto__` or names that clobber
+ * window globals (DOM clobbering).
+ */
+function keepSlugId(tagName: string, attribs: sanitizeHtml.Attributes): sanitizeHtml.Tag {
+  const id = attribs.id;
+  const kept: sanitizeHtml.Attributes = typeof id === "string" && id.length <= 100 && HEADING_ID.test(id) ? { id } : {};
+  return { tagName, attribs: kept };
+}
 
 /**
  * Sanitizes editor HTML for public rendering. Strips script tags, event
@@ -55,6 +96,9 @@ export function sanitizeRich(html: string): string {
     allowProtocolRelative: false,
     disallowedTagsMode: "discard",
     transformTags: {
+      h2: keepSlugId,
+      h3: keepSlugId,
+      h4: keepSlugId,
       a: (_tagName, attribs) => {
         if (typeof attribs.href === "string" && isSafeHref(attribs.href)) {
           return {
@@ -70,10 +114,18 @@ export function sanitizeRich(html: string): string {
       },
     },
     exclusiveFilter: (frame) => {
-      if (frame.tag !== "img") return false;
-      const src = frame.attribs.src;
-      const alt = frame.attribs.alt;
-      return !src || !isSafeHref(src) || !alt || !alt.trim();
+      if (frame.tag === "img") {
+        const src = frame.attribs.src;
+        const alt = frame.attribs.alt;
+        return !src || !isSafeHref(src) || !alt || !alt.trim();
+      }
+      if (frame.tag === "aside") {
+        return !ALLOWED_CALLOUTS.has(frame.attribs["data-callout"]);
+      }
+      if (frame.tag === "figure" && frame.attribs["data-chart"] !== undefined) {
+        return !ALLOWED_CHART_TYPES.has(frame.attribs["data-chart"]);
+      }
+      return false;
     },
   }).trim();
 }

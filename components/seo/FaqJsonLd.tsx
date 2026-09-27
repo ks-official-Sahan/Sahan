@@ -1,4 +1,5 @@
 import type { PageContent } from "@/lib/cms/registry";
+import { jsonLdHtml } from "@/lib/seo/json-ld";
 import type { FAQAnswer } from "@/types/faq";
 
 const answerToText = ({ intro, points, outro }: FAQAnswer) =>
@@ -25,10 +26,7 @@ const FaqJsonLd = ({ content }: FaqJsonLdProps) => {
   return (
     <script
       type="application/ld+json"
-      dangerouslySetInnerHTML={{
-        // Escape "<" so content can never close the script tag early.
-        __html: JSON.stringify(faqJsonLd).replace(/</g, "\\u003c"),
-      }}
+      dangerouslySetInnerHTML={{ __html: jsonLdHtml(faqJsonLd) }}
     />
   );
 };

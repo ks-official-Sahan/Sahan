@@ -1,5 +1,4 @@
 "use client";
-import { Button } from "@nextui-org/react";
 import {
   BriefcaseBusiness,
   Handshake,
@@ -9,7 +8,6 @@ import {
 } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import React, { useEffect, useState } from "react";
-import { motion } from "framer-motion";
 
 const FooterNav = ({ className }: { className?: string }) => {
   const [currentPath, setCurrentPath] = useState("");
@@ -58,8 +56,9 @@ const FooterNav = ({ className }: { className?: string }) => {
     >
       <div className="flex flex-col">
         <div className="flex items-center">
-          <Button
-            onPress={() => handleNavigation("home")}
+          <button
+            type="button"
+            onClick={() => handleNavigation("home")}
             aria-label="Home"
             aria-current={currentPath === "home" ? "page" : undefined}
             className={`min-w-[50px] w-[50px] h-[50px] border-b border-r rounded-tl-[12px] rounded-r-none rounded-b-none
@@ -73,9 +72,10 @@ const FooterNav = ({ className }: { className?: string }) => {
             <div className="w-full h-full flex justify-center items-center">
               <HomeIcon size={20} />
             </div>
-          </Button>
-          <Button
-            onPress={() => handleNavigation("about")}
+          </button>
+          <button
+            type="button"
+            onClick={() => handleNavigation("about")}
             aria-label="About"
             aria-current={currentPath === "about" ? "page" : undefined}
             className={`min-w-[50px] w-[50px] h-[50px] border-b border-r bg-transparent rounded-none
@@ -89,11 +89,12 @@ const FooterNav = ({ className }: { className?: string }) => {
             <div className="w-full h-full flex justify-center items-center">
               <User size={20} />
             </div>
-          </Button>
+          </button>
         </div>
         <div className="flex items-center">
-          <Button
-            onPress={() => handleNavigation("works")}
+          <button
+            type="button"
+            onClick={() => handleNavigation("works")}
             aria-label="Works"
             aria-current={currentPath === "works" ? "page" : undefined}
             className={`min-w-[50px] w-[50px] h-[50px] border-r rounded-bl-[12px] bg-transparent rounded-r-none rounded-t-none
@@ -107,9 +108,10 @@ const FooterNav = ({ className }: { className?: string }) => {
             <div className="w-full h-full flex justify-center items-center">
               <BriefcaseBusiness size={20} />
             </div>
-          </Button>
-          <Button
-            onPress={() => handleNavigation("updates")}
+          </button>
+          <button
+            type="button"
+            onClick={() => handleNavigation("updates")}
             aria-label="Updates"
             aria-current={currentPath === "updates" ? "page" : undefined}
             className={`min-w-[50px] w-[50px] h-[50px] border-r bg-transparent rounded-none
@@ -123,11 +125,12 @@ const FooterNav = ({ className }: { className?: string }) => {
             <div className="w-full h-full flex justify-center items-center">
               <Rss size={20} />
             </div>
-          </Button>
+          </button>
         </div>
       </div>
-      <Button
-        onPress={() => handleNavigation("contact")}
+      <button
+        type="button"
+        onClick={() => handleNavigation("contact")}
         aria-label="Contact"
         aria-current={currentPath === "contact" ? "page" : undefined}
         className={`min-w-[50px] w-[50px] h-[100px] rounded-r-[12px] bg-transparent rounded-l-none
@@ -138,14 +141,11 @@ const FooterNav = ({ className }: { className?: string }) => {
             }
             `}
       >
-        <motion.div
-          initial={{ rotate: -90 }}
-          className="w-[84px] h-[34px] px-[13px] rounded-full border flex items-center gap-[4px]"
-        >
+        <div className="-rotate-90 w-[84px] h-[34px] px-[13px] rounded-full border flex items-center gap-[4px]">
           <Handshake size={12} />{" "}
           <span className="text-[10px] font-semibold ">Contact</span>
-        </motion.div>
-      </Button>
+        </div>
+      </button>
     </nav>
   );
 };

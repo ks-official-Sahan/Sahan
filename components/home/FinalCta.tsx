@@ -4,6 +4,7 @@ import ContactChannels from "@/components/home/ContactChannels";
 import HomeSection from "@/components/home/HomeSection";
 import type { PageContent } from "@/lib/cms/registry";
 import { Site, SiteMetadata } from "@/config/site";
+import { getShareUrl } from "@/lib/client/domain-check";
 import { ArrowUpRight, Check, Copy, Share2 } from "lucide-react";
 import Link from "next/link";
 import React, { useEffect, useRef, useState } from "react";
@@ -56,15 +57,16 @@ const FinalCta = ({ content: finalCta, channels }: FinalCtaProps) => {
 
   const shareSite = async () => {
     try {
+      const shareUrl = getShareUrl();
       if (navigator.share) {
         await navigator.share({
           title: SiteMetadata.title,
           text: `${SiteMetadata.title}, ${Site.myRole}`,
-          url: SiteMetadata.siteUrl,
+          url: shareUrl,
         });
         return;
       }
-      await navigator.clipboard.writeText(SiteMetadata.siteUrl);
+      await navigator.clipboard.writeText(shareUrl);
     } catch {
       // The share sheet was dismissed or the clipboard is blocked: nothing to
       // confirm, and nothing was lost.

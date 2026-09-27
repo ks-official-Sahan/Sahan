@@ -142,6 +142,19 @@ self-hosted deployment), set `TRUSTED_PROXY_HOPS` to how many of your own
 proxies append to `X-Forwarded-For`, or every caller is treated as unknown
 and the IP allowlist and per-IP rate limits stop being effective (they fail
 open on an unknown IP rather than locking everyone out — see the ADR's R22).
+`TRUSTED_PROXY_HOPS` is a count, not a flag: `1` for one nginx in front of
+the app. `true` is not a number and is ignored, so it trusts nothing. Never
+set it on a deployment that is reachable without going through your proxy,
+or callers can forge their IP.
+
+### Upgrade note: `__Host-` cookies
+
+In production the admin session and unlock cookies are named with the
+`__Host-` prefix (`__Host-sahan_admin_session`, `__Host-sahan_admin_unlock`),
+which the browser only accepts over HTTPS, for the exact host, on `Path=/`.
+The first deploy that ships this signs every admin out once, and the unlock
+cookie has to be earned again through the unlock link. Nothing else changes;
+local development keeps the plain names because it runs on plain HTTP.
 
 ## Break-glass for Redis
 

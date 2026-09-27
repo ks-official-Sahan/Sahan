@@ -4,6 +4,7 @@ import { audit } from "@/lib/admin/audit";
 import { toCsv } from "@/lib/admin/csv";
 import { getOptionalUser, hasPermission } from "@/lib/auth/dal";
 import { db } from "@/lib/db/prisma";
+import { isCrossSiteFetch } from "@/lib/security/fetch-site";
 
 export const dynamic = "force-dynamic";
 
@@ -29,6 +30,11 @@ const MAX_ROWS = 10000;
 const notFound = () => new NextResponse(null, { status: 404, headers: { "Cache-Control": "no-store" } });
 
 export async function GET(request: NextRequest) {
+  // A side-effecting, audited GET must not be reachable by a cross-site top
+  // level navigation (an <img>, <a>, or auto-submitting form on another
+  // site) — same 404 as any other unauthorized admin surface.
+  if (isCrossSiteFetch(request.headers.get("sec-fetch-site"))) return notFound();
+
   const user = await getOptionalUser();
   if (!user || user.mustChangePassword) return notFound();
   if (!hasPermission(user, "viewLeads") || !hasPermission(user, "exportData")) return notFound();

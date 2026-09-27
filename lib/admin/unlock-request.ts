@@ -1,19 +1,16 @@
 import "server-only";
 
-import { cookies } from "next/headers";
+import { unlockKeysFromEnv } from "@sahan-sac/auth-kit/login-unlock";
+import { hasValidUnlock as packageHasValidUnlock } from "@sahan-sac/auth-kit/unlock-request";
 
-import { UNLOCK_COOKIE, unlockKeysFromEnv, verifyUnlockCookie } from "./login-unlock";
+import { UNLOCK_COOKIE } from "@/lib/admin/login-unlock";
 
 /**
- * Does this request carry a valid unlock cookie? The proxy checks it too, but it
- * lets a request with any signed session through, and a revoked session is still
- * a signed one. The login page and the sign-in action therefore check again, so
- * the form stays hidden from anyone who does not hold the unlock secret
- * (docs/plan/admin-cms-adr.md, section 6.2, point 5).
+ * Does this request carry a valid unlock cookie? Kept as a zero-argument
+ * wrapper (the package's own `hasValidUnlock` now takes `keys`/`cookieName`
+ * as parameters instead of reading them itself) so every existing call site
+ * keeps working unchanged.
  */
 export async function hasValidUnlock(): Promise<boolean> {
-  const keys = unlockKeysFromEnv();
-  if (!keys) return false;
-  const value = (await cookies()).get(UNLOCK_COOKIE)?.value;
-  return verifyUnlockCookie(value, Date.now(), keys);
+  return packageHasValidUnlock(unlockKeysFromEnv(), UNLOCK_COOKIE);
 }

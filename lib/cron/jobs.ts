@@ -4,6 +4,7 @@ import { db } from "@/lib/db/prisma";
 import { invalidate } from "@/lib/cache/invalidate";
 import { forPostList } from "@/lib/cache/plan";
 import { audit } from "@/lib/admin/audit";
+import { REVISIONS_KEPT } from "@/lib/blog/revisions";
 import { log } from "@/lib/log";
 
 // Shared cron job logic, called by both the /api/cron/* routes (automatic,
@@ -20,11 +21,13 @@ export const DEFAULT_AUDIT_RETENTION_DAYS = 365;
  * sessions screen and cannot be deleted mid-request. */
 export const CLEANUP_GRACE_MS = 24 * 60 * 60 * 1000;
 
-type PostDb = Pick<typeof db.post, "findMany" | "updateMany">;
+type PostDb = Pick<typeof db.post, "updateMany">;
 type SessionDb = Pick<typeof db.userSession, "deleteMany">;
 type TokenDb = Pick<typeof db.authToken, "deleteMany">;
 type MfaDb = Pick<typeof db.mfaChallenge, "deleteMany">;
-type AuditDb = Pick<typeof db.auditLog, "count" | "deleteMany" | "create">;
+type AuditDb = Pick<typeof db.auditLog, "deleteMany" | "create">;
+
+export type RevisionPruneDb = Pick<typeof db, "$executeRaw">;
 
 export interface BlogPublishDb {
   post: PostDb;
@@ -49,20 +52,16 @@ export async function blogPublishJob(client: BlogPublishDb = db): Promise<{ publ
   try {
     const now = new Date();
 
-    const toPublish = await client.post.findMany({
-      where: { status: "SCHEDULED", publishAt: { lte: now } },
-      select: { id: true, slug: true },
-    });
-
-    if (toPublish.length === 0) {
-      log.info("blog publish cron: no posts to publish");
-      return { published: 0 };
-    }
-
+    // One statement: the count it returns is the "anything to do?" answer.
     const result = await client.post.updateMany({
       where: { status: "SCHEDULED", publishAt: { lte: now } },
       data: { status: "PUBLISHED", publishedAt: now },
     });
+
+    if (result.count === 0) {
+      log.info("blog publish cron: no posts to publish");
+      return { published: 0 };
+    }
 
     // A cache-invalidation failure (for example: called outside a Next.js
     // request scope, or a transient revalidateTag error) must never be
@@ -93,24 +92,21 @@ export async function sessionCleanupJob(client: SessionCleanupDb = db): Promise<
     const now = new Date();
     const cutoff = new Date(now.getTime() - CLEANUP_GRACE_MS);
 
-    // Sessions: expired past the grace period, or revoked past the grace period.
-    const sessionResult = await client.userSession.deleteMany({
-      where: {
-        OR: [{ expiresAt: { lte: cutoff } }, { revokedAt: { lte: cutoff } }],
-      },
-    });
-
-    // Invite and reset tokens: expired past the grace period. A used or revoked
-    // token with no expiry change stays until it too ages out, which keeps a
-    // short audit trail of recently accepted invites.
-    const tokenResult = await client.authToken.deleteMany({
-      where: { expiresAt: { lte: cutoff } },
-    });
-
-    // MFA challenges: expired past the grace period.
-    const mfaResult = await client.mfaChallenge.deleteMany({
-      where: { expiresAt: { lte: cutoff } },
-    });
+    // Three independent deletes, run together (one round trip of latency).
+    const [sessionResult, tokenResult, mfaResult] = await Promise.all([
+      // Sessions: expired past the grace period, or revoked past the grace period.
+      client.userSession.deleteMany({
+        where: {
+          OR: [{ expiresAt: { lte: cutoff } }, { revokedAt: { lte: cutoff } }],
+        },
+      }),
+      // Invite and reset tokens: expired past the grace period. A used or revoked
+      // token with no expiry change stays until it too ages out, which keeps a
+      // short audit trail of recently accepted invites.
+      client.authToken.deleteMany({ where: { expiresAt: { lte: cutoff } } }),
+      // MFA challenges: expired past the grace period.
+      client.mfaChallenge.deleteMany({ where: { expiresAt: { lte: cutoff } } }),
+    ]);
 
     const totalDeleted = sessionResult.count + tokenResult.count + mfaResult.count;
 
@@ -143,13 +139,11 @@ export async function auditPruneJob(
     const now = new Date();
     const cutoff = new Date(now.getTime() - retentionDays * 24 * 60 * 60 * 1000);
 
-    const toDelete = await client.auditLog.count({ where: { createdAt: { lt: cutoff } } });
-    if (toDelete === 0) {
+    const result = await client.auditLog.deleteMany({ where: { createdAt: { lt: cutoff } } });
+    if (result.count === 0) {
       log.info("audit prune cron: no old audit entries to delete");
       return { deleted: 0 };
     }
-
-    const result = await client.auditLog.deleteMany({ where: { createdAt: { lt: cutoff } } });
 
     await audit(
       {
@@ -165,6 +159,44 @@ export async function auditPruneJob(
   } catch (err) {
     const error = String(err);
     log.error("audit prune cron failed", { error });
+    return { deleted: 0, error };
+  }
+}
+
+/** The daily audit-prune schedule: old audit rows and surplus post revisions, pruned together. */
+export async function housekeepingPruneJob(
+  options: { retentionDays?: number } = {}
+): Promise<{ deleted: number; auditRows: number; revisions: number; error?: string }> {
+  const [auditResult, revisionResult] = await Promise.all([auditPruneJob(options), revisionPruneJob()]);
+  return {
+    deleted: auditResult.deleted + revisionResult.deleted,
+    auditRows: auditResult.deleted,
+    revisions: revisionResult.deleted,
+    ...(auditResult.error || revisionResult.error ? { error: auditResult.error ?? revisionResult.error } : {}),
+  };
+}
+
+/**
+ * Keeps only the newest REVISIONS_KEPT revisions of each post. One statement:
+ * a window function ranks each post's revisions newest first and everything
+ * past the cap goes, however many posts have history. Idempotent.
+ */
+export async function revisionPruneJob(client: RevisionPruneDb = db): Promise<{ deleted: number; error?: string }> {
+  try {
+    const deleted = await client.$executeRaw`
+      DELETE FROM post_revisions
+      WHERE id IN (
+        SELECT id FROM (
+          SELECT id, row_number() OVER (PARTITION BY "postId" ORDER BY "createdAt" DESC) AS rank
+          FROM post_revisions
+        ) ranked
+        WHERE ranked.rank > ${REVISIONS_KEPT}
+      )`;
+    if (deleted > 0) log.info("revision prune cron: pruned old post revisions", { count: deleted, kept: REVISIONS_KEPT });
+    return { deleted };
+  } catch (err) {
+    const error = String(err);
+    log.error("revision prune cron failed", { error });
     return { deleted: 0, error };
   }
 }

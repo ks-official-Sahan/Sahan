@@ -18,6 +18,7 @@ export const metadata: Metadata = {
 
 const NOTICES: Record<string, string> = {
   revoked: "Your session ended. Sign in again to continue.",
+  expired: "Your session expired. Sign in again to continue.",
   "password-set": "Your password is saved. Sign in with it.",
 };
 

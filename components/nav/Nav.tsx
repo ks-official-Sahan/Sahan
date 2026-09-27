@@ -3,9 +3,7 @@
 import React from "react";
 import ThemeSwitch from "../theme/theme-switch";
 import Link from "next/link";
-import { JelloElement } from "../animations/shoelace/jello-element";
-import { Button } from "@nextui-org/react";
-import { Burger } from "@mantine/core";
+import { Menu } from "lucide-react";
 import { SiteNavigations } from "@/config/nav";
 import NavItem from "./NavItem";
 
@@ -48,24 +46,26 @@ const NavBar = ({ title, currentPath, opened, toggle }: NavBarProps) => {
       {/* RIGHT */}
       <div className="hidden-sm-flex-lg items-center gap-6 z-[50]">
         <ThemeSwitch />
-        <JelloElement className="md:hidden">
-          <Button
-            as={Link}
-            href="/contact"
-            className="text-[14px] font-semibold dark:text-black text-white bg-[#19cf31] dark:bg-[#91FF00] h-[37px] px-[20px] rounded-[15px] flex justify-center items-center"
-          >
-            Let&apos;s Talk
-          </Button>
-        </JelloElement>
+        <Link
+          href="/contact"
+          className="md:hidden text-[14px] font-semibold dark:text-black text-white bg-[#19cf31] dark:bg-[#91FF00] h-[37px] px-[20px] rounded-[15px] flex justify-center items-center"
+        >
+          Let&apos;s Talk
+        </Link>
       </div>
 
       {/* MENUBAR */}
       <div className="flex-sm-hidden-lg">
-        <Burger
-          opened={opened}
+        <button
+          type="button"
           onClick={toggle}
-          aria-label="Toggle navigation"
-        />
+          aria-expanded={opened}
+          aria-controls="mobile-nav-drawer"
+          aria-label={opened ? "Close navigation" : "Open navigation"}
+          className="flex h-11 w-11 items-center justify-center rounded text-white/90"
+        >
+          <Menu size={24} aria-hidden="true" />
+        </button>
       </div>
     </nav>
   );

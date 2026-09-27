@@ -1,6 +1,5 @@
 "use client";
 import React from "react";
-import { AnimatePresence, motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 
  
@@ -73,24 +72,11 @@ const Card = ({
   icon: React.ReactNode;
   children?: React.ReactNode;
 }) => {
-  const [hovered, setHovered] = React.useState(false);
   return (
-    <div
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      className="group/canvas-card flex items-center justify-center max-w-sm w-full mx-auto p-4 relative h-[138px]"
-    >
-      <AnimatePresence>
-        {hovered && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="h-full w-full absolute inset-0"
-          >
-            {children}
-          </motion.div>
-        )}
-      </AnimatePresence>
+    <div className="group/canvas-card flex items-center justify-center max-w-sm w-full mx-auto p-4 relative h-[138px]">
+      <div className="h-full w-full absolute inset-0 opacity-0 transition-opacity duration-300 group-hover/canvas-card:opacity-100">
+        {children}
+      </div>
 
       <div className="relative z-20">
         <div className="text-center group-hover/canvas-card:-translate-y-1 group-hover/canvas-card:opacity-100 transition duration-200 w-full  mx-auto flex items-center justify-center">

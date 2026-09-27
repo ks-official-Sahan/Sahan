@@ -4,12 +4,13 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { Inquiry } from "@prisma/client";
 
-const STATUS_COLORS: Record<string, string> = {
-  NEW: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
-  CONTACTED: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
-  CLOSED: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
-  SPAM: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
-};
+import { cn } from "@/lib/utils";
+import { badgeClass, buttonVariants, fieldClass, tableClass, tdClass, thClass } from "@/components/admin/ui/styles";
+
+// A neutral badge matches every other admin list (see users/sessions pages);
+// SPAM alone gets a destructive tint so it still stands out at a glance.
+const spamBadgeClass =
+  "inline-flex items-center rounded-full border border-destructive/40 bg-destructive/10 px-2 py-0.5 text-xs font-medium text-destructive";
 
 interface LeadsListProps {
   inquiries: Inquiry[];
@@ -44,11 +45,11 @@ export function LeadsList({ inquiries, total, page, totalPages, status, search }
   return (
     <div className="space-y-4">
       {/* Filters */}
-      <div className="flex gap-2 flex-wrap">
+      <div className="flex flex-wrap gap-2">
         <select
           value={status || ""}
           onChange={(e) => updateFilter("status", e.target.value)}
-          className="px-3 py-2 border rounded-md text-sm"
+          className={cn(fieldClass, "w-auto")}
         >
           <option value="">All statuses</option>
           <option value="NEW">New</option>
@@ -66,64 +67,68 @@ export function LeadsList({ inquiries, total, page, totalPages, status, search }
               updateFilter("search", (e.target as HTMLInputElement).value);
             }
           }}
-          className="px-3 py-2 border rounded-md text-sm flex-1"
+          className={cn(fieldClass, "min-w-[12rem] flex-1")}
         />
 
-        <a
-          href="/api/admin/export/leads"
-          className="px-4 py-2 bg-gray-200 dark:bg-gray-700 rounded-md text-sm hover:bg-gray-300 dark:hover:bg-gray-600"
-        >
+        <a href="/api/admin/export/leads" className={buttonVariants.secondary}>
           Export CSV
         </a>
       </div>
 
       {/* Table */}
-      <div className="overflow-x-auto border rounded-lg">
-        <table className="w-full text-sm">
-          <thead className="bg-gray-50 dark:bg-gray-900 border-b">
+      <div className="overflow-x-auto rounded-lg border border-border">
+        <table className={tableClass}>
+          <thead className="border-b border-border bg-muted/40">
             <tr>
-              <th className="px-4 py-2 text-left font-semibold">Name</th>
-              <th className="px-4 py-2 text-left font-semibold">Email</th>
-              <th className="px-4 py-2 text-left font-semibold">Topic</th>
-              <th className="px-4 py-2 text-left font-semibold">Status</th>
-              <th className="px-4 py-2 text-left font-semibold">Spam Score</th>
-              <th className="px-4 py-2 text-left font-semibold">Date</th>
+              <th scope="col" className={thClass}>
+                Name
+              </th>
+              <th scope="col" className={thClass}>
+                Email
+              </th>
+              <th scope="col" className={thClass}>
+                Topic
+              </th>
+              <th scope="col" className={thClass}>
+                Status
+              </th>
+              <th scope="col" className={thClass}>
+                Spam Score
+              </th>
+              <th scope="col" className={thClass}>
+                Date
+              </th>
             </tr>
           </thead>
-          <tbody>
+          <tbody className="divide-y divide-border">
             {inquiries.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-gray-600 dark:text-gray-400">
+                <td colSpan={6} className="px-3 py-8 text-center text-sm text-muted-foreground">
                   No inquiries found
                 </td>
               </tr>
             ) : (
               inquiries.map((inquiry) => (
-                <tr
-                  key={inquiry.id}
-                  className="border-b hover:bg-gray-50 dark:hover:bg-gray-900 transition"
-                >
-                  <td className="px-4 py-3">
-                    <Link href={`/admin/leads/${inquiry.id}`} className="text-blue-600 dark:text-blue-400 hover:underline font-medium">
+                <tr key={inquiry.id} className="hover:bg-muted/40">
+                  <td className={tdClass}>
+                    <Link href={`/admin/leads/${inquiry.id}`} className="font-medium text-primary hover:underline">
                       {inquiry.name}
                     </Link>
                   </td>
-                  <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{inquiry.email}</td>
-                  <td className="px-4 py-3">{inquiry.topic || "-"}</td>
-                  <td className="px-4 py-3">
-                    <span className={`px-2 py-1 rounded-full text-xs font-semibold ${STATUS_COLORS[inquiry.status]}`}>
-                      {inquiry.status}
-                    </span>
+                  <td className={`${tdClass} text-muted-foreground`}>{inquiry.email}</td>
+                  <td className={tdClass}>{inquiry.topic || "-"}</td>
+                  <td className={tdClass}>
+                    <span className={inquiry.status === "SPAM" ? spamBadgeClass : badgeClass}>{inquiry.status}</span>
                   </td>
-                  <td className="px-4 py-3">
-                    <div className="w-12 h-6 bg-gray-200 dark:bg-gray-700 rounded">
+                  <td className={tdClass}>
+                    <div className="h-2 w-16 overflow-hidden rounded-full bg-muted">
                       <div
-                        className="h-full bg-red-500 rounded"
+                        className="h-full rounded-full bg-destructive"
                         style={{ width: `${Math.min(inquiry.spamScore, 100)}%` }}
                       />
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-gray-600 dark:text-gray-400 text-xs">
+                  <td className={`${tdClass} text-xs text-muted-foreground`}>
                     {inquiry.createdAt.toLocaleDateString()}
                   </td>
                 </tr>
@@ -135,15 +140,15 @@ export function LeadsList({ inquiries, total, page, totalPages, status, search }
 
       {/* Pagination */}
       <div className="flex items-center justify-between">
-        <div className="text-sm text-gray-600 dark:text-gray-400">
-          Showing {inquiries.length === 0 ? 0 : (page - 1) * 50 + 1} to{" "}
-          {Math.min(page * 50, total)} of {total} inquiries
+        <div className="text-sm text-muted-foreground">
+          Showing {inquiries.length === 0 ? 0 : (page - 1) * 50 + 1} to {Math.min(page * 50, total)} of {total}{" "}
+          inquiries
         </div>
         <div className="flex gap-2">
           <button
             onClick={() => goToPage(Math.max(1, page - 1))}
             disabled={page <= 1}
-            className="px-3 py-2 border rounded-md text-sm disabled:opacity-50"
+            className={buttonVariants.small}
           >
             Previous
           </button>
@@ -153,7 +158,7 @@ export function LeadsList({ inquiries, total, page, totalPages, status, search }
           <button
             onClick={() => goToPage(Math.min(totalPages, page + 1))}
             disabled={page >= totalPages}
-            className="px-3 py-2 border rounded-md text-sm disabled:opacity-50"
+            className={buttonVariants.small}
           >
             Next
           </button>

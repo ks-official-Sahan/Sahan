@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import ChatWidgetLoader from "@/components/site/chat/ChatWidgetLoader";
 import SiteShell from "@/components/site/SiteShell";
 import { SiteMetadata } from "@/config/site";
+import { RSS_ALTERNATES } from "@/lib/metadata";
 import { getSetting } from "@/lib/settings/service";
 
 // Site-only metadata. Everything else (title, description, openGraph, twitter,
@@ -21,6 +22,7 @@ export const metadata: Metadata = {
   ],
   alternates: {
     canonical: SiteMetadata.siteUrl,
+    types: RSS_ALTERNATES,
   },
 };
 

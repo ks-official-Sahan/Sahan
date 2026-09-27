@@ -1,5 +1,6 @@
 "use client";
 
+import MaskIcon from "@/components/common/MaskIcon";
 import TitleBlock from "@/components/common/TitleBlock";
 import Marquee from "@/components/ui/marquee";
 import { cn } from "@/lib/utils";
@@ -28,14 +29,7 @@ const SkillIcon = ({ skill, size }: { skill: Skill; size: number }) => {
     return <skill.icon size={size} stroke={1.5} />;
   }
 
-  return (
-    <span
-      className="inline-flex [&>svg]:h-full [&>svg]:w-full"
-      style={{ width: size, height: size }}
-    >
-      <skill.icon className="fill-current" />
-    </span>
-  );
+  return <MaskIcon src={skill.iconSrc} size={size} />;
 };
 
 const SkillGroupCard = ({

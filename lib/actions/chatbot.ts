@@ -1,134 +1,160 @@
 "use server";
 
-import { revalidateTag } from "next/cache";
+import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
-import { requirePermission } from "@/lib/auth/dal";
-import { db } from "@/lib/db/prisma";
+import { authorizeAction } from "@/lib/actions/guard";
+import { done, fail, fieldErrorsFrom, formValues, type ActionState } from "@/lib/actions/state";
 import { audit } from "@/lib/admin/audit";
-import { TAGS } from "@/lib/cache/tags";
 import { invalidate } from "@/lib/cache/invalidate";
 import { forTraining } from "@/lib/cache/plan";
-import type { ChatTrainingEntry } from "@prisma/client";
+import { db } from "@/lib/db/prisma";
+import { log } from "@/lib/log";
 
-const trainingEntrySchema = z.object({
-  category: z.string().min(1).max(100),
-  question: z.string().min(5).max(2000),
-  answer: z.string().min(5).max(5000),
-  priority: z.number().int().min(0).max(100).default(0),
-  isActive: z.boolean().default(true),
+// Chatbot training data CRUD. Every mutation goes through authorizeAction()
+// (not requirePermission directly) so the mustChangePassword gate applies the
+// same way it does for every other admin form action, and mutate + audit run
+// in one db.$transaction, matching lib/actions/works.ts and lib/actions/blog.ts.
+
+const TRAINING_PATH = "/admin/chatbot/training";
+const UNEXPECTED = "Something went wrong. Please try again.";
+
+const errorMessage = (error: unknown) => (error instanceof Error ? error.message : String(error));
+
+const trainingFormSchema = z.object({
+  category: z.string().trim().min(1, "Category is required.").max(100),
+  question: z.string().trim().min(5, "Use at least 5 characters.").max(2000),
+  answer: z.string().trim().min(5, "Use at least 5 characters.").max(5000),
+  priority: z.coerce.number().int().min(0).max(100).default(0),
+  isActive: z
+    .string()
+    .optional()
+    .transform((value) => value === "on" || value === "true"),
 });
 
-type TrainingEntryInput = z.infer<typeof trainingEntrySchema>;
-
 /** Create a training entry for the chatbot. */
-export async function createTrainingEntry(input: unknown): Promise<ChatTrainingEntry> {
-  const user = await requirePermission("manageChatbot");
+export async function createTrainingEntry(_previous: ActionState, formData: FormData): Promise<ActionState> {
+  const auth = await authorizeAction("manageChatbot");
+  if (!auth.ok) return fail(auth.error);
 
-  const parsed = trainingEntrySchema.parse(input);
+  const parsed = trainingFormSchema.safeParse(formValues(formData));
+  if (!parsed.success) return fail("Check the form.", fieldErrorsFrom(parsed.error.issues));
 
-  const entry = await db.chatTrainingEntry.create({
-    data: {
-      category: parsed.category,
-      question: parsed.question,
-      answer: parsed.answer,
-      priority: parsed.priority,
-      isActive: parsed.isActive,
-      createdById: user.id,
-    },
-  });
+  try {
+    await db.$transaction(async (tx) => {
+      const entry = await tx.chatTrainingEntry.create({
+        data: {
+          category: parsed.data.category,
+          question: parsed.data.question,
+          answer: parsed.data.answer,
+          priority: parsed.data.priority,
+          isActive: parsed.data.isActive,
+          createdById: auth.user.id,
+        },
+      });
 
-  // Invalidate knowledge cache
-  await invalidate(forTraining());
+      await audit(
+        {
+          action: "chatbot.training.created",
+          actor: auth.user,
+          entityType: "ChatTrainingEntry",
+          entityId: entry.id,
+          after: entry,
+        },
+        tx
+      );
+    });
 
-  await audit({
-    action: "chatbot.training.created",
-    entityType: "ChatTrainingEntry",
-    entityId: entry.id,
-    after: entry,
-  });
-
-  return entry;
+    invalidate(forTraining());
+    revalidatePath(TRAINING_PATH);
+    return done("Training entry created.");
+  } catch (error) {
+    log.error("create training entry failed", { error: errorMessage(error) });
+    return fail(UNEXPECTED);
+  }
 }
 
 /** Update a training entry. */
-export async function updateTrainingEntry(
-  id: string,
-  input: unknown
-): Promise<ChatTrainingEntry> {
-  const user = await requirePermission("manageChatbot");
+export async function updateTrainingEntry(_previous: ActionState, formData: FormData): Promise<ActionState> {
+  const auth = await authorizeAction("manageChatbot");
+  if (!auth.ok) return fail(auth.error);
 
-  const parsed = trainingEntrySchema.parse(input);
+  const id = String(formData.get("id") ?? "");
+  if (!id) return fail("Training entry ID is required.");
 
-  const before = await db.chatTrainingEntry.findUniqueOrThrow({
-    where: { id },
-  });
+  const parsed = trainingFormSchema.safeParse(formValues(formData));
+  if (!parsed.success) return fail("Check the form.", fieldErrorsFrom(parsed.error.issues));
 
-  const entry = await db.chatTrainingEntry.update({
-    where: { id },
-    data: {
-      category: parsed.category,
-      question: parsed.question,
-      answer: parsed.answer,
-      priority: parsed.priority,
-      isActive: parsed.isActive,
-    },
-  });
+  try {
+    const before = await db.chatTrainingEntry.findUnique({ where: { id } });
+    if (!before) return fail("Training entry not found.");
 
-  // Invalidate knowledge cache
-  await invalidate(forTraining());
+    await db.$transaction(async (tx) => {
+      const entry = await tx.chatTrainingEntry.update({
+        where: { id },
+        data: {
+          category: parsed.data.category,
+          question: parsed.data.question,
+          answer: parsed.data.answer,
+          priority: parsed.data.priority,
+          isActive: parsed.data.isActive,
+        },
+      });
 
-  await audit({
-    action: "chatbot.training.updated",
-    entityType: "ChatTrainingEntry",
-    entityId: id,
-    before,
-    after: entry,
-  });
+      await audit(
+        {
+          action: "chatbot.training.updated",
+          actor: auth.user,
+          entityType: "ChatTrainingEntry",
+          entityId: id,
+          before,
+          after: entry,
+        },
+        tx
+      );
+    });
 
-  return entry;
+    invalidate(forTraining());
+    revalidatePath(TRAINING_PATH);
+    return done("Training entry updated.");
+  } catch (error) {
+    log.error("update training entry failed", { error: errorMessage(error) });
+    return fail(UNEXPECTED);
+  }
 }
 
 /** Delete a training entry. */
-export async function deleteTrainingEntry(id: string): Promise<void> {
-  const user = await requirePermission("manageChatbot");
+export async function deleteTrainingEntry(_previous: ActionState, formData: FormData): Promise<ActionState> {
+  const auth = await authorizeAction("manageChatbot");
+  if (!auth.ok) return fail(auth.error);
 
-  const entry = await db.chatTrainingEntry.findUniqueOrThrow({
-    where: { id },
-  });
+  const id = String(formData.get("id") ?? "");
+  if (!id) return fail("Training entry ID is required.");
 
-  await db.chatTrainingEntry.delete({
-    where: { id },
-  });
+  try {
+    const before = await db.chatTrainingEntry.findUnique({ where: { id } });
+    if (!before) return fail("Training entry not found.");
 
-  // Invalidate knowledge cache
-  await invalidate(forTraining());
+    await db.$transaction(async (tx) => {
+      await tx.chatTrainingEntry.delete({ where: { id } });
 
-  await audit({
-    action: "chatbot.training.deleted",
-    entityType: "ChatTrainingEntry",
-    entityId: id,
-    before: entry,
-  });
-}
+      await audit(
+        {
+          action: "chatbot.training.deleted",
+          actor: auth.user,
+          entityType: "ChatTrainingEntry",
+          entityId: id,
+          before,
+        },
+        tx
+      );
+    });
 
-/** Get all training entries with optional filtering. */
-export async function listTrainingEntries(options?: {
-  active?: boolean;
-  category?: string;
-  limit?: number;
-  offset?: number;
-}): Promise<ChatTrainingEntry[]> {
-  await requirePermission("manageChatbot");
-
-  const where: Record<string, unknown> = {};
-  if (options?.active !== undefined) where.isActive = options.active;
-  if (options?.category) where.category = options.category;
-
-  return db.chatTrainingEntry.findMany({
-    where,
-    orderBy: [{ priority: "desc" }, { createdAt: "desc" }],
-    take: options?.limit ?? 50,
-    skip: options?.offset ?? 0,
-  });
+    invalidate(forTraining());
+    revalidatePath(TRAINING_PATH);
+    return done("Training entry deleted.");
+  } catch (error) {
+    log.error("delete training entry failed", { error: errorMessage(error) });
+    return fail(UNEXPECTED);
+  }
 }

@@ -12,7 +12,13 @@ interface SkillBase {
 
 export interface FillSkill extends SkillBase {
   variant?: "fill";
-  icon: (props: IconProps) => JSX.Element;
+  /**
+   * A monochrome SVG in public/icons/skills, painted in the text colour by
+   * components/common/MaskIcon. A file, not an inline component, so the logo
+   * is downloaded once and cached instead of repeated in every page's HTML,
+   * RSC payload and client bundle.
+   */
+  iconSrc: string;
 }
 
 export interface StrokeSkill extends SkillBase {

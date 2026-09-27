@@ -3,6 +3,7 @@
 import SkillGroupCard from "@/components/about/SkillGroupCard";
 import TabChip from "@/components/about/TabChip";
 import ChipMarquee from "@/components/common/ChipMarquee";
+import MaskIcon from "@/components/common/MaskIcon";
 import SkillCard from "@/components/common/SkillCard";
 import SkillChip from "@/components/common/SkillChip";
 import HomeSection from "@/components/home/HomeSection";
@@ -137,27 +138,26 @@ const SkillSection = ({ content }: SkillSectionProps) => {
         </div>
       ) : (
         <div className="flex flex-wrap justify-center pt-12">
-          {allSkills.map((skill) => {
-            const IconComponent = skill.icon;
-            const isStroke = skill.variant === "stroke";
-
-            return (
-              <SkillCard
-                key={skill.name}
-                title={skill.name}
-                icon={
-                  isStroke ? (
-                    <IconComponent
-                      size={40}
-                      className="text-black dark:text-white group-hover/canvas-card:text-white"
-                    />
-                  ) : (
-                    <IconComponent className="fill-black dark:fill-white group-hover/canvas-card:fill-white" />
-                  )
-                }
-              />
-            );
-          })}
+          {allSkills.map((skill) => (
+            <SkillCard
+              key={skill.name}
+              title={skill.name}
+              icon={
+                skill.variant === "stroke" ? (
+                  <skill.icon
+                    size={40}
+                    className="text-black dark:text-white group-hover/canvas-card:text-white"
+                  />
+                ) : (
+                  <MaskIcon
+                    src={skill.iconSrc}
+                    size={60}
+                    className="text-black dark:text-white group-hover/canvas-card:text-white"
+                  />
+                )
+              }
+            />
+          ))}
         </div>
       )}
     </HomeSection>

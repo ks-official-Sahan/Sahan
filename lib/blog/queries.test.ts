@@ -1,7 +1,32 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { defaultPosts, PUBLISHED_WHERE, readPublishedPosts, taxonomyOf } from "./queries";
+import { defaultPosts, getPostBySlug, PUBLISHED_WHERE, readPublishedPosts, relatedPosts, taxonomyOf } from "./queries";
+
+test("getPostBySlug rejects a malformed slug before any read", async () => {
+  // No database is configured in tests: reaching a read would throw or log.
+  assert.equal(await getPostBySlug("../etc/passwd"), null);
+  assert.equal(await getPostBySlug("UPPER"), null);
+  assert.equal(await getPostBySlug("x".repeat(200)), null);
+});
+
+test("relatedPosts ranks by shared tags and topic, excludes the post itself, and caps the list", () => {
+  const base = defaultPosts()[0];
+  const make = (slug: string, topic: string, tags: string[]) => ({ ...base, slug, topic, tags });
+  const post = make("self", "Release", ["next", "react"]);
+  const posts = [
+    post,
+    make("none", "Other", ["go"]),
+    make("topic-only", "Release", []),
+    make("two-tags", "Other", ["next", "react"]),
+    make("one-tag", "Other", ["react"]),
+  ];
+  assert.deepEqual(
+    relatedPosts(post, posts).map((p) => p.slug),
+    ["two-tags", "topic-only", "one-tag"]
+  );
+  assert.equal(relatedPosts(post, posts, 1).length, 1);
+});
 
 test("the published-posts query filters on status alone, never on publishAt", () => {
   // Scheduled visibility (docs/plan/admin-cms-adr.md, Step 12): a SCHEDULED

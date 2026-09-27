@@ -43,6 +43,8 @@ export const postInputSchema = z.object({
   seoTitle: z.string().trim().max(70).optional(),
   seoDescription: z.string().trim().max(200).optional(),
   canonicalUrl: canonicalUrlSchema,
+  // A checkbox: present ("on") means checked, absent means unchecked.
+  noindex: z.preprocess((value) => value === true || value === "on" || value === "true" || value === "1", z.boolean()),
 });
 
 export type PostInput = z.infer<typeof postInputSchema>;

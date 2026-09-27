@@ -90,6 +90,7 @@ model User {
   sessions          UserSession[]
   mfaChallenges     MfaChallenge[]
   posts             Post[]
+  postRevisions     PostRevision[]
   auditLogs         AuditLog[]
   assignedInquiries Inquiry[]      @relation("InquiryAssignee")
 
@@ -129,6 +130,8 @@ model UserSession {
 
   @@index([userId, revokedAt])
   @@index([expiresAt])
+  // Known-IPs list on the allowlist screen, newest first.
+  @@index([lastSeenAt])
   @@map("user_sessions")
 }
 
@@ -149,6 +152,8 @@ model AuthToken {
 
   @@index([email, purpose])
   @@index([expiresAt])
+  // Pending invites: open tokens of one purpose that have not expired.
+  @@index([purpose, expiresAt])
   @@map("auth_tokens")
 }
 
@@ -169,6 +174,8 @@ model MfaChallenge {
   createdAt  DateTime   @default(now())
 
   @@index([userId, purpose, expiresAt])
+  // The cleanup cron deletes by expiry across all users.
+  @@index([expiresAt])
   @@map("mfa_challenges")
 }
 
@@ -188,7 +195,9 @@ model AuditLog {
   meta       Json?
   createdAt  DateTime @default(now())
 
-  @@index([createdAt])
+  // Matches the (createdAt, id) keyset cursor in lib/admin/audit-filters.ts;
+  // still serves anything that only filters or sorts by createdAt.
+  @@index([createdAt, id])
   @@index([actorId])
   @@index([action])
   @@index([entityType, entityId])
@@ -379,16 +388,46 @@ model Post {
   canonicalUrl   String?
   readMinutes    Int         @default(1)
   generatedByAI  Boolean     @default(false)
+  // Published but kept out of search engines: robots noindex, and left out of
+  // the sitemap, RSS and llms.txt.
+  noindex        Boolean     @default(false)
   // Optional so deleting an author never fails on a foreign key.
   authorId       String?
   author         User?       @relation(fields: [authorId], references: [id], onDelete: SetNull)
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
 
+  revisions PostRevision[]
+
   @@index([status, publishedAt])
   @@index([status, publishAt])
   @@index([authorId])
+  // Admin list default sort, and the distinct-topic picker.
+  @@index([updatedAt])
+  @@index([topic])
   @@map("posts")
+}
+
+// A snapshot of a post's editable fields taken just before an edit replaced
+// them, so any earlier version can be viewed and restored. `data` is JSON
+// (see lib/blog/revisions.ts) so adding an editable field never needs a
+// migration here. Pruned to the newest few per post by the audit-prune cron.
+model PostRevision {
+  id          String   @id @default(cuid())
+  postId      String
+  post        Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  // Copied out of `data` so the history list never loads full snapshots.
+  title       String
+  data        Json
+  // What replaced this version: "update", "restore" or "ai".
+  reason      String
+  createdById String?
+  createdBy   User?    @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt   DateTime @default(now())
+
+  @@index([postId, createdAt])
+  @@index([createdById])
+  @@map("post_revisions")
 }
 
 // ─── Media ────────────────────────────────────────────────────────────────────

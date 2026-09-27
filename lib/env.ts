@@ -83,14 +83,33 @@ const schema = z.object({
   EMAIL_SENDER_USER: text,
   EMAIL_BREVO_API_KEY: text,
 
-  // AI
+  // AI. Model variables are optional overrides: lib/ai/models.ts resolves
+  // BLOG_*/CHAT_*/IMAGE_* first, then the provider-wide *_MODEL, then its
+  // verified free defaults. AI_ALLOW_PAID lets paid providers (Vertex text and
+  // images, Gemini images) join the chains; off by default, so AI costs $0.
+  AI_ALLOW_PAID: flag,
   OPENROUTER_BASE_URL: text,
   OPENROUTER_API_KEY: text,
   OPENROUTER_API_KEY_2: text,
   OPENROUTER_ALLOW_PAID_MODELS: flag,
-  OPENROUTER_MODEL: text,
   GEMINI_API_KEY: text,
   NVIDIA_API_KEY: text,
+  OPENROUTER_MODEL: text,
+  GEMINI_MODEL: text,
+  NVIDIA_MODEL: text,
+  VERTEX_MODEL: text,
+  IMAGEN_MODEL: text,
+  BLOG_GEMINI_MODEL: text,
+  BLOG_OPENROUTER_MODEL: text,
+  BLOG_NVIDIA_MODEL: text,
+  BLOG_VERTEX_MODEL: text,
+  CHAT_GEMINI_MODEL: text,
+  CHAT_OPENROUTER_MODEL: text,
+  CHAT_NVIDIA_MODEL: text,
+  CHAT_VERTEX_MODEL: text,
+  IMAGE_NVIDIA_MODEL: text,
+  IMAGE_GEMINI_MODEL: text,
+  IMAGE_VERTEX_MODEL: text,
   GOOGLE_CLIENT_EMAIL: text,
   GOOGLE_PRIVATE_KEY: privateKey,
   GOOGLE_CLOUD_PROJECT: text,

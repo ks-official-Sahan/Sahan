@@ -30,33 +30,19 @@ export async function getRecentActivity(limit = 10) {
 }
 
 /**
- * Count draft content blocks (status = DRAFT).
+ * Draft content blocks, and everything not yet public (draft blocks plus
+ * draft or scheduled posts). Two counts run in parallel; the block count is
+ * shared by both numbers instead of being queried twice.
  */
-export async function getDraftCount() {
+export async function getContentCounts(): Promise<{ drafts: number; unpublished: number }> {
   try {
-    return await db.contentBlock.count({
-      where: { status: "DRAFT" },
-    });
+    const [blocks, posts] = await Promise.all([
+      db.contentBlock.count({ where: { status: "DRAFT" } }),
+      db.post.count({ where: { status: { in: ["DRAFT", "SCHEDULED"] } } }),
+    ]);
+    return { drafts: blocks, unpublished: blocks + posts };
   } catch {
-    return 0;
-  }
-}
-
-/**
- * Count unpublished changes in the database.
- * This is content blocks with status DRAFT or posts with status DRAFT.
- */
-export async function getUnpublishedCount() {
-  try {
-    const blocks = await db.contentBlock.count({
-      where: { status: "DRAFT" },
-    });
-    const posts = await db.post.count({
-      where: { status: { in: ["DRAFT", "SCHEDULED"] } },
-    });
-    return blocks + posts;
-  } catch {
-    return 0;
+    return { drafts: 0, unpublished: 0 };
   }
 }
 
@@ -77,29 +63,12 @@ export async function getNewInquiriesCount() {
  * Get system health status: database connection, redis (if configured).
  */
 export async function getSystemHealth() {
-  const health = {
-    database: false,
-    redis: false,
-  };
-
-  // Database check
-  try {
-    await db.$queryRawUnsafe("SELECT 1");
-    health.database = true;
-  } catch {
-    // Database is down
-  }
-
-  // Redis check (if configured)
-  try {
-    const { kv } = await import("@/lib/cache/redis");
-    await kv.get("health-check");
-    health.redis = true;
-  } catch {
-    // Redis is not available or not configured
-  }
-
-  return health;
+  // Both probes run at once: the dashboard waits for the slower one, not the sum.
+  const [database, redis] = await Promise.allSettled([
+    db.$queryRaw`SELECT 1`,
+    import("@/lib/cache/redis").then(({ kv }) => kv.get("health-check")),
+  ]);
+  return { database: database.status === "fulfilled", redis: redis.status === "fulfilled" };
 }
 
 /**

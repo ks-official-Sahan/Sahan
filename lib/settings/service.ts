@@ -4,7 +4,6 @@ import { cached } from "@/lib/cache/cached";
 import { invalidate } from "@/lib/cache/invalidate";
 import { forSettings } from "@/lib/cache/plan";
 import { staticTags } from "@/lib/cache/tags";
-import { kv } from "@/lib/cache/redis";
 import { db } from "@/lib/db/prisma";
 import { audit } from "@/lib/admin/audit";
 import type { AuthUser } from "@/lib/auth/dal";
@@ -19,6 +18,7 @@ import {
   type SettingValueOf,
   validateSetting,
 } from "./schema";
+import { isKvMirrored, KV_MIRRORED_SETTINGS, writeKvSetting } from "./kv";
 
 // Service layer for settings: read, write, cache and validate. Design:
 // docs/plan/admin-cms-adr.md, section 16. Settings are stored in the database
@@ -62,9 +62,29 @@ export async function getSetting<K extends SettingKey>(key: K): Promise<SettingV
  * can be unit tested without going through unstable_cache.
  */
 export async function collectPublicSettings(): Promise<Partial<Record<SettingKey, unknown>>> {
-  const result: Partial<Record<SettingKey, unknown>> = {};
-  for (const key of Object.keys(DEFAULT_SETTINGS) as SettingKey[]) {
-    if (isPublicSetting(key)) result[key] = await readSettingRaw(key);
+  return readSettingsRaw((Object.keys(DEFAULT_SETTINGS) as SettingKey[]).filter(isPublicSetting));
+}
+
+/**
+ * Several settings in one query (not one round trip per key), each falling
+ * back to its default when not stored or invalid, exactly like readSettingRaw.
+ */
+async function readSettingsRaw(keys: SettingKey[]): Promise<Record<SettingKey, unknown>> {
+  let rows: { key: string; value: unknown }[] = [];
+  try {
+    rows = await db.setting.findMany({ where: { key: { in: keys } }, select: { key: true, value: true } });
+  } catch (err) {
+    log.error("Failed to read settings", { count: keys.length, error: String(err) });
+  }
+  const stored = new Map(rows.map((row) => [row.key, row.value]));
+  const result = {} as Record<SettingKey, unknown>;
+  for (const key of keys) {
+    try {
+      result[key] = stored.has(key) ? validateSetting(key, stored.get(key)) : getSettingDefault(key);
+    } catch (err) {
+      log.error("Failed to read setting", { key, error: String(err) });
+      result[key] = getSettingDefault(key);
+    }
   }
   return result;
 }
@@ -76,11 +96,7 @@ export async function getPublicSettings(): Promise<Partial<Record<SettingKey, un
 
 /** Every setting, for admin screens that hold a permission to see all of them. */
 export async function collectAllSettings(): Promise<Record<SettingKey, unknown>> {
-  const result: Record<SettingKey, unknown> = {} as Record<SettingKey, unknown>;
-  for (const key of Object.keys(DEFAULT_SETTINGS) as SettingKey[]) {
-    result[key] = await readSettingRaw(key);
-  }
-  return result;
+  return readSettingsRaw(Object.keys(DEFAULT_SETTINGS) as SettingKey[]);
 }
 
 export async function getAllSettings(): Promise<Record<SettingKey, unknown>> {
@@ -103,26 +119,34 @@ export async function updateSetting<K extends SettingKey>(
   const before = await readSettingRaw(key);
 
   try {
-    await db.setting.upsert({
-      where: { key },
-      create: { key, value: validated, updatedById: actor.id },
-      update: { value: validated, updatedById: actor.id },
+    await db.$transaction(async (tx) => {
+      await tx.setting.upsert({
+        where: { key },
+        create: { key, value: validated, updatedById: actor.id },
+        update: { value: validated, updatedById: actor.id },
+      });
+
+      await audit(
+        {
+          action: "settings.updated",
+          actor: { id: actor.id, email: actor.email },
+          entityType: "Setting",
+          entityId: key,
+          before,
+          after: validated,
+        },
+        tx
+      );
     });
   } catch (err) {
     log.error("Failed to update setting", { key, error: String(err) });
     throw err;
   }
 
+  // KV mirror and cache invalidation run after the commit. A mirror failure
+  // is logged inside mirrorSettingToKv and never turns a successful save into
+  // a reported failure (see the module docstring above).
   await mirrorSettingToKv(key, validated);
-
-  await audit({
-    action: "settings.updated",
-    actor: { id: actor.id, email: actor.email },
-    entityType: "Setting",
-    entityId: key,
-    before,
-    after: validated,
-  });
 
   const plan = forSettings();
   invalidate({ tags: [...new Set([`settings:${key}`, "settings", ...plan.tags])], paths: plan.paths });
@@ -134,9 +158,9 @@ export async function updateSetting<K extends SettingKey>(
  * read from Postgres through the cached getSetting/getAllSettings.
  */
 async function mirrorSettingToKv<K extends SettingKey>(key: K, value: SettingValue<K>): Promise<void> {
-  if (key !== "maintenance" && key !== "security.ipAllowlist") return;
+  if (!isKvMirrored(key)) return;
   try {
-    await kv.set(`setting:${key}`, value, { ttlSeconds: 3600 });
+    await writeKvSetting(key, value as SettingValueOf<typeof key>);
   } catch (err) {
     // KV failure is not fatal for the setting save; the proxy's safe default
     // applies until the mirror catches up (documented at the top of this file).
@@ -150,30 +174,15 @@ async function mirrorSettingToKv<K extends SettingKey>(key: K, value: SettingVal
  * after a KV outage during a save), and available for a manual resync.
  */
 export async function syncSettingsToKv(): Promise<void> {
-  const keysToMirror: SettingKey[] = ["maintenance", "security.ipAllowlist"];
-  for (const key of keysToMirror) {
-    try {
-      const value = await readSettingRaw(key);
-      await kv.set(`setting:${key}`, value, { ttlSeconds: 3600 });
-    } catch (err) {
-      log.error("Failed to sync setting to KV", { key, error: String(err) });
-    }
-  }
-}
-
-/**
- * KV-only read for the proxy: no database fallback, so a cache miss reads as
- * "not set" and the caller (proxy.ts) applies its own safe default.
- */
-export async function getKvSetting<K extends SettingKey>(key: K): Promise<SettingValue<K> | null> {
-  try {
-    const value = await kv.get(`setting:${key}`);
-    if (!value) return null;
-    return validateSetting(key, value) as SettingValue<K>;
-  } catch (err) {
-    log.warn("Failed to read KV setting", { key, error: String(err) });
-    return null;
-  }
+  await Promise.all(
+    KV_MIRRORED_SETTINGS.map(async (key) => {
+      try {
+        await writeKvSetting(key, await readSettingRaw(key));
+      } catch (err) {
+        log.error("Failed to sync setting to KV", { key, error: String(err) });
+      }
+    })
+  );
 }
 
 /** Invalidate every cache tag and repair the KV mirror. Backs the "clear cache" button. */

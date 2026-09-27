@@ -38,15 +38,32 @@ test("publishing a site section also expires the site config, and seo adds the s
 });
 
 test("a collection change refreshes home, about and works", () => {
-  const plan = forCollection("projects");
-  assert.deepEqual(plan.tags, ["collection:projects", "chatbot:knowledge"]);
+  const plan = forCollection("skills");
+  assert.deepEqual(plan.tags, ["collection:skills", "chatbot:knowledge"]);
   assert.deepEqual(plan.paths, ["/", "/about", "/works"]);
 });
 
-test("a post change refreshes the list, the post, taxonomy, feeds and the sitemap", () => {
+test("projects and experience also feed llms.txt (its Featured projects and Current role sections)", () => {
+  assert.deepEqual(forCollection("projects").paths, ["/", "/about", "/works", "/llms.txt"]);
+  assert.deepEqual(forCollection("experience").paths, ["/", "/about", "/works", "/llms.txt"]);
+  assert.equal(forCollection("services").paths.includes("/llms.txt"), false);
+});
+
+test("a post change refreshes the list, the post, taxonomy, feeds, the sitemap and llms.txt", () => {
   const plan = forPost("hello-world");
   assert.deepEqual(plan.tags, ["blog:list", "blog:post:hello-world", "blog:taxonomy", "chatbot:knowledge"]);
-  assert.deepEqual(plan.paths, ["/updates", "/updates/hello-world", "/sitemap.xml", "/rss.xml"]);
+  assert.deepEqual(plan.paths, ["/updates", "/updates/hello-world", "/sitemap.xml", "/rss.xml", "/llms.txt"]);
+});
+
+test("the post list plan also revalidates llms.txt", () => {
+  assert.deepEqual(forPostList().paths, ["/updates", "/sitemap.xml", "/rss.xml", "/llms.txt"]);
+});
+
+test("publishing About's hero or bento section also revalidates llms.txt (its Author bio), other sections do not", () => {
+  assert.deepEqual(forContentPublish("about", { section: "hero" }).paths, ["/about", "/llms.txt"]);
+  assert.deepEqual(forContentPublish("about", { section: "bento" }).paths, ["/about", "/llms.txt"]);
+  assert.deepEqual(forContentPublish("about", { section: "skills" }).paths, ["/about"]);
+  assert.deepEqual(forContentPublish("works", { section: "hero" }).paths, ["/works"]);
 });
 
 test("a post plan refuses an unsafe slug", () => {

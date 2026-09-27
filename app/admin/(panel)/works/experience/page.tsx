@@ -1,68 +1,143 @@
-import { requirePermission } from "@/lib/auth/dal";
-import { db } from "@/lib/db/prisma";
+import type { Metadata } from "next";
 import Link from "next/link";
-import { Button } from "@/components/admin/ui/button";
+
+import ActionForm, { SubmitButton } from "@/components/admin/ui/ActionForm";
+import { publishExperienceAction, reorderExperienceAction } from "@/lib/actions/works";
+import { hasPermission, requirePermission } from "@/lib/auth/dal";
+import { db } from "@/lib/db/prisma";
+import EmptyState from "@/components/admin/ui/EmptyState";
+import { badgeClass, buttonVariants, tableClass, tdClass, thClass } from "@/components/admin/ui/styles";
+
+export const metadata: Metadata = { title: "Experience", robots: "noindex, nofollow, nocache" };
 
 export default async function ExperiencePage() {
-  await requirePermission("editCollections");
+  const user = await requirePermission("editCollections");
+  const canPublish = hasPermission(user, "publishCollections");
 
   const experiences = await db.experience.findMany({
     orderBy: { sortOrder: "asc" },
+    select: { id: true, company: true, role: true, period: true, type: true, published: true, sortOrder: true },
   });
 
   return (
-    <div className="space-y-8">
+    <div className="mx-auto w-full max-w-6xl space-y-8">
+      <Link href="/admin/works" className="text-sm text-muted-foreground hover:text-foreground">
+        ← Back to Works
+      </Link>
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Experience</h1>
-          <p className="text-gray-600 dark:text-gray-400 mt-2">Manage work history and experience entries</p>
+          <h1 className="text-2xl font-semibold tracking-tight">Experience</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Manage work history and experience entries</p>
         </div>
-        <Button asChild>
-          <Link href="/admin/works/experience/new">Add Experience</Link>
-        </Button>
+        <Link href="/admin/works/experience/new" className={buttonVariants.primary}>
+          Add Experience
+        </Link>
       </div>
 
-      <div className="overflow-x-auto">
-        <table className="w-full border-collapse">
-          <thead>
-            <tr className="border-b">
-              <th className="text-left py-3 px-4 font-semibold">Company</th>
-              <th className="text-left py-3 px-4 font-semibold">Role</th>
-              <th className="text-left py-3 px-4 font-semibold">Period</th>
-              <th className="text-left py-3 px-4 font-semibold">Type</th>
-              <th className="text-left py-3 px-4 font-semibold">Published</th>
-              <th className="text-left py-3 px-4 font-semibold">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {experiences.map((exp) => (
-              <tr key={exp.id} className="border-b hover:bg-gray-50 dark:hover:bg-gray-900">
-                <td className="py-3 px-4 font-medium">{exp.company}</td>
-                <td className="py-3 px-4 text-sm">{exp.role}</td>
-                <td className="py-3 px-4 text-sm text-gray-600 dark:text-gray-400">{exp.period}</td>
-                <td className="py-3 px-4 text-sm capitalize">{exp.type}</td>
-                <td className="py-3 px-4 text-sm">
-                  <span className={exp.published ? "text-green-600" : "text-gray-500"}>
-                    {exp.published ? "Yes" : "Draft"}
-                  </span>
-                </td>
-                <td className="py-3 px-4 text-sm">
-                  <Link href={`/admin/works/experience/${exp.id}`} className="text-blue-600 hover:underline">
-                    Edit
-                  </Link>
-                </td>
+      {experiences.length === 0 ? (
+        <EmptyState
+          title="No experience entries yet"
+          description="Create your first work history entry."
+          action={
+            <Link href="/admin/works/experience/new" className={buttonVariants.primary}>
+              Create your first entry
+            </Link>
+          }
+        />
+      ) : (
+        <div className="overflow-x-auto rounded-lg border border-border">
+          <table className={tableClass}>
+            <thead className="border-b border-border bg-muted/40">
+              <tr>
+                <th scope="col" className={thClass}>
+                  Company
+                </th>
+                <th scope="col" className={thClass}>
+                  Role
+                </th>
+                <th scope="col" className={thClass}>
+                  Period
+                </th>
+                <th scope="col" className={thClass}>
+                  Type
+                </th>
+                <th scope="col" className={thClass}>
+                  Published
+                </th>
+                <th scope="col" className={thClass}>
+                  Order
+                </th>
+                <th scope="col" className={thClass}>
+                  <span className="sr-only">Actions</span>
+                </th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {experiences.length === 0 && (
-        <div className="text-center py-12 text-gray-600 dark:text-gray-400">
-          <p>No experience entries yet.</p>
-          <Button asChild className="mt-4">
-            <Link href="/admin/works/experience/new">Create your first entry</Link>
-          </Button>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {experiences.map((exp, index) => (
+                <tr key={exp.id} className="hover:bg-muted/40">
+                  <td className={`${tdClass} font-medium`}>{exp.company}</td>
+                  <td className={tdClass}>{exp.role}</td>
+                  <td className={`${tdClass} text-muted-foreground`}>{exp.period}</td>
+                  <td className={`${tdClass} capitalize`}>{exp.type}</td>
+                  <td className={tdClass}>
+                    {canPublish ? (
+                      <ActionForm action={publishExperienceAction} showMessage={false}>
+                        <input type="hidden" name="id" value={exp.id} />
+                        <input type="hidden" name="publish" value={exp.published ? "false" : "true"} />
+                        <SubmitButton variant="small" pendingLabel="…">
+                          {exp.published ? "Published" : "Draft"}
+                        </SubmitButton>
+                      </ActionForm>
+                    ) : (
+                      <span className={badgeClass}>{exp.published ? "Published" : "Draft"}</span>
+                    )}
+                  </td>
+                  <td className={tdClass}>
+                    {canPublish ? (
+                      <div className="flex items-center gap-1">
+                        {index === 0 ? (
+                          <button type="button" disabled aria-hidden className={`${buttonVariants.small} opacity-30`}>
+                            ↑
+                          </button>
+                        ) : (
+                          <ActionForm action={reorderExperienceAction} showMessage={false}>
+                            <input type="hidden" name="id" value={exp.id} />
+                            <input type="hidden" name="direction" value="up" />
+                            <SubmitButton variant="small" pendingLabel="…">
+                              <span aria-hidden>↑</span>
+                              <span className="sr-only">Move {exp.company} up</span>
+                            </SubmitButton>
+                          </ActionForm>
+                        )}
+                        {index === experiences.length - 1 ? (
+                          <button type="button" disabled aria-hidden className={`${buttonVariants.small} opacity-30`}>
+                            ↓
+                          </button>
+                        ) : (
+                          <ActionForm action={reorderExperienceAction} showMessage={false}>
+                            <input type="hidden" name="id" value={exp.id} />
+                            <input type="hidden" name="direction" value="down" />
+                            <SubmitButton variant="small" pendingLabel="…">
+                              <span aria-hidden>↓</span>
+                              <span className="sr-only">Move {exp.company} down</span>
+                            </SubmitButton>
+                          </ActionForm>
+                        )}
+                      </div>
+                    ) : null}
+                  </td>
+                  <td className={`${tdClass} text-right`}>
+                    <Link
+                      href={`/admin/works/experience/${exp.id}`}
+                      className="text-sm font-medium text-primary hover:underline"
+                    >
+                      Edit
+                    </Link>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
     </div>
