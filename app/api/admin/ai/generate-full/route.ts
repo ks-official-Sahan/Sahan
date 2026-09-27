@@ -15,6 +15,8 @@ import { defaultAiDeps, generateFullPost } from "@/lib/ai/blog";
 // form has (title, excerpt, topic, tags, SEO, body) from one AI call.
 
 export const dynamic = "force-dynamic";
+// Vercel Hobby allows at most 60 s; the AI chain stops at 50 s (lib/ai/blog.ts).
+export const maxDuration = 60;
 
 const bodySchema = z.object({
   prompt: z.string().trim().min(1).max(2000),
