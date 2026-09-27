@@ -77,7 +77,9 @@ export async function POST(request: NextRequest) {
   if (!registered.ok) {
     // The image itself was generated: send it back so the editor can show it,
     // offer a download, and retry the upload from the browser instead of the
-    // admin losing a paid generation.
+    // admin losing a paid generation. Expect a 1-4 MB body (base64 of a 16:9
+    // image): deliberate, only on this failure path, and under Vercel's
+    // response size limit.
     return NextResponse.json(
       { ok: false, error: registered.error, image: { base64: outcome.base64, mimeType: outcome.mimeType } },
       { status: 502, headers: { "Cache-Control": "no-store" } }

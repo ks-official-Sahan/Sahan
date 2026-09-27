@@ -3,7 +3,9 @@
 import { MantineProvider } from "@mantine/core";
 import { useTheme } from "next-themes";
 import { theme } from "@/config/mantine-theme";
-import { useState, useEffect } from "react";
+import { useSyncExternalStore } from "react";
+
+const subscribeNever = () => () => {};
 
 /**
  * next-themes is the single source of truth for light/dark mode (it drives
@@ -23,11 +25,8 @@ export function MantineSyncProvider({
   children: React.ReactNode;
 }) {
   const { resolvedTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  // false during SSR and hydration, true afterwards, without a state-in-effect render.
+  const mounted = useSyncExternalStore(subscribeNever, () => true, () => false);
 
   const colorScheme = mounted && resolvedTheme === "light" ? "light" : "dark";
 

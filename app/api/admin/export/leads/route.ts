@@ -4,6 +4,7 @@ import { audit } from "@/lib/admin/audit";
 import { toCsv } from "@/lib/admin/csv";
 import { getOptionalUser, hasPermission } from "@/lib/auth/dal";
 import { db } from "@/lib/db/prisma";
+import { log } from "@/lib/log";
 import { isCrossSiteFetch } from "@/lib/security/fetch-site";
 
 export const dynamic = "force-dynamic";
@@ -84,7 +85,7 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error("Failed to export leads", error);
+    log.error("admin leads export failed", { error: error instanceof Error ? error.message : String(error) });
     return notFound();
   }
 }

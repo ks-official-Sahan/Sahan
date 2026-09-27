@@ -18,7 +18,7 @@ export default function ForgotPasswordForm({ loginUrl }: { loginUrl: string }) {
   return (
     <div className="rounded-lg border border-border bg-card p-6 text-card-foreground">
       <h1 className="text-xl font-semibold tracking-tight">Reset your password</h1>
-      <p className="mt-1 text-sm text-muted-foreground">Enter your email and we'll send a reset link if there's an account.</p>
+      <p className="mt-1 text-sm text-muted-foreground">Enter your email and we&apos;ll send a reset link if there&apos;s an account.</p>
 
       {state.message ? (
         <p role="status" className="mt-4 rounded-md border border-border bg-muted px-3 py-2 text-sm">

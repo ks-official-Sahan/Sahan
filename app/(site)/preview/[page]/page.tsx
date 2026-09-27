@@ -42,7 +42,7 @@ export default async function PreviewPage({ params }: { params: Promise<{ page: 
   ]);
   const finalCta = <FinalCta content={home.finalCta} channels={home.channels} />;
 
-  let view;
+  let view: React.ReactNode;
   switch (page) {
     case "home":
       view = <HomePageView content={home} projects={projects} experience={experience} />;
@@ -71,6 +71,9 @@ export default async function PreviewPage({ params }: { params: Promise<{ page: 
     case "contact":
       view = <ContactPageView content={await loadPreviewContent("contact")} home={home} />;
       break;
+    default:
+      // A CMS page added to the registry without a case here 404s instead of rendering blank.
+      notFound();
   }
 
   return (

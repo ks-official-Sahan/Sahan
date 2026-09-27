@@ -85,83 +85,6 @@ const ParticlesX: React.FC<ParticlesProps> = ({
   // frame never animates when reduced motion is already on.
   const pausedRef = useRef(!!reducedMotion);
 
-  /* eslint-disable react-hooks/exhaustive-deps */
-
-  useEffect(() => {
-    if (canvasRef.current) {
-      context.current = canvasRef.current.getContext("2d");
-    }
-    initCanvas();
-    if (!pausedRef.current) animate();
-    window.addEventListener("resize", initCanvas);
-
-    return () => {
-      window.removeEventListener("resize", initCanvas);
-      if (animationFrameId.current) {
-        cancelAnimationFrame(animationFrameId.current);
-        animationFrameId.current = null;
-      }
-    };
-  }, [color]);
-
-  useEffect(() => {
-    onMouseMove();
-  }, [mousePosition.x, mousePosition.y]);
-
-  useEffect(() => {
-    initCanvas();
-  }, [refresh]);
-
-  // Pauses/resumes the rAF loop for prefers-reduced-motion, document
-  // visibility and on-screen presence, without tearing down or re-creating
-  // the canvas — resuming just picks the loop back up where it left off.
-  useEffect(() => {
-    const applyPauseState = (hidden: boolean, offscreen: boolean, reduced: boolean) => {
-      const shouldPause = hidden || offscreen || reduced;
-      if (shouldPause === pausedRef.current) return;
-      pausedRef.current = shouldPause;
-      if (shouldPause) {
-        if (animationFrameId.current) {
-          cancelAnimationFrame(animationFrameId.current);
-          animationFrameId.current = null;
-        }
-      } else if (animationFrameId.current === null) {
-        animate();
-      }
-    };
-
-    let hidden = typeof document !== "undefined" ? document.hidden : false;
-    let offscreen = false; // assume on-screen until the observer says otherwise
-
-    const handleVisibilityChange = () => {
-      hidden = document.hidden;
-      applyPauseState(hidden, offscreen, !!reducedMotion);
-    };
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-
-    const container = canvasContainerRef.current;
-    let observer: IntersectionObserver | undefined;
-    if (container && typeof IntersectionObserver !== "undefined") {
-      observer = new IntersectionObserver(
-        ([entry]) => {
-          offscreen = !entry.isIntersecting;
-          applyPauseState(hidden, offscreen, !!reducedMotion);
-        },
-        { threshold: 0 }
-      );
-      observer.observe(container);
-    }
-
-    // Covers prefers-reduced-motion changing while the tab stays open, not
-    // just its value at mount.
-    applyPauseState(hidden, offscreen, !!reducedMotion);
-
-    return () => {
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-      observer?.disconnect();
-    };
-  }, [reducedMotion]);
-
   const initCanvas = () => {
     resizeCanvas();
     drawParticles();
@@ -332,6 +255,83 @@ const ParticlesX: React.FC<ParticlesProps> = ({
     });
     animationFrameId.current = window.requestAnimationFrame(animate);
   };
+
+  /* eslint-disable react-hooks/exhaustive-deps */
+
+  useEffect(() => {
+    if (canvasRef.current) {
+      context.current = canvasRef.current.getContext("2d");
+    }
+    initCanvas();
+    if (!pausedRef.current) animate();
+    window.addEventListener("resize", initCanvas);
+
+    return () => {
+      window.removeEventListener("resize", initCanvas);
+      if (animationFrameId.current) {
+        cancelAnimationFrame(animationFrameId.current);
+        animationFrameId.current = null;
+      }
+    };
+  }, [color]);
+
+  useEffect(() => {
+    onMouseMove();
+  }, [mousePosition.x, mousePosition.y]);
+
+  useEffect(() => {
+    initCanvas();
+  }, [refresh]);
+
+  // Pauses/resumes the rAF loop for prefers-reduced-motion, document
+  // visibility and on-screen presence, without tearing down or re-creating
+  // the canvas — resuming just picks the loop back up where it left off.
+  useEffect(() => {
+    const applyPauseState = (hidden: boolean, offscreen: boolean, reduced: boolean) => {
+      const shouldPause = hidden || offscreen || reduced;
+      if (shouldPause === pausedRef.current) return;
+      pausedRef.current = shouldPause;
+      if (shouldPause) {
+        if (animationFrameId.current) {
+          cancelAnimationFrame(animationFrameId.current);
+          animationFrameId.current = null;
+        }
+      } else if (animationFrameId.current === null) {
+        animate();
+      }
+    };
+
+    let hidden = typeof document !== "undefined" ? document.hidden : false;
+    let offscreen = false; // assume on-screen until the observer says otherwise
+
+    const handleVisibilityChange = () => {
+      hidden = document.hidden;
+      applyPauseState(hidden, offscreen, !!reducedMotion);
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    const container = canvasContainerRef.current;
+    let observer: IntersectionObserver | undefined;
+    if (container && typeof IntersectionObserver !== "undefined") {
+      observer = new IntersectionObserver(
+        ([entry]) => {
+          offscreen = !entry.isIntersecting;
+          applyPauseState(hidden, offscreen, !!reducedMotion);
+        },
+        { threshold: 0 }
+      );
+      observer.observe(container);
+    }
+
+    // Covers prefers-reduced-motion changing while the tab stays open, not
+    // just its value at mount.
+    applyPauseState(hidden, offscreen, !!reducedMotion);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      observer?.disconnect();
+    };
+  }, [reducedMotion]);
 
   return (
     <div className={className} ref={canvasContainerRef}>

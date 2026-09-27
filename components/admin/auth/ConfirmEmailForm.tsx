@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState } from "react";
 
 import { confirmEmailChangeAction } from "@/lib/actions/confirm-email";
@@ -20,9 +21,9 @@ export default function ConfirmEmailForm({ token, newEmail }: { token: string; n
       <div className="rounded-lg border border-border bg-card p-6 text-card-foreground">
         <h1 className="text-xl font-semibold tracking-tight">Email confirmed</h1>
         <p className="mt-2 text-sm text-muted-foreground">{state.message}</p>
-        <a href="/admin/login" className={`${primary} mt-4`}>
+        <Link href="/admin/login" className={`${primary} mt-4`}>
           Sign in
-        </a>
+        </Link>
       </div>
     );
   }
@@ -44,9 +45,9 @@ export default function ConfirmEmailForm({ token, newEmail }: { token: string; n
           {pending ? "Confirming..." : "Confirm this email"}
         </button>
       </form>
-      <a href="/admin/login" className={`${link} mt-4 inline-block`}>
+      <Link href="/admin/login" className={`${link} mt-4 inline-block`}>
         Cancel
-      </a>
+      </Link>
     </div>
   );
 }

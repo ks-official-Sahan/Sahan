@@ -308,7 +308,7 @@ const ContactForm = ({ content }: ContactFormProps) => {
       <p role="status" className="text-sm leading-relaxed opacity-80">
         {status === "success" && (
           <span className="text-green-600 dark:text-green-400">
-            Thanks! Your message was received. I'll get back to you soon.
+            Thanks! Your message was received. I&apos;ll get back to you soon.
           </span>
         )}
         {status === "error" && (

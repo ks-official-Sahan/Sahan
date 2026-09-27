@@ -37,8 +37,9 @@ export default async function Image({ params }: { params: Promise<{ slug: string
 
   if (post?.coverUrl) {
     return new ImageResponse(
-      // eslint-disable-next-line @next/next/no-img-element -- next/og's Satori renderer, not next/image
+      // next/og's Satori renderer, not next/image. Decorative: alt stays empty.
       <img
+        alt=""
         // Pre-cropped JPEG at card size: Satori cannot read AVIF/WebP, and the original may be many MB.
         src={cloudinaryImageUrl(post.coverUrl, { ...size, format: "jpg" })}
         width={size.width}

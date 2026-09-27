@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState } from "react";
 
 import { completeSignIn, resendSignInCode, startSignIn, type SignInState } from "@/lib/actions/auth";
@@ -126,9 +127,9 @@ export default function LoginForm({ callbackUrl, notice }: { callbackUrl: string
             {startPending ? "Signing in..." : "Sign in"}
           </button>
 
-          <a href="/admin/forgot-password" className={`${link} block text-center`}>
+          <Link href="/admin/forgot-password" className={`${link} block text-center`}>
             Forgot your password?
-          </a>
+          </Link>
         </form>
       )}
     </div>
