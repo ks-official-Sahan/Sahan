@@ -22,13 +22,18 @@ const SideBar = ({ currentPath, title, opened, close }: SideBarProps) => {
   const previouslyFocused = useRef<HTMLElement | null>(null);
   const prefersReducedMotion = useReducedMotion();
 
-  // Body scroll lock while open.
+  // Body scroll lock while open. Pad the body by the scrollbar width it
+  // hides, so a page with a persistent scrollbar does not shift sideways.
   useEffect(() => {
     if (!opened) return;
+    const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
     const previousOverflow = document.body.style.overflow;
+    const previousPadding = document.body.style.paddingRight;
     document.body.style.overflow = "hidden";
+    if (scrollbarWidth > 0) document.body.style.paddingRight = `${scrollbarWidth}px`;
     return () => {
       document.body.style.overflow = previousOverflow;
+      document.body.style.paddingRight = previousPadding;
     };
   }, [opened]);
 

@@ -966,6 +966,7 @@ export async function publishServiceAction(_previous: ActionState, formData: For
     });
 
     invalidate(forCollection("services"));
+    revalidatePath("/admin/works/services");
     revalidatePath(`/admin/works/services/${before.groupId}`);
     return done(publish ? "Service published." : "Service unpublished.");
   } catch (error) {
@@ -1328,6 +1329,7 @@ export async function publishSkillAction(_previous: ActionState, formData: FormD
     });
 
     invalidate(forCollection("skills"));
+    revalidatePath("/admin/works/skills");
     revalidatePath(`/admin/works/skills/${before.groupId}`);
     return done(publish ? "Skill published." : "Skill unpublished.");
   } catch (error) {
