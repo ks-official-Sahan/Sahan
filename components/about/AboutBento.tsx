@@ -3,13 +3,18 @@ import GitHubStatsCard from "@/components/about/GitHubStatsCard";
 import CountUp from "@/components/home/CountUp";
 import HomeSection from "@/components/home/HomeSection";
 import SectionHeading from "@/components/home/SectionHeading";
-import { AboutContent } from "@/contents/about";
 import { Experience } from "@/contents/experience";
 import { Projects } from "@/contents/projects";
+import type { PageContent } from "@/lib/cms/registry";
 import type { GitHubStats } from "@/lib/github";
 import { cn } from "@/lib/utils";
 import { Briefcase } from "lucide-react";
 import React from "react";
+
+interface AboutBentoProps {
+  content: PageContent<"about">;
+  githubStats: GitHubStats;
+}
 
 const card =
   "flex flex-col gap-4 rounded-[16px] border border-bBORDERFADE bg-bCARD p-6";
@@ -27,16 +32,18 @@ const companiesCount = new Set(
 // Asymmetric on purpose: the story card is the widest thing on the page, the
 // numbers are the smallest. Phones stack it, tablets pair it up, laptops get
 // the four-column bento.
-const AboutBento = ({ githubStats }: { githubStats: GitHubStats }) => (
+const AboutBento = ({ content, githubStats }: AboutBentoProps) => {
+  const { bento } = content;
+  return (
   <HomeSection id="story" labelledBy="story-title">
-    <SectionHeading id="story-title" title="A bit about me" />
+    <SectionHeading id="story-title" title={bento.title} />
 
     <div className="reveal mt-10 grid grid-cols-1 gap-4 s640:grid-cols-2 lg:grid-cols-4">
       {/* story */}
       <div className={cn(card, "s640:col-span-2 lg:row-span-2")}>
-        <h3 className="text-xl font-semibold">{AboutContent.bento.B1.title}</h3>
+        <h3 className="text-xl font-semibold">{bento.cardTitle}</h3>
         <p className="max-w-[60ch] text-base leading-relaxed opacity-70">
-          {AboutContent.bento.B1.description}
+          {bento.cardDescription}
         </p>
       </div>
 
@@ -66,24 +73,25 @@ const AboutBento = ({ githubStats }: { githubStats: GitHubStats }) => (
         <div className="text-[length:clamp(2rem,1.4rem+2vw,3rem)] font-semibold leading-none tabular-nums">
           <CountUp to={companiesCount} />
         </div>
-        <div className="text-sm opacity-70">Companies and teams worked with</div>
+        <div className="text-sm opacity-70">{bento.companiesLabel}</div>
       </div>
       <div className={card}>
         <div className="text-[length:clamp(2rem,1.4rem+2vw,3rem)] font-semibold leading-none tabular-nums">
           <CountUp to={freelanceCount} />
         </div>
-        <div className="text-sm opacity-70">Freelance projects delivered</div>
+        <div className="text-sm opacity-70">{bento.freelanceLabel}</div>
       </div>
 
       {/* live */}
       <div className={cn(card, "s640:col-span-2 items-center justify-center")}>
-        <GitHubStatsCard stats={githubStats} />
+        <GitHubStatsCard stats={githubStats} content={bento} />
       </div>
       <div className={cn(card, "s640:col-span-2 items-center justify-center")}>
-        <AvailableCard />
+        <AvailableCard content={bento} />
       </div>
     </div>
   </HomeSection>
 );
+};
 
 export default AboutBento;

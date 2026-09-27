@@ -1,14 +1,19 @@
-import { HomeContent } from "@/contents/home";
+import type { PageContent } from "@/lib/cms/registry";
+import { jsonLdHtml } from "@/lib/seo/json-ld";
 import type { FAQAnswer } from "@/types/faq";
 
 const answerToText = ({ intro, points, outro }: FAQAnswer) =>
   [intro, points?.join("; "), outro].filter(Boolean).join(" ");
 
-const FaqJsonLd = () => {
+interface FaqJsonLdProps {
+  content: PageContent<"home">["faq"];
+}
+
+const FaqJsonLd = ({ content }: FaqJsonLdProps) => {
   const faqJsonLd = {
     "@context": "https://schema.org",
     "@type": "FAQPage",
-    mainEntity: HomeContent.faq.questions.map((item) => ({
+    mainEntity: content.questions.map((item) => ({
       "@type": "Question",
       name: item.question,
       acceptedAnswer: {
@@ -21,10 +26,7 @@ const FaqJsonLd = () => {
   return (
     <script
       type="application/ld+json"
-      dangerouslySetInnerHTML={{
-        // Escape "<" so content can never close the script tag early.
-        __html: JSON.stringify(faqJsonLd).replace(/</g, "\\u003c"),
-      }}
+      dangerouslySetInnerHTML={{ __html: jsonLdHtml(faqJsonLd) }}
     />
   );
 };

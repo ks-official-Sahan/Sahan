@@ -3,11 +3,16 @@
 import ServiceCard from "@/components/about/ServiceCard";
 import TabChip from "@/components/about/TabChip";
 import { MyServices } from "@/contents/service";
+import type { PageContent } from "@/lib/cms/registry";
 import { ArrowUpRight } from "lucide-react";
 import Link from "next/link";
 import React, { useState } from "react";
 
-const ServiceBox = () => {
+interface ServiceBoxProps {
+  content: PageContent<"about">;
+}
+
+const ServiceBox = ({ content }: ServiceBoxProps) => {
   const { categories } = MyServices;
   const [selectedId, setSelectedId] = useState(categories[0].id);
 
@@ -52,7 +57,7 @@ const ServiceBox = () => {
           href="/contact"
           className="press arrow-nudge inline-flex min-h-12 items-center gap-2 rounded-full bg-bCHIPSELECTED px-7 text-[15px] font-semibold text-white dark:text-black"
         >
-          Discuss a project
+          {content.services.ctaLabel}
           <ArrowUpRight
             size={18}
             aria-hidden="true"

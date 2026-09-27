@@ -3,20 +3,26 @@
 import { HomeContainer } from "@/components/home/HomeSection";
 import ProjectCard from "@/components/works/ProjectCard";
 import { platformLabels } from "@/components/works/ProjectPreview";
-import { WorksContent } from "@/contents/works";
 import { Projects, teamOf } from "@/contents/projects";
 import { cn } from "@/lib/utils";
+import type { PageContent } from "@/lib/cms/registry";
 import type { Project, ProjectPlatform } from "@/types/project";
 import { useSearchParams } from "next/navigation";
 import React, { useMemo, useState } from "react";
 
-type TabId = (typeof WorksContent.tabs)[number]["id"];
+type TabId = "all" | "products" | "client";
 type PlatformFilter = "all" | ProjectPlatform;
 
 const matchers: Record<TabId, (project: Project) => boolean> = {
   all: () => true,
   products: (project) => project.category === "product",
   client: (project) => project.category !== "product",
+};
+
+const tabParams: Record<TabId, string> = {
+  all: "all",
+  products: "pro",
+  client: "des",
 };
 
 // Featured first, then newest.
@@ -26,12 +32,23 @@ const sorted = [...Projects].sort(
     Number(b.year) - Number(a.year)
 );
 
-const WorksExplorer = () => {
+interface WorksExplorerProps {
+  content: PageContent<"works">;
+}
+
+const WorksExplorer = ({ content }: WorksExplorerProps) => {
   const searchParams = useSearchParams();
-  const { tabs, results } = WorksContent;
+  const { tabs, results } = content;
+
+  // Reconstruct tabs array from the three label strings and fixed ids/params
+  const tabsArray = [
+    { id: "all" as const, label: tabs.allLabel, param: "all" as const },
+    { id: "products" as const, label: tabs.productsLabel, param: "pro" as const },
+    { id: "client" as const, label: tabs.clientLabel, param: "des" as const },
+  ];
 
   const [tab, setTab] = useState<TabId>(
-    () => tabs.find((t) => t.param === searchParams.get("wt"))?.id ?? "all"
+    () => tabsArray.find((t) => t.param === searchParams.get("wt"))?.id ?? "all"
   );
   const [platform, setPlatform] = useState<PlatformFilter>("all");
   const [team, setTeam] = useState("all");
@@ -61,7 +78,7 @@ const WorksExplorer = () => {
     setPlatform("all");
     setTeam("all");
     // Keep the URL shareable without triggering a Next navigation.
-    const param = tabs.find((t) => t.id === id)?.param ?? "all";
+    const param = tabParams[id];
     const url = new URL(window.location.href);
     url.searchParams.set("wt", param);
     window.history.replaceState(null, "", url.toString());
@@ -73,7 +90,7 @@ const WorksExplorer = () => {
       event.key === "ArrowRight" ? 1 : event.key === "ArrowLeft" ? -1 : 0;
     if (!step) return;
     event.preventDefault();
-    const next = tabs[(index + step + tabs.length) % tabs.length];
+    const next = tabsArray[(index + step + tabsArray.length) % tabsArray.length];
     selectTab(next.id);
     document.getElementById(`works-tab-${next.id}`)?.focus();
   };
@@ -99,7 +116,7 @@ const WorksExplorer = () => {
             aria-label="Kind of work"
             className="no-scrollbar -mx-4 flex snap-x gap-1 overflow-x-auto px-4 s640:mx-0 s640:w-fit s640:overflow-visible s640:rounded-full s640:border s640:border-bBORDERFADE s640:bg-bCARD s640:p-1"
           >
-            {tabs.map((item, index) => {
+            {tabsArray.map((item, index) => {
               const count = sorted.filter(matchers[item.id]).length;
               const selected = tab === item.id;
 

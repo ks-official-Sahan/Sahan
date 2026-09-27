@@ -1,6 +1,6 @@
 "use client";
 
-import { animate, useInView, useReducedMotion } from "framer-motion";
+import { useReducedMotion } from "@/lib/use-reduced-motion";
 import React, { useEffect, useRef } from "react";
 
 interface CountUpProps {
@@ -8,29 +8,44 @@ interface CountUpProps {
   suffix?: string;
 }
 
+const DURATION_MS = 1100;
+// easeOutQuint, the same curve as the site's --ease-out cubic-bezier(0.23, 1, 0.32, 1).
+const easeOut = (t: number) => 1 - (1 - t) ** 5;
+
 // The final number is in the server HTML, so it is correct without JS and for
-// screen readers. Once it scrolls into view the digits count up on the
-// compositor-friendly path: text is written straight to the node, so React
-// never re-renders per frame. Reduced motion keeps the final number as is.
+// screen readers. The first time it scrolls into view the digits count up:
+// text is written straight to the node, so React never re-renders per frame.
+// Reduced motion keeps the final number as is.
 const CountUp = ({ to, suffix = "" }: CountUpProps) => {
   const ref = useRef<HTMLSpanElement>(null);
-  const inView = useInView(ref, { once: true, margin: "0px 0px -10% 0px" });
   const reduceMotion = useReducedMotion();
 
   useEffect(() => {
     const node = ref.current;
-    if (!inView || reduceMotion || !node) return;
+    if (reduceMotion || !node) return;
 
-    const controls = animate(0, to, {
-      duration: 1.1,
-      ease: [0.23, 1, 0.32, 1],
-      onUpdate: (value) => {
-        node.textContent = `${Math.round(value)}${suffix}`;
+    let frame = 0;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry?.isIntersecting) return;
+        observer.disconnect();
+        const start = performance.now();
+        const tick = (now: number) => {
+          const progress = Math.min((now - start) / DURATION_MS, 1);
+          node.textContent = `${Math.round(to * easeOut(progress))}${suffix}`;
+          if (progress < 1) frame = requestAnimationFrame(tick);
+        };
+        frame = requestAnimationFrame(tick);
       },
-    });
+      { rootMargin: "0px 0px -10% 0px" }
+    );
+    observer.observe(node);
 
-    return () => controls.stop();
-  }, [inView, reduceMotion, to, suffix]);
+    return () => {
+      observer.disconnect();
+      cancelAnimationFrame(frame);
+    };
+  }, [reduceMotion, to, suffix]);
 
   return (
     <span ref={ref}>

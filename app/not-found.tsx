@@ -1,17 +1,32 @@
-import { buttonVariants } from "@/components/ui/button";
-import Link from "next/link";
+import type { Metadata } from "next";
 
+import NotFoundContent from "@/components/site/NotFoundContent";
+import SiteShell from "@/components/site/SiteShell";
+
+// Every unmatched URL lands here, inside the thin root layout, so the page wraps
+// its content in SiteShell to keep the public navigation and footer. Unmatched
+// URLs render through Next's internal /_not-found route, which is prerendered at
+// build and answers 404 with full server-rendered HTML. A notFound() thrown while
+// rendering a route is different: it falls back to a client-rendered shell, so
+// the locked admin rewrites to an unmatched path instead of calling it
+// (docs/plan/admin-cms-adr.md, section 4.4). That rewrite is also how a locked
+// /admin/* request without the unlock cookie resolves, so this page's metadata
+// doubles as the noindex guarantee for that case.
+//
+// noindex here overrides the root layout's index:true — the HTTP status is
+// already 404, but a search engine should never be offered this URL as a
+// citable result, and a stray "index, follow" robots meta on a 404 response
+// is exactly what an SEO audit flags.
+export const metadata: Metadata = {
+  robots: { index: false, follow: false },
+};
+
+// Keep SiteShell free of Suspense boundaries and suspending awaits, or the 404
+// would stream and answer 200.
 export default function NotFound() {
   return (
-    <div className="min-h-[94vh] px-2 py-8 flex flex-col gap-3 items-center justify-center w-full">
-      <div className="flex flex-col items-center gap-3 text-center pb-4">
-        <h2 className="text-7xl font-bold">404</h2>
-        <p className="text-muted-foreground">Oops! Page You Looking Not Found</p>
-      </div>
-
-      <Link href="/" className={buttonVariants({})}>
-        Back to homepage
-      </Link>
-    </div>
+    <SiteShell>
+      <NotFoundContent />
+    </SiteShell>
   );
 }

@@ -47,5 +47,10 @@ jobs:
       - name: Install Dependencies
         run: pnpm install --frozen-lockfile
 
+      # No secrets on purpose, as in ci.yml: they are runtime-only (set on the
+      # deployment platform), and the build must not need them.
       - name: Build Next.js
-        run: npm run build
+        run: pnpm run build
+        env:
+          CI: "true"
+          NEXT_TELEMETRY_DISABLED: "1"

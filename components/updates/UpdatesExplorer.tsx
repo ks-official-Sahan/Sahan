@@ -2,35 +2,47 @@
 
 import { HomeContainer } from "@/components/home/HomeSection";
 import UpdatesCard from "@/components/updates/UpdatesCard";
-import { UpdatesContent } from "@/contents/updates";
+import type { PageContent } from "@/lib/cms/registry";
 import { cn } from "@/lib/utils";
 import { Search, X } from "lucide-react";
 import React, { useMemo, useState } from "react";
-
-const posts = UpdatesContent.posts;
-
-// Counts come from the posts themselves, so the filters can never advertise
-// something that is not there.
-const topics = UpdatesContent.topics
-  .map((topic) => ({
-    name: topic.name,
-    count: posts.filter((post) => post.topic === topic.name).length,
-  }))
-  .filter((topic) => topic.count > 0);
-
-const tags = UpdatesContent.tags
-  .map((tag) => ({
-    name: tag,
-    count: posts.filter((post) => post.tags.includes(tag)).length,
-  }))
-  .filter((tag) => tag.count > 0);
 
 const chip =
   "press min-h-11 shrink-0 whitespace-nowrap rounded-full border px-4 text-sm font-medium transition-colors";
 const on = "border-transparent bg-bICON_FADE text-bICON";
 const off = "border-bBORDERFADE bg-bCHIP opacity-80 hover:opacity-100";
 
-const UpdatesExplorer = () => {
+export interface UpdatesListPost {
+  id: string;
+  slug: string;
+  title: string;
+  date: string;
+  excerpt: string;
+  topic: string;
+  tags: string[];
+}
+
+interface UpdatesExplorerProps {
+  content: PageContent<"updates">;
+  /** Published posts, from the database when the Post table has rows, else the code defaults (lib/blog/queries.ts). */
+  posts: UpdatesListPost[];
+}
+
+const UpdatesExplorer = ({ content, posts }: UpdatesExplorerProps) => {
+  // Topics and tags are computed from the posts actually shown, so a filter
+  // can never advertise something that is not there (docs/plan/admin-cms-adr.md, Step 12).
+  const topics = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const post of posts) counts.set(post.topic, (counts.get(post.topic) ?? 0) + 1);
+    return [...counts.entries()].map(([name, count]) => ({ name, count }));
+  }, [posts]);
+
+  const tags = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const post of posts) for (const tag of post.tags) counts.set(tag, (counts.get(tag) ?? 0) + 1);
+    return [...counts.entries()].map(([name, count]) => ({ name, count }));
+  }, [posts]);
+
   const [topic, setTopic] = useState<string | null>(null);
   const [tag, setTag] = useState<string | null>(null);
   const [query, setQuery] = useState("");
@@ -43,9 +55,9 @@ const UpdatesExplorer = () => {
         (!tag || post.tags.includes(tag)) &&
         (!needle ||
           post.title.toLowerCase().includes(needle) ||
-          post.content.toLowerCase().includes(needle))
+          post.excerpt.toLowerCase().includes(needle))
     );
-  }, [topic, tag, query]);
+  }, [posts, topic, tag, query]);
 
   const filtered = Boolean(topic || tag || query.trim());
   const clear = () => {
@@ -85,7 +97,7 @@ const UpdatesExplorer = () => {
             </div>
 
             <div className="flex flex-col gap-3">
-              <h2 className="text-sm font-semibold">Topics</h2>
+              <h2 className="text-sm font-semibold">{content.filters.topicsTitle}</h2>
               <div className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4 s640:-mx-8 s640:px-8 lg:mx-0 lg:flex-wrap lg:overflow-visible lg:px-0">
                 <button
                   type="button"
@@ -118,7 +130,7 @@ const UpdatesExplorer = () => {
             </div>
 
             <div className="flex flex-col gap-3">
-              <h2 className="text-sm font-semibold">Tags</h2>
+              <h2 className="text-sm font-semibold">{content.filters.tagsTitle}</h2>
               <div className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4 s640:-mx-8 s640:px-8 lg:mx-0 lg:flex-wrap lg:overflow-visible lg:px-0">
                 {tags.map((item) => (
                   <button
@@ -159,7 +171,15 @@ const UpdatesExplorer = () => {
               >
                 {visible.map((post) => (
                   <li key={post.id}>
-                    <UpdatesCard {...post} />
+                    <UpdatesCard
+                      id={post.id}
+                      slug={post.slug}
+                      title={post.title}
+                      date={post.date}
+                      content={post.excerpt}
+                      topic={post.topic}
+                      tags={post.tags}
+                    />
                   </li>
                 ))}
               </ol>

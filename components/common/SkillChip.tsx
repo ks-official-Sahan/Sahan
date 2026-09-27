@@ -1,3 +1,4 @@
+import MaskIcon from "@/components/common/MaskIcon";
 import type { Skill } from "@/types/skills";
 import React from "react";
 
@@ -13,12 +14,7 @@ const SkillGlyph = ({ skill, size }: { skill: Skill; size: number }) =>
   skill.variant === "stroke" ? (
     <skill.icon size={size} stroke={1.5} />
   ) : (
-    <span
-      className="inline-flex [&>svg]:h-full [&>svg]:w-full"
-      style={{ width: size, height: size }}
-    >
-      <skill.icon className="fill-current" />
-    </span>
+    <MaskIcon src={skill.iconSrc} size={size} />
   );
 
 // One skill as a pill: brand-coloured glyph plus the name. Used inside

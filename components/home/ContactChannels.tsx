@@ -1,37 +1,12 @@
+import type { PageContent } from "@/lib/cms/registry";
 import { Site } from "@/config/site";
-import { HomeContent } from "@/contents/home";
 import { cn } from "@/lib/utils";
 import { IconBrandTelegram, IconBrandWhatsapp } from "@tabler/icons-react";
 import { ArrowUpRight, Mail } from "lucide-react";
 import React from "react";
 
-const { channels } = HomeContent;
-
-const items = [
-  {
-    id: "whatsapp",
-    ...channels.whatsApp,
-    href: Site.whatsAppUrl,
-    external: true,
-    Icon: IconBrandWhatsapp,
-  },
-  {
-    id: "telegram",
-    ...channels.telegram,
-    href: Site.telegramUrl,
-    external: true,
-    Icon: IconBrandTelegram,
-  },
-  {
-    id: "email",
-    ...channels.email,
-    href: `mailto:${Site.email}`,
-    external: false,
-    Icon: Mail,
-  },
-];
-
 interface ContactChannelsProps {
+  content: PageContent<"home">["channels"];
   /** "tiles": compact icon tiles for the hero. "rows": big rows for the closing CTA. */
   variant: "tiles" | "rows";
   className?: string;
@@ -40,7 +15,32 @@ interface ContactChannelsProps {
 // Real links, not buttons that navigate: they open the app the visitor already
 // uses (WhatsApp, Telegram, mail). The channel name is the accessible name;
 // external ones also say they open a new tab.
-const ContactChannels = ({ variant, className }: ContactChannelsProps) => (
+const ContactChannels = ({ content: channels, variant, className }: ContactChannelsProps) => {
+  const items = [
+    {
+      id: "whatsapp",
+      ...channels.whatsApp,
+      href: Site.whatsAppUrl,
+      external: true,
+      Icon: IconBrandWhatsapp,
+    },
+    {
+      id: "telegram",
+      ...channels.telegram,
+      href: Site.telegramUrl,
+      external: true,
+      Icon: IconBrandTelegram,
+    },
+    {
+      id: "email",
+      ...channels.email,
+      href: `mailto:${Site.email}`,
+      external: false,
+      Icon: Mail,
+    },
+  ];
+
+  return (
   <ul
     className={cn(
       variant === "tiles" ? "grid grid-cols-3 gap-2" : "flex flex-col gap-3",
@@ -100,6 +100,7 @@ const ContactChannels = ({ variant, className }: ContactChannelsProps) => (
       </li>
     ))}
   </ul>
-);
+  );
+};
 
 export default ContactChannels;

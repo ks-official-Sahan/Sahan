@@ -1,7 +1,8 @@
+import Link from "next/link";
 import React from "react";
 
 // Ambient `UpdatesCardProps` comes from types/updates.d.ts.
-const UpdatesCard = ({ id, title, date, content, topic, tags }: UpdatesCardProps) => (
+const UpdatesCard = ({ id, slug, title, date, content, topic, tags }: UpdatesCardProps) => (
   <article
     aria-labelledby={`update-${id}`}
     className="lift flex flex-col gap-4 rounded-[20px] border border-bBORDERFADE bg-bCARD p-6 s640:p-8"
@@ -18,7 +19,9 @@ const UpdatesCard = ({ id, title, date, content, topic, tags }: UpdatesCardProps
         id={`update-${id}`}
         className="text-balance text-xl font-semibold leading-snug s768:text-2xl"
       >
-        {title}
+        <Link href={`/updates/${slug}`} className="hover:underline">
+          {title}
+        </Link>
       </h3>
       <p className="mt-3 max-w-[70ch] text-[15px] leading-relaxed opacity-80 s768:text-base">
         {content}

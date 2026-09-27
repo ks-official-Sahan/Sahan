@@ -3,7 +3,7 @@ import HeroBackdrop from "@/components/home/HeroBackdrop";
 import { HomeContainer, stagger } from "@/components/home/HomeSection";
 import { BorderBeam } from "@/components/ui/border-beam";
 import { Site } from "@/config/site";
-import { HomeContent } from "@/contents/home";
+import type { PageContent } from "@/lib/cms/registry";
 import { ArrowDown, ArrowUpRight } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -15,8 +15,12 @@ import React from "react";
 //   tablet  (640-1023) same order, portrait gets a cinematic crop
 //   laptop  (1024+)   copy left, portrait + channels right, fills the screen
 //   wide    (1536+)   larger type, wider container
-const HomeHero = () => {
-  const { hero, channels } = HomeContent;
+interface HomeHeroProps {
+  content: PageContent<"home">["hero"];
+  channels: PageContent<"home">["channels"];
+}
+
+const HomeHero = ({ content: hero, channels }: HomeHeroProps) => {
 
   return (
     <section id="hero" aria-labelledby="hero-title" className="w-full">
@@ -120,7 +124,7 @@ const HomeHero = () => {
                 </div>
 
                 <div style={stagger(4)} className="hero-rise">
-                  <ContactChannels variant="tiles" />
+                  <ContactChannels content={channels} variant="tiles" />
                 </div>
               </div>
             </div>

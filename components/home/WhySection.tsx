@@ -1,6 +1,6 @@
 import HomeSection from "@/components/home/HomeSection";
 import SectionHeading from "@/components/home/SectionHeading";
-import { HomeContent } from "@/contents/home";
+import type { PageContent } from "@/lib/cms/registry";
 import { Globe, Layers, ShieldCheck, Smartphone } from "lucide-react";
 import React from "react";
 
@@ -13,8 +13,12 @@ const icons = {
 
 // Benefits before features, and a list rather than a card grid: the heading
 // stays pinned on wide screens while the four reasons scroll past it.
-const WhySection = () => {
-  const { why } = HomeContent;
+
+interface WhySectionProps {
+  content: PageContent<"home">["why"];
+}
+
+const WhySection = ({ content: why }: WhySectionProps) => {
 
   return (
     <HomeSection id="why" labelledBy="why-title">

@@ -1,8 +1,8 @@
+import type { PageContent } from "@/lib/cms/registry";
 import LINKEDIN_ICON from "@/components/icons/Linkedin";
 import X_ICON from "@/components/icons/twitter-X";
 import HomeSection from "@/components/home/HomeSection";
 import SectionHeading from "@/components/home/SectionHeading";
-import { ContactContent } from "@/contents/contact";
 import { GitHubLogoIcon } from "@radix-ui/react-icons";
 import { ArrowUpRight } from "lucide-react";
 import React from "react";
@@ -13,18 +13,22 @@ const icons = {
   x: <X_ICON className="fill-current" width={20} height={20} />,
 } as const;
 
+interface SocialMediaProps {
+  content: PageContent<"contact">;
+}
+
 // Plain links with names, not icon-only squares: people should know where a
 // link goes before they tap it.
-const SocialMedia = () => (
+const SocialMedia = ({ content }: SocialMediaProps) => (
   <HomeSection id="social" labelledBy="social-title">
     <SectionHeading
       id="social-title"
-      title="Find me elsewhere"
-      description="Code, career and the occasional thought."
+      title={content.socials.title}
+      description={content.socials.description}
     />
 
     <ul className="reveal mt-8 grid grid-cols-1 gap-3 s640:grid-cols-3">
-      {ContactContent.socials.map((item) => (
+      {content.socials.items.map((item) => (
         <li key={item.id}>
           <a
             href={item.href}

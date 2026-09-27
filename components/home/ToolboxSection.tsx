@@ -2,7 +2,7 @@ import ChipMarquee from "@/components/common/ChipMarquee";
 import SkillChip from "@/components/common/SkillChip";
 import HomeSection from "@/components/home/HomeSection";
 import SectionHeading from "@/components/home/SectionHeading";
-import { HomeContent } from "@/contents/home";
+import type { PageContent } from "@/lib/cms/registry";
 import { MySkills } from "@/contents/skills";
 import { ArrowUpRight } from "lucide-react";
 import Link from "next/link";
@@ -17,8 +17,12 @@ const stackCategories = MySkills.tabs.categories.filter(
 // Each row is a category label plus a slow marquee of its tools, alternating
 // direction so the block reads as woven rather than as one long ticker. The
 // marquee stops on hover; reduced-motion visitors get wrapped chips instead.
-const ToolboxSection = () => {
-  const { home } = HomeContent;
+
+interface ToolboxSectionProps {
+  content: PageContent<"home">["home"];
+}
+
+const ToolboxSection = ({ content: home }: ToolboxSectionProps) => {
 
   return (
     <HomeSection id="toolbox" labelledBy="toolbox-title">

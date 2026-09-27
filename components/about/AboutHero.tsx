@@ -4,21 +4,26 @@ import RunnerTrack from "@/components/about/RunnerTrack";
 import Particals from "@/components/custom/Particals";
 import { BorderBeam } from "@/components/ui/border-beam";
 import { Site, SiteMetadata } from "@/config/site";
-import { AboutContent } from "@/contents/about";
 import { righteous } from "@/lib/fonts";
+import type { PageContent } from "@/lib/cms/registry";
 import { cn } from "@/lib/utils";
 import { ArrowUpRight, Flag } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import React from "react";
 
+interface AboutHeroProps {
+  content: PageContent<"about">;
+  channels: PageContent<"home">["channels"];
+}
+
 // The home hero is a left-aligned pitch with a portrait card. This one is a
 // person, not a pitch: a banner with a small journey (the runner heads for
 // the current employer), the portrait sitting on its lower edge, and the name
 // leading. Centered, so the two pages never read as the same layout.
-const AboutHero = () => {
-  const { SE1 } = AboutContent;
-  const roles = [SE1.title.line1, SE1.title.line2]
+const AboutHero = ({ content, channels }: AboutHeroProps) => {
+  const { hero } = content;
+  const roles = [hero.titleLine1, hero.titleLine2]
     .join(" ")
     .split(".")
     .map((role) => role.trim())
@@ -126,7 +131,7 @@ const AboutHero = () => {
             style={stagger(3)}
             className="hero-rise max-w-[58ch] text-[length:clamp(1.05rem,0.95rem+0.4vw,1.2rem)] leading-relaxed opacity-75"
           >
-            {SE1.description}
+            {hero.description}
           </p>
 
           <p
@@ -144,7 +149,7 @@ const AboutHero = () => {
               href="/contact"
               className="press arrow-nudge inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-bCHIPSELECTED px-7 text-[15px] font-semibold text-white dark:text-black"
             >
-              Start a project
+              {hero.primaryLabel}
               <ArrowUpRight
                 size={18}
                 aria-hidden="true"
@@ -155,7 +160,7 @@ const AboutHero = () => {
               href="/works"
               className="press arrow-nudge inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-bBORDERFADE bg-bCARD px-7 text-[15px] font-semibold"
             >
-              See my work
+              {hero.secondaryLabel}
               <ArrowUpRight
                 size={18}
                 aria-hidden="true"
@@ -165,7 +170,7 @@ const AboutHero = () => {
           </div>
 
           <div style={stagger(5)} className="hero-rise w-full max-w-[460px]">
-            <ContactChannels variant="tiles" />
+            <ContactChannels content={channels} variant="tiles" />
           </div>
         </div>
       </HomeContainer>

@@ -3,13 +3,18 @@
 import Descriptor from "@/components/home/Descriptor";
 import HomeSection from "@/components/home/HomeSection";
 import SectionHeading from "@/components/home/SectionHeading";
-import { HomeContent } from "@/contents/home";
+import type { PageContent } from "@/lib/cms/registry";
 import Link from "next/link";
 import React, { useState } from "react";
 
-const FAQSection = () => {
-  const { faq, home } = HomeContent;
-  const [openId, setOpenId] = useState<number | null>(null);
+interface FAQSectionProps {
+  content: PageContent<"home">["faq"];
+  labels: PageContent<"home">["home"];
+}
+
+const FAQSection = ({ content: faq, labels: home }: FAQSectionProps) => {
+  const { questions } = faq;
+  const [openId, setOpenId] = useState<number | null>(null); // index or null
 
   return (
     <HomeSection id="faq" labelledBy="faq-title">
@@ -21,12 +26,13 @@ const FAQSection = () => {
 
       <div className="mt-10 flex w-full flex-col gap-3 lg:flex-row lg:gap-5">
         <div className="flex flex-col gap-3 lg:w-7/12">
-          {faq.questions.map((item) => (
+          {questions.map((item, index) => (
             <Descriptor
-              key={item.id}
+              key={index}
               item={item}
-              isOpen={openId === item.id}
-              onToggle={() => setOpenId(openId === item.id ? null : item.id)}
+              index={index}
+              isOpen={openId === index}
+              onToggle={() => setOpenId(openId === index ? null : index)}
             />
           ))}
         </div>

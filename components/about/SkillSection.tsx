@@ -3,15 +3,20 @@
 import SkillGroupCard from "@/components/about/SkillGroupCard";
 import TabChip from "@/components/about/TabChip";
 import ChipMarquee from "@/components/common/ChipMarquee";
+import MaskIcon from "@/components/common/MaskIcon";
 import SkillCard from "@/components/common/SkillCard";
 import SkillChip from "@/components/common/SkillChip";
 import HomeSection from "@/components/home/HomeSection";
 import SectionHeading from "@/components/home/SectionHeading";
-import { AboutContent } from "@/contents/about";
 import { MySkills } from "@/contents/skills";
+import type { PageContent } from "@/lib/cms/registry";
 import { cn } from "@/lib/utils";
 import type { Skill } from "@/types/skills";
 import React, { useMemo, useState } from "react";
+
+interface SkillSectionProps {
+  content: PageContent<"about">;
+}
 
 const groupByType = (skills: Skill[]) => {
   const groups = new Map<string, Skill[]>();
@@ -21,7 +26,7 @@ const groupByType = (skills: Skill[]) => {
   return Array.from(groups.entries());
 };
 
-const SkillSection = () => {
+const SkillSection = ({ content }: SkillSectionProps) => {
   const { categories } = MySkills.tabs;
   const { layoutFilter } = MySkills;
 
@@ -49,8 +54,8 @@ const SkillSection = () => {
     <HomeSection id="skills" labelledBy="skills-title">
       <SectionHeading
         id="skills-title"
-        title={AboutContent.KB.title}
-        description={AboutContent.KB.description}
+        title={content.skills.title}
+        description={content.skills.description}
         action={
           <div
             role="group"
@@ -133,27 +138,26 @@ const SkillSection = () => {
         </div>
       ) : (
         <div className="flex flex-wrap justify-center pt-12">
-          {allSkills.map((skill) => {
-            const IconComponent = skill.icon;
-            const isStroke = skill.variant === "stroke";
-
-            return (
-              <SkillCard
-                key={skill.name}
-                title={skill.name}
-                icon={
-                  isStroke ? (
-                    <IconComponent
-                      size={40}
-                      className="text-black dark:text-white group-hover/canvas-card:text-white"
-                    />
-                  ) : (
-                    <IconComponent className="fill-black dark:fill-white group-hover/canvas-card:fill-white" />
-                  )
-                }
-              />
-            );
-          })}
+          {allSkills.map((skill) => (
+            <SkillCard
+              key={skill.name}
+              title={skill.name}
+              icon={
+                skill.variant === "stroke" ? (
+                  <skill.icon
+                    size={40}
+                    className="text-black dark:text-white group-hover/canvas-card:text-white"
+                  />
+                ) : (
+                  <MaskIcon
+                    src={skill.iconSrc}
+                    size={60}
+                    className="text-black dark:text-white group-hover/canvas-card:text-white"
+                  />
+                )
+              }
+            />
+          ))}
         </div>
       )}
     </HomeSection>

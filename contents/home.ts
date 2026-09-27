@@ -6,7 +6,6 @@ import type { FAQItem } from "@/types/faq";
 // portfolio already does.
 const questions: FAQItem[] = [
   {
-    id: 1,
     icon: "🟡",
     question: "What services do you offer?",
     answer: {
@@ -22,7 +21,6 @@ const questions: FAQItem[] = [
     },
   },
   {
-    id: 2,
     icon: "🔴",
     question: "What kinds of projects have you worked on?",
     answer: {
@@ -38,7 +36,6 @@ const questions: FAQItem[] = [
     },
   },
   {
-    id: 3,
     icon: "🔵",
     question: "How can I collaborate with you on a project?",
     answer: {
@@ -47,7 +44,6 @@ const questions: FAQItem[] = [
     },
   },
   {
-    id: 4,
     icon: "🟢",
     question: "What technologies do you work with?",
     answer: {
@@ -63,7 +59,6 @@ const questions: FAQItem[] = [
     },
   },
   {
-    id: 5,
     icon: "🟣",
     question: "Can you build custom software for businesses?",
     answer: {
@@ -72,7 +67,6 @@ const questions: FAQItem[] = [
     },
   },
   {
-    id: 6,
     icon: "🟠",
     question: "How do you approach quality and security?",
     answer: {
@@ -87,7 +81,6 @@ const questions: FAQItem[] = [
     },
   },
   {
-    id: 7,
     icon: "🟢",
     question: "Do you work with clients outside of Sri Lanka?",
     answer: {
@@ -96,7 +89,6 @@ const questions: FAQItem[] = [
     },
   },
   {
-    id: 8,
     icon: "🔴",
     question: "How can I get in touch with you?",
     answer: {

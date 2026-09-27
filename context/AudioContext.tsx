@@ -4,19 +4,14 @@ import { createContext, useState, useContext, useEffect, useRef } from "react";
 type AudioContextType = {
   isPlaying: boolean;
   toggleAudio: () => void;
-  bgSound: HTMLAudioElement | null;
 };
 
 const AudioContext = createContext<AudioContextType | undefined>(undefined);
 
 export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
-  const [bgSound] = useState<HTMLAudioElement | null>(() => {
-    if (typeof window === "undefined") return null;
-    const audio = new Audio("/aud/cts.mp3");
-    audio.loop = true;
-    audio.volume = 0.2;
-    return audio;
-  });
+  // The element is mutable (currentTime, play/pause), so it lives in a ref,
+  // not state. Created in the effect below: browser-only, never during SSR.
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const isPlayingRef = useRef(isPlaying);
 
@@ -24,32 +19,32 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
     isPlayingRef.current = isPlaying;
   }, [isPlaying]);
 
-  // Restore playback state from localStorage and wire up play/pause listeners.
+  // Create the element, restore playback state from localStorage, and wire
+  // up play/pause/timeupdate listeners.
   useEffect(() => {
-    if (!bgSound) return;
-    const audio = bgSound;
+    const audio = new Audio("/aud/cts.mp3");
+    audio.loop = true;
+    audio.volume = 0.2;
+    audioRef.current = audio;
 
     const savedIsPlaying = localStorage.getItem("isPlaying");
     const savedCurrentTime = localStorage.getItem("currentTime");
 
-    const handlePlay = () => {
-      setIsPlaying(true);
-    };
-
-    const handlePause = () => {
-      setIsPlaying(false);
+    const handlePlay = () => setIsPlaying(true);
+    const handlePause = () => setIsPlaying(false);
+    const handleTimeUpdate = () => {
+      localStorage.setItem("currentTime", audio.currentTime.toString());
     };
 
     audio.addEventListener("play", handlePlay);
     audio.addEventListener("pause", handlePause);
+    audio.addEventListener("timeupdate", handleTimeUpdate);
 
     if (savedIsPlaying === "true") {
-      const time = savedCurrentTime ? parseFloat(savedCurrentTime) : 0;
-      audio.currentTime = time;
+      audio.currentTime = savedCurrentTime ? parseFloat(savedCurrentTime) : 0;
 
-      // Attempt to play the audio and handle case where it doesn't work
+      // Autoplay can be blocked by the browser; fall back to paused.
       audio.play().catch(() => {
-        // If the audio fails to play (e.g., due to browser restrictions), set the state to false
         setIsPlaying(false);
         localStorage.setItem("isPlaying", "false");
       });
@@ -62,40 +57,28 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
       audio.pause();
       audio.removeEventListener("play", handlePlay);
       audio.removeEventListener("pause", handlePause);
+      audio.removeEventListener("timeupdate", handleTimeUpdate);
+      audioRef.current = null;
     };
-  }, [bgSound]);
-
-  // Store the currentTime in localStorage whenever audio time updates
-  useEffect(() => {
-    if (bgSound) {
-      const handleTimeUpdate = () => {
-        localStorage.setItem("currentTime", bgSound.currentTime.toString());
-      };
-      bgSound.addEventListener("timeupdate", handleTimeUpdate);
-
-      return () => {
-        bgSound.removeEventListener("timeupdate", handleTimeUpdate);
-      };
-    }
-  }, [bgSound]);
+  }, []);
 
   const toggleAudio = () => {
-    if (bgSound) {
-      if (isPlaying) {
-        bgSound.pause();
-        localStorage.setItem("isPlaying", "false");
-      } else {
-        bgSound.play().catch(() => {
-          // Handle case where audio fails to play
-        });
-        localStorage.setItem("isPlaying", "true");
-      }
-      setIsPlaying(!isPlaying);
+    const audio = audioRef.current;
+    if (!audio) return;
+    if (isPlaying) {
+      audio.pause();
+      localStorage.setItem("isPlaying", "false");
+    } else {
+      audio.play().catch(() => {
+        // Handle case where audio fails to play
+      });
+      localStorage.setItem("isPlaying", "true");
     }
+    setIsPlaying(!isPlaying);
   };
 
   return (
-    <AudioContext.Provider value={{ isPlaying, toggleAudio, bgSound }}>
+    <AudioContext.Provider value={{ isPlaying, toggleAudio }}>
       {children}
     </AudioContext.Provider>
   );

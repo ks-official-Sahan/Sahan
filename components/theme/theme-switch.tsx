@@ -2,7 +2,9 @@
 
 import { Monitor, Moon, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
-import React, { useEffect, useState } from "react";
+import React, { useSyncExternalStore } from "react";
+
+const subscribeNever = () => () => {};
 
 const options = [
   { value: "light", label: "Light theme", Icon: Sun },
@@ -13,11 +15,8 @@ const options = [
 const ThemeSwitch = () => {
   const { theme, setTheme } = useTheme();
 
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  // false during SSR and hydration, true afterwards (theme is unknown on the server).
+  const mounted = useSyncExternalStore(subscribeNever, () => true, () => false);
 
   if (!mounted) return null;
 
