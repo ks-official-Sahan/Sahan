@@ -14,7 +14,7 @@ import { forCollection } from "@/lib/cache/plan";
 import { projectImageSchema, projectLinkSchema } from "@/lib/collections/projects";
 import { decodeJsonFields } from "@/lib/forms/array-fields";
 import { log } from "@/lib/log";
-import { SLUG_MAX_LENGTH } from "@/lib/blog/slug";
+import { SLUG_MAX_LENGTH } from "@sahan-sac/blog-kit/slug";
 
 // Works collection actions: projects, experience, services, skills CRUD.
 // Create/update use editCollections. Publish, feature, reorder use publishCollections.

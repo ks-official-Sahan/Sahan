@@ -33,7 +33,7 @@ export interface VertexImageConfig {
 
 export type ImageOutcome = { ok: true; base64: string; mimeType: string } | { ok: false; error: string };
 
-type AspectRatio = "1:1" | "16:9" | "4:3";
+export type AspectRatio = "1:1" | "16:9" | "4:3";
 
 interface ImageModel {
   model: string;

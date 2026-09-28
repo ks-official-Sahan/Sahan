@@ -2,14 +2,15 @@ import "server-only";
 
 import { z } from "zod";
 
-import { looksLikeLeak } from "./guard";
-import { buildBlogGenerationPrompt, buildRepairPrompt, buildSeoSuggestPrompt, contentImageToken, type BlogGenerationInput } from "./blog-prompts";
-import { createAiService, realProviders, sharedAiHealth, type AiAttemptStatus, type AiProvider } from "@sahan-sac/ai-core/providers";
-import { getEnv } from "@/lib/env";
+import { buildBlogGenerationPrompt, buildRepairPrompt, buildSeoSuggestPrompt, contentImageToken, type BlogGenerationInput } from "./prompts";
+import { createAiService, type AiAttemptStatus } from "@sahan-sac/ai-core/providers";
+
+import type { AiHelperFailure, BlogAiDeps } from "./deps";
+import { looksLikeLeak } from "./helper-prompts";
 
 // Full blog-post generation (AGENTS.md "AI blog" feature). Providers are
 // injected so this module is unit tested without a network call; the route
-// handler passes defaultAiDeps(). Budgets follow the task's guidance:
+// handler passes realBlogDeps(env). Budgets follow the task's guidance:
 // generous per-attempt and whole-chain timeouts with a hedge, since a full
 // post is a much bigger generation than the existing draft/cover helpers.
 
@@ -106,17 +107,6 @@ export const seoSuggestionSchema = z.object({
 });
 
 export type SeoSuggestion = z.infer<typeof seoSuggestionSchema>;
-
-export type AiHelperFailure = { ok: false; error: string };
-
-export interface AiDeps {
-  providers: readonly AiProvider[];
-}
-
-/** The chain built from configured environment keys, for the routes to pass in. */
-export function defaultAiDeps(): AiDeps {
-  return { providers: realProviders(getEnv(), "blog") };
-}
 
 /**
  * The whole text phase (first call plus the optional repair) must fit in
@@ -376,13 +366,13 @@ export type BlogGenerationStatusCallback = (status: {
  */
 export async function generateBlogPost(
   input: BlogGenerationInput,
-  deps: AiDeps,
+  deps: BlogAiDeps,
   options?: { onStatus?: BlogGenerationStatusCallback; budgetMs?: number; now?: () => number }
 ): Promise<GenerateBlogPostResult | AiHelperFailure> {
   const now = options?.now ?? Date.now;
   const startedAt = now();
   const budgetMs = options?.budgetMs ?? TEXT_BUDGET_MS;
-  const service = createAiService({ providers: deps.providers, health: sharedAiHealth, ...GENERATION_BUDGETS, deadlineMs: budgetMs });
+  const service = createAiService({ providers: deps.providers, health: deps.health, ...GENERATION_BUDGETS, deadlineMs: budgetMs });
 
   const handleAttempt = (status: AiAttemptStatus) => {
     let message = "";
@@ -448,7 +438,7 @@ export async function generateBlogPost(
     message: "Refining and repairing post structure...",
   });
 
-  const repairService = createAiService({ providers: deps.providers, health: sharedAiHealth, ...GENERATION_BUDGETS, deadlineMs: remainingMs });
+  const repairService = createAiService({ providers: deps.providers, health: deps.health, ...GENERATION_BUDGETS, deadlineMs: remainingMs });
   const repair = await repairService.generate(buildRepairPrompt(input, firstText, issue), {
     maxTokens: GENERATION_MAX_TOKENS,
     jsonMode: { schema: BLOG_RESPONSE_SCHEMA },
@@ -479,8 +469,8 @@ export interface GenerateSeoResult {
   provider: string;
 }
 
-export async function generateSeoSuggestion(input: { title: string; contentText: string }, deps: AiDeps): Promise<GenerateSeoResult | AiHelperFailure> {
-  const service = createAiService({ providers: deps.providers, health: sharedAiHealth, timeoutMs: 25_000, deadlineMs: 45_000 });
+export async function generateSeoSuggestion(input: { title: string; contentText: string }, deps: BlogAiDeps): Promise<GenerateSeoResult | AiHelperFailure> {
+  const service = createAiService({ providers: deps.providers, health: deps.health, timeoutMs: 25_000, deadlineMs: 45_000 });
   const result = await service.generate(buildSeoSuggestPrompt(input), { maxTokens: 400 });
   if (!result.ok || !result.text) {
     return { ok: false, error: "No AI provider is configured or reachable right now." };

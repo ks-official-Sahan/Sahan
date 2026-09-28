@@ -12,7 +12,7 @@
  * refuse the save rather than pass `undefined`/`Invalid Date` into a Prisma
  * `where` clause.
  */
-export function parseSubmittedUpdatedAt(raw: FormDataEntryValue | null): Date | null {
+export function parseSubmittedUpdatedAt(raw: unknown): Date | null {
   if (typeof raw !== "string" || raw.length === 0) return null;
   const parsed = new Date(raw);
   return Number.isNaN(parsed.getTime()) ? null : parsed;

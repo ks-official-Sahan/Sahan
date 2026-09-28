@@ -1,6 +1,6 @@
-// Blog prompt builders. The generic guard (wrapUserData, looksLikeLeak, the
-// data markers) lives in @sahan-sac/ai-core/guard; these move to
-// @sahan-sac/blog-kit with the rest of the blog generation code.
+// Prompt builders for the draft, cover and full-post helpers. The generic
+// guard (wrapUserData, looksLikeLeak, the data markers) lives in
+// @sahan-sac/ai-core/guard and is re-exported here for convenience.
 import { DATA_END, DATA_START, wrapUserData, type ModelPrompt } from "@sahan-sac/ai-core/guard";
 
 export { looksLikeLeak, wrapUserData, type ModelPrompt } from "@sahan-sac/ai-core/guard";

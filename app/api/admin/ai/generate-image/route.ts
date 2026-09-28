@@ -7,18 +7,18 @@ import { limit } from "@/lib/cache/ratelimit";
 import { rateLimitedResponse } from "@/lib/admin/rate-limited";
 import { checkOrigin } from "@/lib/security/check-origin";
 import { getEnv } from "@/lib/env";
-import { generateImage, imageConfigFromEnv } from "@sahan-sac/ai-core/image";
+import { imageConfigFromEnv } from "@sahan-sac/ai-core/image";
+import { generateBlogImage } from "@sahan-sac/blog-kit/images";
 import { MEDIA_CONFIG } from "@sahan-sac/media-kit/config";
 
-import { registerGeneratedImage } from "@/lib/media/service";
-import { cloudinary } from "@/lib/media/cloudinary-client";
+import { mediaLibrarySink } from "@/lib/ai/image-sink";
 
 // POST /api/admin/ai/generate-image. Requires generateAI, rate limited per
 // user (ai:image:user). Body:
 // { prompt, alt }. Generates one image and registers it as a media asset —
 // the Featured image card's "AI Image Prompt" button uses this to set the
-// featured image directly (lib/media/service.ts's registerGeneratedImage,
-// the same path the streamed full-post generator uses for its images).
+// featured image directly (@sahan-sac/blog-kit's generateBlogImage into the
+// media library sink, the same path the streamed full-post generator uses).
 
 export const dynamic = "force-dynamic";
 // Vercel Hobby allows at most 60 s. FLUX on NVIDIA takes ~6-9 s; the signal
@@ -70,29 +70,28 @@ export async function POST(request: NextRequest) {
 
   // Stops before maxDuration, and when the admin leaves (image calls are billed).
   const signal = AbortSignal.any([request.signal, AbortSignal.timeout(45_000)]);
-  const outcome = await generateImage(parsed.data.prompt, imageConfig, { aspectRatio: "16:9", signal });
-  if (!outcome.ok) {
-    return NextResponse.json({ ok: false, error: outcome.error }, { status: 502, headers: { "Cache-Control": "no-store" } });
-  }
-
-  const registered = await registerGeneratedImage(
-    { base64: outcome.base64, mimeType: outcome.mimeType, alt: parsed.data.alt, folder: IMAGE_FOLDER, cloudinaryClient: cloudinary },
-    { id: user.id, email: user.email }
+  const result = await generateBlogImage(
+    parsed.data.prompt,
+    { alt: parsed.data.alt, folder: IMAGE_FOLDER, aspectRatio: "16:9", signal },
+    { config: imageConfig, sink: mediaLibrarySink({ id: user.id, email: user.email }) }
   );
-  if (!registered.ok) {
+  if (!result.ok && result.stage === "generate") {
+    return NextResponse.json({ ok: false, error: result.error }, { status: 502, headers: { "Cache-Control": "no-store" } });
+  }
+  if (!result.ok) {
     // The image itself was generated: send it back so the editor can show it,
     // offer a download, and retry the upload from the browser instead of the
     // admin losing a paid generation. Expect a 1-4 MB body (base64 of a 16:9
     // image): deliberate, only on this failure path, and under Vercel's
     // response size limit.
     return NextResponse.json(
-      { ok: false, error: registered.error, image: { base64: outcome.base64, mimeType: outcome.mimeType } },
+      { ok: false, error: result.error, image: result.image },
       { status: 502, headers: { "Cache-Control": "no-store" } }
     );
   }
 
   return NextResponse.json(
-    { ok: true, mediaId: registered.asset.id, url: registered.asset.url, alt: parsed.data.alt },
+    { ok: true, mediaId: result.mediaId, url: result.url, alt: parsed.data.alt },
     { headers: { "Cache-Control": "no-store" } }
   );
 }

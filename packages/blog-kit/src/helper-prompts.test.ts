@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { buildCoverPrompt, buildDraftPrompt, buildFullPostPrompt, looksLikeLeak, wrapUserData } from "./guard";
+import { buildCoverPrompt, buildDraftPrompt, buildFullPostPrompt, looksLikeLeak, wrapUserData } from "./helper-prompts";
 
 test("wrapUserData fences text between fixed delimiters", () => {
   const wrapped = wrapUserData("hello");

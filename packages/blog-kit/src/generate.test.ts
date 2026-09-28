@@ -9,9 +9,9 @@ import {
   parseBlogGeneration,
   repairJsonString,
   validateStructure,
-} from "./blog-generate";
+} from "./generate";
 import type { AiOutcome, AiProvider } from "@sahan-sac/ai-core/providers";
-import type { ModelPrompt } from "./guard";
+import type { ModelPrompt } from "@sahan-sac/ai-core/guard";
 
 const VALID_POST = {
   title: "Shipping Fast Without Breaking Things",

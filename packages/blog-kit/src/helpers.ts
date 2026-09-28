@@ -1,15 +1,16 @@
 import "server-only";
 
-import { createAiService, realProviders, type AiProvider } from "@sahan-sac/ai-core/providers";
-import { buildCoverPrompt, buildDraftPrompt, buildFullPostPrompt, looksLikeLeak } from "./guard";
-import { getEnv } from "@/lib/env";
+import { createAiService } from "@sahan-sac/ai-core/providers";
+
+import type { AiHelperFailure, BlogAiDeps } from "./deps";
+import { buildCoverPrompt, buildDraftPrompt, buildFullPostPrompt, looksLikeLeak } from "./helper-prompts";
 
 /** Whole-chain cap for the draft, cover and full-post helpers: their routes stop at 60 s (Vercel Hobby). */
 const HELPER_DEADLINE_MS = 50_000;
 
-// The two AI helpers behind app/api/admin/ai/{draft,cover}/route.ts
+// The draft, cover and full-post helpers behind the admin AI routes
 // (docs/plan/admin-cms-adr.md, Step 12). Providers are injected so this module
-// is unit tested without a real network call; the routes pass realProviders().
+// is unit tested without a real network call; the routes pass realBlogDeps(env).
 
 export interface DraftInput {
   topic: string;
@@ -32,18 +33,7 @@ export interface CoverResult {
   provider: string;
 }
 
-export type AiHelperFailure = { ok: false; error: string };
-
-export interface AiDeps {
-  providers: readonly AiProvider[];
-}
-
-/** The chain built from configured environment keys, for the routes to pass in. */
-export function defaultAiDeps(): AiDeps {
-  return { providers: realProviders(getEnv(), "blog") };
-}
-
-export async function draftPost(input: DraftInput, deps: AiDeps): Promise<DraftResult | AiHelperFailure> {
+export async function draftPost(input: DraftInput, deps: BlogAiDeps): Promise<DraftResult | AiHelperFailure> {
   const prompt = buildDraftPrompt(input);
   const service = createAiService({ providers: deps.providers, deadlineMs: HELPER_DEADLINE_MS });
   const result = await service.generate(prompt, { maxTokens: 1400 });
@@ -57,7 +47,7 @@ export async function draftPost(input: DraftInput, deps: AiDeps): Promise<DraftR
   return { ok: true, html: result.text.trim(), provider: result.provider ?? "unknown" };
 }
 
-export async function suggestCover(input: CoverInput, deps: AiDeps): Promise<CoverResult | AiHelperFailure> {
+export async function suggestCover(input: CoverInput, deps: BlogAiDeps): Promise<CoverResult | AiHelperFailure> {
   const prompt = buildCoverPrompt(input);
   const service = createAiService({ providers: deps.providers, deadlineMs: HELPER_DEADLINE_MS });
   const result = await service.generate(prompt, { maxTokens: 200 });
@@ -133,7 +123,7 @@ const FULL_POST_MAX_TOKENS: Record<FullPostLength, number> = {
   long: 4000,
 };
 
-export async function generateFullPost(input: FullPostInput, deps: AiDeps): Promise<FullPostResult | AiHelperFailure> {
+export async function generateFullPost(input: FullPostInput, deps: BlogAiDeps): Promise<FullPostResult | AiHelperFailure> {
   const prompt = buildFullPostPrompt(input);
   const service = createAiService({ providers: deps.providers, deadlineMs: HELPER_DEADLINE_MS });
   const result = await service.generate(prompt, { maxTokens: FULL_POST_MAX_TOKENS[input.length] });

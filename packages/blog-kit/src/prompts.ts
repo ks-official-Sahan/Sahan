@@ -1,7 +1,7 @@
-import { wrapUserData, type ModelPrompt } from "./guard";
+import { wrapUserData, type ModelPrompt } from "@sahan-sac/ai-core/guard";
 
-// Prompts for the full blog-post generator (lib/ai/blog-generate.ts). Same
-// data-fencing discipline as lib/ai/guard.ts: the system message is a fixed
+// Prompts for the full blog-post generator (./generate.ts). Same
+// data-fencing discipline as ./helper-prompts.ts: the system message is a fixed
 // constant that never interpolates caller input, and everything the admin
 // typed (the brief, the tone/length choice, the hero-scene note) is fenced
 // with wrapUserData() as content to write about, never an instruction.
