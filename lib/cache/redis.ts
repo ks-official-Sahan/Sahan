@@ -8,7 +8,8 @@ import { MemoryKv, type Kv, type KvSetOptions } from "./memory";
 // Upstash Redis when UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN are
 // set and valid (https URL) and REDIS_ENABLED is not off, otherwise an
 // in-memory store. Redis is never the source of truth for a security
-// decision (docs/plan/admin-cms-adr.md, D7 and D8): it caches and limits. Every key is prefixed so the instance can be shared.
+// decision (docs/plan/admin-cms-adr.md, D7 and D8): it caches and limits.
+// Every key is prefixed so the instance can be shared.
 
 const PREFIX = "sahan:";
 
