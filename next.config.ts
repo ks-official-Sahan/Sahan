@@ -62,12 +62,19 @@ const nextConfig: NextConfig = {
         port: "",
         pathname: "/**",
       },
-      {
-        protocol: "https",
-        hostname: "res.cloudinary.com",
-        port: "",
-        pathname: `/${process.env.CLOUDINARY_CLOUD_NAME || "**"}/**`,
-      },
+      // Only this site's own Cloudinary cloud. Without a cloud name there are
+      // no Cloudinary images to serve, and a "**" fallback would let the
+      // optimizer fetch from any Cloudinary account.
+      ...(process.env.CLOUDINARY_CLOUD_NAME
+        ? [
+            {
+              protocol: "https" as const,
+              hostname: "res.cloudinary.com",
+              port: "",
+              pathname: `/${process.env.CLOUDINARY_CLOUD_NAME}/**`,
+            },
+          ]
+        : []),
     ],
   },
   experimental: {

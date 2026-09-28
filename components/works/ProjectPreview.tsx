@@ -153,7 +153,10 @@ const ProjectPreview = ({
           alt={image.alt}
           fill
           sizes={sizes}
-          priority={priority}
+          // Next 16 deprecates `priority`; eager + high fetch priority is
+          // the documented replacement for an above-the-fold image.
+          loading={priority ? "eager" : "lazy"}
+          fetchPriority={priority ? "high" : "auto"}
           className={cn(
             "transition-transform duration-500 [transition-timing-function:var(--ease-out)] group-hover:scale-[1.03] motion-reduce:transition-none motion-reduce:group-hover:scale-100",
             contain ? "object-contain p-2" : "object-cover"

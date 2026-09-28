@@ -225,6 +225,7 @@ const WorksExplorer = ({ content }: WorksExplorerProps) => {
                 >
                   <ProjectCard
                     project={project}
+                    priority={index === 0}
                     variant={
                       index === 0 && featuredFirst ? "featured" : "default"
                     }
