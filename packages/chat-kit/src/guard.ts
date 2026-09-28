@@ -1,5 +1,5 @@
 // Prompt injection guard and output filtering for the chatbot. Reuses
-// lib/ai/guard.ts's wrapUserData pattern for visitor input and adds output
+// @sahan-sac/ai-core/guard's wrapUserData pattern for visitor input and adds output
 // filtering to prevent revealing admin URLs, arbitrary links, secrets, and HTML.
 
 import { wrapUserData, looksLikeLeak } from "@sahan-sac/ai-core/guard";

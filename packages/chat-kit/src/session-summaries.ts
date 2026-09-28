@@ -1,5 +1,5 @@
-// The conversations list row (admin), shared by the server page, the
-// /api/admin/chatbot/sessions route and the client list. Only what the table
+// The conversations list row (admin), shared by the app's server page, its
+// sessions API route and the client list. Only what the table
 // shows: never message bodies — `messagesCount` is kept denormalized on the
 // session row for exactly this.
 

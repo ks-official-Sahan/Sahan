@@ -1,6 +1,4 @@
-import { createHmac, randomBytes } from "crypto";
-
-import { constantTimeEqual } from "@/lib/admin/login-unlock";
+import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 
 // Anonymous-visitor cookie for /api/chat's rate limiting fallback, used only
 // when the caller's IP cannot be determined (R22: no TRUSTED_PROXY_HOPS, or
@@ -15,6 +13,13 @@ export const CHAT_VISITOR_COOKIE = "sahan_chat_vid";
 const ID_BYTES = 16;
 /** `<id>.<hmac>`, generous enough for the base64url id and a SHA-256 HMAC. */
 const MAX_COOKIE_LENGTH = 256;
+
+const sha256 = (value: string) => createHash("sha256").update(value).digest();
+
+/** Compares through SHA-256 digests, so the length of either value never leaks. */
+function constantTimeEqual(a: string, b: string): boolean {
+  return timingSafeEqual(sha256(a), sha256(b));
+}
 
 function mac(id: string, secret: string): string {
   return createHmac("sha256", secret).update(`chat-visitor:v1:${id}`).digest("base64url");

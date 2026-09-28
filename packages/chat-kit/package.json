@@ -1,0 +1,102 @@
+{
+  "name": "@sahan-sac/chat-kit",
+  "version": "0.0.0",
+  "description": "Headless chatbot core for the portfolio site: guarded prompt building, prompt-injection and output-link guards, an anonymous-visitor rate-limit cookie, a knowledge-base builder that tolerates a failing source, and runChat, the pure request/response path behind /api/chat. Depends on @sahan-sac/ai-core; never on @sahan-sac/blog-kit or @sahan-sac/media-kit.",
+  "license": "UNLICENSED",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ks-official-Sahan/Sahan.git",
+    "directory": "packages/chat-kit"
+  },
+  "keywords": [
+    "chat",
+    "chatbot",
+    "prompt",
+    "ai"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "engines": {
+    "node": ">=20"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./types": "./src/types.ts",
+    "./adapter": "./src/adapter.ts",
+    "./prompts": "./src/prompts.ts",
+    "./guard": "./src/guard.ts",
+    "./visitor-cookie": "./src/visitor-cookie.ts",
+    "./knowledge": "./src/knowledge.ts",
+    "./handler": "./src/handler.ts",
+    "./session-summaries": "./src/session-summaries.ts",
+    "./package.json": "./package.json"
+  },
+  "types": "./src/index.ts",
+  "main": "./src/index.ts",
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.build.json",
+    "test": "node --conditions=react-server --import tsx --test \"src/**/*.test.ts\"",
+    "prepublishOnly": "npm run build && npm run test"
+  },
+  "dependencies": {
+    "@sahan-sac/ai-core": "workspace:^",
+    "server-only": "^0.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22",
+    "tsup": "^8.3.5",
+    "tsx": "^4.23.15",
+    "typescript": "^5.6.3"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "CHANGELOG.md"
+  ],
+  "publishConfig": {
+    "access": "restricted",
+    "registry": "https://registry.npmjs.org/",
+    "types": "./dist/index.d.ts",
+    "main": "./dist/index.js",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "import": "./dist/index.js"
+      },
+      "./types": {
+        "types": "./dist/types.d.ts",
+        "import": "./dist/types.js"
+      },
+      "./adapter": {
+        "types": "./dist/adapter.d.ts",
+        "import": "./dist/adapter.js"
+      },
+      "./prompts": {
+        "types": "./dist/prompts.d.ts",
+        "import": "./dist/prompts.js"
+      },
+      "./guard": {
+        "types": "./dist/guard.d.ts",
+        "import": "./dist/guard.js"
+      },
+      "./visitor-cookie": {
+        "types": "./dist/visitor-cookie.d.ts",
+        "import": "./dist/visitor-cookie.js"
+      },
+      "./knowledge": {
+        "types": "./dist/knowledge.d.ts",
+        "import": "./dist/knowledge.js"
+      },
+      "./handler": {
+        "types": "./dist/handler.d.ts",
+        "import": "./dist/handler.js"
+      },
+      "./session-summaries": {
+        "types": "./dist/session-summaries.d.ts",
+        "import": "./dist/session-summaries.js"
+      },
+      "./package.json": "./package.json"
+    }
+  }
+}
