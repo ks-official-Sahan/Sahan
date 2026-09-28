@@ -5,6 +5,7 @@ import {
   UNLOCK_TTL_SECONDS,
   constantTimeEqual,
   isUnlockSecret,
+  loginUnlockEnabled,
   signUnlockCookie,
   unlockCookieOptions,
   unlockKeysFromEnv,
@@ -17,6 +18,12 @@ const keys: UnlockKeys = {
   unlockSecret: "test-unlock-secret",
 };
 const NOW = 1_800_000_000_000;
+
+test("loginUnlockEnabled: on only when the unlock secret is set", () => {
+  assert.equal(loginUnlockEnabled({ ADMIN_LOGIN_UNLOCK_SECRET: "a-long-unlock-secret" }), true);
+  assert.equal(loginUnlockEnabled({ ADMIN_LOGIN_UNLOCK_SECRET: "   " }), false);
+  assert.equal(loginUnlockEnabled({}), false);
+});
 
 test("a freshly signed cookie verifies", () => {
   assert.equal(verifyUnlockCookie(signUnlockCookie(NOW, keys), NOW, keys), true);
