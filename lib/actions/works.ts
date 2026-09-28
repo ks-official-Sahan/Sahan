@@ -14,28 +14,56 @@ import { forCollection } from "@/lib/cache/plan";
 import { projectImageSchema, projectLinkSchema } from "@/lib/collections/projects";
 import { decodeJsonFields } from "@/lib/forms/array-fields";
 import { log } from "@/lib/log";
+import { SLUG_MAX_LENGTH } from "@/lib/blog/slug";
 
 // Works collection actions: projects, experience, services, skills CRUD.
 // Create/update use editCollections. Publish, feature, reorder use publishCollections.
 // All audit and invalidate in the same transaction.
 
+// Upper bounds for every write. Without them one save can store a multi-MB
+// row, and the audit row copies it again into before/after. Reads keep the
+// shared, unbounded schemas (lib/collections/projects.ts), so an old row
+// longer than these still renders.
+const SHORT = 200;
+const TAGLINE = 300;
+const LONG = 5_000;
+const URL_MAX = 2_000;
+const KEY = 64;
+const MAX_LIST = 50;
+const MAX_LINKS = 20;
+
+const boundedLink = projectLinkSchema.refine(
+  (link) => link.url.length <= URL_MAX && (link.label?.length ?? 0) <= SHORT,
+  "Link is too long"
+);
+const boundedImage = projectImageSchema.refine(
+  (image) =>
+    !image ||
+    (image.src.length <= URL_MAX &&
+      image.alt.length <= SHORT &&
+      (image.background?.length ?? 0) <= KEY &&
+      (image.position?.length ?? 0) <= KEY &&
+      (image.mediaId?.length ?? 0) <= KEY),
+  "Image fields are too long"
+);
+
 // ─── Projects ────────────────────────────────────────────────────────────────
 
 const createProjectSchema = z.object({
-  slug: z.string().min(1, "Slug is required"),
-  title: z.string().min(1, "Title is required"),
-  tagline: z.string().min(1, "Tagline is required"),
-  description: z.string().min(1, "Description is required"),
-  role: z.string().min(1, "Role is required"),
-  organization: z.string().optional(),
-  organizationUrl: z.string().url().optional().or(z.literal("")),
+  slug: z.string().min(1, "Slug is required").max(SLUG_MAX_LENGTH),
+  title: z.string().min(1, "Title is required").max(SHORT),
+  tagline: z.string().min(1, "Tagline is required").max(TAGLINE),
+  description: z.string().min(1, "Description is required").max(LONG),
+  role: z.string().min(1, "Role is required").max(SHORT),
+  organization: z.string().max(SHORT).optional(),
+  organizationUrl: z.string().max(URL_MAX).url().optional().or(z.literal("")),
   category: z.enum(["product", "freelance", "contract", "internship", "internal"]),
   status: z.enum(["live", "demo", "upcoming", "unpublished", "offline", "private"]),
   platforms: z.array(z.enum(["android", "ios", "web", "web-admin"])).default([]),
-  tech: z.array(z.string()).default([]),
-  year: z.string().min(1),
-  image: projectImageSchema.optional(),
-  links: z.array(projectLinkSchema).default([]),
+  tech: z.array(z.string().max(KEY)).max(MAX_LIST).default([]),
+  year: z.string().min(1).max(32),
+  image: boundedImage.optional(),
+  links: z.array(boundedLink).max(MAX_LINKS).default([]),
 });
 
 export async function createProjectAction(
@@ -359,13 +387,13 @@ export async function featureProjectAction(
 // ─── Experience (similar pattern) ─────────────────────────────────────────────
 
 const createExperienceSchema = z.object({
-  company: z.string().min(1, "Company is required"),
-  companyUrl: z.string().url().optional().or(z.literal("")),
-  role: z.string().min(1, "Role is required"),
-  period: z.string().min(1, "Period is required"),
+  company: z.string().min(1, "Company is required").max(SHORT),
+  companyUrl: z.string().max(URL_MAX).url().optional().or(z.literal("")),
+  role: z.string().min(1, "Role is required").max(SHORT),
+  period: z.string().min(1, "Period is required").max(SHORT),
   type: z.enum(["full-time", "contract", "part-time", "internship", "freelance"]),
-  location: z.string().optional(),
-  highlights: z.array(z.string()).default([]),
+  location: z.string().max(SHORT).optional(),
+  highlights: z.array(z.string().max(LONG)).max(MAX_LINKS).default([]),
   current: z.boolean().default(false),
 });
 
@@ -630,7 +658,7 @@ export async function publishExperienceAction(
 // ─── Service groups ────────────────────────────────────────────────────────
 
 const serviceGroupSchema = z.object({
-  name: z.string().min(1, "Name is required"),
+  name: z.string().min(1, "Name is required").max(SHORT),
 });
 
 export async function createServiceGroupAction(_previous: ActionState, formData: FormData): Promise<ActionState> {
@@ -747,11 +775,11 @@ export async function deleteServiceGroupAction(_previous: ActionState, formData:
 // ─── Services ────────────────────────────────────────────────────────────────
 
 const createServiceSchema = z.object({
-  key: z.string().min(1),
-  groupId: z.string().min(1),
-  iconKey: z.string().min(1),
-  name: z.string().min(1),
-  description: z.string(),
+  key: z.string().min(1).max(KEY),
+  groupId: z.string().min(1).max(KEY),
+  iconKey: z.string().min(1).max(KEY),
+  name: z.string().min(1).max(SHORT),
+  description: z.string().max(LONG),
 });
 
 // The group and the unique `key` stay fixed once created (mirrors the
@@ -978,8 +1006,8 @@ export async function publishServiceAction(_previous: ActionState, formData: For
 // ─── Skill groups ──────────────────────────────────────────────────────────
 
 const skillGroupSchema = z.object({
-  key: z.string().min(1, "Key is required"),
-  label: z.string().min(1, "Label is required"),
+  key: z.string().min(1, "Key is required").max(KEY),
+  label: z.string().min(1, "Label is required").max(SHORT),
 });
 
 // The unique key stays fixed once created — it is this group's stable identifier, unlike the service group (which has no key, just a name).
@@ -1101,14 +1129,14 @@ export async function deleteSkillGroupAction(_previous: ActionState, formData: F
 // ─── Skills ──────────────────────────────────────────────────────────────────
 
 const createSkillSchema = z.object({
-  groupId: z.string().min(1),
-  name: z.string().min(1),
-  abbr: z.string().min(1),
-  type: z.string().min(1),
-  iconKey: z.string().min(1),
-  variant: z.string().default("fill"),
-  colorLight: z.string(),
-  colorDark: z.string(),
+  groupId: z.string().min(1).max(KEY),
+  name: z.string().min(1).max(SHORT),
+  abbr: z.string().min(1).max(32),
+  type: z.string().min(1).max(KEY),
+  iconKey: z.string().min(1).max(KEY),
+  variant: z.string().max(32).default("fill"),
+  colorLight: z.string().max(KEY),
+  colorDark: z.string().max(KEY),
 });
 
 // The group stays fixed once created — the same immutability as the project slug.
