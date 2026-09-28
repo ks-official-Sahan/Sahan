@@ -1,6 +1,6 @@
 import "server-only";
 
-import type { AppEnv } from "@/lib/env";
+import type { AiEnv } from "./env";
 
 import { imageModels, paidAllowed, vertexConfigured } from "./models";
 import { getVertexAccessToken } from "./vertex";
@@ -138,7 +138,7 @@ export async function generateImageVertex(
 }
 
 /** True when the Vertex service account needed for Vertex image generation is configured. */
-export function vertexImageAvailable(env: AppEnv): boolean {
+export function vertexImageAvailable(env: AiEnv): boolean {
   return vertexConfigured(env);
 }
 
@@ -228,7 +228,7 @@ export interface ImageConfig {
 }
 
 /** The configured image providers, free first; null when there is none. Paid ones only with AI_ALLOW_PAID. */
-export function imageConfigFromEnv(env: AppEnv): ImageConfig | null {
+export function imageConfigFromEnv(env: AiEnv): ImageConfig | null {
   const models = imageModels(env);
   const paid = paidAllowed(env);
   const config: ImageConfig = {};

@@ -4,7 +4,7 @@ import { z } from "zod";
 
 import { looksLikeLeak } from "./guard";
 import { buildBlogGenerationPrompt, buildRepairPrompt, buildSeoSuggestPrompt, contentImageToken, type BlogGenerationInput } from "./blog-prompts";
-import { createAiService, realProviders, sharedAiHealth, type AiAttemptStatus, type AiProvider } from "./providers";
+import { createAiService, realProviders, sharedAiHealth, type AiAttemptStatus, type AiProvider } from "@sahan-sac/ai-core/providers";
 import { getEnv } from "@/lib/env";
 
 // Full blog-post generation (AGENTS.md "AI blog" feature). Providers are

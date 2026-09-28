@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { generateFullPost } from "./blog";
-import type { AiOutcome, AiProvider } from "./providers";
+import type { AiOutcome, AiProvider } from "@sahan-sac/ai-core/providers";
 
 function fakeProvider(name: string, outcome: AiOutcome): AiProvider {
   return { name, generate: async () => outcome };

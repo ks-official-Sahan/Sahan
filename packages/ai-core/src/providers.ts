@@ -3,10 +3,9 @@ import "server-only";
 import { createOpenAI } from "@ai-sdk/openai";
 import { generateText } from "ai";
 
-import type { AppEnv } from "@/lib/env";
-import { log } from "@/lib/log";
-
+import type { AiEnv } from "./env";
 import type { ModelPrompt } from "./guard";
+import { consoleAiLogger, type AiLogger } from "./log";
 import { DEFAULT_TEXT_MODELS, paidAllowed, textModels, thinkingConfigFor, vertexConfigured, type TextPurpose } from "./models";
 import { getVertexAccessToken } from "./vertex";
 
@@ -132,6 +131,8 @@ export interface AiServiceDeps {
   hedgeAfterMs?: number;
   health?: AiHealth;
   now?: () => number;
+  /** Where provider failures are reported; defaults to one JSON line on stderr. */
+  logger?: AiLogger;
 }
 
 export type AiAttemptStatus = {
@@ -153,6 +154,7 @@ export function createAiService(deps: AiServiceDeps) {
   const timeoutMs = deps.timeoutMs ?? AI_TIMEOUT_MS;
   const now = deps.now ?? Date.now;
   const health = deps.health ?? createAiHealth();
+  const logger = deps.logger ?? consoleAiLogger;
 
   function rank(at: number): AiProvider[] {
     const cooling = (p: AiProvider) => Number((health.cooldownUntil.get(p.name) ?? 0) > at);
@@ -229,7 +231,7 @@ export function createAiService(deps: AiServiceDeps) {
         });
         const cooldown = cooldownFor(outcome);
         if (cooldown) health.cooldownUntil.set(provider.name, now() + cooldown);
-        log.warn("ai provider failed", {
+        logger.warn("ai provider failed", {
           provider: provider.name,
           errorClass: outcome.errorClass,
           ms,
@@ -466,7 +468,7 @@ export function vertexProvider(config: {
  * 4. Vertex (pay-as-you-go): only with AI_ALLOW_PAID, and only after the free ones
  * Models per purpose come from lib/ai/models.ts (env override, else a verified free default).
  */
-export function realProviders(env: AppEnv, purpose: TextPurpose, fetchImpl?: typeof fetch): AiProvider[] {
+export function realProviders(env: AiEnv, purpose: TextPurpose, fetchImpl?: typeof fetch): AiProvider[] {
   const providers: AiProvider[] = [];
   const models = textModels(env, purpose);
 

@@ -37,3 +37,5 @@ next-env.d.ts
 
 **/node_modules
 # packages/auth-kit/node_modules
+# Package build output (published from CI)
+packages/*/dist

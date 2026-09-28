@@ -3,7 +3,7 @@
 // is added only as data, visitor messages are wrapped as data, so secrets
 // and instructions cannot be hidden in the knowledge or user input.
 
-import type { ModelPrompt } from "@/lib/ai/guard";
+import type { ModelPrompt } from "@sahan-sac/ai-core/guard";
 import type { ChatbotConfig } from "@/lib/settings/schema";
 import { Site, SiteMetadata } from "@/config/site";
 

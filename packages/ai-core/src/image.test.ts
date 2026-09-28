@@ -13,7 +13,7 @@ import {
 } from "./image";
 import { DEFAULT_IMAGE_MODELS as MODEL_DEFAULTS } from "./models";
 import { resetVertexTokenCache } from "./vertex";
-import type { AppEnv } from "@/lib/env";
+import type { AiEnv } from "./env";
 
 // A syntactically valid RSA private key is required for crypto.createSign to
 // succeed (same fixture as lib/ai/vertex.test.ts).
@@ -144,25 +144,25 @@ test("imageModelChain puts a configured model first and never repeats one", () =
 
 // ─── env wiring ────────────────────────────────────────────────────────────
 
-const BASE_ENV = {} as AppEnv;
+const BASE_ENV = {} as AiEnv;
 const VERTEX = {
     GOOGLE_CLIENT_EMAIL: "a@b.iam.gserviceaccount.com",
     GOOGLE_PRIVATE_KEY: "key",
     GOOGLE_CLOUD_PROJECT: "proj",
     GOOGLE_TOKEN_URI: "https://oauth2.googleapis.com/token",
-} as Partial<AppEnv>;
+} as Partial<AiEnv>;
 
 test("vertexImageAvailable needs all four service-account variables", () => {
   assert.equal(vertexImageAvailable(BASE_ENV), false);
-  assert.equal(vertexImageAvailable({ ...BASE_ENV, ...VERTEX } as AppEnv), true);
+  assert.equal(vertexImageAvailable({ ...BASE_ENV, ...VERTEX } as AiEnv), true);
 });
 
 test("imageConfigFromEnv is free-only by default: NVIDIA in, Gemini and Vertex out", () => {
   assert.equal(imageConfigFromEnv(BASE_ENV), null);
-  const env = { ...VERTEX, NVIDIA_API_KEY: "nv", GEMINI_API_KEY: "gm" } as AppEnv;
+  const env = { ...VERTEX, NVIDIA_API_KEY: "nv", GEMINI_API_KEY: "gm" } as AiEnv;
   assert.deepEqual(imageConfigFromEnv(env), { nvidia: { apiKey: "nv", model: MODEL_DEFAULTS.nvidia } });
   // Paid-only providers alone configure nothing without AI_ALLOW_PAID.
-  assert.equal(imageConfigFromEnv({ ...VERTEX, GEMINI_API_KEY: "gm" } as AppEnv), null);
+  assert.equal(imageConfigFromEnv({ ...VERTEX, GEMINI_API_KEY: "gm" } as AiEnv), null);
 });
 
 test("imageConfigFromEnv adds Gemini and Vertex with AI_ALLOW_PAID, honouring IMAGE_* and the older IMAGEN_MODEL", () => {
@@ -173,12 +173,12 @@ test("imageConfigFromEnv adds Gemini and Vertex with AI_ALLOW_PAID, honouring IM
     AI_ALLOW_PAID: true,
     IMAGE_NVIDIA_MODEL: "black-forest-labs/flux.1-schnell",
     IMAGEN_MODEL: "imagen-4.0-generate-001",
-  } as AppEnv;
+  } as AiEnv;
   const config = imageConfigFromEnv(env);
   assert.equal(config?.nvidia?.model, "black-forest-labs/flux.1-schnell");
   assert.equal(config?.gemini?.model, MODEL_DEFAULTS.gemini);
   assert.equal(config?.vertex?.model, "imagen-4.0-generate-001");
-  assert.equal(imageConfigFromEnv({ ...env, IMAGE_VERTEX_MODEL: "gemini-2.5-flash-image" } as AppEnv)?.vertex?.model, "gemini-2.5-flash-image");
+  assert.equal(imageConfigFromEnv({ ...env, IMAGE_VERTEX_MODEL: "gemini-2.5-flash-image" } as AiEnv)?.vertex?.model, "gemini-2.5-flash-image");
 });
 
 // ─── NVIDIA ────────────────────────────────────────────────────────────────

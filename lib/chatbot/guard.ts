@@ -2,7 +2,7 @@
 // lib/ai/guard.ts's wrapUserData pattern for visitor input and adds output
 // filtering to prevent revealing admin URLs, arbitrary links, secrets, and HTML.
 
-import { wrapUserData, looksLikeLeak } from "@/lib/ai/guard";
+import { wrapUserData, looksLikeLeak } from "@sahan-sac/ai-core/guard";
 
 /** Wraps a visitor message as data before it reaches the model. */
 export function guardUserMessage(message: string): string {

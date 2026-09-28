@@ -4,7 +4,7 @@ import { after, NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { textAiConfigured } from "@/lib/ai/availability";
-import { createAiService, realProviders, sharedAiHealth } from "@/lib/ai/providers";
+import { createAiService, realProviders, sharedAiHealth } from "@sahan-sac/ai-core/providers";
 import { limit } from "@/lib/cache/ratelimit";
 import { filterModelOutput, guardUserMessage } from "@/lib/chatbot/guard";
 import { getKnowledge } from "@/lib/chatbot/knowledge";

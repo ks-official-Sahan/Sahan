@@ -1,0 +1,107 @@
+{
+  "name": "@sahan-sac/ai-core",
+  "version": "0.0.0",
+  "description": "Free-by-default AI provider chain (Gemini, OpenRouter, NVIDIA, Vertex) with hedging, cooldowns and deadlines, env-driven model resolution, image generation and prompt-injection guards. Shared by @sahan-sac/blog-kit and @sahan-sac/chat-kit.",
+  "license": "UNLICENSED",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ks-official-Sahan/Sahan.git",
+    "directory": "packages/ai-core"
+  },
+  "keywords": [
+    "ai",
+    "llm",
+    "gemini",
+    "openrouter",
+    "nvidia",
+    "vertex",
+    "flux"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "engines": {
+    "node": ">=20"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./env": "./src/env.ts",
+    "./models": "./src/models.ts",
+    "./providers": "./src/providers.ts",
+    "./vertex": "./src/vertex.ts",
+    "./image": "./src/image.ts",
+    "./guard": "./src/guard.ts",
+    "./availability": "./src/availability.ts",
+    "./log": "./src/log.ts",
+    "./package.json": "./package.json"
+  },
+  "types": "./src/index.ts",
+  "main": "./src/index.ts",
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.build.json",
+    "test": "node --conditions=react-server --import tsx --test \"src/**/*.test.ts\"",
+    "prepublishOnly": "npm run build && npm run test"
+  },
+  "dependencies": {
+    "@ai-sdk/openai": "^4.0.71",
+    "ai": "^7.0.107",
+    "server-only": "^0.0.1",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/node": "^22",
+    "tsup": "^8.3.5",
+    "tsx": "^4.23.15",
+    "typescript": "^5.6.3"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "CHANGELOG.md"
+  ],
+  "publishConfig": {
+    "access": "restricted",
+    "registry": "https://registry.npmjs.org/",
+    "types": "./dist/index.d.ts",
+    "main": "./dist/index.js",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "import": "./dist/index.js"
+      },
+      "./env": {
+        "types": "./dist/env.d.ts",
+        "import": "./dist/env.js"
+      },
+      "./models": {
+        "types": "./dist/models.d.ts",
+        "import": "./dist/models.js"
+      },
+      "./providers": {
+        "types": "./dist/providers.d.ts",
+        "import": "./dist/providers.js"
+      },
+      "./vertex": {
+        "types": "./dist/vertex.d.ts",
+        "import": "./dist/vertex.js"
+      },
+      "./image": {
+        "types": "./dist/image.d.ts",
+        "import": "./dist/image.js"
+      },
+      "./guard": {
+        "types": "./dist/guard.d.ts",
+        "import": "./dist/guard.js"
+      },
+      "./availability": {
+        "types": "./dist/availability.d.ts",
+        "import": "./dist/availability.js"
+      },
+      "./log": {
+        "types": "./dist/log.d.ts",
+        "import": "./dist/log.js"
+      },
+      "./package.json": "./package.json"
+    }
+  }
+}

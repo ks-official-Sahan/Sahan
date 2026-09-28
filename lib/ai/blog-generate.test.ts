@@ -10,7 +10,7 @@ import {
   repairJsonString,
   validateStructure,
 } from "./blog-generate";
-import type { AiOutcome, AiProvider } from "./providers";
+import type { AiOutcome, AiProvider } from "@sahan-sac/ai-core/providers";
 import type { ModelPrompt } from "./guard";
 
 const VALID_POST = {

@@ -1,6 +1,6 @@
 import "server-only";
 
-import { createAiService, realProviders, type AiProvider } from "./providers";
+import { createAiService, realProviders, type AiProvider } from "@sahan-sac/ai-core/providers";
 import { buildCoverPrompt, buildDraftPrompt, buildFullPostPrompt, looksLikeLeak } from "./guard";
 import { getEnv } from "@/lib/env";
 

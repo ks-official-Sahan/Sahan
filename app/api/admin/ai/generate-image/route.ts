@@ -7,7 +7,7 @@ import { limit } from "@/lib/cache/ratelimit";
 import { rateLimitedResponse } from "@/lib/admin/rate-limited";
 import { checkOrigin } from "@/lib/security/check-origin";
 import { getEnv } from "@/lib/env";
-import { generateImage, imageConfigFromEnv } from "@/lib/ai/image";
+import { generateImage, imageConfigFromEnv } from "@sahan-sac/ai-core/image";
 import { registerGeneratedImage } from "@/lib/media/service";
 import { cloudinary } from "@/lib/media/cloudinary";
 import { MEDIA_CONFIG } from "@/lib/media/config";
