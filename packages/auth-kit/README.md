@@ -100,9 +100,10 @@ pass into the factories below.
 | Variable | Used for |
 | --- | --- |
 | `AUTH_SECRET` | JWT signing, password fingerprints, unlock cookie signing. **Must be long and random** (`assertProductionEnv`-style checks in your own app should refuse to boot without one in production). |
-| `ADMIN_LOGIN_UNLOCK_SECRET` | The hidden-login `?secret=` value. |
+| `ADMIN_LOGIN_UNLOCK_SECRET` | The hidden-login `?secret=` value. Optional: `loginUnlockEnabled(env)` is false while it is unset, and an app can then skip the unlock gate and show its login page to everyone. |
 | `ADMIN_EMAIL`, `ADMIN_NAME`, `ADMIN_PASSWORD` | First-run owner bootstrap (`ensureBootstrapOwner`) — optional; the app decides how `seedOwner` sources these. |
-| `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` | Session-state cache and rate limits. Falls back to an in-memory store/limiter when unset — **fine for a single server, not safe across multiple serverless instances.** Required in any real serverless/multi-instance deployment. |
+| `REDIS_ENABLED` | Optional. `false`/`0`/`no`/`off` forces the in-memory store even with Upstash configured; unset means "use Redis when configured". |
+| `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` | Session-state cache and rate limits. Used only when both are set and the URL is https (`redisConfigFromEnv`). Falls back to an in-memory store/limiter when unset — **fine for a single server, not safe across multiple serverless instances.** Required in any real serverless/multi-instance deployment. |
 | `TRUSTED_PROXY_HOPS` | How many of *your own* reverse proxies append to `x-forwarded-for`. `0` (default) means no header is trusted and every caller reads as `"unknown"`. On Vercel this is unnecessary (its own headers are trusted automatically); use `trustProxy` in `defineAuthKit` to make this explicit config instead of environment-implicit. |
 | `ADMIN_ALLOWED_ORIGINS` | Extra allowed origins (e.g. preview deployments), comma/whitespace separated. Parse with `parseOriginList` from `./security/origin`. |
 
