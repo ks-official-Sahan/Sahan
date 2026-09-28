@@ -1,9 +1,10 @@
 import { NextResponse, type NextRequest } from "next/server";
 
+import { MEDIA_CONFIG } from "@sahan-sac/media-kit/config";
+import { signCloudinaryUpload } from "@sahan-sac/media-kit/signature";
+
 import { getOptionalUser, hasPermission } from "@/lib/auth/dal";
 import { env } from "@/lib/env";
-import { MEDIA_CONFIG } from "@/lib/media/config";
-import { signCloudinaryUpload } from "@/lib/media/signature";
 import { checkOrigin } from "@/lib/security/check-origin";
 import { limit } from "@/lib/cache/ratelimit";
 

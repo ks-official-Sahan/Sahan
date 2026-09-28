@@ -8,9 +8,10 @@ import { rateLimitedResponse } from "@/lib/admin/rate-limited";
 import { checkOrigin } from "@/lib/security/check-origin";
 import { getEnv } from "@/lib/env";
 import { generateImage, imageConfigFromEnv } from "@sahan-sac/ai-core/image";
+import { MEDIA_CONFIG } from "@sahan-sac/media-kit/config";
+
 import { registerGeneratedImage } from "@/lib/media/service";
-import { cloudinary } from "@/lib/media/cloudinary";
-import { MEDIA_CONFIG } from "@/lib/media/config";
+import { cloudinary } from "@/lib/media/cloudinary-client";
 
 // POST /api/admin/ai/generate-image. Requires generateAI, rate limited per
 // user (ai:image:user). Body:

@@ -1,13 +1,34 @@
 import "server-only";
 
-import { env } from "@/lib/env";
-import { log } from "@/lib/log";
-
+import type { MediaEnv } from "./env";
 import { signCloudinaryUpload } from "./signature";
 
 // Cloudinary Admin API client with injectable fetch for testing.
 // All requests use HTTP Basic Auth (not signed URLs).
 // Never log or print credentials.
+
+export type WarnFn = (message: string, meta?: unknown) => void;
+const noopWarn: WarnFn = () => {};
+
+export interface CloudinaryClientConfig {
+  cloudName: string;
+  apiKey: string;
+  apiSecret: string;
+  fetch?: FetchFn;
+  onWarn?: WarnFn;
+}
+
+export interface CloudinaryConfig {
+  cloudName: string;
+  apiKey: string;
+  apiSecret: string;
+}
+
+/** Cloudinary credentials from a parsed env, or null when any are missing. */
+export function cloudinaryConfigFromEnv(env: MediaEnv): CloudinaryConfig | null {
+  if (!env.CLOUDINARY_CLOUD_NAME || !env.CLOUDINARY_API_KEY || !env.CLOUDINARY_API_SECRET) return null;
+  return { cloudName: env.CLOUDINARY_CLOUD_NAME, apiKey: env.CLOUDINARY_API_KEY, apiSecret: env.CLOUDINARY_API_SECRET };
+}
 
 export interface CloudinaryAsset {
   public_id: string;
@@ -42,12 +63,14 @@ export class CloudinaryClient {
   private apiSecret: string;
   private cloudName: string;
   private fetchFn: FetchFn;
+  private warn: WarnFn;
 
-  constructor(fetchFn: FetchFn = fetch) {
-    this.apiKey = env.CLOUDINARY_API_KEY || "";
-    this.apiSecret = env.CLOUDINARY_API_SECRET || "";
-    this.cloudName = env.CLOUDINARY_CLOUD_NAME || "";
-    this.fetchFn = fetchFn;
+  constructor(config: CloudinaryClientConfig) {
+    this.apiKey = config.apiKey || "";
+    this.apiSecret = config.apiSecret || "";
+    this.cloudName = config.cloudName || "";
+    this.fetchFn = config.fetch ?? fetch;
+    this.warn = config.onWarn ?? noopWarn;
   }
 
   private authHeader(): string {
@@ -94,14 +117,14 @@ export class CloudinaryClient {
         signal: AbortSignal.timeout(ADMIN_API_TIMEOUT_MS),
       });
       if (!response.ok) {
-        log.warn("cloudinary delete failed", { status: response.status });
+        this.warn("cloudinary delete failed", { status: response.status });
         return false;
       }
       const data = (await response.json()) as { deleted?: Record<string, string> };
       const state = data.deleted?.[publicId];
       return state === "deleted" || state === "not_found";
     } catch (error) {
-      log.warn("cloudinary delete failed", { error: error instanceof Error ? error.message : String(error) });
+      this.warn("cloudinary delete failed", { error: error instanceof Error ? error.message : String(error) });
       return false;
     }
   }
@@ -145,15 +168,13 @@ export class CloudinaryClient {
         // Cloudinary's error text names the cause (for example "Invalid
         // Signature") and never contains the secret.
         const detail = (await response.json().catch(() => null)) as { error?: { message?: string } } | null;
-        log.warn("cloudinary upload failed", { status: response.status, error: detail?.error?.message?.slice(0, 200) });
+        this.warn("cloudinary upload failed", { status: response.status, error: detail?.error?.message?.slice(0, 200) });
         return null;
       }
       return (await response.json()) as UploadBase64Result;
     } catch (error) {
-      log.warn("cloudinary upload failed", { error: error instanceof Error ? error.message : String(error) });
+      this.warn("cloudinary upload failed", { error: error instanceof Error ? error.message : String(error) });
       return null;
     }
   }
 }
-
-export const cloudinary = new CloudinaryClient();

@@ -1,8 +1,4 @@
-import "server-only";
-
-import type { MediaKind } from "@prisma/client";
-
-import { MEDIA_CONFIG } from "./config";
+import { MEDIA_CONFIG, type MediaKind } from "./config";
 
 export interface ValidationError {
   field: string;

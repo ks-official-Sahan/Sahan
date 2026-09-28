@@ -1,6 +1,7 @@
 import "server-only";
 
 import { aiEnvSchema } from "@sahan-sac/ai-core/env";
+import { mediaEnvSchema } from "@sahan-sac/media-kit/env";
 import { z } from "zod";
 
 import { splitList, type EnvSource } from "./env-rules";
@@ -45,7 +46,6 @@ const schema = z.object({
   AUTH_TRUST_HOST: flag,
   AUTH_DEBUG: flag,
   INTERNAL_SIGNING_SECRET: text,
-  MEDIA_SIGNING_SECRET: text,
   MAINTENANCE_BYPASS_SECRET: text,
   ADMIN_LOGIN_UNLOCK_SECRET: text,
   CRON_SECRET: text,
@@ -62,10 +62,10 @@ const schema = z.object({
   UPSTASH_REDIS_REST_TOKEN: text,
   // Unset: use Redis when both Upstash variables are valid. false/0/off: always in-memory.
   REDIS_ENABLED: text,
-  CLOUDINARY_CLOUD_NAME: text,
-  CLOUDINARY_API_KEY: text,
-  CLOUDINARY_API_SECRET: text,
-  CLOUDINARY_URL: text,
+
+  // Media (Cloudinary + signed delivery URLs): one schema shared with every
+  // @sahan-sac media package, so variable names and defaults never drift.
+  ...mediaEnvSchema.shape,
 
   // Email
   EMAIL_PROVIDER: emailProvider,

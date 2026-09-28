@@ -9,10 +9,11 @@ import { checkOrigin } from "@/lib/security/check-origin";
 import { getEnv } from "@/lib/env";
 import { defaultAiDeps, generateBlogPost } from "@/lib/ai/blog-generate";
 import { generateImage, imageConfigFromEnv } from "@sahan-sac/ai-core/image";
+import { MEDIA_CONFIG } from "@sahan-sac/media-kit/config";
+
 import { removeImageToken } from "@/lib/blog/ai-image-tokens";
 import { registerGeneratedImage } from "@/lib/media/service";
-import { cloudinary } from "@/lib/media/cloudinary";
-import { MEDIA_CONFIG } from "@/lib/media/config";
+import { cloudinary } from "@/lib/media/cloudinary-client";
 import { db } from "@/lib/db/prisma";
 import { ensureUniqueSlug, slugify } from "@/lib/blog/slug";
 import { log } from "@/lib/log";

@@ -1,13 +1,18 @@
-import { registerUpload } from "@/lib/actions/media";
-
 // Browser-side upload into the media library: sign on the server
 // (/api/admin/uploads/sign), post the file straight to Cloudinary, then record
-// it with the registerUpload Server Action, which re-checks folder, type and
-// size before creating the MediaAsset row. Used by the media picker and by the
+// it by calling the caller-supplied `register` function (the app wires this to
+// its registerUpload Server Action, which re-checks folder, type and size
+// before creating the MediaAsset row). Used by the media picker and by the
 // featured-image card's "upload it myself" fallback when a server-side upload
 // of a generated image failed.
 
 export type UploadResult = { ok: true; mediaId: string; url: string } | { ok: false; error: string };
+
+export type RegisterUpload = (
+  publicId: string,
+  folder: string,
+  alt?: string
+) => Promise<{ ok: boolean; error?: string; asset?: { id: string; url: string } }>;
 
 interface SignResponse {
   cloudName: string;
@@ -18,7 +23,11 @@ interface SignResponse {
   error?: string;
 }
 
-export async function uploadToMediaLibrary(file: Blob, options: { fileName?: string; alt?: string } = {}): Promise<UploadResult> {
+export async function uploadToMediaLibrary(
+  file: Blob,
+  register: RegisterUpload,
+  options: { fileName?: string; alt?: string } = {}
+): Promise<UploadResult> {
   try {
     const signResponse = await fetch("/api/admin/uploads/sign");
     const sign = (await signResponse.json().catch(() => null)) as SignResponse | null;
@@ -39,7 +48,7 @@ export async function uploadToMediaLibrary(file: Blob, options: { fileName?: str
       return { ok: false, error: uploaded?.error?.message ? `Upload failed: ${uploaded.error.message}` : "Upload failed." };
     }
 
-    const registered = await registerUpload(uploaded.public_id, sign.folder, options.alt);
+    const registered = await register(uploaded.public_id, sign.folder, options.alt);
     if (!registered.ok || !registered.asset) return { ok: false, error: registered.error || "The upload could not be recorded." };
     return { ok: true, mediaId: registered.asset.id, url: registered.asset.url };
   } catch {

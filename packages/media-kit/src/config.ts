@@ -1,8 +1,10 @@
-import type { MediaKind } from "@prisma/client";
-
 // Media constraints and configuration. Pure data and pure functions, no
 // secrets and no database access, so the picker in the browser can import it
 // too to validate a file before it uploads.
+
+// Mirrors prisma/schema.prisma's `enum MediaKind` exactly, so an app value
+// assigned to or from the Prisma-generated type typechecks without a cast.
+export type MediaKind = "IMAGE" | "VIDEO" | "DOCUMENT";
 
 const IMAGE_FORMATS = ["jpg", "jpeg", "png", "webp", "avif", "gif"] as const;
 const DOCUMENT_FORMATS = ["pdf"] as const;
@@ -25,8 +27,6 @@ export const MEDIA_CONFIG = {
   // Cloudinary upload folder
   uploadFolder: "sahan",
 } as const;
-
-export type { MediaKind };
 
 export function getMediaKind(format: string): MediaKind {
   const lower = format.toLowerCase();
