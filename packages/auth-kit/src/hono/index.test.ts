@@ -32,6 +32,13 @@ test("originGuard refuses unsafe requests from a missing or foreign Origin", asy
   assert.equal((await post({ origin: "https://api.example.com" })).status, 200, "same host");
   assert.equal((await post({ origin: "https://example.com" })).status, 200, "the site URL");
 
+  const native = new Hono().use(originGuard({ nativeOrigins: ["myapp://"] }));
+  native.post("/", (c) => c.text("write"));
+  const nativePost = (headers: Record<string, string>) => native.request("/", { method: "POST", headers });
+  assert.equal((await nativePost({ "expo-origin": "myapp://" })).status, 200, "the listed app scheme");
+  assert.equal((await nativePost({ "expo-origin": "otherapp://" })).status, 403);
+  assert.equal((await nativePost({ "expo-origin": "myapp://", origin: "https://evil.example" })).status, 403, "a browser Origin wins");
+
   const hidden = new Hono().use(originGuard({ status: 404 }));
   hidden.post("/", (c) => c.text("write"));
   assert.equal((await hidden.request("/", { method: "POST" })).status, 404);

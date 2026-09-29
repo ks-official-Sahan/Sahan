@@ -27,6 +27,13 @@ export interface OriginGuardOptions {
   siteUrl?: string | null;
   /** More allowed origins (parse an env list with parseOriginList from ./security/origin). */
   extraOrigins?: readonly string[];
+  /**
+   * Native app origins, like `"myapp://"`. Expo apps send no Origin; Better
+   * Auth's Expo client sends `expo-origin` instead. A browser page cannot set
+   * that header on a cross-site request without a CORS preflight, so an exact
+   * match is safe to accept.
+   */
+  nativeOrigins?: readonly string[];
   /** Status for a refused request. Default 403; use 404 on admin-only apps. */
   status?: 403 | 404;
 }
@@ -34,13 +41,15 @@ export interface OriginGuardOptions {
 /**
  * CSRF layer: refuses POST/PUT/PATCH/DELETE whose Origin is missing or is
  * neither this host nor an allowed origin. Mount it before any route that
- * changes state. Native apps (Expo) send no Origin, so give their routes a
- * separate app without this guard and authenticate them by bearer token.
+ * changes state. List native app schemes in `nativeOrigins`.
  */
 export function originGuard(options: OriginGuardOptions = {}): MiddlewareHandler {
   return createMiddleware(async (c, next) => {
     if (SAFE_METHODS.has(c.req.method)) return next();
-    const allowed = isAllowedOrigin(c.req.header("origin"), {
+    const origin = c.req.header("origin");
+    const nativeOrigin = origin ? undefined : c.req.header("expo-origin");
+    if (nativeOrigin && options.nativeOrigins?.includes(nativeOrigin)) return next();
+    const allowed = isAllowedOrigin(origin, {
       hosts: [c.req.header("host"), c.req.header("x-forwarded-host")],
       siteUrl: options.siteUrl,
       extraOrigins: options.extraOrigins ?? [],

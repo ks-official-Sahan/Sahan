@@ -21,6 +21,7 @@ export default defineConfig({
     "src/session/index.ts",
     "src/session/core.ts",
     "src/rbac/index.ts",
+    "src/rbac/rules.ts",
     "src/mfa/index.ts",
     "src/security/index.ts",
     "src/cache/index.ts",

@@ -467,7 +467,8 @@ app.post(
 ```
 
 `originGuard` refuses unsafe methods without a matching Origin (403, or 404
-with `status: 404`). `requirePermission` answers 404 when signed out or not
+with `status: 404`). For a React Native app, list its scheme in
+`nativeOrigins: ["myapp://"]` (see `@sahan-sac/auth-kit-expo`). `requirePermission` answers 404 when signed out or not
 allowed, so a protected route cannot be told from a missing one.
 
 ## API reference
@@ -475,6 +476,7 @@ allowed, so a protected route cannot be told from a missing one.
 | Subpath | Runtime | Exports |
 | --- | --- | --- |
 | `.` (root) | Pure/universal | `defineAuthKit`, `AuthDbAdapter` types, `AuditEvent`, `createAuthorize`/`AuthorizeDeps`/`AuthorizeResult`, `ensureBootstrapOwner`, `createAuthConfig`/`AuthConfigDeps`/`InvalidLogin`/`LimitedLogin`/`MfaLogin`, `resolveCookieName`, `SESSION_MAX_AGE_SECONDS`, `verifyCredentials`/`CredentialDeps`, `createToken`/`verifyTokenTag`/`tokenState` (invite/reset links), `signUnlockCookie`/`verifyUnlockCookie`/`isUnlockSecret`/`unlockKeysFromEnv`/`unlockCookieOptions`/`constantTimeEqual`, `hashPassword`/`verifyPassword`, `checkPassword`, `safeCallbackUrl`, `createMfa`, RBAC generics (`isPermission`/`isRole`/`defaultPermissionsFor`/`canBeGranted`/`matrixFromRows`/`defaultMatrix`/`matrixToRows`/`can`/`diffMatrix`/`validateMatrix`/`createRbac`) |
+| `./rbac/rules` | Pure/universal (no React) | `can`, `defaultMatrix`, `matrixFromRows`, `matrixToRows`, `diffMatrix`, `validateMatrix` |
 | `./kit` | Pure/universal | `defineAuthKit` and its types (also at root) |
 | `./authorize` | Pure/universal | `createAuthorize` — the credentials/MFA decision, without the next-auth error-throwing wrapper |
 | `./config` | Next.js + next-auth | `createAuthConfig` |
