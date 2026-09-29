@@ -399,7 +399,7 @@ export async function generateBlogPost(
   const summarize = (attempts: { provider: string; ok: boolean; errorClass?: string }[] | undefined) =>
     attempts?.length ? ` (${attempts.map((a) => `${a.provider}: ${a.errorClass ?? (a.ok ? "ok" : "failed")}`).join(", ")})` : "";
 
-  const first = await service.generate(buildBlogGenerationPrompt(input), {
+  const first = await service.generate(buildBlogGenerationPrompt(input, deps.site), {
     maxTokens: GENERATION_MAX_TOKENS,
     jsonMode: { schema: BLOG_RESPONSE_SCHEMA },
     onAttempt: handleAttempt,
@@ -439,7 +439,7 @@ export async function generateBlogPost(
   });
 
   const repairService = createAiService({ providers: deps.providers, health: deps.health, ...GENERATION_BUDGETS, deadlineMs: remainingMs });
-  const repair = await repairService.generate(buildRepairPrompt(input, firstText, issue), {
+  const repair = await repairService.generate(buildRepairPrompt(input, firstText, issue, deps.site), {
     maxTokens: GENERATION_MAX_TOKENS,
     jsonMode: { schema: BLOG_RESPONSE_SCHEMA },
     onAttempt: handleAttempt,
@@ -471,7 +471,7 @@ export interface GenerateSeoResult {
 
 export async function generateSeoSuggestion(input: { title: string; contentText: string }, deps: BlogAiDeps): Promise<GenerateSeoResult | AiHelperFailure> {
   const service = createAiService({ providers: deps.providers, health: deps.health, timeoutMs: 25_000, deadlineMs: 45_000 });
-  const result = await service.generate(buildSeoSuggestPrompt(input), { maxTokens: 400 });
+  const result = await service.generate(buildSeoSuggestPrompt(input, deps.site), { maxTokens: 400 });
   if (!result.ok || !result.text) {
     return { ok: false, error: "No AI provider is configured or reachable right now." };
   }

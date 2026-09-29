@@ -34,7 +34,7 @@ export async function buildKnowledge(sources: readonly KnowledgeSource[], option
 /** The owner's identity, so the assistant always knows who it speaks for. */
 export function profileSection(site: ChatSite): string {
   return [
-    "### Developer Profile\n",
+    "### Owner Profile\n",
     `- **Full Name:** ${site.authorFullName} (${site.author})\n`,
     `- **Role:** ${site.role}\n`,
     `- **Current Position:** ${site.company}\n`,

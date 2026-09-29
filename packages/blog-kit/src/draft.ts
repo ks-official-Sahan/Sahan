@@ -6,8 +6,8 @@
 // disabled storage, or over quota — none of that is exercised here).
 
 /** One key per post (or "new" for the create form), so two open posts never collide. */
-export function draftStorageKey(postId: string | undefined): string {
-  return `sahan-admin:blog-draft:${postId ?? "new"}`;
+export function draftStorageKey(postId: string | undefined, prefix = "admin"): string {
+  return `${prefix}:blog-draft:${postId ?? "new"}`;
 }
 
 /**

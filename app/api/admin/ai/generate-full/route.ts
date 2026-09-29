@@ -8,6 +8,7 @@ import { rateLimitedResponse } from "@/lib/admin/rate-limited";
 import { checkOrigin } from "@/lib/security/check-origin";
 import { getEnv } from "@/lib/env";
 import { realBlogDeps } from "@sahan-sac/blog-kit/deps";
+import { blogSite } from "@/lib/ai/blog-site";
 import { generateFullPost } from "@sahan-sac/blog-kit/helpers";
 
 // POST /api/admin/ai/generate-full. Requires generateAI, rate limited per
@@ -55,7 +56,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, error: "A prompt is required." }, { status: 400 });
   }
 
-  const result = await generateFullPost(parsed.data, realBlogDeps(getEnv()));
+  const result = await generateFullPost(parsed.data, realBlogDeps(getEnv(), blogSite));
   if (!result.ok) return NextResponse.json(result, { status: 502, headers: { "Cache-Control": "no-store" } });
   return NextResponse.json(result, { headers: { "Cache-Control": "no-store" } });
 }

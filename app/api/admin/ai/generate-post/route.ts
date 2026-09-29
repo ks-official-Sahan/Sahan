@@ -11,10 +11,11 @@ import { realBlogDeps } from "@sahan-sac/blog-kit/deps";
 import { generateBlogPost } from "@sahan-sac/blog-kit/generate";
 import { generateBlogImage } from "@sahan-sac/blog-kit/images";
 import { imageConfigFromEnv } from "@sahan-sac/ai-core/image";
-import { MEDIA_CONFIG } from "@sahan-sac/media-kit/config";
 
 import { removeImageToken } from "@sahan-sac/blog-kit/ai-image-tokens";
+import { blogSite } from "@/lib/ai/blog-site";
 import { mediaLibrarySink } from "@/lib/ai/image-sink";
+import { MEDIA_UPLOAD_FOLDER } from "@/lib/media/folder";
 import { db } from "@/lib/db/prisma";
 import { ensureUniqueSlug, slugify } from "@sahan-sac/blog-kit/slug";
 import { log } from "@/lib/log";
@@ -57,7 +58,7 @@ function sseLine(event: string, data: unknown): string {
   return `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
 }
 
-const IMAGE_FOLDER = `${MEDIA_CONFIG.uploadFolder}/ai-blog`;
+const IMAGE_FOLDER = `${MEDIA_UPLOAD_FOLDER}/ai-blog`;
 
 export async function POST(request: NextRequest) {
   // Off (ENABLE_BLOG_AI) or no provider configured: the route does not exist.
@@ -112,7 +113,7 @@ export async function POST(request: NextRequest) {
 
       try {
         send("stage", { stage: "writing" });
-        const result = await generateBlogPost(input, realBlogDeps(env), {
+        const result = await generateBlogPost(input, realBlogDeps(env, blogSite), {
           onStatus: (status) => {
             send("provider_status", status);
           },

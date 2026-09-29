@@ -120,7 +120,7 @@ function loadKnowledge(): Promise<string> {
 export async function getKnowledge(): Promise<string | null> {
   return loadOrNull(
     // Bump the version when the knowledge format changes, so stale entries are not served.
-    cached(loadKnowledge, ["chatbot", "knowledge", "v3"], {
+    cached(loadKnowledge, ["chatbot", "knowledge", "v4"], {
       tags: [TAGS.chatbotKnowledge],
       revalidate: 3600,
     }),

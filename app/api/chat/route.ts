@@ -6,7 +6,6 @@ import { z } from "zod";
 import { realProviders, sharedAiHealth } from "@sahan-sac/ai-core/providers";
 import { runChat } from "@sahan-sac/chat-kit/handler";
 import {
-  CHAT_VISITOR_COOKIE,
   chatVisitorCookieOptions,
   newChatVisitorId,
   signChatVisitorId,
@@ -24,6 +23,10 @@ import { clientIp, UNKNOWN_IP } from "@/lib/security/ip";
 import { isAllowedOrigin } from "@/lib/security/origin";
 import type { ChatbotConfig } from "@/lib/settings/schema";
 import { getPublicSettings } from "@/lib/settings/service";
+
+// The visitor-id cookie's name from before chat-kit had a neutral default;
+// keeping it means existing visitors keep their id.
+const CHAT_VISITOR_COOKIE = "sahan_chat_vid";
 
 // The provider chain stops at 20 s (chat-kit CHAT_BUDGETS.deadlineMs); leave room for the
 // session writes. Vercel Hobby's default can be shorter than that.

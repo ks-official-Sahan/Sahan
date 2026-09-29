@@ -19,12 +19,12 @@ It is headless and framework-agnostic: no Prisma, no Next.js APIs, no React. The
 
 | Import | What |
 | --- | --- |
-| `@sahan-sac/chat-kit/types` | `ChatbotConfig`, `ChatSite` (the owner identity), `ChatTurn`, `CHAT_TONES` |
+| `@sahan-sac/chat-kit/types` | `ChatbotConfig`, `ChatSite` (the owner identity; optional `kind`, `scope` and `linkExample` set the wording, default "site"), `ChatTurn`, `CHAT_TONES` |
 | `@sahan-sac/chat-kit/handler` | `runChat(input, deps)`, `CHAT_BUDGETS` (12 s per attempt, 20 s chain, 5 s hedge, 500 tokens) |
 | `@sahan-sac/chat-kit/knowledge` | `buildKnowledge(sources)`, `profileSection(site)`, `trainingSection(entries)`, `knowledgeHosts(text)` |
 | `@sahan-sac/chat-kit/prompts` | `buildChatPrompt` (fixed system prompt, knowledge as fenced reference data) |
 | `@sahan-sac/chat-kit/guard` | `guardUserMessage`, `filterModelOutput` (strips HTML, secrets, `/admin` paths and links to hosts not allowed) |
-| `@sahan-sac/chat-kit/visitor-cookie` | `newChatVisitorId`, `signChatVisitorId`, `verifyChatVisitorCookie`, `chatVisitorCookieOptions`, `CHAT_VISITOR_COOKIE` |
+| `@sahan-sac/chat-kit/visitor-cookie` | `newChatVisitorId`, `signChatVisitorId`, `verifyChatVisitorCookie`, `chatVisitorCookieOptions`, `CHAT_VISITOR_COOKIE` (default name "chat_vid"; any name works) |
 | `@sahan-sac/chat-kit/adapter` | `ChatStore`, `ChatSessionInput`, `ChatMessageInput` |
 | `@sahan-sac/chat-kit/session-summaries` | `ChatSessionSummary`, `parseChatSessionListParams`, page-size limits for the admin conversations list |
 

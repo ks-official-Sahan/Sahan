@@ -19,7 +19,7 @@ It is headless and framework-agnostic: no Prisma, no Next.js APIs, no React, and
 
 | Import | What |
 | --- | --- |
-| `@sahan-sac/blog-kit/deps` | `realBlogDeps(env)` (blog provider chain + shared health), `BlogAiDeps`, `AiHelperFailure` |
+| `@sahan-sac/blog-kit/deps` | `realBlogDeps(env, site?)` (blog provider chain + shared health + site profile), `BlogAiDeps`, `AiHelperFailure` |
 | `@sahan-sac/blog-kit/generate` | `generateBlogPost`, `generateSeoSuggestion`, `blogGenerationSchema`, `BLOG_RESPONSE_SCHEMA`, `TEXT_BUDGET_MS`, JSON repair helpers |
 | `@sahan-sac/blog-kit/helpers` | `draftPost`, `suggestCover`, `generateFullPost` |
 | `@sahan-sac/blog-kit/prompts` | Full-post, repair and SEO prompt builders (caller input fenced as data) |
@@ -31,7 +31,7 @@ It is headless and framework-agnostic: no Prisma, no Next.js APIs, no React, and
 | `@sahan-sac/blog-kit/slug` | `slugify`, `isValidSlug`, `ensureUniqueSlug` |
 | `@sahan-sac/blog-kit/readtime` | `computeReadMinutes` |
 | `@sahan-sac/blog-kit/revisions` | Post snapshot schema and comparison, `REVISIONS_KEPT` |
-| `@sahan-sac/blog-kit/draft` | Browser draft autosave keys and freshness check |
+| `@sahan-sac/blog-kit/draft` | Browser draft autosave keys (`draftStorageKey(id, prefix = "admin")`) and freshness check |
 | `@sahan-sac/blog-kit/concurrency` | `parseSubmittedUpdatedAt`, conflict message for optimistic concurrency |
 
 `generate` and `helpers` import `server-only`, and `deps` and `images` reach the provider code. The utilities (`markdown`, `chart`, `slug`, `readtime`, `revisions`, `draft`, `concurrency`, `ai-image-tokens`) are browser-safe.
@@ -48,7 +48,11 @@ import { realBlogDeps } from "@sahan-sac/blog-kit/deps";
 import { generateBlogPost } from "@sahan-sac/blog-kit/generate";
 import { generateBlogImage } from "@sahan-sac/blog-kit/images";
 
-const result = await generateBlogPost(input, realBlogDeps(env), { onStatus: (status) => send("provider_status", status) });
+// Every prompt describes the site and may only link to these paths. All optional:
+// the defaults are "this site", ["/"] and no call-to-action path.
+const site = { description: "a bakery's site", internalLinks: ["/", "/menu", "/contact"], callToAction: ["/contact"] };
+
+const result = await generateBlogPost(input, realBlogDeps(env, site), { onStatus: (status) => send("provider_status", status) });
 if (!result.ok) return send("error", { error: result.error });
 
 const config = imageConfigFromEnv(env);

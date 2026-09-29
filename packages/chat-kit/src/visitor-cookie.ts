@@ -9,7 +9,8 @@ import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypt
 // "secrets are parameters" rule), so a client can discard the cookie to get a
 // new id but cannot forge or predict one.
 
-export const CHAT_VISITOR_COOKIE = "sahan_chat_vid";
+/** A default name; an app may use its own (the value format is what matters). */
+export const CHAT_VISITOR_COOKIE = "chat_vid";
 const ID_BYTES = 16;
 /** `<id>.<hmac>`, generous enough for the base64url id and a SHA-256 HMAC. */
 const MAX_COOKIE_LENGTH = 256;

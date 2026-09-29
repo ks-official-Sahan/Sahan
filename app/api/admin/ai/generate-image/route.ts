@@ -9,9 +9,9 @@ import { checkOrigin } from "@/lib/security/check-origin";
 import { getEnv } from "@/lib/env";
 import { imageConfigFromEnv } from "@sahan-sac/ai-core/image";
 import { generateBlogImage } from "@sahan-sac/blog-kit/images";
-import { MEDIA_CONFIG } from "@sahan-sac/media-kit/config";
 
 import { mediaLibrarySink } from "@/lib/ai/image-sink";
+import { MEDIA_UPLOAD_FOLDER } from "@/lib/media/folder";
 
 // POST /api/admin/ai/generate-image. Requires generateAI, rate limited per
 // user (ai:image:user). Body:
@@ -33,7 +33,7 @@ const bodySchema = z.object({
 const notFound = () => new NextResponse(null, { status: 404, headers: { "Cache-Control": "no-store" } });
 const forbidden = () => new NextResponse(null, { status: 403, headers: { "Cache-Control": "no-store" } });
 
-const IMAGE_FOLDER = `${MEDIA_CONFIG.uploadFolder}/ai-blog`;
+const IMAGE_FOLDER = `${MEDIA_UPLOAD_FOLDER}/ai-blog`;
 
 export async function POST(request: NextRequest) {
   // Off (ENABLE_BLOG_AI) or no provider configured: the route does not exist.

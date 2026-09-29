@@ -3,7 +3,7 @@ import { test } from "node:test";
 
 import { applyImageToken } from "./ai-image-tokens";
 
-const TOKEN = "sahan-ai-image://1";
+const TOKEN = "ai-image://1";
 
 test("applyImageToken replaces the token with the real URL on success", () => {
   const markdown = `Intro.\n\n![a diagram](${TOKEN} "How it fits together")\n\nMore text.`;
@@ -28,10 +28,10 @@ test("applyImageToken leaves markdown unchanged when the token is not present", 
 });
 
 test("applyImageToken only touches the matching token, not a different one", () => {
-  const markdown = `![first](sahan-ai-image://1 "a")\n\n![second](sahan-ai-image://2 "b")`;
-  const result = applyImageToken(markdown, "sahan-ai-image://1", { url: "https://cdn.example.com/1.png", alt: "first" });
+  const markdown = `![first](ai-image://1 "a")\n\n![second](ai-image://2 "b")`;
+  const result = applyImageToken(markdown, "ai-image://1", { url: "https://cdn.example.com/1.png", alt: "first" });
   assert.match(result, /!\[first\]\(https:\/\/cdn\.example\.com\/1\.png "a"\)/);
-  assert.match(result, /!\[second\]\(sahan-ai-image:\/\/2 "b"\)/);
+  assert.match(result, /!\[second\]\(ai-image:\/\/2 "b"\)/);
 });
 
 test("applyImageToken handles a placeholder image with no caption", () => {

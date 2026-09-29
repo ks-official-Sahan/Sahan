@@ -25,6 +25,12 @@ export interface ChatSite {
   gitHubUrl: string;
   siteUrl: string;
   description: string;
+  /** What the assistant calls the site, e.g. "portfolio". Default "site". */
+  kind?: string;
+  /** What visitors may ask about, e.g. "their portfolio, work, projects, skills, experience". Default "their site and work". */
+  scope?: string;
+  /** How the assistant should format a site link, e.g. "[Project Name](/works) when referencing portfolio content". */
+  linkExample?: string;
 }
 
 /** One earlier turn of the conversation, oldest first. */

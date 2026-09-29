@@ -9,7 +9,7 @@ Headless and framework-agnostic: no Prisma, no database access, no Next.js APIs.
 | Import | What |
 | --- | --- |
 | `@sahan-sac/media-kit/env` | `mediaEnvSchema` (zod), `parseMediaEnv(source)`, `mediaEnvFromProcess()`, `MediaEnv` |
-| `@sahan-sac/media-kit/config` | `MEDIA_CONFIG`, `MediaKind`, `getMediaKind`, `validateMediaFormat`, `getMaxSizeBytes` |
+| `@sahan-sac/media-kit/config` | `MEDIA_CONFIG` (formats, size limits, allowed widths and qualities; the upload folder is your app's own constant), `MediaKind`, `getMediaKind`, `validateMediaFormat`, `getMaxSizeBytes` |
 | `@sahan-sac/media-kit/validation` | `validateMediaUpload`, `validateMediaMetadata`, `isAllowedWidth`, `isAllowedQuality` |
 | `@sahan-sac/media-kit/signature` | `signMediaUrl`, `verifyMediaSignature`, `signCloudinaryUpload` |
 | `@sahan-sac/media-kit/delivery` | `cloudinaryImageUrl`, `cloudinarySrcSet` |

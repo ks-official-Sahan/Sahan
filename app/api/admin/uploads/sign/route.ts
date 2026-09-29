@@ -7,6 +7,7 @@ import { getOptionalUser, hasPermission } from "@/lib/auth/dal";
 import { env } from "@/lib/env";
 import { checkOrigin } from "@/lib/security/check-origin";
 import { limit } from "@/lib/cache/ratelimit";
+import { MEDIA_UPLOAD_FOLDER } from "@/lib/media/folder";
 
 // GET /api/admin/uploads/sign
 // Returns a signed Cloudinary upload for the browser to post the file with
@@ -41,7 +42,7 @@ export async function GET(request: NextRequest) {
   }
 
   const params = {
-    folder: MEDIA_CONFIG.uploadFolder,
+    folder: MEDIA_UPLOAD_FOLDER,
     allowed_formats: [...MEDIA_CONFIG.images.formats, ...MEDIA_CONFIG.documents.formats].join(","),
     timestamp: String(Math.floor(Date.now() / 1000)),
   };
@@ -56,7 +57,7 @@ export async function GET(request: NextRequest) {
       apiKey: env.CLOUDINARY_API_KEY,
       params,
       signature,
-      folder: MEDIA_CONFIG.uploadFolder,
+      folder: MEDIA_UPLOAD_FOLDER,
       maxSizeBytes: MEDIA_CONFIG.images.maxSizeBytes,
     },
     {

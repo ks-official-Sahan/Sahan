@@ -5,10 +5,11 @@ import { draftStorageKey, isDraftNewer } from "./draft";
 
 describe("draftStorageKey", () => {
   it("scopes the key to the post id", () => {
-    assert.equal(draftStorageKey("abc123"), "sahan-admin:blog-draft:abc123");
+    assert.equal(draftStorageKey("abc123"), "admin:blog-draft:abc123");
+    assert.equal(draftStorageKey("abc123", "acme"), "acme:blog-draft:abc123");
   });
   it("uses \"new\" when there is no post id yet", () => {
-    assert.equal(draftStorageKey(undefined), "sahan-admin:blog-draft:new");
+    assert.equal(draftStorageKey(undefined), "admin:blog-draft:new");
   });
 });
 

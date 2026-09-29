@@ -16,13 +16,13 @@ import type { ModelPrompt } from "@sahan-sac/ai-core/guard";
 const VALID_POST = {
   title: "Shipping Fast Without Breaking Things",
   excerpt: "A short look at how disciplined engineering teams ship quickly.",
-  bodyMarkdown: "## Intro\n\nSome body text.\n\n![a diagram](sahan-ai-image://1 \"Diagram\")\n",
+  bodyMarkdown: "## Intro\n\nSome body text.\n\n![a diagram](ai-image://1 \"Diagram\")\n",
   seoTitle: "Shipping Fast Without Breaking Things",
   seoDescription: "How disciplined engineering teams ship quickly and safely.",
   topic: "Engineering",
   tags: ["engineering", "process"],
   featuredImage: { prompt: "a clean engineering workspace, wide shot", alt: "An engineer's workspace" },
-  contentImages: [{ token: "sahan-ai-image://1", prompt: "a system diagram", alt: "System diagram", caption: "How it fits together" }],
+  contentImages: [{ token: "ai-image://1", prompt: "a system diagram", alt: "System diagram", caption: "How it fits together" }],
 };
 
 function fakeProvider(name: string, outcome: AiOutcome): AiProvider {
@@ -83,13 +83,13 @@ test("parseBlogGeneration repairs and accepts valid post with unescaped internal
   const postText = `{
     "title": "Shipping Fast Without Breaking Things",
     "excerpt": "A short look at how disciplined engineering teams ship quickly.",
-    "bodyMarkdown": "## Intro\\n\\nIn this post we explore "server-side rendering" and "zero-downtime" deploys.\\n\\n![a diagram](sahan-ai-image://1 \\"Diagram\\")\\n",
+    "bodyMarkdown": "## Intro\\n\\nIn this post we explore "server-side rendering" and "zero-downtime" deploys.\\n\\n![a diagram](ai-image://1 \\"Diagram\\")\\n",
     "seoTitle": "Shipping Fast Without Breaking Things",
     "seoDescription": "How disciplined engineering teams ship quickly and safely.",
     "topic": "Engineering",
     "tags": ["engineering", "process"],
     "featuredImage": { "prompt": "a clean engineering workspace, wide shot", "alt": "An engineer's workspace" },
-    "contentImages": [{ "token": "sahan-ai-image://1", "prompt": "a system diagram", "alt": "System diagram", "caption": "How it fits together" }]
+    "contentImages": [{ "token": "ai-image://1", "prompt": "a system diagram", "alt": "System diagram", "caption": "How it fits together" }]
   }`;
   const result = parseBlogGeneration(postText);
   assert.equal(result.ok, true);

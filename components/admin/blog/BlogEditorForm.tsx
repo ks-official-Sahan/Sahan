@@ -20,6 +20,9 @@ import PublishingCard, { PublishButton } from "./PublishingCard";
 import SeoCard from "./SeoCard";
 import SidebarCard from "./SidebarCard";
 
+/** Kept from before the package default ("admin"), so saved drafts still load. */
+const DRAFT_KEY_PREFIX = "sahan-admin";
+
 // The blog post editor: create and update share this component (per the
 // task, "new and edit should share the same editor component"). A calm,
 // dense editor in the Linear/Notion/Ghost mold: a sticky top bar (save
@@ -193,7 +196,7 @@ export default function BlogEditorForm({
   historyPanel?: ReactNode;
 }) {
   const initial = post ?? EMPTY_POST;
-  const storageKey = draftStorageKey(post?.id);
+  const storageKey = draftStorageKey(post?.id, DRAFT_KEY_PREFIX);
 
   const [title, setTitle] = useState(initial.title);
   const [slug, setSlug] = useState(initial.slug);
@@ -259,7 +262,7 @@ export default function BlogEditorForm({
   const createdSlug = post?.id ? initial.slug : null;
   useEffect(() => {
     if (!createdSlug) return;
-    const newKey = draftStorageKey(undefined);
+    const newKey = draftStorageKey(undefined, DRAFT_KEY_PREFIX);
     if (parseDraft(readDraftRaw(newKey))?.slug === createdSlug) clearDraft(newKey);
   }, [createdSlug]);
 

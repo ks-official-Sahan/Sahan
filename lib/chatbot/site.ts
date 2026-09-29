@@ -15,4 +15,7 @@ export const chatSite: ChatSite = {
   gitHubUrl: Site.gitHubUrl,
   siteUrl: SiteMetadata.siteUrl,
   description: SiteMetadata.description,
+  kind: "portfolio",
+  scope: "their portfolio, work, projects, skills, experience",
+  linkExample: "[Project Name](/works) when referencing portfolio content",
 };

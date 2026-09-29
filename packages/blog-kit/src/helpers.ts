@@ -34,7 +34,7 @@ export interface CoverResult {
 }
 
 export async function draftPost(input: DraftInput, deps: BlogAiDeps): Promise<DraftResult | AiHelperFailure> {
-  const prompt = buildDraftPrompt(input);
+  const prompt = buildDraftPrompt(input, deps.site);
   const service = createAiService({ providers: deps.providers, deadlineMs: HELPER_DEADLINE_MS });
   const result = await service.generate(prompt, { maxTokens: 1400 });
 
@@ -48,7 +48,7 @@ export async function draftPost(input: DraftInput, deps: BlogAiDeps): Promise<Dr
 }
 
 export async function suggestCover(input: CoverInput, deps: BlogAiDeps): Promise<CoverResult | AiHelperFailure> {
-  const prompt = buildCoverPrompt(input);
+  const prompt = buildCoverPrompt(input, deps.site);
   const service = createAiService({ providers: deps.providers, deadlineMs: HELPER_DEADLINE_MS });
   const result = await service.generate(prompt, { maxTokens: 200 });
 
@@ -124,7 +124,7 @@ const FULL_POST_MAX_TOKENS: Record<FullPostLength, number> = {
 };
 
 export async function generateFullPost(input: FullPostInput, deps: BlogAiDeps): Promise<FullPostResult | AiHelperFailure> {
-  const prompt = buildFullPostPrompt(input);
+  const prompt = buildFullPostPrompt(input, deps.site);
   const service = createAiService({ providers: deps.providers, deadlineMs: HELPER_DEADLINE_MS });
   const result = await service.generate(prompt, { maxTokens: FULL_POST_MAX_TOKENS[input.length] });
 

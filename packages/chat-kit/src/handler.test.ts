@@ -48,7 +48,8 @@ test("runChat wraps the visitor message as data and puts the site identity in th
   const result = await runChat(input, { providers: [provider("fake", { ok: true, text: "Hello" }, seen)], logger: silent });
   assert.equal(result.ok, true);
   assert.equal(seen.length, 1);
-  assert.match(seen[0].system, /official portfolio assistant for Ada Example, a Engineer/);
+  assert.match(seen[0].system, /official site assistant for Ada Example, a Engineer/);
+  assert.match(seen[0].system, /- Site: https:\/\/ada\.example/);
   assert.match(seen[0].system, /Who is Ada\?/);
   assert.match(seen[0].system, /<<<BEGIN_REFERENCE_DATA>>>/);
   assert.notEqual(seen[0].user, input.message);
@@ -83,4 +84,14 @@ test("runChat falls through to the next provider and reports when every provider
 test("runChat with no providers fails without throwing", async () => {
   const result = await runChat(input, { providers: [], logger: silent });
   assert.deepEqual(result, { ok: false, errorClass: "no_provider" });
+});
+
+test("runChat uses the site's own wording when it sets kind, scope and linkExample", async () => {
+  const seen: ModelPrompt[] = [];
+  const portfolio = { ...site, kind: "portfolio", scope: "their portfolio and projects", linkExample: "[Project](/works) for projects" };
+  await runChat({ ...input, site: portfolio }, { providers: [provider("fake", { ok: true, text: "Hi" }, seen)], logger: silent });
+  assert.match(seen[0].system, /official portfolio assistant for Ada Example/);
+  assert.match(seen[0].system, /- Portfolio: https:\/\/ada\.example/);
+  assert.match(seen[0].system, /You only discuss Ada Example, their portfolio and projects and how to contact them\./);
+  assert.match(seen[0].system, /inline links like \[Project\]\(\/works\) for projects\./);
 });

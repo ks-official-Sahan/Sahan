@@ -24,8 +24,6 @@ export const MEDIA_CONFIG = {
   allowedWidths: [200, 400, 600, 800, 1000, 1200, 1600] as const,
   // Allowed JPEG/WebP quality levels
   allowedQualities: [70, 75, 80, 85, 90, 95] as const,
-  // Cloudinary upload folder
-  uploadFolder: "sahan",
 } as const;
 
 export function getMediaKind(format: string): MediaKind {
