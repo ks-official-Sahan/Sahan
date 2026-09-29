@@ -2,6 +2,12 @@
 
 All notable changes to this package are documented in this file.
 
+## 0.3.1
+
+### Patch Changes
+
+- 8f98a47: Source and releases move to the Sahan monorepo (`packages/auth-kit`), published with Changesets and npm Trusted Publishing. No API changes. Now licensed Apache-2.0 (was UNLICENSED).
+
 ## 0.3.0
 
 ### Added
