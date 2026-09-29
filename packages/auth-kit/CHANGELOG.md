@@ -2,6 +2,16 @@
 
 All notable changes to this package are documented in this file.
 
+## 0.4.0
+
+### Minor Changes
+
+- b0061ae: New `./better-auth` engine: an `authKit()` Better Auth plugin that adds auth-kit's login-unlock gate, sign-in throttling, password policy, audit events and server-only `role`/`mustChangePassword` user fields; `authKitEmailPassword()` keeps auth-kit's bcrypt hashes and length limits so existing users sign in unchanged; `readBetterAuthSession()` returns the session in auth-kit's shape. `better-auth` is a new optional peer dependency; the next-auth engine is unchanged.
+- 54f57a6: New `./hono` subpath: `securityHeaders`, `originGuard` (CSRF check on unsafe methods), `rateLimit` (429 with Retry-After), `session` (read once per request), `requirePermission` (404 when signed out or not allowed) and `betterAuthRoute` for mounting Better Auth. `hono` is a new optional peer dependency.
+- 2f74f93: `originGuard` (`./hono`) accepts `nativeOrigins` (for example `"myapp://"`): a request without a browser Origin passes when its `expo-origin` header matches exactly. New `./rbac/rules` subpath exposes the pure RBAC rules (`can`, `defaultMatrix`, ...) without React, for React Native clients.
+- 6c4c634: Framework-neutral core, first step toward the Better Auth, Hono and Expo engines. User agents are parsed by the new `./user-agent` (ua-parser-js 1.x, the same parser Next.js bundles) instead of `next/server`, so `authorize` and the session store no longer import Next.js. New subpaths: `./next-auth` (engine-named alias of `./config`), `./session/core` (session state and store without React), `./security/device` (`requestDetailsFromHeaders` for any `Headers`). `next`, `next-auth` and `react` are now optional peer dependencies. Existing imports keep working unchanged.
+- 4bc5653: Choose the ORM: new `./prisma` (`createPrismaAuthAdapter`, typed structurally so any generated client fits) and `./drizzle` (`createAuthSchema` + `createDrizzleAuthAdapter`) subpaths implement `AuthDbAdapter`. `prisma/auth.prisma` ships the models. Both schemas create an identical Postgres database, and both adapters pass one shared contract suite on in-process Postgres (PGlite) in the package tests. `drizzle-orm` is a new optional peer dependency.
+
 ## 0.3.1
 
 ### Patch Changes

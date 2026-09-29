@@ -1,6 +1,6 @@
 {
   "name": "@sahan-sac/auth-kit-expo",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "React Native (Expo) client for @sahan-sac/auth-kit's Better Auth engine: a typed auth client with auth-kit's user fields, permission hooks, and a fetch helper that calls your API with the stored session.",
   "license": "Apache-2.0",
   "repository": {
