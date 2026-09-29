@@ -88,9 +88,11 @@ This package is published under a **private, restricted** scope
 | `next-auth` | `5.0.0-beta.32` |
 | `react` | `^19.0.0` |
 | `better-auth` | `^1.7.6` |
+| `drizzle-orm` | `>=0.44.0 <1` |
 
-All four are optional: install `next-auth` for the next-auth engine or
-`better-auth` for the Better Auth engine, never both. `react` is a peer because `createRbac` and `createAuthDal` use `react`'s
+All are optional: install `next-auth` for the next-auth engine or
+`better-auth` for the Better Auth engine (never both), and `drizzle-orm` only
+for the Drizzle adapter. `react` is a peer because `createRbac` and `createAuthDal` use `react`'s
 `cache()` to memoize one database read per request/render.
 
 ## Required environment variables
@@ -108,6 +110,29 @@ pass into the factories below.
 | `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` | Session-state cache and rate limits. Used only when both are set and the URL is https (`redisConfigFromEnv`). Falls back to an in-memory store/limiter when unset — **fine for a single server, not safe across multiple serverless instances.** Required in any real serverless/multi-instance deployment. |
 | `TRUSTED_PROXY_HOPS` | How many of *your own* reverse proxies append to `x-forwarded-for`. `0` (default) means no header is trusted and every caller reads as `"unknown"`. On Vercel this is unnecessary (its own headers are trusted automatically); use `trustProxy` in `defineAuthKit` to make this explicit config instead of environment-implicit. |
 | `ADMIN_ALLOWED_ORIGINS` | Extra allowed origins (e.g. preview deployments), comma/whitespace separated. Parse with `parseOriginList` from `./security/origin`. |
+
+## Database: Prisma or Drizzle
+
+auth-kit reads and writes its tables through `AuthDbAdapter` (`./adapter`).
+Two ready implementations ship with the package, and both pass one shared
+contract suite against a real (in-process) Postgres in the package tests:
+
+```ts
+// Prisma: copy the enums and models from prisma/auth.prisma into your schema.
+import type { Prisma } from "@prisma/client";
+import { createPrismaAuthAdapter } from "@sahan-sac/auth-kit/prisma";
+export const authAdapter = createPrismaAuthAdapter<Prisma.TransactionClient>(db);
+
+// Drizzle: the same tables as Drizzle definitions.
+import { createAuthSchema, createDrizzleAuthAdapter } from "@sahan-sac/auth-kit/drizzle";
+export const authSchema = createAuthSchema({ roles: ["DEVELOPER", "MANAGER", "EDITOR"], defaultRole: "EDITOR" });
+export const authAdapter = createDrizzleAuthAdapter(db, authSchema);
+```
+
+The two schemas create the same database, name for name (tables, columns,
+types, defaults, enums, indexes and constraints); a package test builds both
+and compares them. A project can switch ORMs without a migration.
+`@sahan-sac/auth-kit/prisma/auth.prisma` is the full Prisma source.
 
 ## The Prisma schema this package's reference adapter expects
 
@@ -427,6 +452,8 @@ const session = await readBetterAuthSession(auth, request.headers);
 | `./authorize` | Pure/universal | `createAuthorize` — the credentials/MFA decision, without the next-auth error-throwing wrapper |
 | `./config` | Next.js + next-auth | `createAuthConfig` |
 | `./next-auth` | Next.js + next-auth | Same as `./config` (engine-named) |
+| `./prisma` | Any server | `createPrismaAuthAdapter`, `PrismaAuthClient`/`PrismaAuthModels` types |
+| `./drizzle` | Any server (drizzle-orm) | `createAuthSchema`, `createDrizzleAuthAdapter`, types |
 | `./better-auth` | Any server (Better Auth) | `authKit` plugin, `authKitEmailPassword`, `readBetterAuthSession`, types |
 | `./session` | Next.js (`next/navigation`, `next/server`) | `createAuthDal`, `createSessionStore`, `createSessionReader`, `evaluateSession`, `passwordFingerprint`, types |
 | `./security` | Mixed — `request-device` needs `next/headers` | `clientIp`, allowlist functions, `isAllowedOrigin`/`parseOriginList`, `buildCsp`/`generateNonce`, `SECURITY_HEADERS`, `isScannerPath`, `checkOrigin`, `requestDetails` |

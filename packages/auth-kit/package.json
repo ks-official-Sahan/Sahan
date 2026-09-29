@@ -31,6 +31,9 @@
     "./cache": "./src/cache/index.ts",
     "./credentials": "./src/credentials.ts",
     "./adapter": "./src/adapter.ts",
+    "./prisma": "./src/prisma/index.ts",
+    "./drizzle": "./src/drizzle/index.ts",
+    "./prisma/auth.prisma": "./prisma/auth.prisma",
     "./password": "./src/password.ts",
     "./password-policy": "./src/password-policy.ts",
     "./invite-token": "./src/invite-token.ts",
@@ -67,15 +70,25 @@
     "ua-parser-js": "^1.0.41"
   },
   "peerDependencies": {
+    "better-auth": "^1.7.6",
     "next": "^16.3.5",
     "next-auth": "5.0.0-beta.32",
     "react": "^19.0.0",
-    "better-auth": "^1.7.6"
+    "drizzle-orm": ">=0.44.0 <1"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.8",
+    "@electric-sql/pglite-socket": "^0.2.11",
+    "@prisma/adapter-pg": "7.10.0",
+    "@prisma/client": "7.10.0",
     "@types/node": "^22",
+    "@types/pg": "^8.23.1",
     "@types/ua-parser-js": "^0.7.39",
     "better-auth": "^1.7.6",
+    "drizzle-kit": "^0.31.11",
+    "drizzle-orm": "^0.45.3",
+    "pg": "^8.23.0",
+    "prisma": "7.10.0",
     "tsup": "^8.3.5",
     "tsx": "^4.23.15",
     "typescript": "^5.6.3"
@@ -84,7 +97,8 @@
     "dist",
     "README.md",
     "CHANGELOG.md",
-    "LICENSE"
+    "LICENSE",
+    "prisma/auth.prisma"
   ],
   "publishConfig": {
     "access": "public",
@@ -160,6 +174,15 @@
         "types": "./dist/adapter.d.ts",
         "import": "./dist/adapter.js"
       },
+      "./prisma": {
+        "types": "./dist/prisma/index.d.ts",
+        "import": "./dist/prisma/index.js"
+      },
+      "./drizzle": {
+        "types": "./dist/drizzle/index.d.ts",
+        "import": "./dist/drizzle/index.js"
+      },
+      "./prisma/auth.prisma": "./prisma/auth.prisma",
       "./password": {
         "types": "./dist/password.d.ts",
         "import": "./dist/password.js"
@@ -250,6 +273,9 @@
       "optional": true
     },
     "better-auth": {
+      "optional": true
+    },
+    "drizzle-orm": {
       "optional": true
     }
   }

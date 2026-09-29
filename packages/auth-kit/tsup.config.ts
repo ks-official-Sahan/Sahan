@@ -25,6 +25,8 @@ export default defineConfig({
     "src/cache/index.ts",
     "src/credentials.ts",
     "src/adapter.ts",
+    "src/prisma/index.ts",
+    "src/drizzle/index.ts",
     "src/password.ts",
     "src/password-policy.ts",
     "src/invite-token.ts",
