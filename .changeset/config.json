@@ -3,10 +3,20 @@
   "format": false,
   "changelog": "@changesets/cli/changelog",
   "commit": false,
-  "fixed": [["@sahan-sac/ai-core", "@sahan-sac/blog-kit", "@sahan-sac/chat-kit"]],
+  "fixed": [
+    [
+      "@sahan-sac/ai-core",
+      "@sahan-sac/blog-kit",
+      "@sahan-sac/chat-kit"
+    ]
+  ],
   "linked": [],
   "access": "public",
   "baseBranch": "master",
   "updateInternalDependencies": "patch",
-  "ignore": []
+  "ignore": [],
+  "privatePackages": {
+    "version": false,
+    "tag": false
+  }
 }

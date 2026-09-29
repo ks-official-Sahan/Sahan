@@ -53,6 +53,13 @@ jobs:
       - name: Run package tests
         run: pnpm --filter "./packages/*" run test
 
+      # Example apps run against the workspace packages (Hono + Better Auth +
+      # Drizzle on an in-process Postgres, no services needed).
+      - name: Check example apps
+        run: |
+          pnpm --filter "./examples/*" run typecheck
+          pnpm --filter "./examples/*" run test
+
       # Cache Next.js build to optimize build times across runs
       - name: Cache Next.js build
         uses: actions/cache@v4
