@@ -2,7 +2,7 @@
   "name": "@sahan-sac/ai-core",
   "version": "0.0.0",
   "description": "Free-by-default AI provider chain (Gemini, OpenRouter, NVIDIA, Vertex) with hedging, cooldowns and deadlines, env-driven model resolution, image generation and prompt-injection guards. Shared by @sahan-sac/blog-kit and @sahan-sac/chat-kit.",
-  "license": "UNLICENSED",
+  "license": "Apache-2.0",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/ks-official-Sahan/Sahan.git",
@@ -40,7 +40,7 @@
     "build": "tsup",
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.build.json",
     "test": "node --conditions=react-server --import tsx --test \"src/**/*.test.ts\"",
-    "prepublishOnly": "npm run build && npm run test"
+    "prepack": "npm run build && npm run test"
   },
   "dependencies": {
     "@ai-sdk/openai": "^4.0.71",
@@ -57,10 +57,11 @@
   "files": [
     "dist",
     "README.md",
-    "CHANGELOG.md"
+    "CHANGELOG.md",
+    "LICENSE"
   ],
   "publishConfig": {
-    "access": "restricted",
+    "access": "public",
     "registry": "https://registry.npmjs.org/",
     "types": "./dist/index.d.ts",
     "main": "./dist/index.js",

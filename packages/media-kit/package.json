@@ -2,7 +2,7 @@
   "name": "@sahan-sac/media-kit",
   "version": "0.0.0",
   "description": "Headless Cloudinary media layer: config, upload/format validation, HMAC URL and upload signing, delivery URL transforms, a browser upload client, and a typed CloudinaryClient. Framework-agnostic; the DB-backed service and audit trail stay in the app.",
-  "license": "UNLICENSED",
+  "license": "Apache-2.0",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/ks-official-Sahan/Sahan.git",
@@ -36,7 +36,7 @@
     "build": "tsup",
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.build.json",
     "test": "node --conditions=react-server --import tsx --test \"src/**/*.test.ts\"",
-    "prepublishOnly": "npm run build && npm run test"
+    "prepack": "npm run build && npm run test"
   },
   "dependencies": {
     "zod": "^4.6.5",
@@ -51,10 +51,11 @@
   "files": [
     "dist",
     "README.md",
-    "CHANGELOG.md"
+    "CHANGELOG.md",
+    "LICENSE"
   ],
   "publishConfig": {
-    "access": "restricted",
+    "access": "public",
     "registry": "https://registry.npmjs.org/",
     "types": "./dist/index.d.ts",
     "main": "./dist/index.js",
