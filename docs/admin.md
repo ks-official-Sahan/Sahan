@@ -185,7 +185,8 @@ truth.
 
 The reusable parts of the admin CMS are packages under `packages/*`,
 published to npm with Changesets (see `.changeset/README.md`). The app
-wires them together; none of them touches Prisma, Next.js or React.
+wires them together; none of them touches Prisma or React, and only auth-kit
+depends on Next.js.
 
 | Package | What it holds | Stays in the app |
 | --- | --- | --- |
