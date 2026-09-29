@@ -2,6 +2,7 @@ import type { AuditRepo } from "./audit";
 import type { AuthTokenRepo } from "./auth-tokens";
 import type { ChatRepo, ChatTrainingRepo } from "./chat";
 import type { InquiryRepo } from "./inquiries";
+import type { DashboardRepo, MaintenanceRepo } from "./maintenance";
 import type { SettingRepo } from "./settings";
 import type { UserSessionRepo } from "./user-sessions";
 import type { UserRepo } from "./users";
@@ -16,7 +17,9 @@ export interface Repos {
   authTokens: AuthTokenRepo;
   chat: ChatRepo;
   chatTraining: ChatTrainingRepo;
+  dashboard: DashboardRepo;
   inquiries: InquiryRepo;
+  maintenance: MaintenanceRepo;
   sessions: UserSessionRepo;
   settings: SettingRepo;
   users: UserRepo;

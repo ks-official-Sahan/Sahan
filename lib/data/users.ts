@@ -61,6 +61,7 @@ export interface UserRepo {
   existsByEmail(email: string): Promise<boolean>;
   findProfile(id: string): Promise<UserProfile | null>;
   findPasswordHash(id: string): Promise<string | null>;
+  findSecurityStatus(id: string): Promise<{ mfaEnabled: boolean; mustChangePassword: boolean } | null>;
   /** Enabled first, then oldest first. */
   list(): Promise<UserListItem[]>;
   countActiveDevelopers(): Promise<number>;

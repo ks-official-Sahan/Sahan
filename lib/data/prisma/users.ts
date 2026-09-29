@@ -34,6 +34,9 @@ export function userRepo(client: DbClient): UserRepo {
     async findPasswordHash(id) {
       return (await client.user.findUnique({ where: { id }, select: { passwordHash: true } }))?.passwordHash ?? null;
     },
+    findSecurityStatus(id) {
+      return client.user.findUnique({ where: { id }, select: { mfaEnabled: true, mustChangePassword: true } });
+    },
     async list() {
       const rows = await client.user.findMany({
         orderBy: [{ disabledAt: { sort: "asc", nulls: "first" } }, { createdAt: "asc" }],

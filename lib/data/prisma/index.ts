@@ -6,6 +6,7 @@ import { authTokenRepo } from "./auth-tokens";
 import { chatRepo, chatTrainingRepo } from "./chat";
 import type { DbClient } from "./client";
 import { inquiryRepo } from "./inquiries";
+import { dashboardRepo, maintenanceRepo } from "./maintenance";
 import { settingRepo } from "./settings";
 import { userSessionRepo } from "./user-sessions";
 import { userRepo } from "./users";
@@ -16,7 +17,9 @@ export function createRepos(client: DbClient): Repos {
     authTokens: authTokenRepo(client),
     chat: chatRepo(client),
     chatTraining: chatTrainingRepo(client),
+    dashboard: dashboardRepo(client),
     inquiries: inquiryRepo(client),
+    maintenance: maintenanceRepo(client),
     sessions: userSessionRepo(client),
     settings: settingRepo(client),
     users: userRepo(client),
