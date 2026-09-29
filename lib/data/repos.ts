@@ -1,5 +1,8 @@
 import type { AuditRepo } from "./audit";
+import type { AuthTokenRepo } from "./auth-tokens";
 import type { InquiryRepo } from "./inquiries";
+import type { SettingRepo } from "./settings";
+import type { UserSessionRepo } from "./user-sessions";
 import type { UserRepo } from "./users";
 
 /**
@@ -9,7 +12,10 @@ import type { UserRepo } from "./users";
  */
 export interface Repos {
   audit: AuditRepo;
+  authTokens: AuthTokenRepo;
   inquiries: InquiryRepo;
+  sessions: UserSessionRepo;
+  settings: SettingRepo;
   users: UserRepo;
 }
 
