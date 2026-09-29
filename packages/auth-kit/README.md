@@ -89,10 +89,11 @@ This package is published under a **private, restricted** scope
 | `react` | `^19.0.0` |
 | `better-auth` | `^1.7.6` |
 | `drizzle-orm` | `>=0.44.0 <1` |
+| `hono` | `^4.6.0` |
 
 All are optional: install `next-auth` for the next-auth engine or
-`better-auth` for the Better Auth engine (never both), and `drizzle-orm` only
-for the Drizzle adapter. `react` is a peer because `createRbac` and `createAuthDal` use `react`'s
+`better-auth` for the Better Auth engine (never both), `drizzle-orm` only
+for the Drizzle adapter, and `hono` only for `./hono`. `react` is a peer because `createRbac` and `createAuthDal` use `react`'s
 `cache()` to memoize one database read per request/render.
 
 ## Required environment variables
@@ -443,6 +444,32 @@ export const auth = betterAuth({
 const session = await readBetterAuthSession(auth, request.headers);
 ```
 
+## Hono
+
+`./hono` brings the same rules to a Hono app (Node, Bun, Deno, Workers):
+
+```ts
+import { Hono } from "hono";
+import { readBetterAuthSession, type KitSession } from "@sahan-sac/auth-kit/better-auth";
+import { betterAuthRoute, originGuard, rateLimit, requirePermission, securityHeaders, session } from "@sahan-sac/auth-kit/hono";
+
+const app = new Hono();
+app.use(securityHeaders());
+app.use("/api/*", originGuard({ siteUrl: process.env.SITE_URL }));
+app.on(["GET", "POST"], "/api/auth/*", betterAuthRoute(auth));
+app.use("/api/*", session((headers) => readBetterAuthSession(auth, headers)));
+app.post(
+  "/api/posts",
+  rateLimit({ limit: (key) => limiter.limit("posts:ip", key) }),
+  requirePermission<KitSession>((s) => rbac.can(s.role, "posts.write")),
+  (c) => c.json({ ok: true })
+);
+```
+
+`originGuard` refuses unsafe methods without a matching Origin (403, or 404
+with `status: 404`). `requirePermission` answers 404 when signed out or not
+allowed, so a protected route cannot be told from a missing one.
+
 ## API reference
 
 | Subpath | Runtime | Exports |
@@ -454,10 +481,11 @@ const session = await readBetterAuthSession(auth, request.headers);
 | `./next-auth` | Next.js + next-auth | Same as `./config` (engine-named) |
 | `./prisma` | Any server | `createPrismaAuthAdapter`, `PrismaAuthClient`/`PrismaAuthModels` types |
 | `./drizzle` | Any server (drizzle-orm) | `createAuthSchema`, `createDrizzleAuthAdapter`, types |
+| `./hono` | Any server (hono) | `securityHeaders`, `originGuard`, `rateLimit`, `session`, `requirePermission`, `betterAuthRoute` |
 | `./better-auth` | Any server (Better Auth) | `authKit` plugin, `authKitEmailPassword`, `readBetterAuthSession`, types |
 | `./session` | Next.js (`next/navigation`, `next/server`) | `createAuthDal`, `createSessionStore`, `createSessionReader`, `evaluateSession`, `passwordFingerprint`, types |
 | `./security` | Mixed — `request-device` needs `next/headers` | `clientIp`, allowlist functions, `isAllowedOrigin`/`parseOriginList`, `buildCsp`/`generateNonce`, `SECURITY_HEADERS`, `isScannerPath`, `checkOrigin`, `requestDetails` |
-| `./cache` | `server-only` | `MemoryKv`, `createRateLimit`/`MemoryLimiter`/`UpstashLimiter`, `RedisKv`/`getRedis`/`getKv`/`kv` |
+| `./cache` | Server (any runtime) | `MemoryKv`, `createRateLimit`/`MemoryLimiter`/`UpstashLimiter`, `RedisKv`/`getRedis`/`getKv`/`kv` |
 | `./unlock-request` | `next/headers` | `hasValidUnlock` |
 | `./rbac`, `./mfa`, `./adapter`, `./credentials`, `./password`, `./password-policy`, `./invite-token`, `./login-unlock`, `./safe-callback-url`, `./constants`, `./bootstrap`, `./audit-event` | Pure | As above / self-explanatory from the source |
 | Fine-grained `./security/*`, `./cache/*` | — | Every module above is also reachable individually, for a bundler that wants the smallest possible import |

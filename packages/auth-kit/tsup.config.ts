@@ -14,6 +14,7 @@ export default defineConfig({
     "src/config.ts",
     "src/next-auth-engine.ts",
     "src/better-auth/index.ts",
+    "src/hono/index.ts",
     "src/user-agent.ts",
     "src/bootstrap.ts",
     "src/audit-event.ts",

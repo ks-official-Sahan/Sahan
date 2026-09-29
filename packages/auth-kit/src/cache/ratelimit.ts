@@ -1,5 +1,3 @@
-import "server-only";
-
 import { Ratelimit } from "@upstash/ratelimit";
 import type { Redis } from "@upstash/redis";
 
@@ -8,6 +6,9 @@ import type { Redis } from "@upstash/redis";
 // in-memory window (per instance, so it only protects development and
 // single-instance deployments). "closed" means a limiter error denies the
 // request, "open" means it allows it.
+//
+// No server-only import: Hono and plain Node servers use this too, and
+// `server-only` throws outside a React Server runtime.
 
 export type FailMode = "open" | "closed";
 

@@ -20,6 +20,7 @@
     "./config": "./src/config.ts",
     "./next-auth": "./src/next-auth-engine.ts",
     "./better-auth": "./src/better-auth/index.ts",
+    "./hono": "./src/hono/index.ts",
     "./user-agent": "./src/user-agent.ts",
     "./bootstrap": "./src/bootstrap.ts",
     "./audit-event": "./src/audit-event.ts",
@@ -71,10 +72,11 @@
   },
   "peerDependencies": {
     "better-auth": "^1.7.6",
+    "drizzle-orm": ">=0.44.0 <1",
     "next": "^16.3.5",
     "next-auth": "5.0.0-beta.32",
     "react": "^19.0.0",
-    "drizzle-orm": ">=0.44.0 <1"
+    "hono": "^4.6.0"
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.8",
@@ -87,6 +89,7 @@
     "better-auth": "^1.7.6",
     "drizzle-kit": "^0.31.11",
     "drizzle-orm": "^0.45.3",
+    "hono": "^4.13.10",
     "pg": "^8.23.0",
     "prisma": "7.10.0",
     "tsup": "^8.3.5",
@@ -129,6 +132,10 @@
       "./better-auth": {
         "types": "./dist/better-auth/index.d.ts",
         "import": "./dist/better-auth/index.js"
+      },
+      "./hono": {
+        "types": "./dist/hono/index.d.ts",
+        "import": "./dist/hono/index.js"
       },
       "./user-agent": {
         "types": "./dist/user-agent.d.ts",
@@ -276,6 +283,9 @@
       "optional": true
     },
     "drizzle-orm": {
+      "optional": true
+    },
+    "hono": {
       "optional": true
     }
   }
