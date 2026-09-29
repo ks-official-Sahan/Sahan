@@ -1,6 +1,6 @@
 {
   "name": "@sahan-sac/ai-core",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Free-by-default AI provider chain (Gemini, OpenRouter, NVIDIA, Vertex) with hedging, cooldowns and deadlines, env-driven model resolution, image generation and prompt-injection guards. Shared by @sahan-sac/blog-kit and @sahan-sac/chat-kit.",
   "license": "Apache-2.0",
   "repository": {
