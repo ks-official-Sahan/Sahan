@@ -1,6 +1,5 @@
-import { userAgent } from "next/server";
-
 import type { AuthDbAdapter } from "../adapter";
+import { parseUserAgent } from "../user-agent";
 import type { Kv } from "../cache/memory";
 import { SESSION_MAX_AGE_SECONDS } from "../constants";
 import type { RoleName } from "../rbac/permissions";
@@ -54,12 +53,8 @@ export interface SessionListItem {
 
 function describeAgent(ua: string | null) {
   if (!ua) return { browser: null, os: null, device: null };
-  const parsed = userAgent({ headers: new Headers({ "user-agent": ua }) });
-  return {
-    browser: parsed.browser.name ?? null,
-    os: parsed.os.name ?? null,
-    device: parsed.device.type ?? "desktop",
-  };
+  const parsed = parseUserAgent(ua);
+  return { browser: parsed.browser, os: parsed.os, device: parsed.deviceType ?? "desktop" };
 }
 
 export function createSessionStore(deps: { adapter: AuthDbAdapter; kv: Kv; authSecret: string }) {

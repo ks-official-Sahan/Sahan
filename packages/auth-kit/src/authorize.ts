@@ -1,13 +1,12 @@
 import { createHash } from "node:crypto";
 
-import { userAgent } from "next/server";
-
 import type { AuthDbAdapter, RoleName } from "./adapter";
 import type { AuditEvent } from "./audit-event";
 import { verifyCredentials, type CredentialDeps } from "./credentials";
 import type { createMfa } from "./mfa/mfa";
 import { verifyPassword } from "./password";
 import { clientIp, UNKNOWN_IP } from "./security/ip";
+import { parseUserAgent } from "./user-agent";
 import { passwordFingerprint } from "./session/state";
 import type { createSessionStore } from "./session/store";
 
@@ -15,8 +14,8 @@ import type { createSessionStore } from "./session/store";
 // unit tested without importing `next-auth` (which, in this monorepo's test
 // harness — `node --conditions=react-server` — transitively pulls in
 // `next/navigation`'s router context and fails to load outside an actual
-// Next.js runtime; `next/server`, used here for `after`/`userAgent`, does not
-// have that problem). config.ts wraps `createAuthorize`'s generic result in
+// Next.js runtime). Nothing here imports Next.js: `after` is injected and the
+// user agent is parsed by ./user-agent. config.ts wraps `createAuthorize`'s generic result in
 // the next-auth-specific `CredentialsSignin` subclasses it throws.
 
 export interface AuthorizeDeps {
@@ -72,9 +71,8 @@ export type AuthorizeResult =
   | { kind: "mfa_required" };
 
 function describeDevice(ua: string | null): { browser: string | null; os: string | null } {
-  if (!ua) return { browser: null, os: null };
-  const parsed = userAgent({ headers: new Headers({ "user-agent": ua }) });
-  return { browser: parsed.browser.name ?? null, os: parsed.os.name ?? null };
+  const { browser, os } = parseUserAgent(ua);
+  return { browser, os };
 }
 
 const failureKey = (keyPrefix: string, email: string) =>

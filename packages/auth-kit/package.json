@@ -18,9 +18,12 @@
     "./kit": "./src/kit.ts",
     "./authorize": "./src/authorize.ts",
     "./config": "./src/config.ts",
+    "./next-auth": "./src/next-auth-engine.ts",
+    "./user-agent": "./src/user-agent.ts",
     "./bootstrap": "./src/bootstrap.ts",
     "./audit-event": "./src/audit-event.ts",
     "./session": "./src/session/index.ts",
+    "./session/core": "./src/session/core.ts",
     "./rbac": "./src/rbac/index.ts",
     "./mfa": "./src/mfa/index.ts",
     "./security": "./src/security/index.ts",
@@ -42,6 +45,7 @@
     "./security/scanner-paths": "./src/security/scanner-paths.ts",
     "./security/check-origin": "./src/security/check-origin.ts",
     "./security/request-device": "./src/security/request-device.ts",
+    "./security/device": "./src/security/device.ts",
     "./cache/ratelimit": "./src/cache/ratelimit.ts",
     "./cache/memory": "./src/cache/memory.ts",
     "./cache/redis": "./src/cache/redis.ts",
@@ -58,7 +62,8 @@
   "dependencies": {
     "@upstash/ratelimit": "^2.1.0",
     "@upstash/redis": "^1.38.4",
-    "bcryptjs": "^3.0.3"
+    "bcryptjs": "^3.0.3",
+    "ua-parser-js": "^1.0.41"
   },
   "peerDependencies": {
     "next": "^16.3.5",
@@ -69,7 +74,8 @@
     "@types/node": "^22",
     "tsup": "^8.3.5",
     "tsx": "^4.23.15",
-    "typescript": "^5.6.3"
+    "typescript": "^5.6.3",
+    "@types/ua-parser-js": "^0.7.39"
   },
   "files": [
     "dist",
@@ -99,6 +105,14 @@
         "types": "./dist/config.d.ts",
         "import": "./dist/config.js"
       },
+      "./next-auth": {
+        "types": "./dist/next-auth-engine.d.ts",
+        "import": "./dist/next-auth-engine.js"
+      },
+      "./user-agent": {
+        "types": "./dist/user-agent.d.ts",
+        "import": "./dist/user-agent.js"
+      },
       "./bootstrap": {
         "types": "./dist/bootstrap.d.ts",
         "import": "./dist/bootstrap.js"
@@ -110,6 +124,10 @@
       "./session": {
         "types": "./dist/session/index.d.ts",
         "import": "./dist/session/index.js"
+      },
+      "./session/core": {
+        "types": "./dist/session/core.d.ts",
+        "import": "./dist/session/core.js"
       },
       "./rbac": {
         "types": "./dist/rbac/index.d.ts",
@@ -195,6 +213,10 @@
         "types": "./dist/security/request-device.d.ts",
         "import": "./dist/security/request-device.js"
       },
+      "./security/device": {
+        "types": "./dist/security/device.d.ts",
+        "import": "./dist/security/device.js"
+      },
       "./cache/ratelimit": {
         "types": "./dist/cache/ratelimit.d.ts",
         "import": "./dist/cache/ratelimit.js"
@@ -208,6 +230,17 @@
         "import": "./dist/cache/redis.js"
       },
       "./package.json": "./package.json"
+    }
+  },
+  "peerDependenciesMeta": {
+    "next": {
+      "optional": true
+    },
+    "next-auth": {
+      "optional": true
+    },
+    "react": {
+      "optional": true
     }
   }
 }
