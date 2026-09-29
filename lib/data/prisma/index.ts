@@ -5,6 +5,7 @@ import { auditRepo } from "./audit";
 import { authTokenRepo } from "./auth-tokens";
 import { chatRepo, chatTrainingRepo } from "./chat";
 import type { DbClient } from "./client";
+import { contentBlockRepo } from "./content";
 import { inquiryRepo } from "./inquiries";
 import { dashboardRepo, maintenanceRepo } from "./maintenance";
 import { settingRepo } from "./settings";
@@ -17,6 +18,7 @@ export function createRepos(client: DbClient): Repos {
     authTokens: authTokenRepo(client),
     chat: chatRepo(client),
     chatTraining: chatTrainingRepo(client),
+    contentBlocks: contentBlockRepo(client),
     dashboard: dashboardRepo(client),
     inquiries: inquiryRepo(client),
     maintenance: maintenanceRepo(client),
