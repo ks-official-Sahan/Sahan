@@ -75,6 +75,8 @@ export interface InquiryRepo {
   findDetail(id: string): Promise<InquiryDetail | null>;
   /** Newest first. */
   list(filters: InquiryListFilters): Promise<{ rows: InquiryListRow[]; total: number }>;
+  /** The newest `limit` inquiries with their assignee, for the export (no count query). */
+  listRecent(limit: number): Promise<InquiryListRow[]>;
   update(id: string, patch: InquiryPatch): Promise<InquiryRow>;
   delete(id: string): Promise<void>;
   addEmailEvent(input: Omit<InquiryEmailEventRow, "id" | "createdAt">): Promise<void>;

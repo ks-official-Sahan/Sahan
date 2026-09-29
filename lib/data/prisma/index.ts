@@ -3,6 +3,7 @@ import { db } from "@/lib/db/prisma";
 import type { Repos, TxOptions } from "../repos";
 import { auditRepo } from "./audit";
 import { authTokenRepo } from "./auth-tokens";
+import { chatRepo, chatTrainingRepo } from "./chat";
 import type { DbClient } from "./client";
 import { inquiryRepo } from "./inquiries";
 import { settingRepo } from "./settings";
@@ -13,6 +14,8 @@ export function createRepos(client: DbClient): Repos {
   return {
     audit: auditRepo(client),
     authTokens: authTokenRepo(client),
+    chat: chatRepo(client),
+    chatTraining: chatTrainingRepo(client),
     inquiries: inquiryRepo(client),
     sessions: userSessionRepo(client),
     settings: settingRepo(client),

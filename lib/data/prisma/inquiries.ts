@@ -41,6 +41,9 @@ export function inquiryRepo(client: DbClient): InquiryRepo {
       ]);
       return { rows, total };
     },
+    listRecent(limit) {
+      return client.inquiry.findMany({ orderBy: { createdAt: "desc" }, take: limit, include: { assignee } });
+    },
     update(id, patch) {
       return client.inquiry.update({ where: { id }, data: patch });
     },
