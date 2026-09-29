@@ -87,8 +87,10 @@ This package is published under a **private, restricted** scope
 | `next` | `^16.3.5` |
 | `next-auth` | `5.0.0-beta.32` |
 | `react` | `^19.0.0` |
+| `better-auth` | `^1.7.6` |
 
-`react` is a peer because `createRbac` and `createAuthDal` use `react`'s
+All four are optional: install `next-auth` for the next-auth engine or
+`better-auth` for the Better Auth engine, never both. `react` is a peer because `createRbac` and `createAuthDal` use `react`'s
 `cache()` to memoize one database read per request/render.
 
 ## Required environment variables
@@ -381,14 +383,51 @@ export const { limit, rules: LIMITS } = createRateLimit(authKit.limits, { redis:
 Add a new bucket by adding a key to `defineAuthKit`'s `limits` — there is
 nothing else to register.
 
+## Better Auth engine
+
+The `./better-auth` subpath layers auth-kit's policy on
+[Better Auth](https://better-auth.com) instead of next-auth. Better Auth owns
+sign-in, sessions, cookies and routes; the `authKit()` plugin adds:
+
+- the login-unlock gate (`canSignIn` false answers 404 on `/sign-in/email`);
+- per-IP and per-account throttling through your own `limit` buckets (429);
+- auth-kit's password policy on sign-up, password change and reset (400);
+- `auth.login.success` / `auth.login.failure` / `auth.login.challenge` audit events;
+- `role` and `mustChangePassword` user fields that clients can never set.
+
+`authKitEmailPassword()` keeps auth-kit's length limits and bcrypt hashes, so
+users created under the next-auth engine keep signing in after a switch.
+
+```ts
+import { betterAuth } from "better-auth";
+import { authKit, authKitEmailPassword } from "@sahan-sac/auth-kit/better-auth";
+
+export const auth = betterAuth({
+  database: /* prismaAdapter(...) or drizzleAdapter(...) */,
+  emailAndPassword: authKitEmailPassword(),
+  plugins: [
+    authKit({
+      canSignIn: (headers) => hasValidUnlockHeader(headers),
+      limit: (bucket, key) => rateLimit(bucket, key),
+      audit: (event) => writeAuditRow(event),
+    }),
+  ],
+});
+
+// Server code: the signed-in user in auth-kit's shape, or null.
+const session = await readBetterAuthSession(auth, request.headers);
+```
+
 ## API reference
 
 | Subpath | Runtime | Exports |
 | --- | --- | --- |
 | `.` (root) | Pure/universal | `defineAuthKit`, `AuthDbAdapter` types, `AuditEvent`, `createAuthorize`/`AuthorizeDeps`/`AuthorizeResult`, `ensureBootstrapOwner`, `createAuthConfig`/`AuthConfigDeps`/`InvalidLogin`/`LimitedLogin`/`MfaLogin`, `resolveCookieName`, `SESSION_MAX_AGE_SECONDS`, `verifyCredentials`/`CredentialDeps`, `createToken`/`verifyTokenTag`/`tokenState` (invite/reset links), `signUnlockCookie`/`verifyUnlockCookie`/`isUnlockSecret`/`unlockKeysFromEnv`/`unlockCookieOptions`/`constantTimeEqual`, `hashPassword`/`verifyPassword`, `checkPassword`, `safeCallbackUrl`, `createMfa`, RBAC generics (`isPermission`/`isRole`/`defaultPermissionsFor`/`canBeGranted`/`matrixFromRows`/`defaultMatrix`/`matrixToRows`/`can`/`diffMatrix`/`validateMatrix`/`createRbac`) |
 | `./kit` | Pure/universal | `defineAuthKit` and its types (also at root) |
-| `./authorize` | Next.js (`next/server`) | `createAuthorize` — the credentials/MFA decision, without the next-auth error-throwing wrapper |
+| `./authorize` | Pure/universal | `createAuthorize` — the credentials/MFA decision, without the next-auth error-throwing wrapper |
 | `./config` | Next.js + next-auth | `createAuthConfig` |
+| `./next-auth` | Next.js + next-auth | Same as `./config` (engine-named) |
+| `./better-auth` | Any server (Better Auth) | `authKit` plugin, `authKitEmailPassword`, `readBetterAuthSession`, types |
 | `./session` | Next.js (`next/navigation`, `next/server`) | `createAuthDal`, `createSessionStore`, `createSessionReader`, `evaluateSession`, `passwordFingerprint`, types |
 | `./security` | Mixed — `request-device` needs `next/headers` | `clientIp`, allowlist functions, `isAllowedOrigin`/`parseOriginList`, `buildCsp`/`generateNonce`, `SECURITY_HEADERS`, `isScannerPath`, `checkOrigin`, `requestDetails` |
 | `./cache` | `server-only` | `MemoryKv`, `createRateLimit`/`MemoryLimiter`/`UpstashLimiter`, `RedisKv`/`getRedis`/`getKv`/`kv` |

@@ -13,6 +13,7 @@ export default defineConfig({
     "src/authorize.ts",
     "src/config.ts",
     "src/next-auth-engine.ts",
+    "src/better-auth/index.ts",
     "src/user-agent.ts",
     "src/bootstrap.ts",
     "src/audit-event.ts",
@@ -53,6 +54,6 @@ export default defineConfig({
   clean: true,
   target: "es2022",
   platform: "node",
-  external: ["next", "next-auth", "next-auth/providers/credentials", "next/server", "next/headers", "next/navigation", "react", "react-server-dom-webpack"],
+  external: ["next", "next-auth", "next-auth/providers/credentials", "next/server", "next/headers", "next/navigation", "react", "react-server-dom-webpack", "better-auth", "better-auth/api"],
   skipNodeModulesBundle: true,
 });

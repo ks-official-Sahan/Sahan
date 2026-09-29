@@ -19,6 +19,7 @@
     "./authorize": "./src/authorize.ts",
     "./config": "./src/config.ts",
     "./next-auth": "./src/next-auth-engine.ts",
+    "./better-auth": "./src/better-auth/index.ts",
     "./user-agent": "./src/user-agent.ts",
     "./bootstrap": "./src/bootstrap.ts",
     "./audit-event": "./src/audit-event.ts",
@@ -68,14 +69,16 @@
   "peerDependencies": {
     "next": "^16.3.5",
     "next-auth": "5.0.0-beta.32",
-    "react": "^19.0.0"
+    "react": "^19.0.0",
+    "better-auth": "^1.7.6"
   },
   "devDependencies": {
     "@types/node": "^22",
+    "@types/ua-parser-js": "^0.7.39",
+    "better-auth": "^1.7.6",
     "tsup": "^8.3.5",
     "tsx": "^4.23.15",
-    "typescript": "^5.6.3",
-    "@types/ua-parser-js": "^0.7.39"
+    "typescript": "^5.6.3"
   },
   "files": [
     "dist",
@@ -108,6 +111,10 @@
       "./next-auth": {
         "types": "./dist/next-auth-engine.d.ts",
         "import": "./dist/next-auth-engine.js"
+      },
+      "./better-auth": {
+        "types": "./dist/better-auth/index.d.ts",
+        "import": "./dist/better-auth/index.js"
       },
       "./user-agent": {
         "types": "./dist/user-agent.d.ts",
@@ -240,6 +247,9 @@
       "optional": true
     },
     "react": {
+      "optional": true
+    },
+    "better-auth": {
       "optional": true
     }
   }
