@@ -1,7 +1,7 @@
 import type { RoleName } from "@/lib/auth/permissions";
 
 // Session rows as the admin screens see them. Sign-in, revocation and the
-// session cache go through auth-kit's adapter (lib/auth/prisma-adapter.ts).
+// session cache go through auth-kit's adapter (lib/data/prisma/auth-adapter.ts).
 
 export interface SessionOwner {
   id: string;

@@ -55,6 +55,9 @@ export function userRepo(client: DbClient): UserRepo {
       });
       return rows.map(({ _count, ...row }) => ({ ...asRole(row), activeSessions: _count.sessions }));
     },
+    count() {
+      return client.user.count();
+    },
     countActiveDevelopers() {
       return client.user.count({ where: { role: "DEVELOPER", disabledAt: null } });
     },

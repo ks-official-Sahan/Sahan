@@ -1,6 +1,5 @@
 import "server-only";
 
-import type { Prisma } from "@prisma/client";
 import { headers } from "next/headers";
 
 import type { AuditEvent } from "@sahan-sac/auth-kit";
@@ -15,24 +14,17 @@ import { AUDIT_SENSITIVE_KEY, log, redact as redactValue } from "@/lib/log";
 
 export type { AuditEvent };
 
-/** A raw Prisma transaction client. Deprecated: pass the repositories from withTx instead. */
-export interface AuditClient {
-  auditLog: {
-    create(args: { data: Prisma.AuditLogUncheckedCreateInput }): Promise<unknown>;
-  };
-}
-
 /** Where an audit row goes: the repositories (shared, or one transaction's from withTx). */
-export type AuditTarget = Pick<Repos, "audit"> | AuditClient;
+export type AuditTarget = Pick<Repos, "audit">;
 
 /** Removes password, token, secret, hash, code and similar values from a payload. */
 export function redact(value: unknown): unknown {
   return redactValue(value, AUDIT_SENSITIVE_KEY);
 }
 
-function json(value: unknown): Prisma.InputJsonValue | undefined {
+function json(value: unknown): unknown {
   if (value === undefined || value === null) return undefined;
-  return redact(value) as Prisma.InputJsonValue;
+  return redact(value);
 }
 
 async function requestContext(): Promise<{ ip?: string; userAgent?: string }> {
@@ -49,14 +41,7 @@ async function requestContext(): Promise<{ ip?: string; userAgent?: string }> {
   }
 }
 
-/** A raw Prisma transaction client. Deprecated: pass the repositories from withTx instead. */
-export interface AuditManyClient {
-  auditLog: {
-    createMany(args: { data: Prisma.AuditLogCreateManyInput[] }): Promise<unknown>;
-  };
-}
-
-export type AuditManyTarget = Pick<Repos, "audit"> | AuditManyClient;
+export type AuditManyTarget = Pick<Repos, "audit">;
 
 function row(event: AuditEvent, context: { ip?: string; userAgent?: string }): AuditRow {
   return {
@@ -77,8 +62,7 @@ function row(event: AuditEvent, context: { ip?: string; userAgent?: string }): A
 export async function audit(event: AuditEvent, client: AuditTarget = repos): Promise<void> {
   const context = event.ip || event.userAgent ? {} : await requestContext();
   const data = row(event, context);
-  if ("audit" in client) await client.audit.create(data);
-  else await client.auditLog.create({ data: data as Prisma.AuditLogUncheckedCreateInput });
+  await client.audit.create(data);
 }
 
 /**
@@ -90,8 +74,7 @@ export async function auditMany(events: AuditEvent[], client: AuditManyTarget = 
   if (events.length === 0) return;
   const context = await requestContext();
   const rows = events.map((event) => row(event, context));
-  if ("audit" in client) await client.audit.createMany(rows);
-  else await client.auditLog.createMany({ data: rows as Prisma.AuditLogCreateManyInput[] });
+  await client.audit.createMany(rows);
 }
 
 /**

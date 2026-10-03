@@ -11,10 +11,12 @@ import { inquiryRepo } from "./inquiries";
 import { dashboardRepo, maintenanceRepo } from "./maintenance";
 import { mediaRepo } from "./media";
 import { postRepo, postRevisionRepo } from "./posts";
+import { rolePermissionRepo } from "./role-permissions";
 import { settingRepo } from "./settings";
 import { userSessionRepo } from "./user-sessions";
 import { userRepo } from "./users";
 
+export { authAdapter } from "./auth-adapter";
 export { isDbUnavailable } from "./errors";
 
 export function createRepos(client: DbClient): Repos {
@@ -32,6 +34,7 @@ export function createRepos(client: DbClient): Repos {
     postRevisions: postRevisionRepo(client),
     posts: postRepo(client),
     projects: projectRepo(client),
+    rolePermissions: rolePermissionRepo(client),
     serviceGroups: serviceGroupRepo(client),
     services: serviceRepo(client),
     sessions: userSessionRepo(client),

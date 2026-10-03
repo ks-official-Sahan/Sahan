@@ -64,6 +64,7 @@ export interface UserRepo {
   findSecurityStatus(id: string): Promise<{ mfaEnabled: boolean; mustChangePassword: boolean } | null>;
   /** Enabled first, then oldest first. */
   list(): Promise<UserListItem[]>;
+  count(): Promise<number>;
   countActiveDevelopers(): Promise<number>;
   /**
    * Inside withTx only: locks every DEVELOPER row until the transaction ends,
