@@ -4,6 +4,7 @@ import type { ChatRepo, ChatTrainingRepo } from "./chat";
 import type { ContentBlockRepo } from "./content";
 import type { InquiryRepo } from "./inquiries";
 import type { DashboardRepo, MaintenanceRepo } from "./maintenance";
+import type { MediaRepo } from "./media";
 import type { SettingRepo } from "./settings";
 import type { UserSessionRepo } from "./user-sessions";
 import type { UserRepo } from "./users";
@@ -22,6 +23,7 @@ export interface Repos {
   dashboard: DashboardRepo;
   inquiries: InquiryRepo;
   maintenance: MaintenanceRepo;
+  media: MediaRepo;
   sessions: UserSessionRepo;
   settings: SettingRepo;
   users: UserRepo;

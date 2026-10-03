@@ -8,6 +8,7 @@ import type { DbClient } from "./client";
 import { contentBlockRepo } from "./content";
 import { inquiryRepo } from "./inquiries";
 import { dashboardRepo, maintenanceRepo } from "./maintenance";
+import { mediaRepo } from "./media";
 import { settingRepo } from "./settings";
 import { userSessionRepo } from "./user-sessions";
 import { userRepo } from "./users";
@@ -22,6 +23,7 @@ export function createRepos(client: DbClient): Repos {
     dashboard: dashboardRepo(client),
     inquiries: inquiryRepo(client),
     maintenance: maintenanceRepo(client),
+    media: mediaRepo(client),
     sessions: userSessionRepo(client),
     settings: settingRepo(client),
     users: userRepo(client),
