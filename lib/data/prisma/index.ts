@@ -9,9 +9,12 @@ import { contentBlockRepo } from "./content";
 import { inquiryRepo } from "./inquiries";
 import { dashboardRepo, maintenanceRepo } from "./maintenance";
 import { mediaRepo } from "./media";
+import { postRepo, postRevisionRepo } from "./posts";
 import { settingRepo } from "./settings";
 import { userSessionRepo } from "./user-sessions";
 import { userRepo } from "./users";
+
+export { isDbUnavailable } from "./errors";
 
 export function createRepos(client: DbClient): Repos {
   return {
@@ -24,6 +27,8 @@ export function createRepos(client: DbClient): Repos {
     inquiries: inquiryRepo(client),
     maintenance: maintenanceRepo(client),
     media: mediaRepo(client),
+    postRevisions: postRevisionRepo(client),
+    posts: postRepo(client),
     sessions: userSessionRepo(client),
     settings: settingRepo(client),
     users: userRepo(client),

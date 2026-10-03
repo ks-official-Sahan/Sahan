@@ -5,6 +5,7 @@ import type { ContentBlockRepo } from "./content";
 import type { InquiryRepo } from "./inquiries";
 import type { DashboardRepo, MaintenanceRepo } from "./maintenance";
 import type { MediaRepo } from "./media";
+import type { PostRepo, PostRevisionRepo } from "./posts";
 import type { SettingRepo } from "./settings";
 import type { UserSessionRepo } from "./user-sessions";
 import type { UserRepo } from "./users";
@@ -24,6 +25,8 @@ export interface Repos {
   inquiries: InquiryRepo;
   maintenance: MaintenanceRepo;
   media: MediaRepo;
+  postRevisions: PostRevisionRepo;
+  posts: PostRepo;
   sessions: UserSessionRepo;
   settings: SettingRepo;
   users: UserRepo;
