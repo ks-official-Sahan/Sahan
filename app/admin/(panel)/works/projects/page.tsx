@@ -4,7 +4,7 @@ import Link from "next/link";
 import ActionForm, { SubmitButton } from "@/components/admin/ui/ActionForm";
 import { featureProjectAction, publishProjectAction, reorderProjectAction } from "@/lib/actions/works";
 import { hasPermission, requirePermission } from "@/lib/auth/dal";
-import { db } from "@/lib/db/prisma";
+import { repos } from "@/lib/data";
 import EmptyState from "@/components/admin/ui/EmptyState";
 import { badgeClass, buttonVariants, tableClass, tdClass, thClass } from "@/components/admin/ui/styles";
 
@@ -18,10 +18,7 @@ export default async function ProjectsPage() {
   // hidden rather than rendered disabled-on-submit.
   const canPublish = hasPermission(user, "publishCollections");
 
-  const projects = await db.project.findMany({
-    orderBy: { sortOrder: "asc" },
-    select: { id: true, title: true, category: true, status: true, published: true, featured: true, sortOrder: true },
-  });
+  const projects = await repos.projects.listForAdmin();
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-8">

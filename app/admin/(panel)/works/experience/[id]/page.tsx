@@ -12,7 +12,7 @@ import {
 } from "@/lib/actions/works";
 import type { ActionState } from "@/lib/actions/state";
 import { hasPermission, requirePermission } from "@/lib/auth/dal";
-import { db } from "@/lib/db/prisma";
+import { repos } from "@/lib/data";
 
 export const metadata: Metadata = { title: "Edit Experience Entry", robots: "noindex, nofollow, nocache" };
 
@@ -20,7 +20,7 @@ export default async function EditExperiencePage({ params }: { params: Promise<{
   const { id } = await params;
   const user = await requirePermission("editCollections");
 
-  const experience = await db.experience.findUnique({ where: { id } });
+  const experience = await repos.experiences.find(id);
   if (!experience) notFound();
 
   const canPublish = hasPermission(user, "publishCollections");

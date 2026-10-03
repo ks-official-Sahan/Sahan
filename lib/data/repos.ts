@@ -1,6 +1,7 @@
 import type { AuditRepo } from "./audit";
 import type { AuthTokenRepo } from "./auth-tokens";
 import type { ChatRepo, ChatTrainingRepo } from "./chat";
+import type { ExperienceRepo, ProjectRepo, ServiceGroupRepo, ServiceRepo, SkillGroupRepo, SkillRepo } from "./collections";
 import type { ContentBlockRepo } from "./content";
 import type { InquiryRepo } from "./inquiries";
 import type { DashboardRepo, MaintenanceRepo } from "./maintenance";
@@ -22,13 +23,19 @@ export interface Repos {
   chatTraining: ChatTrainingRepo;
   contentBlocks: ContentBlockRepo;
   dashboard: DashboardRepo;
+  experiences: ExperienceRepo;
   inquiries: InquiryRepo;
   maintenance: MaintenanceRepo;
   media: MediaRepo;
   postRevisions: PostRevisionRepo;
   posts: PostRepo;
+  projects: ProjectRepo;
+  serviceGroups: ServiceGroupRepo;
+  services: ServiceRepo;
   sessions: UserSessionRepo;
   settings: SettingRepo;
+  skillGroups: SkillGroupRepo;
+  skills: SkillRepo;
   users: UserRepo;
 }
 

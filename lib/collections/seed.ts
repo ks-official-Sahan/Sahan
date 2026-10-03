@@ -1,6 +1,6 @@
 import "server-only";
 
-import type { Prisma } from "@prisma/client";
+import type { Repos } from "@/lib/data/repos";
 
 import type { Project } from "@/types/project";
 import type { ExperienceEntry } from "@/types/experience";
@@ -10,8 +10,8 @@ import type { ExperienceEntry } from "@/types/experience";
 // separate from the CMS because they are real CRUD data (with reordering and
 // publishing), not versioned page sections.
 
-export async function seedProjects(tx: Prisma.TransactionClient, defaults: Project[]): Promise<void> {
-  const existing = await tx.project.count();
+export async function seedProjects(tx: Pick<Repos, "projects">, defaults: Project[]): Promise<void> {
+  const existing = await tx.projects.count();
   if (existing > 0) return;
 
   const items = defaults.map((project, index) => {
@@ -37,11 +37,11 @@ export async function seedProjects(tx: Prisma.TransactionClient, defaults: Proje
     return item;
   });
 
-  await tx.project.createMany({ data: items });
+  await tx.projects.createMany(items);
 }
 
-export async function seedExperience(tx: Prisma.TransactionClient, defaults: ExperienceEntry[]): Promise<void> {
-  const existing = await tx.experience.count();
+export async function seedExperience(tx: Pick<Repos, "experiences">, defaults: ExperienceEntry[]): Promise<void> {
+  const existing = await tx.experiences.count();
   if (existing > 0) return;
 
   const items = defaults.map((entry, index) => ({
@@ -57,7 +57,7 @@ export async function seedExperience(tx: Prisma.TransactionClient, defaults: Exp
     published: true,
   }));
 
-  await tx.experience.createMany({ data: items });
+  await tx.experiences.createMany(items);
 }
 
 // Services and skills seeds will be created when their full CRUD is built.

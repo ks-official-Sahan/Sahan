@@ -5,6 +5,7 @@ import { auditRepo } from "./audit";
 import { authTokenRepo } from "./auth-tokens";
 import { chatRepo, chatTrainingRepo } from "./chat";
 import type { DbClient } from "./client";
+import { experienceRepo, projectRepo, serviceGroupRepo, serviceRepo, skillGroupRepo, skillRepo } from "./collections";
 import { contentBlockRepo } from "./content";
 import { inquiryRepo } from "./inquiries";
 import { dashboardRepo, maintenanceRepo } from "./maintenance";
@@ -24,13 +25,19 @@ export function createRepos(client: DbClient): Repos {
     chatTraining: chatTrainingRepo(client),
     contentBlocks: contentBlockRepo(client),
     dashboard: dashboardRepo(client),
+    experiences: experienceRepo(client),
     inquiries: inquiryRepo(client),
     maintenance: maintenanceRepo(client),
     media: mediaRepo(client),
     postRevisions: postRevisionRepo(client),
     posts: postRepo(client),
+    projects: projectRepo(client),
+    serviceGroups: serviceGroupRepo(client),
+    services: serviceRepo(client),
     sessions: userSessionRepo(client),
     settings: settingRepo(client),
+    skillGroups: skillGroupRepo(client),
+    skills: skillRepo(client),
     users: userRepo(client),
   };
 }

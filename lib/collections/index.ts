@@ -3,7 +3,7 @@ import "server-only";
 import { cached } from "@/lib/cache/cached";
 import { loadOrNull } from "@/lib/cache/fallback";
 import { TAGS } from "@/lib/cache/tags";
-import { db } from "@/lib/db/prisma";
+import { repos } from "@/lib/data";
 import { log } from "@/lib/log";
 import type { Project } from "@/types/project";
 import type { ExperienceEntry } from "@/types/experience";
@@ -18,32 +18,7 @@ import { loadExperience, experienceSchema, type ExperienceRow } from "./experien
 // ─── Projects ────────────────────────────────────────────────────────────────
 
 async function readProjects(): Promise<ProjectRow[]> {
-  const rows = await db.project.findMany({
-    where: { published: true },
-    orderBy: { sortOrder: "asc" },
-    select: {
-      id: true,
-      slug: true,
-      title: true,
-      tagline: true,
-      description: true,
-      role: true,
-      organization: true,
-      organizationUrl: true,
-      category: true,
-      status: true,
-      platforms: true,
-      tech: true,
-      links: true,
-      image: true,
-      year: true,
-      featured: true,
-      sortOrder: true,
-      published: true,
-      createdAt: true,
-      updatedAt: true,
-    },
-  });
+  const rows = await repos.projects.listPublished();
   return rows.map((row) => ({
     ...row,
     links: (row.links as any[]) || [],
@@ -84,25 +59,7 @@ export async function getProjects(defaults: Project[]): Promise<Project[]> {
 // ─── Experience ──────────────────────────────────────────────────────────────
 
 async function readExperience(): Promise<ExperienceRow[]> {
-  const rows = await db.experience.findMany({
-    where: { published: true },
-    orderBy: { sortOrder: "asc" },
-    select: {
-      id: true,
-      company: true,
-      companyUrl: true,
-      role: true,
-      period: true,
-      type: true,
-      location: true,
-      highlights: true,
-      current: true,
-      sortOrder: true,
-      published: true,
-      createdAt: true,
-      updatedAt: true,
-    },
-  });
+  const rows = await repos.experiences.listPublished();
   return rows as ExperienceRow[];
 }
 

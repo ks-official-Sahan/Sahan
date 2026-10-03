@@ -13,7 +13,7 @@ import {
 } from "@/lib/actions/works";
 import type { ActionState } from "@/lib/actions/state";
 import { hasPermission, requirePermission } from "@/lib/auth/dal";
-import { db } from "@/lib/db/prisma";
+import { repos } from "@/lib/data";
 import type { ProjectImage, ProjectLink } from "@/types/project";
 
 export const metadata: Metadata = { title: "Edit Project", robots: "noindex, nofollow, nocache" };
@@ -22,7 +22,7 @@ export default async function EditProjectPage({ params }: { params: Promise<{ id
   const { id } = await params;
   const user = await requirePermission("editCollections");
 
-  const project = await db.project.findUnique({ where: { id } });
+  const project = await repos.projects.find(id);
   if (!project) notFound();
 
   const canPublish = hasPermission(user, "publishCollections");
