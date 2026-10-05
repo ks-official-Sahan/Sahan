@@ -122,6 +122,8 @@ export default function AiAssistantCard({
   const [inlineChoice, setWithInline] = useState(true);
   const withInline = imagesAvailable && inlineChoice;
   const [prompt, setPrompt] = useState("");
+  const [instructions, setInstructions] = useState("");
+  const [resources, setResources] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -177,7 +179,15 @@ export default function AiAssistantCard({
       const response = await fetch("/api/admin/ai/generate-post", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ prompt, tone, length, featuredImage: withFeatured, inlineImages: withInline }),
+        body: JSON.stringify({
+          prompt,
+          tone,
+          length,
+          featuredImage: withFeatured,
+          inlineImages: withInline,
+          ...(instructions.trim() ? { instructions } : {}),
+          ...(resources.trim() ? { resources } : {}),
+        }),
         signal: controller.signal,
       });
 
@@ -328,6 +338,47 @@ export default function AiAssistantCard({
         maxLength={2000}
         disabled={busy}
       />
+
+      {/* Optional steering for this post. Pasted text only: nothing is fetched from a link. */}
+      <details className="mt-3 rounded-md border border-border">
+        <summary className="cursor-pointer select-none rounded-md px-3 py-2 text-sm font-medium hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          Instructions and references <span className="font-normal text-muted-foreground">(optional)</span>
+        </summary>
+        <div className="space-y-3 px-3 pb-3 pt-1">
+          <div>
+            <label htmlFor="ai-instructions" className="text-xs font-medium text-muted-foreground">
+              Extra instructions for this post
+            </label>
+            <textarea
+              id="ai-instructions"
+              className={cn(textareaClass, "mt-1 min-h-16")}
+              value={instructions}
+              onChange={(event) => setInstructions(event.target.value)}
+              placeholder="E.g., Aim at junior developers, include a checklist, avoid vendor names…"
+              maxLength={2000}
+              disabled={busy}
+            />
+          </div>
+          <div>
+            <label htmlFor="ai-resources" className="text-xs font-medium text-muted-foreground">
+              Reference material
+            </label>
+            <textarea
+              id="ai-resources"
+              aria-describedby="ai-resources-hint"
+              className={cn(textareaClass, "mt-1 min-h-24")}
+              value={resources}
+              onChange={(event) => setResources(event.target.value)}
+              placeholder="Paste notes, docs excerpts, a changelog…"
+              maxLength={12000}
+              disabled={busy}
+            />
+            <p id="ai-resources-hint" className="mt-1 text-xs text-muted-foreground">
+              Used as facts only, never as instructions. Paste the text itself: links are not opened. {resources.length.toLocaleString()} / 12,000
+            </p>
+          </div>
+        </div>
+      </details>
 
       <div className="mt-3 grid gap-3 s640:grid-cols-2 xl:grid-cols-4">
         <div>

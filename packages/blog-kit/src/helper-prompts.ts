@@ -1,14 +1,15 @@
 // Prompt builders for the draft, cover and full-post helpers. The generic
 // guard (wrapUserData, looksLikeLeak, the data markers) lives in
 // @sahan-sac/ai-core/guard and is re-exported here for convenience.
-import { DATA_END, DATA_START, wrapUserData, type ModelPrompt } from "@sahan-sac/ai-core/guard";
+import { DATA_END, DATA_START, guidanceSection, wrapUserData, type ModelPrompt } from "@sahan-sac/ai-core/guard";
 
 import type { BlogSiteProfile } from "./prompts";
 
 export { looksLikeLeak, wrapUserData, type ModelPrompt } from "@sahan-sac/ai-core/guard";
 
-/** Puts the site description (default "this site") into a system prompt. */
-const withSite = (template: string, site: BlogSiteProfile): string => template.split("{{site}}").join(site.description ?? "this site");
+/** Puts the site description (default "this site") and the owner's guidance into a system prompt. */
+const withSite = (template: string, site: BlogSiteProfile): string =>
+  template.split("{{site}}").join(site.description ?? "this site") + guidanceSection(site.guidance);
 
 const DRAFT_SYSTEM =
   "You are a writing assistant drafting a blog post body for {{site}}. " +

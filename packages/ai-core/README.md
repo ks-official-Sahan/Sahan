@@ -26,13 +26,13 @@ The registry (`@sahan-sac/ai-core/adapters`) decides which adapters form a chain
 | Import | What |
 | --- | --- |
 | `@sahan-sac/ai-core/env` | `aiEnvSchema` (zod), `parseAiEnv(source)`, `aiEnvFromProcess()`, `AiEnv` |
-| `@sahan-sac/ai-core/adapters` | `BUILTIN_ADAPTERS`, `ProviderAdapter`, `realProviders(env, purpose, fetch?, adapters?)`, `chainPlan`, `providerStatuses` (why each adapter is in or out, for health screens), `configuredOrder`, `PAID_TEXT_MODELS` |
+| `@sahan-sac/ai-core/adapters` | `BUILTIN_ADAPTERS`, `ProviderAdapter`, `realProviders(env, purpose, fetch?, adapters?)`, `chainPlan`, `providerStatuses` (why each adapter is in or out, for health screens), `checkProvider` / `checkChain` (manual checks), `configuredOrder`, `PAID_TEXT_MODELS` |
 | `@sahan-sac/ai-core/providers` | `createAiService` (the chain), `sharedAiHealth`, `realProviders` (re-exported), the provider factories: `geminiProvider`, `openRouterProvider`, `nvidiaProvider`, `openAiCompatibleProvider`, `anthropicProvider`, `vertexProvider` |
 | `@sahan-sac/ai-core/availability` | `textAiConfigured(env, purpose?)`, `blogAiEnabled`, `blogAiImagesEnabled`, `chatbotEnabled` |
 | `@sahan-sac/ai-core/models` | `textModels`, `imageModels`, verified free defaults, `paidAllowed`, `vertexConfigured` |
 | `@sahan-sac/ai-core/image` | `imageConfigFromEnv`, `generateImage` |
 | `@sahan-sac/ai-core/vertex` | `getVertexAccessToken` (service-account JWT exchange, cached) |
-| `@sahan-sac/ai-core/guard` | `wrapUserData`, `looksLikeLeak`, `ModelPrompt` |
+| `@sahan-sac/ai-core/guard` | `wrapUserData(text, maxLength?)`, `guidanceSection`, `mergeGuidance`, `looksLikeLeak`, `ModelPrompt` |
 | `@sahan-sac/ai-core/log` | `AiLogger`, `consoleAiLogger` |
 
 `providers`, `adapters`, `image` and `vertex` reach `server-only` code: use them from server code only.
@@ -101,3 +101,20 @@ const providers = realProviders(env, "chat", undefined, [...BUILTIN_ADAPTERS, gr
 ```
 
 For a settings screen, `providerStatuses(env, purpose)` reports each adapter's state: `active` (with its position), `not_configured` (with the missing variable names, never values), `needs_paid`, `not_in_order` or `unknown`.
+
+## Manual checks
+
+Reachability for an AI provider means a real prompt, which spends tokens, so run it only when an operator asks:
+
+```ts
+import { checkChain, checkProvider } from "@sahan-sac/ai-core/adapters";
+
+await checkProvider(env, "anthropic"); // { id, ok, provider, ms } or { ok: false, errorClass: "http_401", ... }
+await checkChain(env, "blog"); // the whole chain once: who answered, and `attempts` for every fall-through
+```
+
+`checkProvider` ignores the order and `AI_ALLOW_PAID` (the operator asked for that provider) and answers `not_configured` without a call when a variable is missing. `checkChain` uses a fresh health record, so a failed check never cools a provider down for real traffic.
+
+## Owner guidance
+
+`guidanceSection(text)` appends the site owner's standing guidance (voice, facts, do and don't) after a prompt's fixed rules; it returns `""` for empty text and caps the length. `mergeGuidance(global, perFeature)` joins the layers. Guidance steers the model but never overrides the rules above it or how fenced data is treated.

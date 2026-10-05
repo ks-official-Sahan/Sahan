@@ -50,8 +50,11 @@ import { generateBlogImage } from "@sahan-sac/blog-kit/images";
 
 // Every prompt describes the site and may only link to these paths. All optional:
 // the defaults are "this site", ["/"] and no call-to-action path.
-const site = { description: "a bakery's site", internalLinks: ["/", "/menu", "/contact"], callToAction: ["/contact"] };
+// `guidance` is the owner's standing guidance, added after the fixed rules of every prompt.
+const site = { description: "a bakery's site", internalLinks: ["/", "/menu", "/contact"], callToAction: ["/contact"], guidance: "Warm, plain English. Never quote prices." };
 
+// `input.instructions` (2,000 chars) and `input.resources` (pasted reference text, 12,000) are optional and
+// fenced as untrusted data: resources are facts, never instructions, and no link is fetched.
 // `signal` stops the model calls (and skips the repair) when the client goes away.
 const result = await generateBlogPost(input, realBlogDeps(env, site), { onStatus: (status) => send("provider_status", status), signal: request.signal });
 if (!result.ok) return send("error", { error: result.error });

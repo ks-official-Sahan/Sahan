@@ -252,8 +252,20 @@ OpenAI-compatible endpoint, Vertex) join only with their key set and
 `AI_PROVIDER_ORDER_CHAT`) picks exactly which providers run and in what
 order, for example `AI_PROVIDER_ORDER_CHAT=gemini,anthropic,nvidia`.
 **Settings → Integration health** shows each chain ("AI chain (blog)",
-"AI chain (chat)") and every provider's key status; the paid ones are checked
-against their free models lists. With the chatbot off,
+"AI chain (chat)") and every provider's key status. AI rows are never checked
+automatically, because the only real check is a prompt that spends tokens:
+press **Check** on a row to send one short prompt through that provider (or
+through the whole chain, showing which provider answered and which fell
+through). Checks share the AI tools' rate limit (120 an hour per user) and are
+audited as `integration.ai.checked`.
+
+**AI context.** **Settings → AI context** holds standing guidance for the
+models: "Everywhere", then "Blog assistant", "SEO suggestions" and
+"Chatbot" (up to 6,000 characters each). It is added after each prompt's
+fixed rules, so it can set voice and facts but cannot switch off a safety
+rule. Never paste secrets into it. In the blog assistant, "Instructions and
+references" adds per-post instructions and pasted reference text; links in it
+are not opened. With the chatbot off,
 the site widget is not rendered, `/api/chat` answers 503, and
 `/admin/chatbot` says why.
 
@@ -262,7 +274,8 @@ the site widget is not rendered, `/api/chat` answers 503, and
 - `pnpm exec tsx scripts/check-env-example.mts` — `.env.example` matches
   `lib/env.ts`.
 - `/admin/settings` → integration health panel — reports database, Redis,
-  Resend, Brevo, Cloudinary and the AI provider chain as configured/reachable,
+  Resend, Brevo and Cloudinary as configured/reachable, and the AI providers
+  and chains as configured (press Check for reachability),
   never printing a secret or a fragment of one.
 - `/admin` dashboard → security status widget — shows MFA state and whether
   any account still has a temporary password.

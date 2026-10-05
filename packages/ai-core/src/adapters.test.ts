@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { BUILTIN_ADAPTERS, chainPlan, configuredOrder, providerStatuses, realProviders, type ProviderAdapter } from "./adapters";
+import { BUILTIN_ADAPTERS, chainPlan, checkChain, checkProvider, configuredOrder, providerStatuses, realProviders, type ProviderAdapter } from "./adapters";
 import { parseAiEnv, type EnvSource } from "./env";
 import type { ModelPrompt } from "./guard";
 import { anthropicOutcome, createAiHealth, createAiService, type AiProvider } from "./providers";
@@ -118,4 +118,35 @@ test("anthropicOutcome: text blocks joined; truncation, refusal and empty replie
   assert.equal((anthropicOutcome({ content: [{ type: "text", text: "a" }], stop_reason: "max_tokens" }) as { errorClass: string }).errorClass, "truncated");
   assert.equal((anthropicOutcome({ stop_reason: "refusal" }) as { errorClass: string }).errorClass, "refused");
   assert.equal((anthropicOutcome({ content: [] }) as { errorClass: string }).errorClass, "empty_response");
+});
+
+test("checkProvider: one tiny prompt through one adapter, whatever the order or AI_ALLOW_PAID says", async () => {
+  const sent: string[] = [];
+  const fetchImpl = (async (input: string | URL | Request) => {
+    sent.push(String(input));
+    return json(200, { content: [{ type: "text", text: "OK" }], stop_reason: "end_turn" });
+  }) as typeof fetch;
+  const source = env({ ANTHROPIC_API_KEY: FAKE, AI_PROVIDER_ORDER: "gemini" });
+  const ok = await checkProvider(source, "anthropic", { fetch: fetchImpl });
+  assert.equal(ok.ok, true);
+  assert.equal(ok.provider, "anthropic");
+  assert.deepEqual(sent, ["https://api.anthropic.com/v1/messages"]);
+
+  assert.equal((await checkProvider(source, "openai")).errorClass, "not_configured");
+  assert.equal((await checkProvider(source, "nope")).errorClass, "unknown_provider");
+  assert.equal(sent.length, 1); // neither of those made a call
+});
+
+test("checkChain: runs the real chain and reports who answered after whom", async () => {
+  const fetchImpl = (async (input: string | URL | Request) =>
+    String(input).startsWith("https://api.openai.com/")
+      ? json(429, { error: { message: "quota" } })
+      : json(200, { content: [{ type: "text", text: "OK" }], stop_reason: "end_turn" })) as typeof fetch;
+  const result = await checkChain(env({ OPENAI_API_KEY: FAKE, ANTHROPIC_API_KEY: FAKE, AI_ALLOW_PAID: "1", AI_PROVIDER_ORDER_CHAT: "openai,anthropic" }), "chat", { fetch: fetchImpl });
+  assert.equal(result.id, "chain:chat");
+  assert.equal(result.ok, true);
+  assert.equal(result.provider, "anthropic");
+  assert.deepEqual(result.attempts, [{ provider: "openai", ok: false, errorClass: "http_429" }, { provider: "anthropic", ok: true }]);
+
+  assert.deepEqual(await checkChain(env({}), "blog"), { id: "chain:blog", ok: false, errorClass: "no_provider", ms: 0, attempts: [] });
 });

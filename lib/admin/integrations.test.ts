@@ -1,11 +1,10 @@
 import { test, describe, beforeEach, afterEach } from "node:test";
 import { strict as assert } from "node:assert";
 
-import { generateKeyPairSync } from "node:crypto";
+import { resetEnvCache } from "@/lib/env";
 
-import { resetVertexTokenCache } from "@sahan-sac/ai-core/vertex";
-
-import { checkAnthropic, checkBrevo, checkCloudinary, checkCustomAi, checkOpenAi, checkOpenRouter, checkResend, checkVertex } from "./integrations";
+import { describeAiCheck } from "./ai-check";
+import { checkAiChains, checkAiProviders, checkBrevo, checkCloudinary, checkResend } from "./integrations";
 
 // Fake fetch: no network call, no secret ever leaves the process. Each check
 // is exercised for "not configured", "configured and reachable" and
@@ -120,80 +119,46 @@ describe("integration health checks", () => {
     assert.equal(result.configured, true);
     assert.equal(result.reachable, true);
   });
-
-  test("openrouter: not configured", async () => {
-    const result = await checkOpenRouter(okFetch);
-    assert.equal(result.configured, false);
-    assert.equal(result.reachable, null);
-  });
-
-  describe("vertex", () => {
-    const { privateKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
-    const pem = privateKey.export({ type: "pkcs8", format: "pem" }).toString();
-    const configure = () => {
-      process.env.GOOGLE_CLIENT_EMAIL = "svc@example.iam.gserviceaccount.com";
-      process.env.GOOGLE_PRIVATE_KEY = pem.replace(/\n/g, "\\n");
-      process.env.GOOGLE_CLOUD_PROJECT = "demo-project";
-    };
-
-    test("not configured without the full service account, and never fetches", async () => {
-      process.env.GOOGLE_CLIENT_EMAIL = "svc@example.iam.gserviceaccount.com";
-      let called = false;
-      const result = await checkVertex(async () => {
-        called = true;
-        return okFetch();
-      });
-      assert.equal(result.configured, false);
-      assert.equal(result.reachable, null);
-      assert.equal(called, false);
-      assert.equal(result.name, "Vertex AI");
-    });
-
-    test("reachable when Google issues a token", async () => {
-      resetVertexTokenCache();
-      configure();
-      const tokenFetch = async () => Response.json({ access_token: "token", expires_in: 3600 });
-      const result = await checkVertex(tokenFetch);
-      assert.equal(result.configured, true);
-      assert.equal(result.reachable, true);
-    });
-
-    test("unreachable when the token exchange is refused", async () => {
-      resetVertexTokenCache();
-      configure();
-      const result = await checkVertex(async () => new Response(JSON.stringify({ error: "invalid_grant" }), { status: 400 }));
-      assert.equal(result.configured, true);
-      assert.equal(result.reachable, false);
-    });
-  });
 });
 
-describe("paid AI providers", () => {
-  test("OpenAI and Anthropic are checked against their free models lists with the right auth header", async () => {
-    const seen: Array<{ url: string; headers: Record<string, string> }> = [];
-    const fetchImpl = async (url: string, init?: RequestInit) => {
-      seen.push({ url, headers: Object.fromEntries(new Headers(init?.headers).entries()) });
-      return new Response("{}", { status: url.includes("anthropic") ? 200 : 401 });
-    };
-    assert.deepEqual(await checkOpenAi(fetchImpl), { ...(await checkOpenAi(fetchImpl)), configured: false, reachable: null });
-    process.env.OPENAI_API_KEY = FAKE_AI_KEY;
-    process.env.OPENAI_BASE_URL = "https://gateway.example/v1/";
-    process.env.ANTHROPIC_API_KEY = FAKE_AI_KEY;
-    const openai = await checkOpenAi(fetchImpl);
-    const anthropic = await checkAnthropic(fetchImpl);
-    assert.equal(openai.reachable, false);
-    assert.equal(anthropic.reachable, true);
-    assert.equal(seen.at(-2)?.url, "https://gateway.example/v1/models");
-    assert.equal(seen.at(-1)?.url, "https://api.anthropic.com/v1/models");
-    assert.equal(seen.at(-1)?.headers["anthropic-version"], "2023-06-01");
-    assert.ok(!JSON.stringify([openai, anthropic]).includes(FAKE_AI_KEY));
+describe("AI providers: on demand only", () => {
+  test("rows come from the adapter registry, never ping, and carry their check id", () => {
+    let called = false;
+    const original = globalThis.fetch;
+    globalThis.fetch = (async () => {
+      called = true;
+      return okFetch();
+    }) as typeof fetch;
+    try {
+      process.env.OPENAI_API_KEY = FAKE_AI_KEY;
+      resetEnvCache();
+      const rows = checkAiProviders();
+      const openai = rows.find((row) => row.check === "openai")!;
+      assert.equal(openai.configured, true);
+      assert.equal(openai.reachable, null);
+      assert.match(openai.hint, /AI_ALLOW_PAID=true/);
+      assert.equal(rows.find((row) => row.check === "anthropic")!.configured, false);
+      assert.ok(rows.every((row) => row.group === "AI" && !row.hint.includes(FAKE_AI_KEY)));
+      assert.deepEqual(checkAiChains().map((row) => row.check), ["chain:blog", "chain:chat"]);
+      assert.equal(called, false);
+    } finally {
+      globalThis.fetch = original;
+      resetEnvCache();
+    }
   });
 
-  test("a custom endpoint needs a base URL and a model; a local one may have no key", async () => {
-    const fetchImpl = async () => new Response("{}", { status: 200 });
-    process.env.AI_CUSTOM_BASE_URL = "http://localhost:11434/v1";
-    assert.equal((await checkCustomAi(fetchImpl)).configured, false);
-    process.env.AI_CUSTOM_MODEL = "llama3.2";
-    assert.deepEqual([(await checkCustomAi(fetchImpl)).configured, (await checkCustomAi(fetchImpl)).reachable], [true, true]);
+  test("describeAiCheck: answers, fall-throughs and failures read as one line", () => {
+    assert.deepEqual(describeAiCheck({ id: "gemini", ok: true, provider: "gemini", ms: 812 }, "Gemini"), {
+      reachable: true,
+      message: "Gemini answered in 0.8 s.",
+    });
+    const chain = describeAiCheck(
+      { id: "chain:blog", ok: true, provider: "nvidia", ms: 2400, attempts: [{ provider: "gemini", ok: false, errorClass: "http_429" }, { provider: "nvidia", ok: true }] },
+      "The blog chain"
+    );
+    assert.equal(chain.message, "The blog chain answered via nvidia in 2.4 s after gemini failed.");
+    assert.equal(describeAiCheck({ id: "openai", ok: false, errorClass: "http_401", ms: 90 }, "OpenAI").message, "OpenAI did not answer: the key was refused (HTTP 401).");
+    assert.equal(describeAiCheck({ id: "gemini", ok: false, errorClass: "truncated", ms: 500 }, "Gemini").reachable, true);
+    assert.equal(describeAiCheck({ id: "xai", ok: false, errorClass: "timeout", ms: 20000 }, "xAI").reachable, false);
   });
 });

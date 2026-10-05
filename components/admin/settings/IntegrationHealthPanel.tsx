@@ -1,5 +1,6 @@
 import { CheckCircle2, CircleHelp, Info, MinusCircle, XCircle } from "lucide-react";
 
+import AiCheckButton from "@/components/admin/settings/AiCheckButton";
 import type { IntegrationGroup, IntegrationStatus } from "@/lib/admin/integrations";
 import { cn } from "@/lib/utils";
 
@@ -8,12 +9,15 @@ import { cn } from "@/lib/utils";
 // phone), and each row has an info button that opens a native popover
 // (Popover API: works on tap and keyboard, closes on Escape or outside tap,
 // no client JavaScript) with the environment variable names and what the
-// check does. Never receives or renders a secret value.
+// check does. AI rows are checked only on demand (AiCheckButton, a small
+// client island), since their only real check is a prompt that spends
+// tokens. Never receives or renders a secret value.
 
 const GROUP_ORDER: IntegrationGroup[] = ["Core", "Email", "Media", "AI", "SEO"];
 
 function state(status: IntegrationStatus) {
   if (!status.configured) return { label: "Not configured", Icon: MinusCircle, tone: "text-muted-foreground" };
+  if (status.reachable === null && status.check) return { label: "Configured", Icon: CircleHelp, tone: "text-muted-foreground" };
   if (status.reachable === null) return { label: "Configured, not checked", Icon: CircleHelp, tone: "text-muted-foreground" };
   if (status.reachable) return { label: "Reachable", Icon: CheckCircle2, tone: "text-emerald-700 dark:text-emerald-400" };
   return { label: "Unreachable", Icon: XCircle, tone: "text-red-700 dark:text-red-400" };
@@ -34,7 +38,7 @@ export default function IntegrationHealthPanel({ statuses }: { statuses: Integra
         {problems > 0 ? (
           <span className="font-medium text-red-700 dark:text-red-400">, {problems} unreachable</span>
         ) : null}
-        . Results are cached for a minute.
+        . Results are cached for a minute. AI providers are checked only when you press Check, which spends a few tokens.
       </p>
       {groups.map(({ group, items }) => (
         <section key={group} aria-labelledby={`health-${group}`}>
@@ -52,6 +56,7 @@ export default function IntegrationHealthPanel({ statuses }: { statuses: Integra
                     <Icon aria-hidden className="size-4 shrink-0" />
                     {label}
                   </span>
+                  {status.check && status.configured ? <AiCheckButton id={status.check} name={status.name} /> : null}
                   <button
                     type="button"
                     popoverTarget={popoverId}

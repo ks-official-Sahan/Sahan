@@ -2,6 +2,7 @@ import type { AiEnv } from "./env";
 import { paidAllowed, textModels, vertexConfigured, type TextPurpose } from "./models";
 import {
   anthropicProvider,
+  createAiService,
   geminiProvider,
   openAiCompatibleProvider,
   openRouterProvider,
@@ -229,6 +230,78 @@ export function chainPlan(env: AiEnv, purpose: TextPurpose, adapters: readonly P
   return providerStatuses(env, purpose, adapters)
     .filter((status) => status.state === "active")
     .map((status) => byId.get(status.id)!);
+}
+
+/** The prompt a manual check sends: one word back, a few tokens at most. */
+export const CHECK_PROMPT = { system: "You are a connectivity check. Reply with the single word OK.", user: "Reply with OK." } as const;
+
+export interface ProviderCheck {
+  id: string;
+  ok: boolean;
+  /** Provider name that answered (for a chain check, the one that won). */
+  provider?: string;
+  errorClass?: string;
+  ms: number;
+  /** Every provider tried, for a chain check. */
+  attempts?: Array<{ provider: string; ok: boolean; errorClass?: string }>;
+}
+
+/**
+ * Sends CHECK_PROMPT through one adapter, whatever the chain order or
+ * AI_ALLOW_PAID says: an operator asked for it, and it spends a few tokens.
+ * Never throws; a missing variable answers `not_configured` without a call.
+ */
+export async function checkProvider(
+  env: AiEnv,
+  id: string,
+  options: { purpose?: TextPurpose; fetch?: typeof fetch; timeoutMs?: number; adapters?: readonly ProviderAdapter[]; now?: () => number } = {}
+): Promise<ProviderCheck> {
+  const now = options.now ?? Date.now;
+  const adapter = (options.adapters ?? BUILTIN_ADAPTERS).find((candidate) => candidate.id === id);
+  if (!adapter) return { id, ok: false, errorClass: "unknown_provider", ms: 0 };
+  if (adapter.missing(env).length) return { id, ok: false, errorClass: "not_configured", ms: 0 };
+  const started = now();
+  try {
+    const provider = adapter.create({ env, purpose: options.purpose ?? "chat", fetch: options.fetch });
+    const outcome = await provider.generate(CHECK_PROMPT, { maxTokens: 32, signal: AbortSignal.timeout(options.timeoutMs ?? 20_000) });
+    return outcome.ok
+      ? { id, ok: true, provider: provider.name, ms: now() - started }
+      : { id, ok: false, provider: provider.name, errorClass: outcome.errorClass, ms: now() - started };
+  } catch {
+    return { id, ok: false, errorClass: "transport", ms: now() - started };
+  }
+}
+
+/**
+ * Sends CHECK_PROMPT through a purpose's whole chain, the same way a real
+ * request goes: the first provider that answers wins, and `attempts` shows
+ * every provider that failed before it. A fresh health record, so a check
+ * never cools down a provider for real traffic.
+ */
+export async function checkChain(
+  env: AiEnv,
+  purpose: TextPurpose,
+  options: { fetch?: typeof fetch; deadlineMs?: number; adapters?: readonly ProviderAdapter[]; now?: () => number } = {}
+): Promise<ProviderCheck> {
+  const now = options.now ?? Date.now;
+  const id = `chain:${purpose}`;
+  const providers = realProviders(env, purpose, options.fetch, options.adapters);
+  if (providers.length === 0) return { id, ok: false, errorClass: "no_provider", ms: 0, attempts: [] };
+  const started = now();
+  const result = await createAiService({
+    providers,
+    timeoutMs: 15_000,
+    deadlineMs: options.deadlineMs ?? 40_000,
+    logger: { warn: () => undefined },
+  }).generate(CHECK_PROMPT, { maxTokens: 32 });
+  return {
+    id,
+    ok: result.ok,
+    ...(result.provider ? { provider: result.provider } : {}),
+    ...(result.ok ? {} : { errorClass: result.errorClass }),
+    ms: now() - started,
+    attempts: result.attempts.map(({ provider, ok, errorClass }) => ({ provider, ok, ...(errorClass ? { errorClass } : {}) })),
+  };
 }
 
 /**

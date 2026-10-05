@@ -1,7 +1,6 @@
 import "server-only";
 
-import { providerStatuses } from "@sahan-sac/ai-core/adapters";
-import { getVertexAccessToken } from "@sahan-sac/ai-core/vertex";
+import { BUILTIN_ADAPTERS, providerStatuses } from "@sahan-sac/ai-core/adapters";
 
 import { repos } from "@/lib/data";
 import { getEnv } from "@/lib/env";
@@ -10,7 +9,10 @@ import { log } from "@/lib/log";
 import { checkIndexNowKeyFile } from "@/lib/seo/indexnow";
 
 // Integration health for the settings screen: configured yes/no, plus a
-// cheap live ping through an injectable fetch with a short timeout. Never
+// cheap live ping through an injectable fetch with a short timeout. AI
+// providers are never pinged here: their only real check is a prompt, which
+// spends tokens, so each AI row carries a `check` id for the manual Check
+// button (lib/actions/integrations.ts). Never
 // returns a secret value or a fragment of one, only booleans and the
 // human-readable name of the integration. Design: docs/plan/admin-cms-adr.md,
 // Step 16.
@@ -30,6 +32,8 @@ export interface IntegrationStatus {
    * Redis checks always ping because they are already on the request path).
    */
   reachable: boolean | null;
+  /** Manual check id for an AI row: an ai-core adapter id, or chain:blog / chain:chat. */
+  check?: string;
 }
 
 export type FetchLike = (url: string, init?: RequestInit) => Promise<Response>;
@@ -53,26 +57,6 @@ const CLOUDINARY = {
   name: "Cloudinary",
   group: "Media",
   hint: "CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY and CLOUDINARY_API_SECRET. Checked by listing one image.",
-} as const;
-const OPENROUTER = { name: "OpenRouter", group: "AI", hint: "OPENROUTER_API_KEY (optionally OPENROUTER_API_KEY_2). Checked against the models list." } as const;
-const GEMINI = { name: "Gemini", group: "AI", hint: "GEMINI_API_KEY. Not pinged: a check would spend quota." } as const;
-const NVIDIA = { name: "NVIDIA", group: "AI", hint: "NVIDIA_API_KEY. Not pinged: the API has no free check." } as const;
-const VERTEX = {
-  name: "Vertex AI",
-  group: "AI",
-  hint: "GOOGLE_CLIENT_EMAIL, GOOGLE_PRIVATE_KEY and GOOGLE_CLOUD_PROJECT; used for text only while AI_ALLOW_PAID=true. Checked by the service-account token exchange, which spends no AI quota.",
-} as const;
-const PAID_NOTE = "Runs only while AI_ALLOW_PAID=true.";
-const MODELS_NOTE = "Checked against the models list, which spends no tokens.";
-const OPENAI = { name: "OpenAI", group: "AI", hint: `OPENAI_API_KEY (OPENAI_BASE_URL for a compatible gateway). ${PAID_NOTE} ${MODELS_NOTE}` } as const;
-const ANTHROPIC = { name: "Anthropic (Claude)", group: "AI", hint: `ANTHROPIC_API_KEY. ${PAID_NOTE} ${MODELS_NOTE}` } as const;
-const DEEPSEEK = { name: "DeepSeek", group: "AI", hint: `DEEPSEEK_API_KEY. ${PAID_NOTE} ${MODELS_NOTE}` } as const;
-const XAI = { name: "xAI (Grok)", group: "AI", hint: `XAI_API_KEY. ${PAID_NOTE} ${MODELS_NOTE}` } as const;
-const PERPLEXITY = { name: "Perplexity", group: "AI", hint: `PERPLEXITY_API_KEY. ${PAID_NOTE} Not pinged: the API has no free check.` } as const;
-const CUSTOM_AI = {
-  name: "Custom AI endpoint",
-  group: "AI",
-  hint: "AI_CUSTOM_BASE_URL and AI_CUSTOM_MODEL (AI_CUSTOM_API_KEY optional). Paid unless AI_CUSTOM_FREE=true. Checked against its models list.",
 } as const;
 const AI_CHAIN = { name: "AI chain", group: "AI", hint: "" } as const;
 const INDEXNOW = { name: "IndexNow", group: "SEO", hint: "INDEXNOW_KEY and its public key file. Checked by fetching the key file." } as const;
@@ -147,98 +131,40 @@ export async function checkCloudinary(fetchImpl: FetchLike = fetch): Promise<Int
   return { ...CLOUDINARY, configured, reachable };
 }
 
-export async function checkOpenRouter(fetchImpl: FetchLike = fetch): Promise<IntegrationStatus> {
-  const apiKey = process.env.OPENROUTER_API_KEY;
-  const configured = Boolean(apiKey);
-  if (!configured) return { ...OPENROUTER, configured, reachable: null };
-  const reachable = await pingUrl(fetchImpl, "https://openrouter.ai/api/v1/models", {
-    headers: { Authorization: `Bearer ${apiKey}` },
-  });
-  return { ...OPENROUTER, configured, reachable };
-}
-
-export async function checkGemini(): Promise<IntegrationStatus> {
-  // Configured-only: pinging costs a quota unit against a paid API for a
-  // screen that just wants a yes/no.
-  return { ...GEMINI, configured: Boolean(process.env.GEMINI_API_KEY), reachable: null };
-}
-
-export async function checkNvidia(): Promise<IntegrationStatus> {
-  return { ...NVIDIA, configured: Boolean(process.env.NVIDIA_API_KEY), reachable: null };
-}
+const AI_VARS: Record<string, string> = {
+  gemini: "GEMINI_API_KEY.",
+  openrouter: "OPENROUTER_API_KEY. Free models only, unless OPENROUTER_ALLOW_PAID_MODELS=true.",
+  "openrouter-2": "OPENROUTER_API_KEY_2: a second OpenRouter key, tried after the first.",
+  nvidia: "NVIDIA_API_KEY.",
+  openai: "OPENAI_API_KEY (OPENAI_BASE_URL for a compatible gateway).",
+  anthropic: "ANTHROPIC_API_KEY.",
+  deepseek: "DEEPSEEK_API_KEY.",
+  xai: "XAI_API_KEY.",
+  perplexity: "PERPLEXITY_API_KEY.",
+  custom: "AI_CUSTOM_BASE_URL and AI_CUSTOM_MODEL (AI_CUSTOM_API_KEY optional). Paid unless AI_CUSTOM_FREE=true.",
+  vertex: "GOOGLE_CLIENT_EMAIL, GOOGLE_PRIVATE_KEY and GOOGLE_CLOUD_PROJECT.",
+};
+const ON_DEMAND = "Not checked automatically: Check sends a one-line prompt, which spends a few tokens.";
 
 /**
- * Configured: the service account is complete. Reachable: Google issues it an
- * access token (the same exchange every Vertex call makes, cached for about an
- * hour), which costs no AI quota. Checked even while AI_ALLOW_PAID is off, so
- * a broken key shows up before it is switched on.
+ * One row per ai-core adapter, configured when its variables are present
+ * (the adapter's own `missing()`, so this list never drifts from the chain).
+ * No network: reachability is the manual Check.
  */
-export async function checkVertex(fetchImpl: FetchLike = fetch): Promise<IntegrationStatus> {
-  const clientEmail = process.env.GOOGLE_CLIENT_EMAIL;
-  const privateKey = process.env.GOOGLE_PRIVATE_KEY;
-  const configured = Boolean(clientEmail && privateKey && process.env.GOOGLE_CLOUD_PROJECT);
-  if (!configured) return { ...VERTEX, configured, reachable: null };
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  try {
-    const timeout = new Promise<never>((_, reject) => {
-      timer = setTimeout(() => reject(new Error("timeout")), PING_TIMEOUT_MS);
-    });
-    const account = {
-      clientEmail: clientEmail as string,
-      privateKey: (privateKey as string).replace(/\\n/g, "\n"),
-      tokenUri: process.env.GOOGLE_TOKEN_URI || "https://oauth2.googleapis.com/token",
+export function checkAiProviders(): IntegrationStatus[] {
+  const env = getEnv();
+  return BUILTIN_ADAPTERS.map((adapter) => {
+    const vars = AI_VARS[adapter.id] ?? "";
+    const paid = adapter.paid(env) ? "In the chain only while AI_ALLOW_PAID=true." : "";
+    return {
+      name: adapter.label,
+      group: "AI",
+      hint: [vars, paid, ON_DEMAND].filter(Boolean).join(" "),
+      configured: adapter.missing(env).length === 0,
+      reachable: null,
+      check: adapter.id,
     };
-    await Promise.race([getVertexAccessToken(account, fetchImpl as typeof fetch), timeout]);
-    return { ...VERTEX, configured, reachable: true };
-  } catch {
-    return { ...VERTEX, configured, reachable: false };
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
-const trimBase = (url: string) => url.replace(/\/+$/, "");
-
-/** A models list: free on every API that has one, and proof the key works. */
-async function checkModelsList(
-  meta: Omit<IntegrationStatus, "configured" | "reachable">,
-  apiKey: string | undefined,
-  url: string,
-  fetchImpl: FetchLike,
-  headers: (key: string) => Record<string, string> = (key) => ({ Authorization: `Bearer ${key}` })
-): Promise<IntegrationStatus> {
-  if (!apiKey) return { ...meta, configured: false, reachable: null };
-  return { ...meta, configured: true, reachable: await pingUrl(fetchImpl, url, { headers: headers(apiKey) }) };
-}
-
-export const checkOpenAi = (fetchImpl: FetchLike = fetch) =>
-  checkModelsList(OPENAI, process.env.OPENAI_API_KEY, `${trimBase(process.env.OPENAI_BASE_URL || "https://api.openai.com/v1")}/models`, fetchImpl);
-
-export const checkAnthropic = (fetchImpl: FetchLike = fetch) =>
-  checkModelsList(
-    ANTHROPIC,
-    process.env.ANTHROPIC_API_KEY,
-    `${trimBase(process.env.ANTHROPIC_BASE_URL || "https://api.anthropic.com")}/v1/models`,
-    fetchImpl,
-    (key) => ({ "x-api-key": key, "anthropic-version": "2023-06-01" })
-  );
-
-export const checkDeepSeek = (fetchImpl: FetchLike = fetch) =>
-  checkModelsList(DEEPSEEK, process.env.DEEPSEEK_API_KEY, "https://api.deepseek.com/models", fetchImpl);
-
-export const checkXai = (fetchImpl: FetchLike = fetch) => checkModelsList(XAI, process.env.XAI_API_KEY, "https://api.x.ai/v1/models", fetchImpl);
-
-export async function checkPerplexity(): Promise<IntegrationStatus> {
-  return { ...PERPLEXITY, configured: Boolean(process.env.PERPLEXITY_API_KEY), reachable: null };
-}
-
-export async function checkCustomAi(fetchImpl: FetchLike = fetch): Promise<IntegrationStatus> {
-  const base = process.env.AI_CUSTOM_BASE_URL;
-  const configured = Boolean(base && process.env.AI_CUSTOM_MODEL);
-  if (!configured) return { ...CUSTOM_AI, configured, reachable: null };
-  const key = process.env.AI_CUSTOM_API_KEY;
-  const reachable = await pingUrl(fetchImpl, `${trimBase(base!)}/models`, { headers: key ? { Authorization: `Bearer ${key}` } : {} });
-  return { ...CUSTOM_AI, configured, reachable };
+  });
 }
 
 /**
@@ -259,7 +185,14 @@ export function checkAiChains(): IntegrationStatus[] {
       unknown.length ? `Unknown ids in the order: ${unknown.join(", ")}.` : "",
       `Order: AI_PROVIDER_ORDER_${purpose.toUpperCase()} or AI_PROVIDER_ORDER.`,
     ];
-    return { ...AI_CHAIN, name: `AI chain (${purpose})`, hint: parts.filter(Boolean).join(" "), configured: active.length > 0, reachable: null };
+    return {
+      ...AI_CHAIN,
+      name: `AI chain (${purpose})`,
+      hint: [...parts, "Check runs the whole chain once, as a real request would."].filter(Boolean).join(" "),
+      configured: active.length > 0,
+      reachable: null,
+      check: `chain:${purpose}`,
+    };
   });
 }
 
@@ -280,32 +213,24 @@ export async function getIntegrationHealth(fetchImpl: FetchLike = fetch): Promis
     checkResend(fetchImpl),
     checkBrevo(fetchImpl),
     checkCloudinary(fetchImpl),
-    checkOpenRouter(fetchImpl),
-    checkGemini(),
-    checkNvidia(),
-    checkVertex(fetchImpl),
-    checkOpenAi(fetchImpl),
-    checkAnthropic(fetchImpl),
-    checkDeepSeek(fetchImpl),
-    checkXai(fetchImpl),
-    checkPerplexity(),
-    checkCustomAi(fetchImpl),
     checkIndexNow(),
   ];
   const results = await Promise.allSettled(checks);
   const statuses = results.map((result, index) =>
     result.status === "fulfilled" ? result.value : { ...INTEGRATIONS[index], configured: false, reachable: false }
   );
-  let chains: IntegrationStatus[];
+  let ai: IntegrationStatus[];
   try {
-    chains = checkAiChains();
-  } catch {
-    chains = [];
+    ai = [...checkAiProviders(), ...checkAiChains()];
+  } catch (err) {
+    // An invalid AI variable fails the env parse: say so instead of hiding the group.
+    log.warn("integration health: AI env invalid", { error: String(err) });
+    ai = [{ ...AI_CHAIN, hint: "The AI environment variables do not parse. Check the server log.", configured: false, reachable: false }];
   }
-  return [...statuses, ...chains];
+  return [...statuses, ...ai];
 }
 
-const INTEGRATIONS = [DATABASE, REDIS, RESEND, BREVO, CLOUDINARY, OPENROUTER, GEMINI, NVIDIA, VERTEX, OPENAI, ANTHROPIC, DEEPSEEK, XAI, PERPLEXITY, CUSTOM_AI, INDEXNOW];
+const INTEGRATIONS = [DATABASE, REDIS, RESEND, BREVO, CLOUDINARY, INDEXNOW];
 
 const HEALTH_TTL_MS = 60_000;
 let healthCache: { at: number; value: Promise<IntegrationStatus[]> } | null = null;

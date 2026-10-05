@@ -31,6 +31,8 @@ export interface ChatSite {
   scope?: string;
   /** How the assistant should format a site link, e.g. "[Project Name](/works) when referencing portfolio content". */
   linkExample?: string;
+  /** Standing guidance from the owner (voice, facts, do and don't), appended after the fixed rules. Empty adds nothing. */
+  guidance?: string;
 }
 
 /** One earlier turn of the conversation, oldest first. */

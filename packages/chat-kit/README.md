@@ -53,7 +53,7 @@ const result = await runChat(
     history: await store.getRecentMessages(sessionId, 10),
     knowledge: await getKnowledge(), // cached by the app
     config: { tone: "professional" },
-    site: chatSite,
+    site: { ...chatSite, guidance: ownerGuidance }, // optional: added after the fixed rules
     siteHostname: new URL(env.SITE_URL).hostname,
     extraHosts: ["wa.me", "t.me"],
   },

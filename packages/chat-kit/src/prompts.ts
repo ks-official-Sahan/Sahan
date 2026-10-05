@@ -3,7 +3,7 @@
 // is added only as data, visitor messages are wrapped as data, so secrets
 // and instructions cannot be hidden in the knowledge or user input.
 
-import type { ModelPrompt } from "@sahan-sac/ai-core/guard";
+import { guidanceSection, type ModelPrompt } from "@sahan-sac/ai-core/guard";
 
 import { guardUserMessage } from "./guard";
 import type { ChatbotConfig, ChatSite, ChatTone, ChatTurn } from "./types";
@@ -62,6 +62,8 @@ export function buildChatPrompt(options: {
     `\n- Use bullet points for lists of projects, skills, or features.`,
     `\n- Use inline links like ${linkExample}.`,
     `\n- Structure responses with short paragraphs, not walls of text.`,
+    // The owner's standing guidance (AI context settings): after the fixed rules, which it cannot override.
+    guidanceSection(site.guidance),
   ];
 
   if (knowledge) {

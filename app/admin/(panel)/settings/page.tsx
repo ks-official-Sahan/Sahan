@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { Suspense, type ReactNode } from "react";
 
+import AiContextForm from "@/components/admin/settings/AiContextForm";
 import ChatbotConfigForm from "@/components/admin/settings/ChatbotConfigForm";
 import ClearCacheButton from "@/components/admin/settings/ClearCacheButton";
 import CronManager from "@/components/admin/settings/CronManager";
@@ -52,12 +53,13 @@ export default async function SettingsPage() {
 
   if (!canManageSettings && !canManageAllowlist && !canClearCache && !canManageCron) notFound();
 
-  const [features, maintenance, ipAllowlist, chatbotConfig, emailRouting, requestHeaders, knownIps] = await Promise.all([
+  const [features, maintenance, ipAllowlist, chatbotConfig, emailRouting, aiContext, requestHeaders, knownIps] = await Promise.all([
     canManageSettings ? getSetting("features") : Promise.resolve(null),
     canManageSettings ? getSetting("maintenance") : Promise.resolve(null),
     canManageAllowlist ? getSetting("security.ipAllowlist") : Promise.resolve(null),
     canManageSettings ? getSetting("chatbot.config") : Promise.resolve(null),
     canManageSettings ? getSetting("email.routing") : Promise.resolve(null),
+    canManageSettings ? getSetting("ai.context") : Promise.resolve(null),
     headers(),
     canManageAllowlist ? getKnownIps() : Promise.resolve([]),
   ]);
@@ -102,6 +104,14 @@ export default async function SettingsPage() {
         nav: "Chatbot",
         description: "Tone, greeting and the on/off switch the chatbot widget reads.",
         content: <ChatbotConfigForm value={chatbotConfig} />,
+      },
+    canManageSettings &&
+      aiContext && {
+        id: "ai-context",
+        title: "AI context",
+        nav: "AI context",
+        description: "Standing guidance the AI features follow: everywhere, then the blog assistant, SEO suggestions and the chatbot.",
+        content: <AiContextForm value={aiContext} />,
       },
     canManageSettings &&
       emailRouting && {
