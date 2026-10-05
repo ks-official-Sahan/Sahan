@@ -151,6 +151,32 @@ test("hedging starts the next provider when the first is slow, and aborts the lo
   assert.equal(slow.aborted(), true);
 });
 
+test("aborting the caller's signal stops the chain at once, without blaming the provider", async () => {
+  const health = createAiHealth();
+  const slow = slowProvider("slow", 10_000);
+  const service = createAiService({ providers: [slow, slowProvider("next", 1)], health });
+  const controller = new AbortController();
+  setTimeout(() => controller.abort(), 20);
+  const started = Date.now();
+  const result = await service.generate(PROMPT, { signal: controller.signal });
+  assert.equal(result.ok, false);
+  assert.equal(result.errorClass, "aborted");
+  assert.equal(slow.aborted(), true);
+  assert.ok(Date.now() - started < 5_000);
+  assert.deepEqual(result.attempts, []);
+  assert.equal(health.cooldownUntil.size, 0);
+});
+
+test("an already-aborted signal starts no provider", async () => {
+  let called = false;
+  const service = createAiService({
+    providers: [{ name: "a", generate: async () => ((called = true), { ok: true, text: "x" }) }],
+  });
+  const result = await service.generate(PROMPT, { signal: AbortSignal.abort() });
+  assert.equal(result.errorClass, "aborted");
+  assert.equal(called, false);
+});
+
 test("without hedging, attempts run one at a time in order", async () => {
   const service = createAiService({ providers: [slowProvider("first", 40), slowProvider("second", 1)] });
   const result = await service.generate(PROMPT);

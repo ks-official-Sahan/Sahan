@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, error: "A title and some content are required." }, { status: 400 });
   }
 
-  const result = await generateSeoSuggestion(parsed.data, realBlogDeps(getEnv(), blogSite));
+  const result = await generateSeoSuggestion(parsed.data, realBlogDeps(getEnv(), blogSite), { signal: request.signal });
   if (!result.ok) return NextResponse.json(result, { status: 502, headers: { "Cache-Control": "no-store" } });
   return NextResponse.json({ ok: true, ...result.seo }, { headers: { "Cache-Control": "no-store" } });
 }

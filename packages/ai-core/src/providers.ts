@@ -177,11 +177,20 @@ export function createAiService(deps: AiServiceDeps) {
        * (malformed JSON from a weak model) from beating a slower valid one.
        */
       accept?: (text: string) => string | null;
+      /**
+       * The caller gave up (an admin cancelled, a client disconnected): every
+       * running attempt is aborted, no further provider starts, and the result
+       * is `errorClass: "aborted"`. An aborted attempt is not the provider's
+       * fault, so it is neither logged nor cooled down.
+       */
+      signal?: AbortSignal;
     }
   ): Promise<AiResult> {
     if (deps.providers.length === 0) {
       return { ok: false, provider: null, errorClass: "no_provider", attempts: [] };
     }
+    const external = options?.signal;
+    if (external?.aborted) return { ok: false, provider: null, errorClass: "aborted", attempts: [] };
 
     const startedAll = now();
     const ordered = rank(startedAll);
@@ -192,6 +201,15 @@ export function createAiService(deps: AiServiceDeps) {
     let stopped = false;
     let result: AiResult | null = null;
     let rejected: AiResult["rejected"];
+    let onAbort: (() => void) | undefined;
+    const aborted = new Promise<void>((resolve) => {
+      onAbort = () => {
+        stopped = true;
+        cancelLosers.abort();
+        resolve();
+      };
+      external?.addEventListener("abort", onAbort, { once: true });
+    });
 
     const launch = (): boolean => {
       if (result || stopped || next >= ordered.length) return false;
@@ -201,7 +219,7 @@ export function createAiService(deps: AiServiceDeps) {
       options?.onAttempt?.({ provider: provider.name, stage: "start" });
       const started = now();
       const run = attempt(provider, prompt, options?.maxTokens, Math.min(timeoutMs, remaining), cancelLosers.signal, options?.jsonMode).then((raw) => {
-        if (result) return; // Lost the race; its failure is not the provider's fault.
+        if (result || external?.aborted) return; // Lost the race or the caller left; not the provider's fault.
         const ms = now() - started;
         let outcome = raw;
         if (outcome.ok && options?.accept) {
@@ -244,19 +262,26 @@ export function createAiService(deps: AiServiceDeps) {
       return true;
     };
 
-    while (!result) {
-      if (running.size === 0 && !launch()) break;
-      let timer: ReturnType<typeof setTimeout> | undefined;
-      const racers: Promise<unknown>[] = [...running];
-      if (deps.hedgeAfterMs !== undefined && next < ordered.length) {
-        racers.push(new Promise((resolve) => (timer = setTimeout(() => resolve(HEDGE), deps.hedgeAfterMs))));
+    try {
+      while (!result && !external?.aborted) {
+        if (running.size === 0 && !launch()) break;
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        // `aborted` returns at once, even from a provider that ignores its signal.
+        const racers: Promise<unknown>[] = [...running, aborted];
+        if (deps.hedgeAfterMs !== undefined && next < ordered.length) {
+          racers.push(new Promise((resolve) => (timer = setTimeout(() => resolve(HEDGE), deps.hedgeAfterMs))));
+        }
+        const first = await Promise.race(racers);
+        clearTimeout(timer);
+        if (first === HEDGE) launch();
       }
-      const first = await Promise.race(racers);
-      clearTimeout(timer);
-      if (first === HEDGE) launch();
+    } finally {
+      if (onAbort) external?.removeEventListener("abort", onAbort);
     }
 
-    return result ?? { ok: false, provider: null, errorClass: attempts[attempts.length - 1]?.errorClass ?? "deadline", attempts, rejected };
+    if (result) return result;
+    if (external?.aborted) return { ok: false, provider: null, errorClass: "aborted", attempts, rejected };
+    return { ok: false, provider: null, errorClass: attempts[attempts.length - 1]?.errorClass ?? "deadline", attempts, rejected };
   }
 
   return { generate };

@@ -50,6 +50,8 @@ import { createAiService, realProviders, sharedAiHealth } from "@sahan-sac/ai-co
 const env = aiEnvFromProcess();
 if (chatbotEnabled(env)) {
   const ai = createAiService({ providers: realProviders(env, "chat"), health: sharedAiHealth, timeoutMs: 12_000, deadlineMs: 20_000 });
-  const result = await ai.generate({ system: "You are helpful.", user: "Hello" }, { maxTokens: 200 });
+  const result = await ai.generate({ system: "You are helpful.", user: "Hello" }, { maxTokens: 200, signal: request.signal });
 }
 ```
+
+Pass the request's `signal` so a client that disconnects stops the chain: every running attempt is aborted, no further provider starts, and the result is `{ ok: false, errorClass: "aborted" }`. An aborted attempt is not logged or cooled down.

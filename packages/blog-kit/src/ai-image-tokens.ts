@@ -42,3 +42,24 @@ export function applyImageToken(markdown: string, token: string, resolved: Resol
     return `*(Add an image here — ${label}. Use "Choose from library" or the AI Image Prompt to fill it in.)*`;
   });
 }
+
+const escapeAttribute = (value: string) => value.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+/**
+ * applyImageToken for the editor's HTML instead of the Markdown source, so an
+ * image that finishes after the draft has landed patches the body the admin
+ * may already be editing instead of re-rendering over it. Handles both shapes
+ * a token takes there: markdownToHtml's <figure><img><figcaption></figure>,
+ * and the bare <img> the rich editor normalizes it to once edited.
+ */
+export function applyImageTokenToHtml(html: string, token: string, resolved: ResolvedImage | null): string {
+  const src = `src="${escapeAttribute(token)}"`;
+  if (!html.includes(src)) return html;
+  if (resolved) return html.split(src).join(`src="${escapeAttribute(resolved.url)}"`);
+
+  const pattern = new RegExp(`<figure>\\s*<img\\b[^>]*\\s${escapeRegExp(src)}[^>]*>[\\s\\S]*?</figure>|<img\\b[^>]*\\s${escapeRegExp(src)}[^>]*>`, "g");
+  return html.replace(pattern, (tag) => {
+    const label = /\salt="([^"]*)"/.exec(tag)?.[1] || "image";
+    return `<p><em>(Add an image here — ${label}. Use "Choose from library" or the AI Image Prompt to fill it in.)</em></p>`;
+  });
+}

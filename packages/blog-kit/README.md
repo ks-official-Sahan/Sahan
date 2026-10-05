@@ -25,7 +25,7 @@ It is headless and framework-agnostic: no Prisma, no Next.js APIs, no React, and
 | `@sahan-sac/blog-kit/prompts` | Full-post, repair and SEO prompt builders (caller input fenced as data) |
 | `@sahan-sac/blog-kit/helper-prompts` | Draft, cover and full-post helper prompts |
 | `@sahan-sac/blog-kit/images` | `generateBlogImage(prompt, options, { config, sink })`, `ImageSink` |
-| `@sahan-sac/blog-kit/ai-image-tokens` | Inline image placeholders in generated Markdown (`applyImageToken`, `removeImageToken`) |
+| `@sahan-sac/blog-kit/ai-image-tokens` | Inline image placeholders in generated Markdown (`applyImageToken`, `removeImageToken`) and in the editor's HTML (`applyImageTokenToHtml`) |
 | `@sahan-sac/blog-kit/markdown` | `markdownToHtml`, `htmlToMarkdown` (charts and heading ids included) |
 | `@sahan-sac/blog-kit/chart` | Chart code blocks to accessible SVG figures |
 | `@sahan-sac/blog-kit/slug` | `slugify`, `isValidSlug`, `ensureUniqueSlug` |
@@ -52,7 +52,8 @@ import { generateBlogImage } from "@sahan-sac/blog-kit/images";
 // the defaults are "this site", ["/"] and no call-to-action path.
 const site = { description: "a bakery's site", internalLinks: ["/", "/menu", "/contact"], callToAction: ["/contact"] };
 
-const result = await generateBlogPost(input, realBlogDeps(env, site), { onStatus: (status) => send("provider_status", status) });
+// `signal` stops the model calls (and skips the repair) when the client goes away.
+const result = await generateBlogPost(input, realBlogDeps(env, site), { onStatus: (status) => send("provider_status", status), signal: request.signal });
 if (!result.ok) return send("error", { error: result.error });
 
 const config = imageConfigFromEnv(env);

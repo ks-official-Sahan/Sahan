@@ -113,11 +113,16 @@ export async function POST(request: NextRequest) {
 
       try {
         send("stage", { stage: "writing" });
+        // The admin cancelling (or closing the tab) aborts request.signal,
+        // which stops the model calls instead of letting them run to the
+        // deadline for nobody.
         const result = await generateBlogPost(input, realBlogDeps(env, blogSite), {
           onStatus: (status) => {
             send("provider_status", status);
           },
+          signal: request.signal,
         });
+        if (request.signal.aborted) return;
         if (!result.ok) {
           send("error", { error: result.error });
           return;

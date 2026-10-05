@@ -193,6 +193,24 @@ test("generateBlogPost discards a response that looks like a prompt-injection le
 
 // ─── generateSeoSuggestion ─────────────────────────────────────────────────
 
+test("generateBlogPost stops without a repair when the signal is aborted", async () => {
+  const controller = new AbortController();
+  let calls = 0;
+  const provider: AiProvider = {
+    name: "slow",
+    generate: (_prompt, options) =>
+      new Promise<AiOutcome>((resolve) => {
+        calls += 1;
+        options?.signal?.addEventListener("abort", () => resolve({ ok: false, errorClass: "aborted", retryable: true }));
+      }),
+  };
+  setTimeout(() => controller.abort(), 10);
+  const result = await generateBlogPost(INPUT, { providers: [provider] }, { signal: controller.signal });
+  assert.equal(result.ok, false);
+  assert.match(result.ok ? "" : result.error, /cancelled/);
+  assert.equal(calls, 1);
+});
+
 test("generateSeoSuggestion parses a valid SEO suggestion", async () => {
   const payload = { seoTitle: "A great title", seoDescription: "A great description.", excerpt: "A great excerpt." };
   const provider = fakeProvider("fake", { ok: true, text: JSON.stringify(payload) });

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { applyImageToken } from "./ai-image-tokens";
+import { applyImageToken, applyImageTokenToHtml } from "./ai-image-tokens";
 
 const TOKEN = "ai-image://1";
 
@@ -41,4 +41,31 @@ test("applyImageToken handles a placeholder image with no caption", () => {
 
   const failure = applyImageToken(markdown, TOKEN, null);
   assert.match(failure, /Add an image here — alt only/);
+});
+
+test("applyImageTokenToHtml swaps the token src for the real URL and keeps the rest of the body", () => {
+  const html = `<h2>Edited heading</h2><figure><img src="${TOKEN}" alt="a diagram"><figcaption>Fits</figcaption></figure><p>typed while waiting</p>`;
+  const result = applyImageTokenToHtml(html, TOKEN, { url: "https://cdn.example.com/x.png?a=1&b=2", alt: "a diagram" });
+  assert.equal(
+    result,
+    '<h2>Edited heading</h2><figure><img src="https://cdn.example.com/x.png?a=1&amp;b=2" alt="a diagram"><figcaption>Fits</figcaption></figure><p>typed while waiting</p>'
+  );
+});
+
+test("applyImageTokenToHtml replaces a failed figure or bare img with a placeholder note", () => {
+  const figure = `<p>a</p><figure><img src="${TOKEN}" alt="Diagram"><figcaption>Cap</figcaption></figure><p>b</p>`;
+  assert.equal(
+    applyImageTokenToHtml(figure, TOKEN, null),
+    '<p>a</p><p><em>(Add an image here — Diagram. Use "Choose from library" or the AI Image Prompt to fill it in.)</em></p><p>b</p>'
+  );
+  const bare = `<figure><img src="https://cdn.example.com/kept.png" alt="kept"><figcaption>k</figcaption></figure><img src="${TOKEN}" alt="Bare"><p>Cap</p>`;
+  const result = applyImageTokenToHtml(bare, TOKEN, null);
+  assert.match(result, /kept\.png/);
+  assert.match(result, /Add an image here — Bare\./);
+  assert.doesNotMatch(result, /ai-image:/);
+});
+
+test("applyImageTokenToHtml leaves a body without the token unchanged", () => {
+  const html = "<p>ai-image://1 as text is not an image</p>";
+  assert.equal(applyImageTokenToHtml(html, TOKEN, null), html);
 });

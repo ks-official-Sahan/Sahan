@@ -350,6 +350,9 @@ export function validateStructure(bodyMarkdown: string, length: BlogGenerationIn
   return issues;
 }
 
+/** What a cancelled generation resolves to; nobody is usually left to read it. */
+const CANCELLED: AiHelperFailure = { ok: false, error: "Generation was cancelled." };
+
 export type BlogGenerationStatusCallback = (status: {
   provider: string;
   status: "start" | "failure" | "fallback" | "success";
@@ -367,8 +370,15 @@ export type BlogGenerationStatusCallback = (status: {
 export async function generateBlogPost(
   input: BlogGenerationInput,
   deps: BlogAiDeps,
-  options?: { onStatus?: BlogGenerationStatusCallback; budgetMs?: number; now?: () => number }
+  options?: {
+    onStatus?: BlogGenerationStatusCallback;
+    budgetMs?: number;
+    now?: () => number;
+    /** The admin cancelled or closed the tab: stops every model call and skips the repair. */
+    signal?: AbortSignal;
+  }
 ): Promise<GenerateBlogPostResult | AiHelperFailure> {
+  const signal = options?.signal;
   const now = options?.now ?? Date.now;
   const startedAt = now();
   const budgetMs = options?.budgetMs ?? TEXT_BUDGET_MS;
@@ -404,7 +414,9 @@ export async function generateBlogPost(
     jsonMode: { schema: BLOG_RESPONSE_SCHEMA },
     onAttempt: handleAttempt,
     accept,
+    signal,
   });
+  if (signal?.aborted) return CANCELLED;
   const firstText = first.ok ? first.text : first.rejected?.text;
   if (!firstText) {
     return { ok: false, error: `No AI provider returned a complete post${summarize(first.attempts)}.` };
@@ -444,7 +456,9 @@ export async function generateBlogPost(
     jsonMode: { schema: BLOG_RESPONSE_SCHEMA },
     onAttempt: handleAttempt,
     accept,
+    signal,
   });
+  if (signal?.aborted) return CANCELLED;
   if (!repair.ok || !repair.text) {
     // A structurally weak first post is still better than nothing.
     if (firstParsed.ok) return { ok: true, post: firstParsed.data, provider: first.provider ?? "unknown" };
@@ -469,9 +483,14 @@ export interface GenerateSeoResult {
   provider: string;
 }
 
-export async function generateSeoSuggestion(input: { title: string; contentText: string }, deps: BlogAiDeps): Promise<GenerateSeoResult | AiHelperFailure> {
+export async function generateSeoSuggestion(
+  input: { title: string; contentText: string },
+  deps: BlogAiDeps,
+  options?: { signal?: AbortSignal }
+): Promise<GenerateSeoResult | AiHelperFailure> {
   const service = createAiService({ providers: deps.providers, health: deps.health, timeoutMs: 25_000, deadlineMs: 45_000 });
-  const result = await service.generate(buildSeoSuggestPrompt(input, deps.site), { maxTokens: 400 });
+  const result = await service.generate(buildSeoSuggestPrompt(input, deps.site), { maxTokens: 400, signal: options?.signal });
+  if (options?.signal?.aborted) return CANCELLED;
   if (!result.ok || !result.text) {
     return { ok: false, error: "No AI provider is configured or reachable right now." };
   }
