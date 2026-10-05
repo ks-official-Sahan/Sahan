@@ -444,6 +444,58 @@ export const auth = betterAuth({
 const session = await readBetterAuthSession(auth, request.headers);
 ```
 
+### Better Auth on auth-kit's tables
+
+The setup above uses Better Auth's own tables. An app already on auth-kit's
+tables (`users`, `user_sessions`, as the next-auth engine uses them) can switch
+engines without moving data: `authKitSessions()` keeps auth-kit's `authorize`
+as the sign-in decision (lockout, IP limit, emailed MFA codes, known-device
+email, audit), and Better Auth only issues and reads the session, a
+`user_sessions` row with a cookie token.
+
+```ts
+import { betterAuth } from "better-auth";
+import { nextCookies } from "better-auth/next-js";
+import {
+  AUTH_KIT_DISABLED_PATHS,
+  authKitDatabaseOptions,
+  authKitSessions,
+  betterAuthSessionSource,
+  signInRefusal,
+} from "@sahan-sac/auth-kit/better-auth";
+import { createAuthDal } from "@sahan-sac/auth-kit/session";
+
+export const auth = betterAuth({
+  database: prismaAdapter(prisma, { provider: "postgresql" }), // or drizzleAdapter(db, { provider: "pg", schema })
+  secret: env.BETTER_AUTH_SECRET,
+  ...authKitDatabaseOptions("prisma"), // or "drizzle": model names, 24 h sessions, cookie cache
+  disabledPaths: AUTH_KIT_DISABLED_PATHS, // Better Auth's own sign-in, sign-up, password and session routes
+  plugins: [authKitSessions({ authorize, canSignIn: hasValidUnlockHeader }), nextCookies()],
+});
+
+// Sign-in (a Server Action): same credentials as the next-auth engine.
+try {
+  await auth.api.authKitSignIn({ body: { email, password }, headers: await headers() });
+} catch (error) {
+  const refusal = signInRefusal(error); // "invalid" | "limited" | "mfa_required" | null
+}
+// After the emailed code verifies: auth.api.authKitSignIn({ body: { challengeId }, headers })
+// Sign-out: revoke the row with the session store, then auth.api.authKitClearSession({ headers }).
+
+export const { requireUser, requirePermission } = createAuthDal({
+  auth: betterAuthSessionSource(auth, headers),
+  checkPasswordFingerprint: false, // Better Auth sessions carry no pwf claim
+  // ...the same getSessionState, touchSession, getRolePermissions, notFound, redirect, after, paths
+});
+```
+
+The schema needs `users.emailVerified` and `user_sessions.token`/`updatedAt`
+(in `prisma/auth.prisma` and `createAuthSchema` from 0.5.0). Revocation stays
+auth-kit's: the DAL refuses a revoked, expired or disabled session on every
+request, whatever Better Auth's cookie cache holds. Because the session
+carries no password fingerprint, revoke a user's other sessions whenever
+their password changes (`revokeUserSessions`).
+
 ## Hono
 
 `./hono` brings the same rules to a Hono app (Node, Bun, Deno, Workers):
@@ -484,7 +536,7 @@ allowed, so a protected route cannot be told from a missing one.
 | `./prisma` | Any server | `createPrismaAuthAdapter`, `PrismaAuthClient`/`PrismaAuthModels` types |
 | `./drizzle` | Any server (drizzle-orm) | `createAuthSchema`, `createDrizzleAuthAdapter`, types |
 | `./hono` | Any server (hono) | `securityHeaders`, `originGuard`, `rateLimit`, `session`, `requirePermission`, `betterAuthRoute` |
-| `./better-auth` | Any server (Better Auth) | `authKit` plugin, `authKitEmailPassword`, `readBetterAuthSession`, types |
+| `./better-auth` | Any server (Better Auth) | `authKit` plugin, `authKitEmailPassword`, `readBetterAuthSession`; on auth-kit's tables: `authKitSessions` plugin, `authKitDatabaseOptions`, `AUTH_KIT_DISABLED_PATHS`, `betterAuthSessionSource`, `signInRefusal`; types |
 | `./session` | Next.js (`next/navigation`, `next/server`) | `createAuthDal`, `createSessionStore`, `createSessionReader`, `evaluateSession`, `passwordFingerprint`, types |
 | `./security` | Mixed — `request-device` needs `next/headers` | `clientIp`, allowlist functions, `isAllowedOrigin`/`parseOriginList`, `buildCsp`/`generateNonce`, `SECURITY_HEADERS`, `isScannerPath`, `checkOrigin`, `requestDetails` |
 | `./cache` | Server (any runtime) | `MemoryKv`, `createRateLimit`/`MemoryLimiter`/`UpstashLimiter`, `RedisKv`/`getRedis`/`getKv`/`kv` |

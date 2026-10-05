@@ -51,7 +51,8 @@ export interface SessionListItem {
   revokeReason: string | null;
 }
 
-function describeAgent(ua: string | null) {
+/** Browser, system and device type for a session row, from its User-Agent. */
+export function describeAgent(ua: string | null) {
   if (!ua) return { browser: null, os: null, device: null };
   const parsed = parseUserAgent(ua);
   return { browser: parsed.browser, os: parsed.os, device: parsed.deviceType ?? "desktop" };

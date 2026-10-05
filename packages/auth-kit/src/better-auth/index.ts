@@ -6,12 +6,17 @@ import { hashPassword, verifyPassword } from "../password";
 import { checkPassword, PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from "../password-policy";
 import { clientIp, type ClientIpOptions, UNKNOWN_IP } from "../security/ip";
 
+export * from "./sessions";
+
 // The Better Auth engine. Better Auth owns sign-in, sessions, cookies, 2FA and
 // the auth routes; this plugin adds auth-kit's policy on top of it, the same
 // rules the next-auth engine enforces: a hidden sign-in form (login unlock),
 // per-IP and per-account throttling, the password policy, audit events, and
 // the role fields RBAC reads. Every dependency is injected, so the plugin
 // never reads process.env, a database or Redis itself.
+//
+// This plugin is for apps on Better Auth's own tables. Apps on auth-kit's
+// tables (users, user_sessions) use authKitSessions from ./sessions instead.
 
 const SIGN_IN = "/sign-in/email";
 /** Endpoints that set a password, and the body field each one sends it in. */

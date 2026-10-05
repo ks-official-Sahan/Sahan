@@ -40,6 +40,8 @@ export function createAuthSchema<TRole extends string>(options: AuthSchemaOption
       id: text("id").primaryKey().$defaultFn(newId),
       // Stored lowercase; normalise before every write.
       email: text("email").notNull(),
+      // Read by the Better Auth engine; the app's own flows never set it.
+      emailVerified: boolean("emailVerified").notNull().default(false),
       name: text("name"),
       passwordHash: text("passwordHash").notNull(),
       role: roleEnum("role").notNull().default(options.defaultRole),
@@ -76,11 +78,13 @@ export function createAuthSchema<TRole extends string>(options: AuthSchemaOption
     (t) => [primaryKey({ name: "role_permissions_pkey", columns: [t.role, t.permission] })]
   );
 
-  // One row per signed-in browser. `id` is the `sid` claim in the JWT.
+  // One row per signed-in browser. `id` is the `sid` claim in the JWT
+  // (next-auth engine); `token` is the session cookie value (Better Auth engine).
   const userSessions = pgTable(
     "user_sessions",
     {
       id: text("id").primaryKey().$defaultFn(newId),
+      token: text("token"),
       userId: text("userId").notNull(),
       ip: text("ip"),
       userAgent: text("userAgent"),
@@ -89,6 +93,10 @@ export function createAuthSchema<TRole extends string>(options: AuthSchemaOption
       device: text("device"),
       mfaVerified: boolean("mfaVerified").notNull().default(false),
       createdAt: at("createdAt").notNull().default(now),
+      updatedAt: at("updatedAt")
+        .notNull()
+        .default(now)
+        .$onUpdate(() => new Date()),
       lastSeenAt: at("lastSeenAt").notNull().default(now),
       expiresAt: at("expiresAt").notNull(),
       revokedAt: at("revokedAt"),
@@ -99,6 +107,7 @@ export function createAuthSchema<TRole extends string>(options: AuthSchemaOption
       foreignKey({ name: "user_sessions_userId_fkey", columns: [t.userId], foreignColumns: [users.id] })
         .onDelete("cascade")
         .onUpdate("cascade"),
+      uniqueIndex("user_sessions_token_key").on(t.token),
       index("user_sessions_userId_revokedAt_idx").on(t.userId, t.revokedAt),
       index("user_sessions_expiresAt_idx").on(t.expiresAt),
       index("user_sessions_lastSeenAt_idx").on(t.lastSeenAt),
