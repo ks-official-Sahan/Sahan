@@ -1,13 +1,15 @@
 import {
   isUnlockSecret,
   loginUnlockEnabled,
+  parseShortLink,
+  resolveShortLink,
   signUnlockCookie,
   UNLOCK_QUERY,
   unlockCookieOptions,
   unlockKeysFromEnv,
-  verifySignInLink,
   verifyTokenTag,
   verifyUnlockCookie,
+  type ShortLink,
 } from "@sahan-sac/auth-kit";
 import { buildCsp, clientIp, generateNonce, isAllowedOrigin, isScannerPath, parseOriginList, shouldBlockAdminByAllowlist, UNKNOWN_IP } from "@sahan-sac/auth-kit/security";
 import { getToken } from "next-auth/jwt";
@@ -26,7 +28,6 @@ import {
 } from "@/lib/admin/maintenance-bypass";
 import { CONFIRM_EMAIL_PATH, FORGOT_PASSWORD_PATH, LOCKED_PATH, LOGIN_PATH, SESSION_COOKIE, SET_PASSWORD_PATH } from "@/lib/auth/constants";
 import { authKit } from "@/lib/auth/kit-config";
-import { parseShortLink, shortLinkTarget, type ShortLink } from "@/lib/auth/short-links";
 import { limit } from "@/lib/cache/ratelimit";
 import { log } from "@/lib/log";
 import { readKvSetting } from "@/lib/settings/kv";
@@ -135,28 +136,30 @@ function redirectTo(request: NextRequest, path: string): NextResponse {
 }
 
 /**
- * Short links (lib/auth/short-links.ts). Redirects only, so a mail scanner
- * that opens the link first changes nothing. An account or email link needs
- * its HMAC tag; the page it lands on still checks the token in the database.
- * A sign-in link sets the unlock cookie, as ?secret= does, without the secret
- * ever being in a URL.
+ * Short links (@sahan-sac/auth-kit/short-link). Redirects only, so a mail
+ * scanner that opens the link first changes nothing. An account or email link
+ * needs its HMAC tag; the page it lands on still checks the token in the
+ * database. A sign-in link sets the unlock cookie, as ?secret= does, without
+ * the secret ever being in a URL.
  */
 async function shortLink(request: NextRequest, link: ShortLink, now: number): Promise<NextResponse> {
-  if (link.kind !== "signIn") {
-    return verifyTokenTag(link.token, process.env.AUTH_SECRET) ? redirectTo(request, shortLinkTarget(link)) : locked(request);
-  }
-  const response = redirectTo(request, link.next);
-  if (!loginUnlockEnabled()) return response;
-
   const keys = unlockKeysFromEnv();
   const callerIp = ip(request);
-  // Same bucket and R22 rule as the ?secret= unlock below.
-  const limited = callerIp === UNKNOWN_IP ? false : !(await limit("unlock:ip", callerIp)).ok;
-  if (limited || !keys || !verifySignInLink(link.code, now, keys)) {
-    log.warn("admin sign-in link refused", { ip: callerIp, limited, configured: keys !== null });
+  const decision = await resolveShortLink(link, {
+    authSecret: process.env.AUTH_SECRET,
+    unlockGate: loginUnlockEnabled(),
+    keys,
+    now,
+    paths: authKit.paths,
+    // Same bucket and R22 rule as the ?secret= unlock below.
+    rateLimit: async () => callerIp === UNKNOWN_IP || (await limit("unlock:ip", callerIp)).ok,
+  });
+  if (decision.kind === "locked") {
+    if (link.kind === "signIn") log.warn("admin sign-in link refused", { ip: callerIp, reason: decision.reason });
     return locked(request);
   }
-  response.cookies.set(UNLOCK_COOKIE, signUnlockCookie(now, keys), unlockCookieOptions(PRODUCTION));
+  const response = redirectTo(request, decision.location);
+  if (decision.unlock && keys) response.cookies.set(UNLOCK_COOKIE, signUnlockCookie(now, keys), unlockCookieOptions(PRODUCTION));
   return response;
 }
 

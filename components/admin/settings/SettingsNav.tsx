@@ -75,7 +75,7 @@ export default function SettingsNav({ items }: { items: SettingsNavItem[] }) {
       className="sticky top-14 z-20 -mx-4 mb-6 border-b border-border bg-background/95 px-4 py-2 backdrop-blur supports-[backdrop-filter]:bg-background/80 lg:top-20 lg:mx-0 lg:mb-0 lg:self-start lg:border-0 lg:bg-transparent lg:p-0 lg:backdrop-blur-none"
     >
       <p className="mb-2 hidden text-xs font-semibold uppercase tracking-wide text-muted-foreground lg:block">On this page</p>
-      <ul ref={listRef} className="flex gap-1.5 overflow-x-auto [scrollbar-width:none] lg:flex-col lg:gap-0.5 lg:overflow-visible">
+      <ul ref={listRef} className="flex gap-1.5 no-scrollbar overflow-x-auto lg:flex-col lg:gap-0.5 lg:overflow-visible">
         {items.map((item) => {
           const current = item.id === active;
           return (

@@ -55,6 +55,8 @@ const schema = z.object({
   ADMIN_NAME: text,
   ADMIN_PASSWORD: text,
   SITE_URL: text,
+  // Site domains for email links, in order; the first that answers /api/health is used (lib/site-url.ts).
+  SITE_URLS: list,
   ADMIN_ALLOWED_ORIGINS: list,
 
   // Data

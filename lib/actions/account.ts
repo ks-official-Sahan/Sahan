@@ -210,7 +210,7 @@ export async function requestEmailChangeAction(_previous: ActionState, formData:
 
   const rendered = emailChangeVerify({
     name: user.name,
-    url: emailLink(token),
+    url: await emailLink(token),
     expiresMinutes: RESET_TTL_MINUTES,
   });
   const sent = await sendEmail(

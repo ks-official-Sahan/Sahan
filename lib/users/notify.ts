@@ -14,7 +14,7 @@ export async function notifyForcedLogout(input: {
   by: string;
   reason?: string;
 }): Promise<void> {
-  const rendered = forcedLogout({ name: input.name, by: input.by, reason: input.reason, signInUrl: signInLink().url });
+  const rendered = forcedLogout({ name: input.name, by: input.by, reason: input.reason, signInUrl: (await signInLink()).url });
   await sendEmail({
     to: input.to,
     subject: rendered.subject,

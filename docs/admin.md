@@ -60,6 +60,16 @@ confirmations. Each redirects to its page (`/admin/set-password`,
 in the old long form still work until they expire. The one-letter paths
 `/a`, `/e` and `/s` are reserved, so no public page may use them.
 
+**Which domain links use.** Every emailed or copied link (invites, resets,
+sign-in links, the new-inquiry button) uses the first domain in `SITE_URLS`
+that answers `/api/health` as this app; if none does yet (for example a
+deployment from before the route existed), the first that answers at all;
+otherwise the first listed. Unset, the list is `SITE_URL`, then
+`https://sahansachintha.com`, then `https://sahansachintha.vercel.app`. The
+answer is cached for five minutes (one minute when no domain is healthy) in
+Redis, so one probe serves every instance. The request's own Host header is
+never used.
+
 If you're locked out of both (secret lost, cookie expired, no browser
 access), see "Break-glass" below.
 

@@ -121,7 +121,7 @@ export async function inviteUser(_previous: ActionState, formData: FormData): Pr
 
   // The link exists only in this response (the database keeps its hash), so
   // the inviter can copy it now or get a new one later from the list.
-  const link = accountLink(token);
+  const link = await accountLink(token);
   if (!notify) {
     return done(`Invitation created for ${parsed.data.email}. Copy the link and share it: it works once and lasts ${INVITE_TTL_HOURS} hours.`, { link });
   }
@@ -182,7 +182,7 @@ export async function regenerateInviteLink(_previous: ActionState, formData: For
   }
 
   revalidatePath(USERS_PATH);
-  return done(`New link for ${email}. The previous link no longer works.`, { link: accountLink(token) });
+  return done(`New link for ${email}. The previous link no longer works.`, { link: await accountLink(token) });
 }
 
 export async function revokeInvite(_previous: ActionState, formData: FormData): Promise<ActionState> {
@@ -488,7 +488,7 @@ export async function sendReset(_previous: ActionState, formData: FormData): Pro
 
     const rendered = passwordReset({
       name: target.name,
-      url: accountLink(token),
+      url: await accountLink(token),
       expiresMinutes: RESET_TTL_MINUTES,
     });
     const sent = await sendEmail(

@@ -11,7 +11,7 @@ import { log } from "@/lib/log";
 export async function notifyOwner(inquiry: InquiryRow): Promise<void> {
   const env = getEnv();
   const recipients = env.RESEND_RECIPIENT_EMAILS || [];
-  if (recipients.length === 0 || !env.SITE_URL) {
+  if (recipients.length === 0) {
     return;
   }
 
@@ -22,7 +22,7 @@ export async function notifyOwner(inquiry: InquiryRow): Promise<void> {
     message: inquiry.message,
     receivedAt: inquiry.createdAt.toLocaleString(),
     // The owner may read this on a device that is not unlocked or signed in.
-    adminUrl: signInLink(`/admin/leads/${inquiry.id}`).url,
+    adminUrl: (await signInLink(`/admin/leads/${inquiry.id}`)).url,
   });
 
   const result = await sendEmail({

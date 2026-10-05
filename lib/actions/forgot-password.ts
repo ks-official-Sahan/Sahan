@@ -64,7 +64,7 @@ export async function requestPasswordResetAction(_previous: ActionState, formDat
 
         const rendered = passwordReset({
           name: user.name,
-          url: accountLink(token),
+          url: await accountLink(token),
           expiresMinutes: RESET_TTL_MINUTES,
         });
         const sent = await sendEmail(

@@ -8,8 +8,8 @@ import { signInLink } from "@/lib/auth/links";
  * without the unlock secret. Renders nothing while the hidden-login gate is
  * off, since the login page is public then.
  */
-export default function SignInLinkCard({ audience }: { audience: "self" | "team" }) {
-  const link = signInLink();
+export default async function SignInLinkCard({ audience }: { audience: "self" | "team" }) {
+  const link = await signInLink();
   if (!link.expiresAt) return null;
 
   return (
