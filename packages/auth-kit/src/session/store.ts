@@ -146,6 +146,18 @@ export function createSessionStore(deps: { adapter: AuthDbAdapter; kv: Kv; authS
     return result.count > 0;
   }
 
+  /**
+   * Ends a chosen set of sessions in one write and one cache delete (a bulk
+   * "end selected" on an admin screen). Sessions that already ended are left
+   * as they were. The caller decides which ids it may end.
+   */
+  async function revokeSessions(ids: readonly string[], by: Revoker): Promise<void> {
+    const unique = [...new Set(ids)];
+    if (unique.length === 0) return;
+    await adapter.revokeSessionsByIds(unique, by.userId, by.reason);
+    await invalidateSessionState(...unique);
+  }
+
   /** Ends every active session of a user, optionally keeping one. Returns the ids it ended. */
   async function revokeUserSessions(userId: string, by: Revoker, options: { exceptSid?: string } = {}): Promise<string[]> {
     const ids = await adapter.findActiveSessionIdsExcept(userId, options.exceptSid);
@@ -207,6 +219,7 @@ export function createSessionStore(deps: { adapter: AuthDbAdapter; kv: Kv; authS
     touchSession,
     invalidateUserSessionState,
     revokeSession,
+    revokeSessions,
     revokeUserSessions,
     forceLogoutAll,
     getKnownIps,

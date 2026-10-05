@@ -22,7 +22,8 @@ config object (`defineAuthKit`) instead of being hardcoded.
   and a `pwf` (password fingerprint) match, so **changing a password
   invalidates every older session immediately**, without a token blocklist.
 - **Revocation / force logout**: `createSessionStore` gives you
-  `revokeSession`, `revokeUserSessions`, `forceLogoutAll`, all of which drop
+  `revokeSession`, `revokeSessions` (a chosen set, in one write),
+  `revokeUserSessions`, `forceLogoutAll`, all of which drop
   the cached state so the change is visible on the very next request, not
   after a TTL.
 - **RBAC**: a role → permission matrix stored in your database, cached for a
@@ -392,7 +393,7 @@ calls `consumeChallenge` for you.
 ### 8. Session management UI hooks
 
 `createSessionStore` also gives you `listSessions`, `getKnownIps`,
-`revokeSession`, `revokeUserSessions`, `forceLogoutAll` — wire these to a
+`revokeSession`, `revokeSessions`, `revokeUserSessions`, `forceLogoutAll` — wire these to a
 "your sessions" screen and an admin "sessions" screen.
 
 ### 9. Rate limits and custom buckets

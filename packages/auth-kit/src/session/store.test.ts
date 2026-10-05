@@ -58,6 +58,22 @@ test("revokeUserSessions ends every active session but the one excluded", async 
   assert.equal((await store.getSessionState(c.id))?.revoked, true);
 });
 
+test("revokeSessions ends exactly the chosen sessions and drops their cached state", async () => {
+  const { store, user } = harness();
+  const a = await store.createSession({ userId: user.id, ip: null, userAgent: null });
+  const b = await store.createSession({ userId: user.id, ip: null, userAgent: null });
+  const c = await store.createSession({ userId: user.id, ip: null, userAgent: null });
+  // Warm the cache, so a stale "not revoked" copy would show if it were kept.
+  await store.getSessionState(a.id);
+  await store.getSessionState(c.id);
+
+  await store.revokeSessions([a.id, c.id, a.id], { userId: user.id, reason: "revoked_by_admin" });
+  assert.equal((await store.getSessionState(a.id))?.revoked, true);
+  assert.equal((await store.getSessionState(b.id))?.revoked, false);
+  assert.equal((await store.getSessionState(c.id))?.revoked, true);
+  await store.revokeSessions([], { userId: user.id, reason: "noop" });
+});
+
 test("forceLogoutAll ends every session of every user except the one excluded", async () => {
   const { adapter, store, user } = harness();
   const other = adapter.addUser({ email: "other@example.com", passwordHash: "hash-b", role: "EDITOR" });
