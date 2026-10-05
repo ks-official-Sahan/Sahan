@@ -40,6 +40,7 @@
     "./password-policy": "./src/password-policy.ts",
     "./invite-token": "./src/invite-token.ts",
     "./safe-callback-url": "./src/safe-callback-url.ts",
+    "./short-link": "./src/short-link.ts",
     "./constants": "./src/constants.ts",
     "./login-unlock": "./src/login-unlock.ts",
     "./unlock-request": "./src/unlock-request.ts",
@@ -230,6 +231,11 @@
         "types": "./dist/invite-token.d.ts",
         "import": "./dist/invite-token.js",
         "default": "./dist/invite-token.js"
+      },
+      "./short-link": {
+        "types": "./dist/short-link.d.ts",
+        "import": "./dist/short-link.js",
+        "default": "./dist/short-link.js"
       },
       "./safe-callback-url": {
         "types": "./dist/safe-callback-url.d.ts",

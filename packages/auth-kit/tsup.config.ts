@@ -33,6 +33,7 @@ export default defineConfig({
     "src/password-policy.ts",
     "src/invite-token.ts",
     "src/safe-callback-url.ts",
+    "src/short-link.ts",
     "src/constants.ts",
     "src/login-unlock.ts",
     "src/unlock-request.ts",

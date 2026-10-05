@@ -44,6 +44,13 @@ config object (`defineAuthKit`) instead of being hardcoded.
   make a short, expiring code (`<expiry>.<tag>`, about 23 characters) that an
   app can put in a link to unlock the same way without the secret in a URL;
   rotating either secret ends every code.
+- **Short links** (`@sahan-sac/auth-kit/short-link`): `/a/<token>` for invite
+  and reset links, `/e/<token>` for email-change links and `/s/<code>` for
+  sign-in links. Build them with `accountLinkPath`/`emailLinkPath`/
+  `signInLinkPath`; in the proxy, `parseShortLink(pathname, search)` then
+  `resolveShortLink(link, { authSecret, unlockGate, keys, now, paths, rateLimit })`
+  says where to redirect and whether to set the unlock cookie. Keep `/a`, `/e`
+  and `/s` free of your own pages.
 - **Short invite and reset tokens**: `createToken` makes 34-character tokens
   (128 random bits, a 64-bit tag); `verifyTokenTag` still accepts the older
   66-character form, so links already sent keep working.

@@ -23,6 +23,7 @@ export * from "./login-unlock";
 export * from "./password";
 export * from "./password-policy";
 export * from "./safe-callback-url";
+export * from "./short-link";
 export * from "./kit";
 
 export * from "./mfa";
