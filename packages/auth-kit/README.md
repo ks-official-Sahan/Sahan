@@ -40,7 +40,13 @@ config object (`defineAuthKit`) instead of being hardcoded.
 - **Hidden sign-in ("unlock gate")**: the login page answers 404 until a
   visitor opens it once with `?secret=<your-secret>`, which sets a short-lived
   signed cookie. This does not replace authentication — it just keeps casual
-  scanners from ever seeing a login form.
+  scanners from ever seeing a login form. `signSignInLink`/`verifySignInLink`
+  make a short, expiring code (`<expiry>.<tag>`, about 23 characters) that an
+  app can put in a link to unlock the same way without the secret in a URL;
+  rotating either secret ends every code.
+- **Short invite and reset tokens**: `createToken` makes 34-character tokens
+  (128 random bits, a 64-bit tag); `verifyTokenTag` still accepts the older
+  66-character form, so links already sent keep working.
 - **IP allowlist**: optional, for `/admin`-shaped paths. Fails **open** when
   the caller's IP cannot be resolved at all (no trusted proxy configured) —
   turning the allowlist on must never turn into "lock out everyone,

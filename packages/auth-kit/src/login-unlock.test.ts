@@ -2,13 +2,18 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import {
+  SIGN_IN_LINK_DEFAULT_DAYS,
+  SIGN_IN_LINK_MAX_DAYS,
   UNLOCK_TTL_SECONDS,
   constantTimeEqual,
   isUnlockSecret,
   loginUnlockEnabled,
+  signInLinkDays,
+  signSignInLink,
   signUnlockCookie,
   unlockCookieOptions,
   unlockKeysFromEnv,
+  verifySignInLink,
   verifyUnlockCookie,
   type UnlockKeys,
 } from "./login-unlock";
@@ -102,4 +107,46 @@ test("cookie options widen to Path=/ in production (for __Host-) and stay /admin
     path: "/admin",
     maxAge: UNLOCK_TTL_SECONDS,
   });
+});
+
+const DAY = 24 * 60 * 60 * 1000;
+
+test("a sign-in link is short, verifies until it expires, and never carries the secret", () => {
+  const code = signSignInLink(NOW, 14, keys);
+  assert.match(code, /^[0-9a-z]{6,9}.[A-Za-z0-9_-]{16}$/);
+  assert.ok(!code.includes(keys.unlockSecret));
+  assert.equal(verifySignInLink(code, NOW, keys), true);
+  assert.equal(verifySignInLink(code, NOW + 14 * DAY - 1000, keys), true);
+  assert.equal(verifySignInLink(code, NOW + 14 * DAY + 1000, keys), false);
+});
+
+test("a sign-in link fails when tampered with, malformed, or after a secret rotates", () => {
+  const code = signSignInLink(NOW, 14, keys);
+  const [expiry, tag] = code.split(".");
+  const later = (parseInt(expiry, 36) + 86_400).toString(36);
+  assert.equal(verifySignInLink(`${later}.${tag}`, NOW, keys), false);
+  const flipped = tag.slice(0, -1) + (tag.endsWith("A") ? "B" : "A");
+  assert.equal(verifySignInLink(`${expiry}.${flipped}`, NOW, keys), false);
+  for (const bad of [null, undefined, "", ".", code + ".x", "ABC." + tag, signUnlockCookie(NOW, keys)]) {
+    assert.equal(verifySignInLink(bad, NOW, keys), false);
+  }
+  assert.equal(verifySignInLink(code, NOW, { ...keys, unlockSecret: "rotated" }), false);
+  assert.equal(verifySignInLink(code, NOW, { ...keys, authSecret: "rotated-auth-secret-0123456789-abcdefgh" }), false);
+});
+
+test("the unlock cookie and a sign-in link never pass as each other", () => {
+  assert.equal(verifyUnlockCookie(signSignInLink(NOW, 14, keys), NOW, keys), false);
+  assert.equal(verifySignInLink(signUnlockCookie(NOW, keys), NOW, keys), false);
+});
+
+test("sign-in link lifetime is clamped to 1..90 days, and a longer one is refused", () => {
+  assert.equal(signInLinkDays(undefined), SIGN_IN_LINK_DEFAULT_DAYS);
+  assert.equal(signInLinkDays("abc"), SIGN_IN_LINK_DEFAULT_DAYS);
+  assert.equal(signInLinkDays(" 30 "), 30);
+  assert.equal(signInLinkDays("0"), 1);
+  assert.equal(signInLinkDays(365), SIGN_IN_LINK_MAX_DAYS);
+  const capped = signSignInLink(NOW, 365, keys);
+  assert.equal(verifySignInLink(capped, NOW + (SIGN_IN_LINK_MAX_DAYS - 1) * DAY, keys), true);
+  // Verified long before it was meant to be used: beyond the cap even though the tag is right.
+  assert.equal(verifySignInLink(capped, NOW - 2 * DAY, keys), false);
 });
