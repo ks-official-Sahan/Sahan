@@ -2,6 +2,12 @@
 
 All notable changes to this package are documented in this file.
 
+## 0.4.1
+
+### Patch Changes
+
+- d16a325: Every subpath export now has a `default` condition beside `import`, so CommonJS loaders can use the package through Node's `require(esm)`. drizzle-kit loads `drizzle.config.ts` and the schema through `require`, and it failed with `ERR_PACKAGE_PATH_NOT_EXPORTED` on a schema that imports `@sahan-sac/auth-kit/drizzle`.
+
 ## 0.4.0
 
 ### Minor Changes
