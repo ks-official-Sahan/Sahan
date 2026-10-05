@@ -38,7 +38,7 @@ It is headless and framework-agnostic: no Prisma, no Next.js APIs, no React, and
 
 ## Environment
 
-Uses `@sahan-sac/ai-core`'s variables; see its README. Offer the blog AI only when `blogAiEnabled(env)` is true: `ENABLE_BLOG_AI=true`, which is off by default, and a text provider key. Offer images only when `blogAiImagesEnabled(env)` is true, which also needs an image provider. Both functions are in `@sahan-sac/ai-core/availability`.
+Uses `@sahan-sac/ai-core`'s variables; see its README. Offer the blog AI only when `blogAiEnabled(env)` is true: `ENABLE_BLOG_AI=true`, which is off by default, and a provider that can answer for the blog (its key set, in `AI_PROVIDER_ORDER_BLOG` or `AI_PROVIDER_ORDER` when one is set, and `AI_ALLOW_PAID=true` for a paid one). Every generator runs the blog chain, so a failing provider hands over to the next. Offer images only when `blogAiImagesEnabled(env)` is true, which also needs an image provider. Both functions are in `@sahan-sac/ai-core/availability`.
 
 ## Wiring
 

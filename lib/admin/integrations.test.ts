@@ -5,12 +5,15 @@ import { generateKeyPairSync } from "node:crypto";
 
 import { resetVertexTokenCache } from "@sahan-sac/ai-core/vertex";
 
-import { checkBrevo, checkCloudinary, checkOpenRouter, checkResend, checkVertex } from "./integrations";
+import { checkAnthropic, checkBrevo, checkCloudinary, checkCustomAi, checkOpenAi, checkOpenRouter, checkResend, checkVertex } from "./integrations";
 
 // Fake fetch: no network call, no secret ever leaves the process. Each check
 // is exercised for "not configured", "configured and reachable" and
 // "configured and unreachable", proving the injectable fetch and the
 // configured/reachable split without hitting a real provider.
+
+/** Not a real key: a placeholder the checks must send but never return. */
+const FAKE_AI_KEY = "fake-ai-key";
 
 const ENV_KEYS = [
   "RESEND_API_KEY",
@@ -23,6 +26,13 @@ const ENV_KEYS = [
   "GOOGLE_PRIVATE_KEY",
   "GOOGLE_CLOUD_PROJECT",
   "GOOGLE_TOKEN_URI",
+  "OPENAI_API_KEY",
+  "OPENAI_BASE_URL",
+  "ANTHROPIC_API_KEY",
+  "ANTHROPIC_BASE_URL",
+  "AI_CUSTOM_BASE_URL",
+  "AI_CUSTOM_MODEL",
+  "AI_CUSTOM_API_KEY",
 ] as const;
 
 let saved: Record<string, string | undefined> = {};
@@ -59,21 +69,21 @@ describe("integration health checks", () => {
   });
 
   test("resend: configured and reachable", async () => {
-    process.env.RESEND_API_KEY = "test-key";
+    process.env.RESEND_API_KEY = FAKE_AI_KEY;
     const result = await checkResend(okFetch);
     assert.equal(result.configured, true);
     assert.equal(result.reachable, true);
   });
 
   test("resend: configured but the ping fails", async () => {
-    process.env.RESEND_API_KEY = "test-key";
+    process.env.RESEND_API_KEY = FAKE_AI_KEY;
     const result = await checkResend(failFetch);
     assert.equal(result.configured, true);
     assert.equal(result.reachable, false);
   });
 
   test("resend: a thrown fetch (timeout, DNS failure) is treated as unreachable, not thrown", async () => {
-    process.env.RESEND_API_KEY = "test-key";
+    process.env.RESEND_API_KEY = FAKE_AI_KEY;
     await assert.doesNotReject(async () => {
       const result = await checkResend(throwingFetch);
       assert.equal(result.reachable, false);
@@ -87,7 +97,7 @@ describe("integration health checks", () => {
   });
 
   test("brevo: configured and reachable", async () => {
-    process.env.EMAIL_BREVO_API_KEY = "test-key";
+    process.env.EMAIL_BREVO_API_KEY = FAKE_AI_KEY;
     const result = await checkBrevo(okFetch);
     assert.equal(result.configured, true);
     assert.equal(result.reachable, true);
@@ -155,5 +165,35 @@ describe("integration health checks", () => {
       assert.equal(result.configured, true);
       assert.equal(result.reachable, false);
     });
+  });
+});
+
+describe("paid AI providers", () => {
+  test("OpenAI and Anthropic are checked against their free models lists with the right auth header", async () => {
+    const seen: Array<{ url: string; headers: Record<string, string> }> = [];
+    const fetchImpl = async (url: string, init?: RequestInit) => {
+      seen.push({ url, headers: Object.fromEntries(new Headers(init?.headers).entries()) });
+      return new Response("{}", { status: url.includes("anthropic") ? 200 : 401 });
+    };
+    assert.deepEqual(await checkOpenAi(fetchImpl), { ...(await checkOpenAi(fetchImpl)), configured: false, reachable: null });
+    process.env.OPENAI_API_KEY = FAKE_AI_KEY;
+    process.env.OPENAI_BASE_URL = "https://gateway.example/v1/";
+    process.env.ANTHROPIC_API_KEY = FAKE_AI_KEY;
+    const openai = await checkOpenAi(fetchImpl);
+    const anthropic = await checkAnthropic(fetchImpl);
+    assert.equal(openai.reachable, false);
+    assert.equal(anthropic.reachable, true);
+    assert.equal(seen.at(-2)?.url, "https://gateway.example/v1/models");
+    assert.equal(seen.at(-1)?.url, "https://api.anthropic.com/v1/models");
+    assert.equal(seen.at(-1)?.headers["anthropic-version"], "2023-06-01");
+    assert.ok(!JSON.stringify([openai, anthropic]).includes(FAKE_AI_KEY));
+  });
+
+  test("a custom endpoint needs a base URL and a model; a local one may have no key", async () => {
+    const fetchImpl = async () => new Response("{}", { status: 200 });
+    process.env.AI_CUSTOM_BASE_URL = "http://localhost:11434/v1";
+    assert.equal((await checkCustomAi(fetchImpl)).configured, false);
+    process.env.AI_CUSTOM_MODEL = "llama3.2";
+    assert.deepEqual([(await checkCustomAi(fetchImpl)).configured, (await checkCustomAi(fetchImpl)).reachable], [true, true]);
   });
 });

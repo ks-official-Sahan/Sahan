@@ -4,5 +4,6 @@
 export { aiEnvSchema, parseAiEnv, aiEnvFromProcess, type AiEnv } from "./env";
 export type { TextPurpose, TextModels, ImageModels } from "./models";
 export type { AiProvider, AiResult, AiHealth } from "./providers";
+export type { ProviderAdapter, AdapterStatus, AdapterState } from "./adapters";
 export type { ModelPrompt } from "./guard";
 export type { AiLogger } from "./log";

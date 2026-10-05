@@ -1,8 +1,10 @@
 import "server-only";
 
+import { providerStatuses } from "@sahan-sac/ai-core/adapters";
 import { getVertexAccessToken } from "@sahan-sac/ai-core/vertex";
 
 import { repos } from "@/lib/data";
+import { getEnv } from "@/lib/env";
 import { kv, kvBackend } from "@/lib/cache/redis";
 import { log } from "@/lib/log";
 import { checkIndexNowKeyFile } from "@/lib/seo/indexnow";
@@ -60,6 +62,19 @@ const VERTEX = {
   group: "AI",
   hint: "GOOGLE_CLIENT_EMAIL, GOOGLE_PRIVATE_KEY and GOOGLE_CLOUD_PROJECT; used for text only while AI_ALLOW_PAID=true. Checked by the service-account token exchange, which spends no AI quota.",
 } as const;
+const PAID_NOTE = "Runs only while AI_ALLOW_PAID=true.";
+const MODELS_NOTE = "Checked against the models list, which spends no tokens.";
+const OPENAI = { name: "OpenAI", group: "AI", hint: `OPENAI_API_KEY (OPENAI_BASE_URL for a compatible gateway). ${PAID_NOTE} ${MODELS_NOTE}` } as const;
+const ANTHROPIC = { name: "Anthropic (Claude)", group: "AI", hint: `ANTHROPIC_API_KEY. ${PAID_NOTE} ${MODELS_NOTE}` } as const;
+const DEEPSEEK = { name: "DeepSeek", group: "AI", hint: `DEEPSEEK_API_KEY. ${PAID_NOTE} ${MODELS_NOTE}` } as const;
+const XAI = { name: "xAI (Grok)", group: "AI", hint: `XAI_API_KEY. ${PAID_NOTE} ${MODELS_NOTE}` } as const;
+const PERPLEXITY = { name: "Perplexity", group: "AI", hint: `PERPLEXITY_API_KEY. ${PAID_NOTE} Not pinged: the API has no free check.` } as const;
+const CUSTOM_AI = {
+  name: "Custom AI endpoint",
+  group: "AI",
+  hint: "AI_CUSTOM_BASE_URL and AI_CUSTOM_MODEL (AI_CUSTOM_API_KEY optional). Paid unless AI_CUSTOM_FREE=true. Checked against its models list.",
+} as const;
+const AI_CHAIN = { name: "AI chain", group: "AI", hint: "" } as const;
 const INDEXNOW = { name: "IndexNow", group: "SEO", hint: "INDEXNOW_KEY and its public key file. Checked by fetching the key file." } as const;
 
 export async function checkDatabase(): Promise<IntegrationStatus> {
@@ -182,6 +197,72 @@ export async function checkVertex(fetchImpl: FetchLike = fetch): Promise<Integra
   }
 }
 
+const trimBase = (url: string) => url.replace(/\/+$/, "");
+
+/** A models list: free on every API that has one, and proof the key works. */
+async function checkModelsList(
+  meta: Omit<IntegrationStatus, "configured" | "reachable">,
+  apiKey: string | undefined,
+  url: string,
+  fetchImpl: FetchLike,
+  headers: (key: string) => Record<string, string> = (key) => ({ Authorization: `Bearer ${key}` })
+): Promise<IntegrationStatus> {
+  if (!apiKey) return { ...meta, configured: false, reachable: null };
+  return { ...meta, configured: true, reachable: await pingUrl(fetchImpl, url, { headers: headers(apiKey) }) };
+}
+
+export const checkOpenAi = (fetchImpl: FetchLike = fetch) =>
+  checkModelsList(OPENAI, process.env.OPENAI_API_KEY, `${trimBase(process.env.OPENAI_BASE_URL || "https://api.openai.com/v1")}/models`, fetchImpl);
+
+export const checkAnthropic = (fetchImpl: FetchLike = fetch) =>
+  checkModelsList(
+    ANTHROPIC,
+    process.env.ANTHROPIC_API_KEY,
+    `${trimBase(process.env.ANTHROPIC_BASE_URL || "https://api.anthropic.com")}/v1/models`,
+    fetchImpl,
+    (key) => ({ "x-api-key": key, "anthropic-version": "2023-06-01" })
+  );
+
+export const checkDeepSeek = (fetchImpl: FetchLike = fetch) =>
+  checkModelsList(DEEPSEEK, process.env.DEEPSEEK_API_KEY, "https://api.deepseek.com/models", fetchImpl);
+
+export const checkXai = (fetchImpl: FetchLike = fetch) => checkModelsList(XAI, process.env.XAI_API_KEY, "https://api.x.ai/v1/models", fetchImpl);
+
+export async function checkPerplexity(): Promise<IntegrationStatus> {
+  return { ...PERPLEXITY, configured: Boolean(process.env.PERPLEXITY_API_KEY), reachable: null };
+}
+
+export async function checkCustomAi(fetchImpl: FetchLike = fetch): Promise<IntegrationStatus> {
+  const base = process.env.AI_CUSTOM_BASE_URL;
+  const configured = Boolean(base && process.env.AI_CUSTOM_MODEL);
+  if (!configured) return { ...CUSTOM_AI, configured, reachable: null };
+  const key = process.env.AI_CUSTOM_API_KEY;
+  const reachable = await pingUrl(fetchImpl, `${trimBase(base!)}/models`, { headers: key ? { Authorization: `Bearer ${key}` } : {} });
+  return { ...CUSTOM_AI, configured, reachable };
+}
+
+/**
+ * Which providers each AI chain tries, in order (@sahan-sac/ai-core/adapters):
+ * set by AI_PROVIDER_ORDER(_BLOG|_CHAT), filtered by keys and AI_ALLOW_PAID.
+ * No network: a provider that fails at request time hands over to the next.
+ */
+export function checkAiChains(): IntegrationStatus[] {
+  const env = getEnv();
+  return (["blog", "chat"] as const).map((purpose) => {
+    const statuses = providerStatuses(env, purpose);
+    const active = statuses.filter((status) => status.state === "active").map((status) => status.id);
+    const waiting = statuses.filter((status) => status.state === "needs_paid").map((status) => status.id);
+    const unknown = statuses.filter((status) => status.state === "unknown").map((status) => status.id);
+    const parts = [
+      active.length ? `Tries ${active.join(" → ")}, each failure falling through to the next.` : "No provider can answer.",
+      waiting.length ? `Configured but paid, off until AI_ALLOW_PAID=true: ${waiting.join(", ")}.` : "",
+      unknown.length ? `Unknown ids in the order: ${unknown.join(", ")}.` : "",
+      `Order: AI_PROVIDER_ORDER_${purpose.toUpperCase()} or AI_PROVIDER_ORDER.`,
+    ];
+    return { ...AI_CHAIN, name: `AI chain (${purpose})`, hint: parts.filter(Boolean).join(" "), configured: active.length > 0, reachable: null };
+  });
+}
+
 export async function checkIndexNow(): Promise<IntegrationStatus> {
   const result = await checkIndexNowKeyFile();
   return { ...INDEXNOW, configured: result.configured, reachable: result.configured ? result.ok : null };
@@ -203,15 +284,28 @@ export async function getIntegrationHealth(fetchImpl: FetchLike = fetch): Promis
     checkGemini(),
     checkNvidia(),
     checkVertex(fetchImpl),
+    checkOpenAi(fetchImpl),
+    checkAnthropic(fetchImpl),
+    checkDeepSeek(fetchImpl),
+    checkXai(fetchImpl),
+    checkPerplexity(),
+    checkCustomAi(fetchImpl),
     checkIndexNow(),
   ];
   const results = await Promise.allSettled(checks);
-  return results.map((result, index) =>
+  const statuses = results.map((result, index) =>
     result.status === "fulfilled" ? result.value : { ...INTEGRATIONS[index], configured: false, reachable: false }
   );
+  let chains: IntegrationStatus[];
+  try {
+    chains = checkAiChains();
+  } catch {
+    chains = [];
+  }
+  return [...statuses, ...chains];
 }
 
-const INTEGRATIONS = [DATABASE, REDIS, RESEND, BREVO, CLOUDINARY, OPENROUTER, GEMINI, NVIDIA, VERTEX, INDEXNOW];
+const INTEGRATIONS = [DATABASE, REDIS, RESEND, BREVO, CLOUDINARY, OPENROUTER, GEMINI, NVIDIA, VERTEX, OPENAI, ANTHROPIC, DEEPSEEK, XAI, PERPLEXITY, CUSTOM_AI, INDEXNOW];
 
 const HEALTH_TTL_MS = 60_000;
 let healthCache: { at: number; value: Promise<IntegrationStatus[]> } | null = null;

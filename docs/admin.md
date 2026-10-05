@@ -229,18 +229,31 @@ depends on Next.js.
 | Package | What it holds | Stays in the app |
 | --- | --- | --- |
 | `@sahan-sac/auth-kit` | Sessions, RBAC rules, rate-limit buckets, login unlock | Prisma adapter, route handlers, admin UI |
-| `@sahan-sac/ai-core` | AI provider chain, model resolution, image generation, prompt guards, the AI env schema and feature switches | `lib/ai/availability.ts` (the switches bound to `getEnv()`) |
+| `@sahan-sac/ai-core` | AI provider adapters and their registry, the fallback chain, model resolution, image generation, prompt guards, the AI env schema and feature switches | `lib/ai/availability.ts` (the switches bound to `getEnv()`) |
+| `@sahan-sac/email-kit` | Email providers with fallback, guards, env schema, health, Brevo diagnostics, the layout and redacted CC copies | `lib/email/index.ts` (env and audit wiring), templates, `lib/email/account-mail.ts` |
 | `@sahan-sac/blog-kit` | Post, SEO, draft and cover generation, `generateBlogImage` with its `ImageSink` port, Markdown, charts, slugs, revisions | Post schema, queries, rendering (`sanitizeRich`), seed, `lib/ai/image-sink.ts` |
 | `@sahan-sac/chat-kit` | `runChat`, chat prompts and output filter, knowledge builder, `ChatStore` contract, visitor cookie | `/api/chat` (origin, rate limits, cookie, storage), `lib/chatbot/{knowledge,session,site}.ts`, the widget |
 | `@sahan-sac/media-kit` | Cloudinary client, upload validation, URL signing, delivery transforms, browser upload client | `lib/media/service.ts` (DB rows and audit), `lib/media/cloudinary-client.ts` |
 
 `ai-core`, `blog-kit` and `chat-kit` release together under one version;
-`auth-kit` and `media-kit` are versioned on their own. `chat-kit` never
+`auth-kit`, `email-kit` and `media-kit` are versioned on their own. `chat-kit` never
 imports `blog-kit` (blog posts reach the chatbot as a knowledge source), and
 `blog-kit` never imports `media-kit` (images go through `ImageSink`).
 
 Feature switches: `ENABLE_BLOG_AI` (off by default) and `ENABLE_CHATBOT`
-(on by default) each also need a text provider key. With the chatbot off,
+(on by default) each also need a provider that can answer for them.
+
+**AI providers.** Each request runs a chain: the first provider answers, and
+any failure (quota, timeout, bad key, retired model, malformed output) hands
+it to the next. Free providers (Gemini, OpenRouter, NVIDIA) run by default;
+paid ones (OpenAI, Anthropic, DeepSeek, xAI, Perplexity, a custom
+OpenAI-compatible endpoint, Vertex) join only with their key set and
+`AI_ALLOW_PAID=true`. `AI_PROVIDER_ORDER` (or `AI_PROVIDER_ORDER_BLOG` /
+`AI_PROVIDER_ORDER_CHAT`) picks exactly which providers run and in what
+order, for example `AI_PROVIDER_ORDER_CHAT=gemini,anthropic,nvidia`.
+**Settings → Integration health** shows each chain ("AI chain (blog)",
+"AI chain (chat)") and every provider's key status; the paid ones are checked
+against their free models lists. With the chatbot off,
 the site widget is not rendered, `/api/chat` answers 503, and
 `/admin/chatbot` says why.
 

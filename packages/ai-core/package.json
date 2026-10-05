@@ -1,7 +1,7 @@
 {
   "name": "@sahan-sac/ai-core",
   "version": "0.2.0",
-  "description": "Free-by-default AI provider chain (Gemini, OpenRouter, NVIDIA, Vertex) with hedging, cooldowns and deadlines, env-driven model resolution, image generation and prompt-injection guards. Shared by @sahan-sac/blog-kit and @sahan-sac/chat-kit.",
+  "description": "Free-by-default AI provider chain with fallback (chain of responsibility over provider adapters: Gemini, OpenRouter, NVIDIA, OpenAI, Anthropic, DeepSeek, xAI, Perplexity, any OpenAI-compatible endpoint, Vertex), env-configurable order, hedging, cooldowns and deadlines, image generation and prompt-injection guards. Shared by @sahan-sac/blog-kit and @sahan-sac/chat-kit.",
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
@@ -27,6 +27,7 @@
     "./env": "./src/env.ts",
     "./models": "./src/models.ts",
     "./providers": "./src/providers.ts",
+    "./adapters": "./src/adapters.ts",
     "./vertex": "./src/vertex.ts",
     "./image": "./src/image.ts",
     "./guard": "./src/guard.ts",
@@ -77,6 +78,10 @@
       "./models": {
         "types": "./dist/models.d.ts",
         "import": "./dist/models.js"
+      },
+      "./adapters": {
+        "types": "./dist/adapters.d.ts",
+        "import": "./dist/adapters.js"
       },
       "./providers": {
         "types": "./dist/providers.d.ts",

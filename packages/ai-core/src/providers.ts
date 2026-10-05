@@ -3,19 +3,22 @@ import "server-only";
 import { createOpenAI } from "@ai-sdk/openai";
 import { generateText } from "ai";
 
-import type { AiEnv } from "./env";
 import type { ModelPrompt } from "./guard";
 import { consoleAiLogger, type AiLogger } from "./log";
-import { DEFAULT_TEXT_MODELS, paidAllowed, textModels, thinkingConfigFor, vertexConfigured, type TextPurpose } from "./models";
+import { DEFAULT_TEXT_MODELS, thinkingConfigFor } from "./models";
 import { getVertexAccessToken } from "./vertex";
 
-// An injectable, ordered provider chain, in the style of lib/email/service.ts
-// (docs/plan/admin-cms-adr.md, decision D15: OpenRouter, then Gemini, then
-// NVIDIA, then Google Vertex AI as the final fallback; paid OpenRouter
-// models off by default). Every provider here is a
-// thin adapter: the fallback logic in createAiService() is pure and unit
-// tested with fakes, and real network calls only happen through
-// realProviders(), which this agent never calls in a test.
+// Two patterns, kept apart on purpose:
+// - Adapter: every provider (Gemini, OpenRouter, NVIDIA, Vertex, any
+//   OpenAI-compatible API, Anthropic) is wrapped as an AiProvider with one
+//   generate() that answers ok or a classified failure, never a throw.
+// - Chain of responsibility: createAiService() hands the prompt to the first
+//   provider and passes it down the chain on any retryable failure (quota,
+//   timeout, bad key, retired model, invalid output) until one answers, with
+//   cooldowns, hedging and a whole-chain deadline on top.
+// Which providers form a chain, in what order, comes from ./adapters (the
+// registry and its env guards). The chain logic here is pure and unit tested
+// with fakes; real network calls only happen through the adapters.
 
 export type AiOutcome =
   | { ok: true; text: string }
@@ -46,6 +49,12 @@ export interface AiProvider {
   readonly name: string;
   /** Paid or otherwise costly: tried only after every other provider, whatever its speed or health. */
   readonly lastResort?: boolean;
+  /**
+   * Position in an order the operator chose (AI_PROVIDER_ORDER): lower goes
+   * first, and speed no longer reorders it. A cooling provider still drops
+   * behind the healthy ones.
+   */
+  readonly priority?: number;
   generate(prompt: ModelPrompt, options?: AiGenerateOptions): Promise<AiOutcome>;
 }
 
@@ -160,8 +169,10 @@ export function createAiService(deps: AiServiceDeps) {
     const cooling = (p: AiProvider) => Number((health.cooldownUntil.get(p.name) ?? 0) > at);
     const speed = (p: AiProvider) => health.latencyMs.get(p.name) ?? Number.POSITIVE_INFINITY;
     const costly = (p: AiProvider) => Number(Boolean(p.lastResort));
+    const chosen = (a: AiProvider, b: AiProvider) =>
+      a.priority !== undefined && b.priority !== undefined ? a.priority - b.priority : speed(a) - speed(b);
     // Array.prototype.sort is stable, so unmeasured providers keep the configured order.
-    return [...deps.providers].sort((a, b) => costly(a) - costly(b) || cooling(a) - cooling(b) || speed(a) - speed(b));
+    return [...deps.providers].sort((a, b) => costly(a) - costly(b) || cooling(a) - cooling(b) || chosen(a, b));
   }
 
   async function generate(
@@ -348,18 +359,79 @@ async function sdkGenerate(model: Parameters<typeof generateText>[0]["model"], p
   }
 }
 
+/**
+ * Any OpenAI-compatible chat completions API: OpenAI itself, DeepSeek, xAI
+ * (Grok), Perplexity, a self-hosted gateway (vLLM, Ollama, LiteLLM).
+ */
+export function openAiCompatibleProvider(config: {
+  name: string;
+  apiKey: string;
+  baseUrl: string;
+  model: string;
+  headers?: Record<string, string>;
+  fetch?: typeof fetch;
+}): AiProvider {
+  const client = createOpenAI({ apiKey: config.apiKey, baseURL: config.baseUrl, headers: config.headers, fetch: config.fetch });
+  return {
+    name: config.name,
+    generate: (prompt, options) => sdkGenerate(client.chat(config.model), prompt, options),
+  };
+}
+
 /** NVIDIA NIM, OpenAI-compatible. */
 export function nvidiaProvider(config: { apiKey: string; model?: string; fetch?: typeof fetch }): AiProvider {
-  const model = config.model || DEFAULT_TEXT_MODELS.blog.nvidia;
-  const client = createOpenAI({
+  return openAiCompatibleProvider({
+    name: "nvidia",
     apiKey: config.apiKey,
-    baseURL: "https://integrate.api.nvidia.com/v1",
+    baseUrl: "https://integrate.api.nvidia.com/v1",
+    model: config.model || DEFAULT_TEXT_MODELS.blog.nvidia,
     fetch: config.fetch,
   });
+}
 
+type AnthropicResponse = { content?: Array<{ type?: string; text?: string }>; stop_reason?: string | null };
+
+/** Text of an Anthropic Messages reply; a reply stopped at the token cap is "truncated", a refusal "refused". */
+export function anthropicOutcome(data: unknown): AiOutcome {
+  const reply = data as AnthropicResponse;
+  if (reply.stop_reason === "max_tokens") return { ok: false, errorClass: "truncated", retryable: true };
+  if (reply.stop_reason === "refusal") return { ok: false, errorClass: "refused", retryable: true };
+  const text = reply.content?.filter((block) => block.type === "text").map((block) => block.text ?? "").join("") ?? "";
+  if (!text) return { ok: false, errorClass: "empty_response", retryable: true };
+  return { ok: true, text };
+}
+
+/** Anthropic's Messages API over plain REST (no extra SDK for one provider). */
+export function anthropicProvider(config: {
+  apiKey: string;
+  model: string;
+  baseUrl?: string;
+  fetchImpl?: typeof fetch;
+}): AiProvider {
+  const fetchImpl = config.fetchImpl ?? fetch;
+  const base = (config.baseUrl || "https://api.anthropic.com").replace(/\/+$/, "");
   return {
-    name: "nvidia",
-    generate: (prompt, options) => sdkGenerate(client.chat(model), prompt, options),
+    name: "anthropic",
+    async generate(prompt, options) {
+      try {
+        const system = options?.jsonMode ? `${prompt.system}\n\nReply with one JSON value only, no prose and no code fences.` : prompt.system;
+        const response = await fetchImpl(`${base}/v1/messages`, {
+          method: "POST",
+          headers: { "content-type": "application/json", "x-api-key": config.apiKey, "anthropic-version": "2023-06-01" },
+          signal: options?.signal,
+          body: JSON.stringify({
+            model: config.model,
+            max_tokens: options?.maxTokens ?? 1800,
+            system,
+            messages: [{ role: "user", content: prompt.user }],
+          }),
+        });
+        if (!response.ok) return httpOutcome(response.status);
+        return anthropicOutcome(await response.json());
+      } catch {
+        return { ok: false, errorClass: options?.signal?.aborted ? "timeout" : "transport", retryable: true };
+      }
+    },
   };
 }
 
@@ -485,74 +557,6 @@ export function vertexProvider(config: {
   };
 }
 
-/**
- * The chain from decision D15, free tiers first and paid last:
- * 1. Gemini (free API key, fast)
- * 2. OpenRouter (free-tier models, heavily rate-limited)
- * 3. NVIDIA (free developer API; key may be dead or model retired)
- * 4. Vertex (pay-as-you-go): only with AI_ALLOW_PAID, and only after the free ones
- * Models per purpose come from lib/ai/models.ts (env override, else a verified free default).
- */
-export function realProviders(env: AiEnv, purpose: TextPurpose, fetchImpl?: typeof fetch): AiProvider[] {
-  const providers: AiProvider[] = [];
-  const models = textModels(env, purpose);
-
-  // 1. Gemini direct — fastest, most reliable, supports JSON mode
-  if (env.GEMINI_API_KEY) {
-    providers.push(geminiProvider({ apiKey: env.GEMINI_API_KEY, model: models.gemini, fetchImpl }));
-  }
-
-  // 2. OpenRouter — free-tier models are heavily rate-limited (429 common)
-  const openRouterModel = models.openrouter;
-  if (env.OPENROUTER_API_KEY) {
-    providers.push(
-      openRouterProvider({
-        apiKey: env.OPENROUTER_API_KEY,
-        model: openRouterModel,
-        baseUrl: env.OPENROUTER_BASE_URL,
-        allowPaidModels: env.OPENROUTER_ALLOW_PAID_MODELS,
-        fetch: fetchImpl,
-      })
-    );
-  }
-  if (env.OPENROUTER_API_KEY_2) {
-    providers.push(
-      openRouterProvider({
-        apiKey: env.OPENROUTER_API_KEY_2,
-        model: openRouterModel,
-        baseUrl: env.OPENROUTER_BASE_URL,
-        allowPaidModels: env.OPENROUTER_ALLOW_PAID_MODELS,
-        fetch: fetchImpl,
-        name: "openrouter-2",
-      })
-    );
-  }
-
-  // 3. NVIDIA NIM — key may be invalid or model may be retired
-  if (env.NVIDIA_API_KEY) {
-    providers.push(
-      nvidiaProvider({
-        apiKey: env.NVIDIA_API_KEY,
-        model: models.nvidia,
-        fetch: fetchImpl,
-      })
-    );
-  }
-
-  // 4. Vertex AI — bills pay-as-you-go on the Cloud project, so it runs only
-  // when the owner opted in (AI_ALLOW_PAID), and then after the free ones.
-  if (paidAllowed(env) && vertexConfigured(env)) {
-    providers.push(
-      vertexProvider({
-        clientEmail: env.GOOGLE_CLIENT_EMAIL!,
-        privateKey: env.GOOGLE_PRIVATE_KEY!,
-        tokenUri: env.GOOGLE_TOKEN_URI,
-        project: env.GOOGLE_CLOUD_PROJECT!,
-        model: models.vertex,
-        fetchImpl,
-      })
-    );
-  }
-
-  return providers;
-}
+// The chain for a purpose, built from the registry in ./adapters (kept
+// exported here for apps already importing it from this path).
+export { realProviders } from "./adapters";

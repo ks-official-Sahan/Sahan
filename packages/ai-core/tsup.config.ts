@@ -9,6 +9,7 @@ export default defineConfig({
     "src/env.ts",
     "src/models.ts",
     "src/providers.ts",
+    "src/adapters.ts",
     "src/vertex.ts",
     "src/image.ts",
     "src/guard.ts",

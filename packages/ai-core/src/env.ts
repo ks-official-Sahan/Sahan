@@ -70,6 +70,48 @@ export const aiEnvSchema = z.object({
   IMAGE_GEMINI_MODEL: text,
   IMAGE_VERTEX_MODEL: text,
 
+  // Provider order (./adapters). Comma-separated adapter ids; only the listed
+  // ones run, in that order. Per purpose first, then the global one; unset =
+  // the built-in order (free tiers first, paid last).
+  AI_PROVIDER_ORDER: text,
+  AI_PROVIDER_ORDER_BLOG: text,
+  AI_PROVIDER_ORDER_CHAT: text,
+
+  // Paid OpenAI-compatible and Anthropic providers: each joins a chain only
+  // with its key set and AI_ALLOW_PAID on. Models: purpose variable, then the
+  // provider-wide one, then the default in ./adapters.
+  OPENAI_API_KEY: text,
+  OPENAI_BASE_URL: text,
+  OPENAI_MODEL: text,
+  BLOG_OPENAI_MODEL: text,
+  CHAT_OPENAI_MODEL: text,
+  ANTHROPIC_API_KEY: text,
+  ANTHROPIC_BASE_URL: text,
+  ANTHROPIC_MODEL: text,
+  BLOG_ANTHROPIC_MODEL: text,
+  CHAT_ANTHROPIC_MODEL: text,
+  DEEPSEEK_API_KEY: text,
+  DEEPSEEK_MODEL: text,
+  BLOG_DEEPSEEK_MODEL: text,
+  CHAT_DEEPSEEK_MODEL: text,
+  XAI_API_KEY: text,
+  XAI_MODEL: text,
+  BLOG_XAI_MODEL: text,
+  CHAT_XAI_MODEL: text,
+  PERPLEXITY_API_KEY: text,
+  PERPLEXITY_MODEL: text,
+  BLOG_PERPLEXITY_MODEL: text,
+  CHAT_PERPLEXITY_MODEL: text,
+
+  // One custom OpenAI-compatible endpoint (a gateway, vLLM, Ollama, LiteLLM).
+  // Treated as paid unless AI_CUSTOM_FREE is on; the key is optional for a
+  // local server.
+  AI_CUSTOM_BASE_URL: text,
+  AI_CUSTOM_API_KEY: text,
+  AI_CUSTOM_MODEL: text,
+  AI_CUSTOM_NAME: text,
+  AI_CUSTOM_FREE: flag,
+
   // Google Vertex service account (paid).
   GOOGLE_CLIENT_EMAIL: text,
   GOOGLE_PRIVATE_KEY: privateKey,

@@ -35,7 +35,9 @@ Only `handler` imports `server-only`. The other subpaths are pure, and `session-
 Uses `@sahan-sac/ai-core`'s variables; see its README for the full table. The chatbot runs only when `chatbotEnabled(env)` from `@sahan-sac/ai-core/availability` is true:
 
 - `ENABLE_CHATBOT` is on. It defaults to `true`; `false`, `0`, `no` or `off` turns it off.
-- At least one text provider key is set.
+- At least one provider can answer chat: its key is set, it is in `AI_PROVIDER_ORDER_CHAT` (or `AI_PROVIDER_ORDER`) when one is set, and a paid one also has `AI_ALLOW_PAID=true`.
+
+The chat chain falls through providers on any failure (quota, timeout, bad key, bad output), so one provider's outage does not stop the chatbot. Set `AI_PROVIDER_ORDER_CHAT` to choose which providers answer and in what order; see `@sahan-sac/ai-core`'s README.
 
 When the chatbot is off, return 503 from the route and do not render the widget.
 
