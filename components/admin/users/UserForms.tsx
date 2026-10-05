@@ -2,6 +2,7 @@
 
 import { changeRole, createUser, deleteUser, inviteUser, revokeInvite, sendReset, setDisabled } from "@/lib/actions/users";
 import ActionForm, { Field, SubmitButton } from "@/components/admin/ui/ActionForm";
+import { PasswordField } from "@/components/admin/ui/PasswordField";
 import { fieldClass } from "@/components/admin/ui/styles";
 import { ROLE_LABEL } from "@/lib/admin/roles";
 import type { RoleName } from "@/lib/auth/permissions";
@@ -38,14 +39,14 @@ export function CreateUserForm({ roles }: { roles: readonly RoleName[] }) {
     <ActionForm action={createUser} className="space-y-4">
       <Field label="Name" name="name" autoComplete="off" maxLength={80} />
       <Field label="Email" name="email" type="email" autoComplete="off" required maxLength={254} />
-      <Field
+      <PasswordField
         label="Temporary password"
         name="password"
-        type="password"
         autoComplete="new-password"
         required
         maxLength={128}
         hint="At least 12 characters. The user must replace it at first sign-in."
+        generate
       />
       <div>
         <label htmlFor="create-role" className="text-sm font-medium">
