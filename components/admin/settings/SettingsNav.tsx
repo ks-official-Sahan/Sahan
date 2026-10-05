@@ -11,6 +11,9 @@ import { cn } from "@/lib/utils";
 // anchor (sections carry scroll-margin for the sticky bars) and updates the
 // URL hash, so a section can be linked to directly.
 
+/** Below the sticky top bar and chip row, and past the sections' scroll-margin. */
+const ACTIVE_LINE_PX = 140;
+
 export interface SettingsNavItem {
   id: string;
   label: string;
@@ -18,23 +21,39 @@ export interface SettingsNavItem {
 
 export default function SettingsNav({ items }: { items: SettingsNavItem[] }) {
   const [active, setActive] = useState(items[0]?.id ?? "");
-  const visible = useRef(new Map<string, boolean>());
   const listRef = useRef<HTMLUListElement>(null);
 
   useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) visible.current.set(entry.target.id, entry.isIntersecting);
-        // The first section, in page order, inside the band below the sticky bars.
-        const current = items.find((item) => visible.current.get(item.id));
-        if (current) setActive(current.id);
-      },
-      { rootMargin: "-120px 0px -55% 0px" }
-    );
-    // The observer's first callback reports every section's state, so a page
-    // opened at #section highlights it once the browser has scrolled there.
+    // The current section is the last one whose top has scrolled up past a
+    // line just below the sticky bars (sections jump there via scroll-margin).
+    // The section named in the URL hash (the one just jumped to) wins while
+    // its top is in the upper part of the screen: content above can still
+    // grow after the jump (fonts, streamed sections), and at the very bottom
+    // the last short sections can never reach the line at all.
+    const pick = () => {
+      let current = items[0]?.id ?? "";
+      for (const item of items) {
+        const top = document.getElementById(item.id)?.getBoundingClientRect().top;
+        if (top !== undefined && top <= ACTIVE_LINE_PX) current = item.id;
+      }
+      const hash = decodeURIComponent(window.location.hash.slice(1));
+      const target = items.some((item) => item.id === hash) ? document.getElementById(hash) : null;
+      if (target) {
+        const atBottom = window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 4;
+        const top = target.getBoundingClientRect().top;
+        if (top >= 0 && top < window.innerHeight * (atBottom ? 1 : 0.45)) current = hash;
+      }
+      setActive(current);
+    };
+    // No scroll listener. The answer only changes when a section's top
+    // crosses the line, and a section starts with its heading
+    // (`<id>-title`), so the observer watches headings: with thresholds 0
+    // and 1 it calls back exactly as a heading's top edge passes the
+    // observer's top edge (the line). The first callback also settles a page
+    // opened at #section.
+    const observer = new IntersectionObserver(pick, { rootMargin: `-${ACTIVE_LINE_PX}px 0px 0px 0px`, threshold: [0, 1] });
     for (const item of items) {
-      const element = document.getElementById(item.id);
+      const element = document.getElementById(`${item.id}-title`) ?? document.getElementById(item.id);
       if (element) observer.observe(element);
     }
     return () => observer.disconnect();
