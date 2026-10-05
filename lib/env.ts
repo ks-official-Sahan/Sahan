@@ -48,6 +48,8 @@ const schema = z.object({
   INTERNAL_SIGNING_SECRET: text,
   MAINTENANCE_BYPASS_SECRET: text,
   ADMIN_LOGIN_UNLOCK_SECRET: text,
+  // Days a sign-in link (/s/...) stays valid: 1..90, default 14 (lib/auth/links.ts).
+  ADMIN_SIGN_IN_LINK_DAYS: text,
   CRON_SECRET: text,
   ADMIN_EMAIL: text,
   ADMIN_NAME: text,

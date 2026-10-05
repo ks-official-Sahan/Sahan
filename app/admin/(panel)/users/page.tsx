@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import SignInLinkCard from "@/components/admin/account/SignInLinkCard";
 import EmptyState from "@/components/admin/ui/EmptyState";
 import { badgeClass, cardClass, tableClass, tdClass, thClass } from "@/components/admin/ui/styles";
 import { CreateUserForm, InviteForm, InviteRowActions } from "@/components/admin/users/UserForms";
@@ -234,6 +235,8 @@ export default async function UsersPage({ searchParams }: { searchParams: Promis
           </div>
         )}
       </section>
+
+      {mayInvite || mayManage ? <SignInLinkCard audience="team" /> : null}
     </div>
   );
 }

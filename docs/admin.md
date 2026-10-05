@@ -43,6 +43,23 @@ The admin panel is hidden behind two independent gates, both enforced in
    form (plus MFA if the account has it turned on, from `/admin/account`).
    A wrong password does not reveal whether the email exists.
 
+**Sign-in links** unlock the login page without the secret ever being in a
+URL. Copy one from **Account → Sign-in link** (or **Users → Sign-in link**
+to send a team member), bookmark it, or use the **Sign in again** button in
+the "signed out" email. A sign-in link looks like `https://<site>/s/<code>`;
+opening it sets the same 2-hour unlock cookie and goes to `/admin`. It does
+not sign anyone in. Links last `ADMIN_SIGN_IN_LINK_DAYS` days (default 14,
+at most 90) and cannot be revoked one by one: rotating
+`ADMIN_LOGIN_UNLOCK_SECRET` (or `AUTH_SECRET`) ends every link at once.
+The new-inquiry email's "Open in the admin" button is a sign-in link too.
+
+Emailed and copied account links are short as well: `/a/<token>` for
+invitations and password resets, `/e/<token>` for email-change
+confirmations. Each redirects to its page (`/admin/set-password`,
+`/admin/confirm-email`) after the proxy checks the token's signature; links
+in the old long form still work until they expire. The one-letter paths
+`/a`, `/e` and `/s` are reserved, so no public page may use them.
+
 If you're locked out of both (secret lost, cookie expired, no browser
 access), see "Break-glass" below.
 
@@ -95,7 +112,8 @@ rotated independently, at different costs:
   new signed URLs on their next render; nothing breaks, but any externally
   saved media link stops working.
 - `MAINTENANCE_BYPASS_SECRET`, `ADMIN_LOGIN_UNLOCK_SECRET`: rotating either
-  signs everyone out of that specific bypass/unlock cookie only. Do this on
+  signs everyone out of that specific bypass/unlock cookie only. Rotating
+  `ADMIN_LOGIN_UNLOCK_SECRET` also ends every sign-in link (`/s/...`). Do this on
   its own schedule, or immediately if the secret leaked (e.g. pasted in the
   wrong chat).
 - `CRON_SECRET`: rotate on Vercel and in `.env.local`/the deployment's env

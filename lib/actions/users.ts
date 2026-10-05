@@ -8,6 +8,7 @@ import { audit, auditMany, auditSafe, type AuditEvent } from "@/lib/admin/audit"
 import { done, fail, fieldErrorsFrom, formValues, type ActionState } from "@/lib/actions/state";
 import { authorizeAction } from "@/lib/actions/guard";
 import { INVITE_TTL_HOURS, RESET_TTL_MINUTES, createToken } from "@/lib/auth/invite-token";
+import { accountLink } from "@/lib/auth/links";
 import { checkPassword } from "@/lib/auth/password-policy";
 import { hashPassword } from "@/lib/auth/password";
 import { ROLES, type Permission, type RoleName } from "@/lib/auth/permissions";
@@ -18,7 +19,6 @@ import { repos, withTx } from "@/lib/data";
 import { sendEmail } from "@/lib/email";
 import { invite, passwordReset } from "@/lib/email/templates";
 import { getEnv } from "@/lib/env";
-import { absoluteUrl } from "@/lib/site-url";
 import type { UserRef } from "@/lib/data/users";
 import { log } from "@/lib/log";
 import { notifyForcedLogout } from "@/lib/users/notify";
@@ -56,7 +56,6 @@ const USERS_PATH = "/admin/users";
 const SESSIONS_PATH = "/admin/sessions";
 const UNEXPECTED = "Something went wrong. Nothing was changed.";
 
-const inviteLink = (token: string) => absoluteUrl(`/admin/set-password?token=${encodeURIComponent(token)}`);
 
 /** Thrown inside a transaction to abort it with a message for the user. */
 class Refused extends Error {}
@@ -122,7 +121,7 @@ export async function inviteUser(_previous: ActionState, formData: FormData): Pr
 
   // The link exists only in this response (the database keeps its hash), so
   // the inviter can copy it now or get a new one later from the list.
-  const link = inviteLink(token);
+  const link = accountLink(token);
   if (!notify) {
     return done(`Invitation created for ${parsed.data.email}. Copy the link and share it: it works once and lasts ${INVITE_TTL_HOURS} hours.`, { link });
   }
@@ -183,7 +182,7 @@ export async function regenerateInviteLink(_previous: ActionState, formData: For
   }
 
   revalidatePath(USERS_PATH);
-  return done(`New link for ${email}. The previous link no longer works.`, { link: inviteLink(token) });
+  return done(`New link for ${email}. The previous link no longer works.`, { link: accountLink(token) });
 }
 
 export async function revokeInvite(_previous: ActionState, formData: FormData): Promise<ActionState> {
@@ -489,7 +488,7 @@ export async function sendReset(_previous: ActionState, formData: FormData): Pro
 
     const rendered = passwordReset({
       name: target.name,
-      url: absoluteUrl(`/admin/set-password?token=${encodeURIComponent(token)}`),
+      url: accountLink(token),
       expiresMinutes: RESET_TTL_MINUTES,
     });
     const sent = await sendEmail(

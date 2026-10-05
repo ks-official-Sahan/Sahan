@@ -1,11 +1,11 @@
 import "server-only";
 
+import { signInLink } from "@/lib/auth/links";
 import { repos } from "@/lib/data";
 import type { InquiryRow } from "@/lib/data/inquiries";
 import { sendEmail } from "@/lib/email";
 import { contactAutoReply, contactNotify } from "@/lib/email/templates";
 import { getEnv } from "@/lib/env";
-import { absoluteUrl } from "@/lib/site-url";
 import { log } from "@/lib/log";
 
 export async function notifyOwner(inquiry: InquiryRow): Promise<void> {
@@ -21,7 +21,8 @@ export async function notifyOwner(inquiry: InquiryRow): Promise<void> {
     subject: inquiry.topic || undefined,
     message: inquiry.message,
     receivedAt: inquiry.createdAt.toLocaleString(),
-    adminUrl: absoluteUrl(`/admin/leads/${inquiry.id}`),
+    // The owner may read this on a device that is not unlocked or signed in.
+    adminUrl: signInLink(`/admin/leads/${inquiry.id}`).url,
   });
 
   const result = await sendEmail({

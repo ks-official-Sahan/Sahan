@@ -6,13 +6,13 @@ import { z } from "zod";
 import { audit } from "@/lib/admin/audit";
 import { done, fail, fieldErrorsFrom, formValues, type ActionState } from "@/lib/actions/state";
 import { RESET_TTL_MINUTES, createToken } from "@/lib/auth/invite-token";
+import { accountLink } from "@/lib/auth/links";
 import { limit } from "@/lib/cache/ratelimit";
 import { clientIp, UNKNOWN_IP } from "@/lib/security/ip";
 import { repos, withTx } from "@/lib/data";
 import { sendEmail } from "@/lib/email";
 import { passwordReset } from "@/lib/email/templates";
 import { getEnv } from "@/lib/env";
-import { absoluteUrl } from "@/lib/site-url";
 
 // Self-service "forgot password", reachable while signed out (proxy.ts lets
 // FORGOT_PASSWORD_PATH through without a session or the admin unlock cookie's
@@ -64,7 +64,7 @@ export async function requestPasswordResetAction(_previous: ActionState, formDat
 
         const rendered = passwordReset({
           name: user.name,
-          url: absoluteUrl(`/admin/set-password?token=${encodeURIComponent(token)}`),
+          url: accountLink(token),
           expiresMinutes: RESET_TTL_MINUTES,
         });
         const sent = await sendEmail(

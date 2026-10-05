@@ -70,7 +70,13 @@ export function mfaToggled(input: SignInDetails & { enabled: boolean }): Rendere
   });
 }
 
-export function forcedLogout(input: { name?: string | null; by?: string | null; reason?: string | null }): Rendered {
+export function forcedLogout(input: {
+  name?: string | null;
+  by?: string | null;
+  reason?: string | null;
+  /** A sign-in link (lib/auth/links.ts), so the login page opens without the unlock secret. */
+  signInUrl?: string;
+}): Rendered {
   return renderEmail(`You were signed out of the ${brand} admin`, {
     preheader: "Your sessions were ended",
     heading: "Signed out",
@@ -79,6 +85,7 @@ export function forcedLogout(input: { name?: string | null; by?: string | null; 
       ...(input.reason ? [`Reason: ${oneLine(input.reason, 200)}`] : []),
       "Sign in again to continue.",
     ],
+    ...(input.signInUrl ? { button: { label: "Sign in again", url: input.signInUrl } } : {}),
   });
 }
 

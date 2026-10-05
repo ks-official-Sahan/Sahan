@@ -1,4 +1,14 @@
-import { isUnlockSecret, loginUnlockEnabled, signUnlockCookie, UNLOCK_QUERY, unlockCookieOptions, unlockKeysFromEnv, verifyTokenTag, verifyUnlockCookie } from "@sahan-sac/auth-kit";
+import {
+  isUnlockSecret,
+  loginUnlockEnabled,
+  signUnlockCookie,
+  UNLOCK_QUERY,
+  unlockCookieOptions,
+  unlockKeysFromEnv,
+  verifySignInLink,
+  verifyTokenTag,
+  verifyUnlockCookie,
+} from "@sahan-sac/auth-kit";
 import { buildCsp, clientIp, generateNonce, isAllowedOrigin, isScannerPath, parseOriginList, shouldBlockAdminByAllowlist, UNKNOWN_IP } from "@sahan-sac/auth-kit/security";
 import { getToken } from "next-auth/jwt";
 import { NextResponse, type NextRequest } from "next/server";
@@ -16,6 +26,7 @@ import {
 } from "@/lib/admin/maintenance-bypass";
 import { CONFIRM_EMAIL_PATH, FORGOT_PASSWORD_PATH, LOCKED_PATH, LOGIN_PATH, SESSION_COOKIE, SET_PASSWORD_PATH } from "@/lib/auth/constants";
 import { authKit } from "@/lib/auth/kit-config";
+import { parseShortLink, shortLinkTarget, type ShortLink } from "@/lib/auth/short-links";
 import { limit } from "@/lib/cache/ratelimit";
 import { log } from "@/lib/log";
 import { readKvSetting } from "@/lib/settings/kv";
@@ -115,11 +126,49 @@ function withCsp(request: NextRequest): NextResponse {
   return response;
 }
 
+function redirectTo(request: NextRequest, path: string): NextResponse {
+  const response = NextResponse.redirect(new URL(path, request.url), 307);
+  response.headers.set("Cache-Control", "no-store");
+  // The target URL carries the token; never pass it on to another site.
+  response.headers.set("Referrer-Policy", "no-referrer");
+  return response;
+}
+
+/**
+ * Short links (lib/auth/short-links.ts). Redirects only, so a mail scanner
+ * that opens the link first changes nothing. An account or email link needs
+ * its HMAC tag; the page it lands on still checks the token in the database.
+ * A sign-in link sets the unlock cookie, as ?secret= does, without the secret
+ * ever being in a URL.
+ */
+async function shortLink(request: NextRequest, link: ShortLink, now: number): Promise<NextResponse> {
+  if (link.kind !== "signIn") {
+    return verifyTokenTag(link.token, process.env.AUTH_SECRET) ? redirectTo(request, shortLinkTarget(link)) : locked(request);
+  }
+  const response = redirectTo(request, link.next);
+  if (!loginUnlockEnabled()) return response;
+
+  const keys = unlockKeysFromEnv();
+  const callerIp = ip(request);
+  // Same bucket and R22 rule as the ?secret= unlock below.
+  const limited = callerIp === UNKNOWN_IP ? false : !(await limit("unlock:ip", callerIp)).ok;
+  if (limited || !keys || !verifySignInLink(link.code, now, keys)) {
+    log.warn("admin sign-in link refused", { ip: callerIp, limited, configured: keys !== null });
+    return locked(request);
+  }
+  response.cookies.set(UNLOCK_COOKIE, signUnlockCookie(now, keys), unlockCookieOptions(PRODUCTION));
+  return response;
+}
+
 export async function proxy(request: NextRequest) {
   const { pathname, searchParams } = request.nextUrl;
 
   // 1. Scanner paths get a bare 404.
   if (isScannerPath(pathname)) return new NextResponse(null, { status: 404 });
+
+  // 1a. Short links, before maintenance mode: an emailed link works during it too.
+  const short = request.method === "GET" || request.method === "HEAD" ? parseShortLink(pathname, request.nextUrl.search) : null;
+  if (short) return shortLink(request, short, Date.now());
 
   const adminPage = isAdminPage(pathname);
   const adminApi = isAdminApi(pathname);
