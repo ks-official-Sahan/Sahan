@@ -19,7 +19,9 @@ export default defineConfig({
   dts: { resolve: false },
   tsconfig: "tsconfig.build.json",
   outDir: "dist",
-  splitting: false,
+  // Shared modules go to chunks, so every subpath sees one copy of each class
+  // and module-level state (instanceof and caches work across subpaths).
+  splitting: true,
   sourcemap: false,
   clean: true,
   target: "es2022",
