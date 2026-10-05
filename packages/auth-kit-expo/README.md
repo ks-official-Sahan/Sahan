@@ -9,7 +9,9 @@ Auth engine:
 - `permissionCheck`: auth-kit's RBAC rules on the device (`can` from
   `@sahan-sac/auth-kit/rbac/rules`);
 - `createApiFetch`: calls your own API routes with the stored session and the
-  app origin, and refuses any other host so the session never leaks.
+  app origin, and refuses any other host so the session never leaks;
+- `parseAuthLink`: recognises auth-kit's short links (`/a/`, `/e/`, `/s/`)
+  arriving as universal links, so the app can hand them to the browser.
 
 The server is the authority. Everything here only decides what the app shows.
 
@@ -49,6 +51,26 @@ const { allowed, isPending } = usePermission(authClient, (user) => user.role ===
 if (isPending) return <ActivityIndicator />;
 if (!allowed) return <Redirect href="/" />;
 ```
+
+## Links from emails
+
+Invite, reset, email-change and sign-in emails carry short links on your site
+(`/a/<token>`, `/e/<token>`, `/s/<code>`). If the site's domain is set up
+for universal links, they open the app. Hand them to the browser, where the
+server checks them:
+
+```ts
+import * as Linking from "expo-linking";
+import * as WebBrowser from "expo-web-browser";
+import { parseAuthLink } from "@sahan-sac/auth-kit-expo";
+
+Linking.addEventListener("url", ({ url }) => {
+  if (parseAuthLink(url, process.env.EXPO_PUBLIC_SITE_URL!)) void WebBrowser.openBrowserAsync(url);
+});
+```
+
+Only links on `siteUrl`'s exact origin match. Nothing is verified on the
+device.
 
 ## Server
 
