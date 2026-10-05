@@ -112,164 +112,204 @@
     "exports": {
       ".": {
         "types": "./dist/index.d.ts",
-        "import": "./dist/index.js"
+        "import": "./dist/index.js",
+        "default": "./dist/index.js"
       },
       "./kit": {
         "types": "./dist/kit.d.ts",
-        "import": "./dist/kit.js"
+        "import": "./dist/kit.js",
+        "default": "./dist/kit.js"
       },
       "./authorize": {
         "types": "./dist/authorize.d.ts",
-        "import": "./dist/authorize.js"
+        "import": "./dist/authorize.js",
+        "default": "./dist/authorize.js"
       },
       "./config": {
         "types": "./dist/config.d.ts",
-        "import": "./dist/config.js"
+        "import": "./dist/config.js",
+        "default": "./dist/config.js"
       },
       "./next-auth": {
         "types": "./dist/next-auth-engine.d.ts",
-        "import": "./dist/next-auth-engine.js"
+        "import": "./dist/next-auth-engine.js",
+        "default": "./dist/next-auth-engine.js"
       },
       "./better-auth": {
         "types": "./dist/better-auth/index.d.ts",
-        "import": "./dist/better-auth/index.js"
+        "import": "./dist/better-auth/index.js",
+        "default": "./dist/better-auth/index.js"
       },
       "./hono": {
         "types": "./dist/hono/index.d.ts",
-        "import": "./dist/hono/index.js"
+        "import": "./dist/hono/index.js",
+        "default": "./dist/hono/index.js"
       },
       "./user-agent": {
         "types": "./dist/user-agent.d.ts",
-        "import": "./dist/user-agent.js"
+        "import": "./dist/user-agent.js",
+        "default": "./dist/user-agent.js"
       },
       "./bootstrap": {
         "types": "./dist/bootstrap.d.ts",
-        "import": "./dist/bootstrap.js"
+        "import": "./dist/bootstrap.js",
+        "default": "./dist/bootstrap.js"
       },
       "./audit-event": {
         "types": "./dist/audit-event.d.ts",
-        "import": "./dist/audit-event.js"
+        "import": "./dist/audit-event.js",
+        "default": "./dist/audit-event.js"
       },
       "./session": {
         "types": "./dist/session/index.d.ts",
-        "import": "./dist/session/index.js"
+        "import": "./dist/session/index.js",
+        "default": "./dist/session/index.js"
       },
       "./session/core": {
         "types": "./dist/session/core.d.ts",
-        "import": "./dist/session/core.js"
+        "import": "./dist/session/core.js",
+        "default": "./dist/session/core.js"
       },
       "./rbac": {
         "types": "./dist/rbac/index.d.ts",
-        "import": "./dist/rbac/index.js"
+        "import": "./dist/rbac/index.js",
+        "default": "./dist/rbac/index.js"
       },
       "./rbac/rules": {
         "types": "./dist/rbac/rules.d.ts",
-        "import": "./dist/rbac/rules.js"
+        "import": "./dist/rbac/rules.js",
+        "default": "./dist/rbac/rules.js"
       },
       "./mfa": {
         "types": "./dist/mfa/index.d.ts",
-        "import": "./dist/mfa/index.js"
+        "import": "./dist/mfa/index.js",
+        "default": "./dist/mfa/index.js"
       },
       "./security": {
         "types": "./dist/security/index.d.ts",
-        "import": "./dist/security/index.js"
+        "import": "./dist/security/index.js",
+        "default": "./dist/security/index.js"
       },
       "./cache": {
         "types": "./dist/cache/index.d.ts",
-        "import": "./dist/cache/index.js"
+        "import": "./dist/cache/index.js",
+        "default": "./dist/cache/index.js"
       },
       "./credentials": {
         "types": "./dist/credentials.d.ts",
-        "import": "./dist/credentials.js"
+        "import": "./dist/credentials.js",
+        "default": "./dist/credentials.js"
       },
       "./adapter": {
         "types": "./dist/adapter.d.ts",
-        "import": "./dist/adapter.js"
+        "import": "./dist/adapter.js",
+        "default": "./dist/adapter.js"
       },
       "./prisma": {
         "types": "./dist/prisma/index.d.ts",
-        "import": "./dist/prisma/index.js"
+        "import": "./dist/prisma/index.js",
+        "default": "./dist/prisma/index.js"
       },
       "./drizzle": {
         "types": "./dist/drizzle/index.d.ts",
-        "import": "./dist/drizzle/index.js"
+        "import": "./dist/drizzle/index.js",
+        "default": "./dist/drizzle/index.js"
       },
       "./prisma/auth.prisma": "./prisma/auth.prisma",
       "./password": {
         "types": "./dist/password.d.ts",
-        "import": "./dist/password.js"
+        "import": "./dist/password.js",
+        "default": "./dist/password.js"
       },
       "./password-policy": {
         "types": "./dist/password-policy.d.ts",
-        "import": "./dist/password-policy.js"
+        "import": "./dist/password-policy.js",
+        "default": "./dist/password-policy.js"
       },
       "./invite-token": {
         "types": "./dist/invite-token.d.ts",
-        "import": "./dist/invite-token.js"
+        "import": "./dist/invite-token.js",
+        "default": "./dist/invite-token.js"
       },
       "./safe-callback-url": {
         "types": "./dist/safe-callback-url.d.ts",
-        "import": "./dist/safe-callback-url.js"
+        "import": "./dist/safe-callback-url.js",
+        "default": "./dist/safe-callback-url.js"
       },
       "./constants": {
         "types": "./dist/constants.d.ts",
-        "import": "./dist/constants.js"
+        "import": "./dist/constants.js",
+        "default": "./dist/constants.js"
       },
       "./login-unlock": {
         "types": "./dist/login-unlock.d.ts",
-        "import": "./dist/login-unlock.js"
+        "import": "./dist/login-unlock.js",
+        "default": "./dist/login-unlock.js"
       },
       "./unlock-request": {
         "types": "./dist/unlock-request.d.ts",
-        "import": "./dist/unlock-request.js"
+        "import": "./dist/unlock-request.js",
+        "default": "./dist/unlock-request.js"
       },
       "./security/ip": {
         "types": "./dist/security/ip.d.ts",
-        "import": "./dist/security/ip.js"
+        "import": "./dist/security/ip.js",
+        "default": "./dist/security/ip.js"
       },
       "./security/allowlist": {
         "types": "./dist/security/allowlist.d.ts",
-        "import": "./dist/security/allowlist.js"
+        "import": "./dist/security/allowlist.js",
+        "default": "./dist/security/allowlist.js"
       },
       "./security/origin": {
         "types": "./dist/security/origin.d.ts",
-        "import": "./dist/security/origin.js"
+        "import": "./dist/security/origin.js",
+        "default": "./dist/security/origin.js"
       },
       "./security/csp": {
         "types": "./dist/security/csp.d.ts",
-        "import": "./dist/security/csp.js"
+        "import": "./dist/security/csp.js",
+        "default": "./dist/security/csp.js"
       },
       "./security/headers": {
         "types": "./dist/security/headers.d.ts",
-        "import": "./dist/security/headers.js"
+        "import": "./dist/security/headers.js",
+        "default": "./dist/security/headers.js"
       },
       "./security/scanner-paths": {
         "types": "./dist/security/scanner-paths.d.ts",
-        "import": "./dist/security/scanner-paths.js"
+        "import": "./dist/security/scanner-paths.js",
+        "default": "./dist/security/scanner-paths.js"
       },
       "./security/check-origin": {
         "types": "./dist/security/check-origin.d.ts",
-        "import": "./dist/security/check-origin.js"
+        "import": "./dist/security/check-origin.js",
+        "default": "./dist/security/check-origin.js"
       },
       "./security/request-device": {
         "types": "./dist/security/request-device.d.ts",
-        "import": "./dist/security/request-device.js"
+        "import": "./dist/security/request-device.js",
+        "default": "./dist/security/request-device.js"
       },
       "./security/device": {
         "types": "./dist/security/device.d.ts",
-        "import": "./dist/security/device.js"
+        "import": "./dist/security/device.js",
+        "default": "./dist/security/device.js"
       },
       "./cache/ratelimit": {
         "types": "./dist/cache/ratelimit.d.ts",
-        "import": "./dist/cache/ratelimit.js"
+        "import": "./dist/cache/ratelimit.js",
+        "default": "./dist/cache/ratelimit.js"
       },
       "./cache/memory": {
         "types": "./dist/cache/memory.d.ts",
-        "import": "./dist/cache/memory.js"
+        "import": "./dist/cache/memory.js",
+        "default": "./dist/cache/memory.js"
       },
       "./cache/redis": {
         "types": "./dist/cache/redis.d.ts",
-        "import": "./dist/cache/redis.js"
+        "import": "./dist/cache/redis.js",
+        "default": "./dist/cache/redis.js"
       },
       "./package.json": "./package.json"
     }
