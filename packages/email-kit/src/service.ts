@@ -1,5 +1,3 @@
-import type { AuditEvent } from "@/lib/admin/audit";
-
 import { EmailGuardError, prepareMessage } from "./guards";
 import type { Attempt, EmailMessage, EmailProvider, ProviderOutcome, SendResult } from "./types";
 
@@ -7,13 +5,20 @@ import type { Attempt, EmailMessage, EmailProvider, ProviderOutcome, SendResult 
 // first delivery or at a failure another provider cannot fix, and write one
 // audit row (email.sent or email.failed) that never holds the body or an
 // address. Every side effect is injected, so the rules are unit tested.
-// docs/plan/admin-cms-adr.md, step 5 and decision D11.
 
 export const PROVIDER_TIMEOUT_MS = 15_000;
 
+/** One row per send. Matches the shape of @sahan-sac/auth-kit's AuditEvent, so an app passes its own audit writer. */
+export interface EmailAuditEvent {
+  action: "email.sent" | "email.failed";
+  actor: { id?: string | null; email?: string | null } | null;
+  entityType: "Email";
+  meta: Record<string, unknown>;
+}
+
 export interface EmailServiceDeps {
   providers: readonly EmailProvider[];
-  audit(event: AuditEvent): Promise<void>;
+  audit(event: EmailAuditEvent): Promise<void>;
   timeoutMs?: number;
   now?: () => number;
 }

@@ -155,8 +155,8 @@ export async function runBrevoDiagnostics(
     try {
       const response = await doFetch(`${API}${path}`, {
         headers: { "api-key": apiKey, accept: "application/json" },
+        // Plain fetch caches nothing; Next.js (15+) does not cache fetch by default either.
         signal: AbortSignal.timeout(TIMEOUT_MS),
-        cache: "no-store",
       });
       const body = response.ok ? await response.json().catch(() => null) : null;
       return { status: response.status, body };

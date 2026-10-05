@@ -1,14 +1,14 @@
-import type { AppEnv } from "@/lib/env";
-
 import { assertMailbox, EmailGuardError } from "./guards";
+import type { EmailEnv } from "./env";
 import type { ProviderName } from "./types";
 
 // Turns environment values into provider settings and decides the order in which
 // providers are tried. Pure, so the rules are tested without touching the
-// environment (docs/plan/admin-cms-adr.md, step 5).
+// environment.
 
-export type EmailEnv = Pick<
-  AppEnv,
+/** The variables the providers read; `EmailEnv` (./env) parses them. */
+export type ProviderEnv = Pick<
+  EmailEnv,
   | "EMAIL_PROVIDER"
   | "RESEND_API_KEY"
   | "RESEND_SENDER_EMAIL"
@@ -40,7 +40,7 @@ export interface SmtpConfig {
 }
 
 export interface EmailConfig {
-  mode: EmailEnv["EMAIL_PROVIDER"];
+  mode: ProviderEnv["EMAIL_PROVIDER"];
   resend: ResendConfig | null;
   smtp: SmtpConfig | null;
   /** Human readable reasons a provider is not usable. Never contains a secret. */
@@ -59,7 +59,7 @@ function mailbox(value: string, label: string, problems: string[]): string | nul
   }
 }
 
-export function emailConfigFromEnv(env: EmailEnv): EmailConfig {
+export function emailConfigFromEnv(env: ProviderEnv): EmailConfig {
   const problems: string[] = [];
 
   let resend: ResendConfig | null = null;

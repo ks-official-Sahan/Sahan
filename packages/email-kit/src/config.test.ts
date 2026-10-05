@@ -1,11 +1,14 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { emailConfigFromEnv, providerOrder, type EmailEnv } from "./config";
+import { emailConfigFromEnv, providerOrder, type ProviderEnv } from "./config";
 
-const env = (overrides: Partial<EmailEnv> = {}): EmailEnv => ({
+/** Not a real key: a placeholder the tests look for in output. */
+const FAKE_RESEND_KEY = "fake-resend-key";
+
+const env = (overrides: Partial<ProviderEnv> = {}): ProviderEnv => ({
   EMAIL_PROVIDER: "auto",
-  RESEND_API_KEY: "re_test_key",
+  RESEND_API_KEY: FAKE_RESEND_KEY,
   RESEND_SENDER_EMAIL: "noreply@example.com",
   RESEND_SENDER_NAME: "Sahan",
   EMAIL_HOST: "smtp.example.com",

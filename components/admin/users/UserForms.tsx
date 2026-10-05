@@ -94,6 +94,14 @@ export function CreateUserForm({ roles }: { roles: readonly RoleName[] }) {
         </label>
         <RoleSelect id="create-role" roles={roles} />
       </div>
+      <label className="flex items-start gap-2 text-sm">
+        <input type="hidden" name="notify" value="0" />
+        <input type="checkbox" name="notify" value="1" defaultChecked className="mt-0.5 size-4 accent-primary" />
+        <span>
+          Email them a sign-in link
+          <span className="block text-xs text-muted-foreground">The password is never emailed: share it another way.</span>
+        </span>
+      </label>
       <SubmitButton pendingLabel="Creating...">Create user</SubmitButton>
     </ActionForm>
   );

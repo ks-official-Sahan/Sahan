@@ -60,6 +60,16 @@ confirmations. Each redirects to its page (`/admin/set-password`,
 in the old long form still work until they expire. The one-letter paths
 `/a`, `/e` and `/s` are reserved, so no public page may use them.
 
+**Copies of account emails.** With `EMAIL_CC` set (comma separated) and
+**Settings → Email routing → Copy account emails** on, every invitation,
+new-account and password-reset email also goes to those addresses as a
+copy marked "Copy:", with every link left out: an invite or reset link lets
+whoever holds it take the account, so only its recipient gets it. The copy
+is sent after the original is delivered and never delays the action.
+Invitation, new-account and reset emails also carry a sign-in link, so the
+recipient can find the login page later; "Create user" can email one (the
+password is never emailed).
+
 **Which domain links use.** Every emailed or copied link (invites, resets,
 sign-in links, the new-inquiry button) uses the first domain in `SITE_URLS`
 that answers `/api/health` as this app; if none does yet (for example a

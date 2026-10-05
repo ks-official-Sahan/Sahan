@@ -3,6 +3,9 @@ import { test } from "node:test";
 
 import { brevoVerdict, runBrevoDiagnostics, type BrevoEvent, type SenderState } from "./brevo-diagnostics";
 
+/** Not a real key: a placeholder the tests look for in output. */
+const FAKE_BREVO_KEY = "fake-brevo-key";
+
 const goodSender: SenderState = {
   address: "sender@example.com",
   configured: true,
@@ -80,16 +83,16 @@ test("a full run reads account, senders, domains and events, and reports deliver
   });
   const result = await runBrevoDiagnostics(
     { messageId: "<1@example.com>" },
-    { apiKey: "xkeysib-secret", senderAddress: "sender@example.com", fetch: impl }
+    { apiKey: FAKE_BREVO_KEY, senderAddress: "sender@example.com", fetch: impl }
   );
   assert.equal(result.verdict.code, "delivered");
   assert.deepEqual(result.account, { reachable: true, plan: "free" });
   assert.deepEqual(result.sender, { ...goodSender });
   assert.equal(result.events.length, 1);
   assert.equal("extra" in result.events[0], false);
-  assert.ok(calls.every((call) => call.headers["api-key"] === "xkeysib-secret"));
+  assert.ok(calls.every((call) => call.headers["api-key"] === FAKE_BREVO_KEY));
   assert.ok(calls.some((call) => call.url.includes("messageId=%3C1%40example.com%3E")));
-  assert.equal(JSON.stringify(result).includes("xkeysib-secret"), false);
+  assert.equal(JSON.stringify(result).includes(FAKE_BREVO_KEY), false);
 });
 
 test("an unverified sender is reported even when the API itself works", async () => {
@@ -98,14 +101,14 @@ test("an unverified sender is reported even when the API itself works", async ()
     "/senders": { status: 200, body: { senders: [{ email: "other@example.com", active: true }] } },
     "/senders/domains": { status: 200, body: { domains: [] } },
   });
-  const result = await runBrevoDiagnostics({}, { apiKey: "k", senderAddress: "sender@example.com", fetch: impl });
+  const result = await runBrevoDiagnostics({}, { apiKey: FAKE_BREVO_KEY, senderAddress: "sender@example.com", fetch: impl });
   assert.equal(result.verdict.code, "sender_not_verified");
   assert.equal(result.sender.domainAuthenticated, null);
 });
 
 test("a rejected key stops after the account call", async () => {
   const { impl, calls } = fakeFetch({ "/account": { status: 401 } });
-  const result = await runBrevoDiagnostics({}, { apiKey: "bad", senderAddress: "sender@example.com", fetch: impl });
+  const result = await runBrevoDiagnostics({}, { apiKey: FAKE_BREVO_KEY, senderAddress: "sender@example.com", fetch: impl });
   assert.equal(result.verdict.code, "api_key_rejected");
   assert.equal(calls.length, 1);
   assert.deepEqual(result.notes, ["GET /account answered 401"]);
@@ -120,6 +123,6 @@ test("no key means no request at all, and a network failure is reported as unrea
   const down = (async () => {
     throw new Error("network");
   }) as unknown as typeof fetch;
-  const result = await runBrevoDiagnostics({}, { apiKey: "k", senderAddress: "a@b.cd", fetch: down });
+  const result = await runBrevoDiagnostics({}, { apiKey: FAKE_BREVO_KEY, senderAddress: "a@b.cd", fetch: down });
   assert.equal(result.verdict.code, "unreachable");
 });

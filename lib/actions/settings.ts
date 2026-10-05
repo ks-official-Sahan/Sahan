@@ -164,6 +164,7 @@ export async function updateEmailRoutingAction(_previous: ActionState, formData:
     inboxEmail: textOrUndefined(formData, "inboxEmail"),
     notificationEmail: textOrUndefined(formData, "notificationEmail"),
     autoReplyEnabled: checkbox(formData, "autoReplyEnabled"),
+    authCopyEnabled: checkbox(formData, "authCopyEnabled"),
   });
   if (!parsed.success) return fail("Could not save email routing.", fieldErrorsFrom(parsed.error.issues));
 

@@ -7,6 +7,9 @@ import { createSmtpProvider, type SmtpTransport } from "./brevo-smtp";
 import { capturedEmails, clearCapturedEmails, createCaptureProvider } from "./capture";
 import { classifyResendError, createResendProvider, type ResendClient } from "./resend";
 
+/** Not a real key: a placeholder the tests look for in output. */
+const FAKE_RESEND_KEY = "fake-resend-key";
+
 const message: PreparedMessage = {
   to: ["owner@example.com"],
   cc: [],
@@ -17,7 +20,7 @@ const message: PreparedMessage = {
   category: "test",
 };
 
-const resendConfig = { apiKey: "re_test", from: '"Sahan" <noreply@example.com>' };
+const resendConfig = { apiKey: FAKE_RESEND_KEY, from: '"Sahan" <noreply@example.com>' };
 const smtpConfig: SmtpConfig = {
   host: "smtp.example.com",
   port: 587,

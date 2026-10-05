@@ -8,7 +8,7 @@ import { audit, auditMany, auditSafe, type AuditEvent } from "@/lib/admin/audit"
 import { done, fail, fieldErrorsFrom, formValues, type ActionState } from "@/lib/actions/state";
 import { authorizeAction } from "@/lib/actions/guard";
 import { INVITE_TTL_HOURS, RESET_TTL_MINUTES, createToken } from "@/lib/auth/invite-token";
-import { accountLink } from "@/lib/auth/links";
+import { accountLink, signInLink } from "@/lib/auth/links";
 import { checkPassword } from "@/lib/auth/password-policy";
 import { hashPassword } from "@/lib/auth/password";
 import { ROLES, type Permission, type RoleName } from "@/lib/auth/permissions";
@@ -16,8 +16,8 @@ import { assignableRoles } from "@/lib/auth/rbac-rules";
 import { invalidateSessionState, invalidateUserSessionState, revokeSessions, revokeUserSessions } from "@/lib/auth/session-store";
 import { limit } from "@/lib/cache/ratelimit";
 import { repos, withTx } from "@/lib/data";
-import { sendEmail } from "@/lib/email";
-import { invite, passwordReset } from "@/lib/email/templates";
+import { sendAccountEmail } from "@/lib/email/account-mail";
+import { accountCreated, invite, passwordReset } from "@/lib/email/templates";
 import { getEnv } from "@/lib/env";
 import type { UserRef } from "@/lib/data/users";
 import { log } from "@/lib/log";
@@ -126,11 +126,14 @@ export async function inviteUser(_previous: ActionState, formData: FormData): Pr
     return done(`Invitation created for ${parsed.data.email}. Copy the link and share it: it works once and lasts ${INVITE_TTL_HOURS} hours.`, { link });
   }
 
-  const rendered = invite({ inviterName: actor.name ?? actor.email, role: parsed.data.role, url: link, expiresHours: INVITE_TTL_HOURS });
-  const sent = await sendEmail(
-    { to: parsed.data.email, subject: rendered.subject, html: rendered.html, text: rendered.text, category: "security" },
-    { actor }
-  ).catch(() => ({ ok: false as const }));
+  const signInUrl = (await signInLink()).url;
+  const sent = await sendAccountEmail({
+    to: parsed.data.email,
+    render: (options) =>
+      invite({ inviterName: actor.name ?? actor.email, role: parsed.data.role, url: link, expiresHours: INVITE_TTL_HOURS, signInUrl }, options),
+    category: "invite",
+    actor,
+  }).catch(() => ({ ok: false as const }));
   if (!sent.ok) {
     // Kept, not cancelled: the inviter has the link and can share it another way.
     return { ...fail("The invitation was created, but the email could not be sent. Copy the link and share it yourself."), link };
@@ -223,6 +226,9 @@ export async function createUser(_previous: ActionState, formData: FormData): Pr
     .object({ email, role, name, password: z.string().max(128, "Use at most 128 characters.") })
     .safeParse(formValues(formData));
   if (!parsed.success) return fail("Check the form.", fieldErrorsFrom(parsed.error.issues));
+  // Same hidden "0" plus checkbox "1" as the invite form; a post with neither still emails.
+  const notifyValues = formData.getAll("notify");
+  const notify = notifyValues.length === 0 || notifyValues.includes("1");
 
   const allowed = checkInvite(actor, parsed.data.role);
   if (!allowed.ok) return fail(allowed.error);
@@ -262,7 +268,21 @@ export async function createUser(_previous: ActionState, formData: FormData): Pr
   }
 
   revalidatePath(USERS_PATH);
-  return done(`${parsed.data.email} can sign in with the password you set, and must change it first.`);
+  const created = `${parsed.data.email} can sign in with the password you set, and must change it first.`;
+  if (!notify) return done(created);
+
+  // The email carries a sign-in link, never the password: share that another way.
+  const signInUrl = (await signInLink()).url;
+  const sent = await sendAccountEmail({
+    to: parsed.data.email,
+    render: (options) =>
+      accountCreated({ name: parsed.data.name || null, creatorName: actor.name ?? actor.email, role: parsed.data.role, signInUrl }, options),
+    category: "invite",
+    actor,
+  }).catch(() => ({ ok: false as const }));
+  return sent.ok
+    ? done(`${created} A sign-in link was emailed; share the password another way.`)
+    : done(`${created} The welcome email could not be sent; share the sign-in page and password yourself.`);
 }
 
 export async function changeRole(_previous: ActionState, formData: FormData): Promise<ActionState> {
@@ -486,15 +506,14 @@ export async function sendReset(_previous: ActionState, formData: FormData): Pro
       return created;
     });
 
-    const rendered = passwordReset({
-      name: target.name,
-      url: await accountLink(token),
-      expiresMinutes: RESET_TTL_MINUTES,
+    const url = await accountLink(token);
+    const signInUrl = (await signInLink()).url;
+    const sent = await sendAccountEmail({
+      to: target.email,
+      render: (options) => passwordReset({ name: target.name, url, expiresMinutes: RESET_TTL_MINUTES, signInUrl }, options),
+      category: "password-reset",
+      actor: access.user,
     });
-    const sent = await sendEmail(
-      { to: target.email, subject: rendered.subject, html: rendered.html, text: rendered.text, category: "security" },
-      { actor: access.user }
-    );
     if (!sent.ok) {
       await repos.authTokens.revoke(row.id);
       return fail("The reset link could not be emailed, so it was cancelled. Check the email settings and try again.");

@@ -17,6 +17,7 @@ import { getCachedIntegrationHealth } from "@/lib/admin/integrations";
 import { bypassKeysFromEnv } from "@/lib/admin/maintenance-bypass";
 import { hasPermission, requireUser } from "@/lib/auth/dal";
 import { getKnownIps } from "@/lib/auth/session-store";
+import { getEnv } from "@/lib/env";
 import { clientIp } from "@/lib/security/ip";
 import { isIndexNowConfigured } from "@/lib/seo/indexnow";
 import { getSetting } from "@/lib/settings/service";
@@ -108,7 +109,7 @@ export default async function SettingsPage() {
         title: "Email routing",
         nav: "Email routing",
         description: "Override where contact form notifications and replies go.",
-        content: <EmailRoutingForm value={emailRouting} />,
+        content: <EmailRoutingForm value={emailRouting} copyRecipients={getEnv().EMAIL_CC.length} />,
       },
     canManageSettings && {
       id: "integrations",
@@ -156,7 +157,7 @@ export default async function SettingsPage() {
 
       <div className="lg:grid lg:grid-cols-[12rem_minmax(0,1fr)] lg:gap-10">
         <SettingsNav items={visible.map(({ id, nav }) => ({ id, label: nav }))} />
-        <div className="min-w-0 max-w-4xl space-y-12">
+        <div className="min-w-0 max-w-4xl space-y-12 pb-40">
           {visible.map((section) => (
             <Section key={section.id} id={section.id} title={section.title} description={section.description}>
               {section.content}

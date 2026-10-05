@@ -1,12 +1,15 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { emailConfigFromEnv, type EmailEnv } from "./config";
+import { emailConfigFromEnv, type ProviderEnv } from "./config";
 import { emailHealth } from "./health";
 
-const env = (overrides: Partial<EmailEnv> = {}): EmailEnv => ({
+/** Not a real key: a placeholder the tests look for in output. */
+const FAKE_RESEND_KEY = "fake-resend-secret";
+
+const env = (overrides: Partial<ProviderEnv> = {}): ProviderEnv => ({
   EMAIL_PROVIDER: "auto",
-  RESEND_API_KEY: "re_secret_value",
+  RESEND_API_KEY: FAKE_RESEND_KEY,
   RESEND_SENDER_EMAIL: "noreply@example.com",
   RESEND_SENDER_NAME: undefined,
   EMAIL_HOST: "smtp.example.com",
@@ -19,7 +22,7 @@ const env = (overrides: Partial<EmailEnv> = {}): EmailEnv => ({
   ...overrides,
 });
 
-const health = (overrides: Partial<EmailEnv> = {}, production = true, brevoApiKey = true) =>
+const health = (overrides: Partial<ProviderEnv> = {}, production = true, brevoApiKey = true) =>
   emailHealth(emailConfigFromEnv(env(overrides)), { production, brevoApiKey });
 
 test("a healthy setup lists both providers in order and has nothing to report", () => {
@@ -32,7 +35,7 @@ test("a healthy setup lists both providers in order and has nothing to report", 
 
 test("the report never contains a secret", () => {
   const text = JSON.stringify(health());
-  assert.equal(text.includes("re_secret_value"), false);
+  assert.equal(text.includes(FAKE_RESEND_KEY), false);
   assert.equal(text.includes("smtp_secret_value"), false);
   assert.equal(text.includes("smtp-user"), false);
 });

@@ -48,6 +48,9 @@ export const emailRoutingSchema = z.object({
   inboxEmail: z.string().email().optional(),
   notificationEmail: z.string().email().optional(),
   autoReplyEnabled: z.boolean().default(true),
+  // Send a redacted copy (no links) of account emails to EMAIL_CC. Off has no
+  // effect while EMAIL_CC is empty (lib/email/account-mail.ts).
+  authCopyEnabled: z.boolean().default(true),
 });
 export type EmailRouting = z.infer<typeof emailRoutingSchema>;
 

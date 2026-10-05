@@ -1,8 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import type { AuditEvent } from "../admin/audit";
-import { createEmailService } from "./service";
+import { createEmailService, type EmailAuditEvent as AuditEvent } from "./service";
 import type { EmailMessage, EmailProvider, ProviderName, ProviderOutcome } from "./types";
 
 const message: EmailMessage = {

@@ -35,6 +35,7 @@
     "@sahan-sac/auth-kit": "workspace:*",
     "@sahan-sac/blog-kit": "workspace:*",
     "@sahan-sac/chat-kit": "workspace:*",
+    "@sahan-sac/email-kit": "workspace:*",
     "@sahan-sac/media-kit": "workspace:*",
     "@tabler/icons-react": "^3.20.0",
     "@tanstack/react-query": "^5.103.2",
