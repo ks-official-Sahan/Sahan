@@ -34,7 +34,9 @@ Templates, the audit store and when to send stay in your app.
 ## Use
 
 ```ts
-import { createEmailService, createResendProvider, emailConfigFromEnv, parseEmailEnv, providerOrder } from "@sahan-sac/email-kit";
+import { createEmailService, emailConfigFromEnv, parseEmailEnv, providerOrder } from "@sahan-sac/email-kit";
+import { createResendProvider } from "@sahan-sac/email-kit/providers/resend"; // needs `resend`
+// SMTP: createSmtpProvider from "@sahan-sac/email-kit/providers/brevo-smtp" (needs `nodemailer`)
 
 const env = parseEmailEnv(process.env);
 const config = emailConfigFromEnv(env);

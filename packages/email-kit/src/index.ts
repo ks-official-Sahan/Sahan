@@ -11,6 +11,7 @@ export * from "./health";
 export * from "./layout";
 export * from "./recipients";
 export * from "./brevo-diagnostics";
-export * from "./providers/resend";
-export * from "./providers/brevo-smtp";
 export * from "./providers/capture";
+// Resend and SMTP live at their own subpaths (`./providers/resend`,
+// `./providers/brevo-smtp`): each needs its SDK (`resend`, `nodemailer`),
+// and an app installs only the ones it sends with.

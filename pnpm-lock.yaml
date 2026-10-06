@@ -449,12 +449,6 @@ importers:
 
   packages/email-kit:
     dependencies:
-      nodemailer:
-        specifier: ^10.0.10
-        version: 10.0.10
-      resend:
-        specifier: ^6.28.1
-        version: 6.30.0
       zod:
         specifier: ^4.6.5
         version: 4.6.5
@@ -465,6 +459,12 @@ importers:
       '@types/nodemailer':
         specifier: ^8.0.2
         version: 8.0.2
+      nodemailer:
+        specifier: ^10.0.10
+        version: 10.0.10
+      resend:
+        specifier: ^6.28.1
+        version: 6.30.0
       tsup:
         specifier: ^8.3.5
         version: 8.5.1(jiti@2.7.0)(postcss@8.5.28)(supports-color@7.2.0)(tsx@4.23.15)(typescript@5.9.3)(yaml@2.9.1)
