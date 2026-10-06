@@ -10,8 +10,8 @@ import UsersToolbar from "@/components/admin/users/UsersToolbar";
 import { formatDateTime, relativeTime } from "@/lib/admin/format";
 import { ROLE_LABEL } from "@/lib/admin/roles";
 import { hasPermission, requirePermission } from "@/lib/auth/dal";
-import { ROLES } from "@/lib/auth/permissions";
-import { assignableRoles, canManage } from "@/lib/auth/rbac-rules";
+import { SUPER_ROLE } from "@/lib/auth/permissions";
+import { getRoleCatalog } from "@/lib/auth/roles";
 import { isFiltered, parseUserView, USER_PAGE_SIZE, userQueryOf, userViewSearch, type SearchParams } from "@/lib/users/query";
 import { listPendingInvites, searchUsers } from "@/lib/users/service";
 
@@ -29,14 +29,14 @@ const clock = () => Date.now();
 export default async function UsersPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const actor = await requirePermission("viewUsers");
   const view = parseUserView(await searchParams);
-  const [page, invites] = await Promise.all([searchUsers(userQueryOf(view)), listPendingInvites()]);
+  const [page, invites, catalog] = await Promise.all([searchUsers(userQueryOf(view)), listPendingInvites(), getRoleCatalog()]);
   const now = clock();
 
-  const roles = assignableRoles(actor.role);
+  const roles = catalog.assignable(actor.role);
   const mayManage = hasPermission(actor, "manageUsers");
   const mayInvite = hasPermission(actor, "inviteUser") && roles.length > 0;
   const mayCreate = mayManage && roles.length > 0;
-  const mayDelete = hasPermission(actor, "deleteUser") && actor.role === "DEVELOPER";
+  const mayDelete = hasPermission(actor, "deleteUser") && actor.role === SUPER_ROLE;
   const bulk: BulkCapabilities = {
     roles: mayManage ? [...roles] : [],
     disable: mayManage,
@@ -45,7 +45,7 @@ export default async function UsersPage({ searchParams }: { searchParams: Promis
   };
 
   const rows: UserRowView[] = page.items.map((user) => {
-    const manageable = canManage(actor, { id: user.id, role: user.role });
+    const manageable = catalog.canManage(actor, { id: user.id, role: user.role });
     return {
       id: user.id,
       email: user.email,
@@ -127,7 +127,7 @@ export default async function UsersPage({ searchParams }: { searchParams: Promis
         <h2 id="accounts-heading" className="text-base font-medium">
           Accounts
         </h2>
-        <UsersToolbar view={view} roles={ROLES} total={page.total} />
+        <UsersToolbar view={view} roles={catalog.names} total={page.total} />
 
         {rows.length === 0 ? (
           isFiltered(view) ? (

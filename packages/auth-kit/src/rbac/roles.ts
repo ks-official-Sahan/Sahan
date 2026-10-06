@@ -34,7 +34,7 @@ export interface RoleCatalog<TRole extends string = string> {
   assignable(actorRole: TRole): TRole[];
 }
 
-export function createRoleCatalog<TRole extends string = string>(records: readonly RoleRecord[], superRole: TRole): RoleCatalog<TRole> {
+export function createRoleCatalog<TRole extends string = string>(records: readonly RoleRecord[], superRole: NoInfer<TRole>): RoleCatalog<TRole> {
   const roles = [...records].sort((a, b) => a.rank - b.rank || a.name.localeCompare(b.name));
   const byName = new Map(roles.map((role) => [role.name, role]));
   const rankOf = (name: string) => (name === superRole ? 0 : byName.get(name)?.rank);

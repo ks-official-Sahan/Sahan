@@ -28,8 +28,26 @@ import { log } from "@/lib/log";
 // that needs a secret (AUTH_SECRET) lives in `./kit.ts` instead, which wraps
 // the `authKit` this file exports.
 
+/**
+ * The built-in roles, seeded as system rows of the `roles` table. Roles are
+ * runtime data now (lib/auth/roles.ts loads them), so a role name is a plain
+ * string; these three always exist and cannot be renamed or deleted.
+ */
 export const ROLES = ["DEVELOPER", "MANAGER", "EDITOR"] as const;
-export type RoleName = (typeof ROLES)[number];
+export type SystemRole = (typeof ROLES)[number];
+export type RoleName = string;
+/** Holds every permission in code and manages everyone. */
+export const SUPER_ROLE = "DEVELOPER" satisfies SystemRole;
+/** Rank of each built-in role: lower manages higher. Custom roles take any rank from 1. */
+export const SYSTEM_ROLE_RANKS: Record<SystemRole, number> = { DEVELOPER: 0, MANAGER: 10, EDITOR: 20 };
+/** The built-in rows of the roles table: the seed, and the fallback when the table cannot be read. */
+export const SYSTEM_ROLE_ROWS = ROLES.map((name) => ({
+  name,
+  label: name.charAt(0) + name.slice(1).toLowerCase(),
+  description: null,
+  rank: SYSTEM_ROLE_RANKS[name],
+  system: true,
+}));
 
 export const PERMISSIONS = [
   // Dashboard
@@ -206,22 +224,10 @@ export const authKit = defineAuthKit<RoleName, Permission>({
   },
   keyPrefix: "sahan:",
   roles: ROLES,
-  superRole: "DEVELOPER",
+  superRole: SUPER_ROLE,
   permissions: PERMISSIONS,
   neverGrantable: NEVER_GRANTABLE,
   defaultGrants: DEFAULT_GRANTS,
-  // DEVELOPER manages everyone, MANAGER only EDITORs, EDITOR nobody, nobody themselves.
-  canManage: (actor, target) => {
-    if (actor.id === target.id) return false;
-    if (actor.role === "DEVELOPER") return true;
-    if (actor.role === "MANAGER") return target.role === "EDITOR";
-    return false;
-  },
-  assignableRoles: (actorRole) => {
-    if (actorRole === "DEVELOPER") return [...ROLES];
-    if (actorRole === "MANAGER") return ["EDITOR"];
-    return [];
-  },
   limits: LIMITS,
   csp: { imgHosts: ["https://res.cloudinary.com"], connectHosts: ["https://api.cloudinary.com"] },
   trustProxy: { hops: trustedProxyHops() },
@@ -249,5 +255,3 @@ export const matrixFromRows = (rows: readonly PermissionRow[]): Matrix => matrix
 export const matrixToRows = (matrix: Matrix) => matrixToRowsGeneric(authKit, matrix);
 export const diffMatrix = (before: Matrix, after: Matrix) => diffMatrixGeneric(authKit, before, after);
 export const validateMatrix = (matrix: Matrix): MatrixCheck => validateMatrixGeneric(authKit, matrix);
-export const canManage = authKit.canManage;
-export const assignableRoles = authKit.assignableRoles;

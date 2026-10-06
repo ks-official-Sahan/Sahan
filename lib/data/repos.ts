@@ -8,6 +8,7 @@ import type { DashboardRepo, MaintenanceRepo } from "./maintenance";
 import type { MediaRepo } from "./media";
 import type { PostRepo, PostRevisionRepo } from "./posts";
 import type { RolePermissionRepo } from "./role-permissions";
+import type { RoleRepo } from "./roles";
 import type { SettingRepo } from "./settings";
 import type { UserSessionRepo } from "./user-sessions";
 import type { UserRepo } from "./users";
@@ -32,6 +33,7 @@ export interface Repos {
   posts: PostRepo;
   projects: ProjectRepo;
   rolePermissions: RolePermissionRepo;
+  roles: RoleRepo;
   serviceGroups: ServiceGroupRepo;
   services: ServiceRepo;
   sessions: UserSessionRepo;

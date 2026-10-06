@@ -12,6 +12,7 @@ import { dashboardRepo, maintenanceRepo } from "./maintenance";
 import { mediaRepo } from "./media";
 import { postRepo, postRevisionRepo } from "./posts";
 import { rolePermissionRepo } from "./role-permissions";
+import { roleRepo } from "./roles";
 import { settingRepo } from "./settings";
 import { userSessionRepo } from "./user-sessions";
 import { userRepo } from "./users";
@@ -35,6 +36,7 @@ export function createRepos(client: DbClient): Repos {
     posts: postRepo(client),
     projects: projectRepo(client),
     rolePermissions: rolePermissionRepo(client),
+    roles: roleRepo(client),
     serviceGroups: serviceGroupRepo(client),
     services: serviceRepo(client),
     sessions: userSessionRepo(client),

@@ -13,9 +13,12 @@ export {
   PERMISSION_INFO,
   RBAC_SEED_VERSION,
   ROLES,
+  SUPER_ROLE,
+  SYSTEM_ROLE_RANKS,
+  SYSTEM_ROLE_ROWS,
   canBeGranted,
   defaultPermissionsFor,
   isPermission,
   isRole,
 } from "./kit-config";
-export type { Permission, PermissionGroup, PermissionInfo, RoleName } from "./kit-config";
+export type { Permission, PermissionGroup, PermissionInfo, RoleName, SystemRole } from "./kit-config";

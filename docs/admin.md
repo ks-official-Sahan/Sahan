@@ -85,17 +85,32 @@ access), see "Break-glass" below.
 
 ## Roles and permissions
 
-Four roles, from `lib/auth/permissions.ts`: `DEVELOPER` (everything, the only
-role that can manage other users, settings, and the IP allowlist), `MANAGER`
-(collections, blog, media, leads, chatbot — day-to-day content and
-enquiries), `EDITOR` (drafts only — can create and edit but not publish, and
-cannot manage anything, per `docs/plan/admin-cms-adr.md` section 9's
-permission table). The exact matrix is section 9 of the ADR; this doc doesn't
-repeat it because it changes as steps add permissions. The rule that doesn't
-change: every Server Action and every `app/api/admin/*` route checks a
-permission before doing anything, and a missing permission looks like a
-missing page (404), never a 403 — an unauthorized admin surface should never
-confirm it exists.
+Roles are rows in the `roles` table, managed at **Roles and permissions**
+(`/admin/roles`, DEVELOPER only). Three are built in and cannot be deleted:
+`DEVELOPER` (rank 0: every permission, in code, so no edit can lock the
+owner out), `MANAGER` (rank 10) and `EDITOR` (rank 20). **Add a role**
+takes a name (capital letters, digits, underscores; fixed once created), a
+label, a description and a rank from 1 to 1000, and starts with no
+permissions: tick them in the matrix below it.
+
+The rank is the hierarchy: a role manages, invites and assigns only roles
+with a higher rank number, never its own rank or above. A custom role at 30
+sits below Editor; one at 15 sits between Manager and Editor. A role can be
+deleted once nobody holds it, and deleting it cancels its open invitations.
+Role and matrix changes are audited (`role.created`, `role.updated`,
+`role.deleted`, `rbac.matrix.updated`) and apply within a minute
+(cached in Redis for 60 seconds, dropped on every change).
+
+The rule that doesn't change: every Server Action and every
+`app/api/admin/*` route checks a permission before doing anything, and a
+missing permission looks like a missing page (404), never a 403 — an
+unauthorized admin surface should never confirm it exists.
+
+**Upgrading a database from before runtime roles** (the `Role` enum): run
+`pnpm exec prisma db execute --file packages/auth-kit/prisma/roles-table.sql`
+once, before deploying the new code. It converts the enum in place, keeps
+every row, and does nothing on a second run. Code from before runtime roles
+cannot write roles to a converted database, so deploy right after.
 
 ## Add a user
 

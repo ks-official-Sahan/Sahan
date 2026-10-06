@@ -20,7 +20,7 @@ test("a full URL round-trips, with a leading minus for descending", () => {
 });
 
 test("unknown or hostile values fall back to the default instead of failing", () => {
-  const view = parseUserView({ role: "OWNER", status: "deleted", sort: "-password", page: "-4", q: "x".repeat(500) });
+  const view = parseUserView({ role: "owner; drop", status: "deleted", sort: "-password", page: "-4", q: "x".repeat(500) });
   assert.equal(view.role, undefined);
   assert.equal(view.status, undefined);
   assert.equal(view.sort, "default");

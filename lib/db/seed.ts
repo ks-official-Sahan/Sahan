@@ -8,13 +8,15 @@ import { hashPassword } from "../auth/password";
 import {
   PERMISSION_ADDED_IN,
   RBAC_SEED_VERSION,
+  SUPER_ROLE,
+  SYSTEM_ROLE_ROWS,
   defaultPermissionsFor,
   type Permission,
   type RoleName,
 } from "../auth/permissions";
 
 /** The repositories the seeds use, so tests can pass a fake. */
-export type SeedDb = Pick<Repos, "users" | "rolePermissions" | "settings">;
+export type SeedDb = Pick<Repos, "users" | "roles" | "rolePermissions" | "settings">;
 
 type Env = Record<string, string | undefined>;
 
@@ -43,11 +45,13 @@ export async function seedOwner(
 
   if (mode === "bootstrap" && (await db.users.count()) > 0) return "skipped-users-exist";
 
+  // users.role is a foreign key: a fresh database needs the built-in roles first.
+  await db.roles.seedSystem(SYSTEM_ROLE_ROWS);
   await db.users.create({
     email,
     name: env.ADMIN_NAME?.trim() || null,
     passwordHash: await hashPassword(password),
-    role: "DEVELOPER",
+    role: SUPER_ROLE,
     mustChangePassword: true,
     createdById: null,
   });
@@ -116,13 +120,17 @@ export async function seedRolePermissions(
 }
 
 export interface SeedSummary {
+  /** Built-in roles that were missing and got inserted. */
+  roles: number;
   owner: SeedOwnerResult;
   permissions: { inserted: number; version: number };
 }
 
 /** Runs every seed. Safe to run any number of times. */
 export async function runSeed(db: SeedDb, env: Env = process.env): Promise<SeedSummary> {
+  // Roles first: permissions and users point at them.
+  const roles = await db.roles.seedSystem(SYSTEM_ROLE_ROWS);
   const permissions = await seedRolePermissions(db);
   const owner = await seedOwner(db, env, "cli");
-  return { owner, permissions };
+  return { roles, owner, permissions };
 }

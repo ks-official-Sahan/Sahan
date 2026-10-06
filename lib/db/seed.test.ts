@@ -20,6 +20,7 @@ function fakeDb() {
   const users: UserRow[] = [];
   const grants: Array<{ role: string; permission: string }> = [];
   const settings = new Map<string, unknown>();
+  const roles: string[] = [];
 
   const client = {
     users: {
@@ -33,6 +34,13 @@ function fakeDb() {
         const row = { id: `user-${users.length + 1}`, ...data };
         users.push(row);
         return { id: row.id };
+      },
+    },
+    roles: {
+      async seedSystem(rows: Array<{ name: string }>) {
+        const missing = rows.filter((row) => !roles.includes(row.name));
+        roles.push(...missing.map((row) => row.name));
+        return missing.length;
       },
     },
     rolePermissions: {
