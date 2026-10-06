@@ -1,14 +1,15 @@
 {
-  "name": "@sahan-sac/auth-kit-expo",
-  "version": "0.1.0",
-  "description": "React Native (Expo) client for @sahan-sac/auth-kit's Better Auth engine: a typed auth client with auth-kit's user fields, permission hooks, and a fetch helper that calls your API with the stored session.",
+  "name": "@sahan-sac/auth-kit-client",
+  "version": "0.0.0",
+  "description": "React web and React Native (Expo) client for @sahan-sac/auth-kit's Better Auth engine: a typed auth client with auth-kit's user fields and sign-in, permission hooks, and a fetch helper that calls your API with the session.",
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/ks-official-Sahan/Sahan.git",
-    "directory": "packages/auth-kit-expo"
+    "directory": "packages/auth-kit-client"
   },
   "keywords": [
+    "react",
     "expo",
     "react-native",
     "better-auth",

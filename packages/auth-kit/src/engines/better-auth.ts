@@ -28,6 +28,7 @@ export function createAuthEngine(options: AuthEngineOptions): AuthEngine {
       origins: options.origins,
       sessionCookieName: options.sessionCookieName,
       production: options.production,
+      revokeSession: (sessionId, userId) => options.signIn.sessionStore.revokeSession(sessionId, { userId, reason: "sign_out" }),
       // nextCookies() writes Better Auth's cookies from server actions; it must stay last.
       plugins: [...((options.betterAuth?.plugins ?? []) as BetterAuthPlugin[]), nextCookies()],
     }).catch((error: unknown) => {

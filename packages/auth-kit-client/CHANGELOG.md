@@ -1,4 +1,6 @@
-# @sahan-sac/auth-kit-expo
+# @sahan-sac/auth-kit-client
+
+Renamed from `@sahan-sac/auth-kit-expo`; the entries below were published under that name.
 
 ## 0.1.0
 

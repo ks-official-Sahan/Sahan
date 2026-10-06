@@ -23,6 +23,8 @@ export interface AuthKitBetterAuthOptions {
   production?: boolean;
   /** The login-unlock gate: false answers sign-in with 404. */
   canSignIn?: (headers: Headers) => boolean | Promise<boolean>;
+  /** Revokes a session row when a client signs out (the session store's revokeSession). */
+  revokeSession?: (sessionId: string, userId: string) => Promise<unknown>;
   /** Added after auth-kit's own plugin. */
   plugins?: BetterAuthPlugin[];
 }
@@ -68,7 +70,7 @@ export async function createAuthKitBetterAuth(options: AuthKitBetterAuthOptions)
         : {}),
     },
     disabledPaths: AUTH_KIT_DISABLED_PATHS,
-    plugins: [authKitSessions({ authorize: options.authorize, canSignIn: options.canSignIn }), ...(options.plugins ?? [])],
+    plugins: [authKitSessions({ authorize: options.authorize, canSignIn: options.canSignIn, revokeSession: options.revokeSession }), ...(options.plugins ?? [])],
   } satisfies BetterAuthOptions;
 
   const adapter = withHashedSessionTokens((await getAdapter({ ...base, database: raw })) as unknown as HashableAdapter);

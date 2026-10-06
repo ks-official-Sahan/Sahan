@@ -1,5 +1,5 @@
 import type { BetterAuthOptions, BetterAuthPlugin } from "better-auth";
-import { APIError, createAuthEndpoint } from "better-auth/api";
+import { APIError, createAuthEndpoint, getSessionFromCtx } from "better-auth/api";
 import { deleteSessionCookie, setSessionCookie } from "better-auth/cookies";
 
 import type { AuthorizeResult, createAuthorize } from "../authorize";
@@ -92,6 +92,12 @@ export interface AuthKitSessionsOptions {
    * when the request carries no valid unlock cookie. Leave out to allow all.
    */
   canSignIn?: (headers: Headers) => boolean | Promise<boolean>;
+  /**
+   * Revokes a session row (the session store's `revokeSession`). With it,
+   * `authKitClearSession` ends the session it clears, so a client signing out
+   * over HTTP leaves no live row behind.
+   */
+  revokeSession?: (sessionId: string, userId: string) => Promise<unknown>;
 }
 
 type Refusal = Exclude<AuthorizeResult["kind"], "signed_in">;
@@ -121,8 +127,9 @@ type SignInBody = { email: string; password: string } | { challengeId: string };
  *   Sets the session cookie, or throws an APIError whose `body.code` is
  *   "invalid", "limited" or "mfa_required" (read it with `signInRefusal`).
  * - `POST /auth-kit/clear-session` (`auth.api.authKitClearSession`): removes the
- *   session cookies. Revoke the row first (the session store's revokeSession),
- *   so the ended session stays in the sessions list.
+ *   session cookies, and revokes the current row when `revokeSession` is
+ *   given (else revoke it first yourself), so the ended session stays in the
+ *   sessions list, marked revoked.
  */
 export function authKitSessions(options: AuthKitSessionsOptions) {
   return {
@@ -179,6 +186,10 @@ export function authKitSessions(options: AuthKitSessionsOptions) {
         return ctx.json({ userId: user.id, sessionId: result.session.sid, mfa: result.session.mfa });
       }),
       authKitClearSession: createAuthEndpoint("/auth-kit/clear-session", { method: "POST" }, async (ctx) => {
+        if (options.revokeSession) {
+          const current = await getSessionFromCtx(ctx);
+          if (current) await options.revokeSession(current.session.id, current.user.id);
+        }
         deleteSessionCookie(ctx);
         return ctx.json({ ok: true });
       }),

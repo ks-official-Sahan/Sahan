@@ -578,7 +578,7 @@ app.post(
 
 `originGuard` refuses unsafe methods without a matching Origin (403, or 404
 with `status: 404`). For a React Native app, list its scheme in
-`nativeOrigins: ["myapp://"]` (see `@sahan-sac/auth-kit-expo`). `requirePermission` answers 404 when signed out or not
+`nativeOrigins: ["myapp://"]` (see `@sahan-sac/auth-kit-client`). `requirePermission` answers 404 when signed out or not
 allowed, so a protected route cannot be told from a missing one.
 
 ## API reference

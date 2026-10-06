@@ -131,7 +131,14 @@ function suite(kind: string, open: () => Promise<Db>) {
         after: (fn) => fn(),
         sendKnownDeviceEmail: async ({ email }) => void knownDeviceEmails.push(email),
       });
-      const auth = await createAuthKitBetterAuth({ database: db.database, authorize, secret: SECRET, origins: [BASE], canSignIn: () => unlocked });
+      const auth = await createAuthKitBetterAuth({
+        database: db.database,
+        authorize,
+        secret: SECRET,
+        origins: [BASE],
+        canSignIn: () => unlocked,
+        revokeSession: (sessionId, userId) => sessionStore.revokeSession(sessionId, { userId, reason: "sign_out" }),
+      });
       return { auth, sessionStore, mfa };
     }
 
@@ -266,6 +273,16 @@ function suite(kind: string, open: () => Promise<Db>) {
       const expired = cleared.headers.getSetCookie().filter((c) => /Max-Age=0/i.test(c));
       assert.ok(expired.some((c) => c.startsWith("better-auth.session_token=")));
       assert.ok((await sessionRow(tokenOf(cookie))).revokedAt, "the row stays, marked revoked");
+    });
+
+    test("clear-session over HTTP revokes the session it ends", async () => {
+      const user = await seedUser();
+      const cookie = cookieOf(await post("/auth-kit/sign-in", { email: user.email, password: STRONG }));
+      assert.equal((await post("/auth-kit/clear-session", {}, cookie)).status, 200);
+      const row = await sessionRow(tokenOf(cookie));
+      assert.ok(row.revokedAt, "the row is marked revoked");
+      assert.equal(row.revokeReason, "sign_out");
+      await assert.rejects(dal(cookie).requireUser(), /redirect:\/api\/auth\/expire/);
     });
 
     test("mustChangePassword sends the user to the account page", async () => {

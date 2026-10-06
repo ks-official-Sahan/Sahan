@@ -1,7 +1,7 @@
 import { DEFAULT_CALLBACK, safeCallbackUrl } from "./safe-callback-url";
 
 // The pure half of ./short-link: link shapes, parsing and path builders, with
-// no node:crypto import, so a React Native app (@sahan-sac/auth-kit-expo) or
+// no node:crypto import, so a React Native app (@sahan-sac/auth-kit-client) or
 // an edge runtime can recognise a link without the verification code.
 
 export const SHORT_LINK_PREFIX = { account: "/a/", email: "/e/", signIn: "/s/" } as const;

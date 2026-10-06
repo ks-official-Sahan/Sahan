@@ -361,7 +361,7 @@ importers:
         specifier: ^5.6.3
         version: 5.9.3
 
-  packages/auth-kit-expo:
+  packages/auth-kit-client:
     devDependencies:
       '@sahan-sac/auth-kit':
         specifier: workspace:^
