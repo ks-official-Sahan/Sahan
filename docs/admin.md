@@ -83,6 +83,19 @@ never used.
 If you're locked out of both (secret lost, cookie expired, no browser
 access), see "Break-glass" below.
 
+## Auth engine
+
+Sign-in runs on Better Auth through auth-kit (`lib/auth/config.ts`).
+auth-kit's `authorize` still decides who gets in (lockout, IP limits, emailed
+codes, known-device email, audit); Better Auth only issues the session, a
+`user_sessions` row whose `token` is the session cookie. No Better Auth
+route is mounted: sign-in and sign-out are server actions calling
+`auth.api`, and `/api/auth/*` other than `expire` and `session-status`
+answers 404. Everything else reaches the engine through
+`lib/auth/engine.ts` and `lib/auth/session-cookie.ts`; switching engines
+means swapping those two files and `config.ts` (the auth-kit README, "Choosing
+the engine", has the steps).
+
 ## Roles and permissions
 
 Roles are rows in the `roles` table, managed at **Roles and permissions**

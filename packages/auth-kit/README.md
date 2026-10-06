@@ -928,6 +928,46 @@ request, whatever Better Auth's cookie cache holds. Because the session
 carries no password fingerprint, revoke a user's other sessions whenever
 their password changes (`revokeUserSessions`).
 
+### Choosing the engine: new project or existing one
+
+Both engines run on the same tables, the same `authorize` and the same DAL,
+so the choice lives in three files. Keep every caller behind one seam:
+
+- `lib/auth/engine.ts`: `sessionSource`, `CHECK_PASSWORD_FINGERPRINT`,
+  `attemptSignIn(credentials)`, `signOutAndRedirect(to)`,
+  `keepSessionAfterPasswordChange(hash)`;
+- `lib/auth/session-cookie.ts`: `hasSessionCookie(request)` for the proxy and
+  `SESSION_COOKIES` for the route that clears a revoked session;
+- `lib/auth/config.ts`: the engine itself (`NextAuth(...)` or `betterAuth(...)`),
+  imported by `engine.ts` only.
+
+Server actions, the DAL, `proxy.ts` and routes import the seam, never
+`next-auth` or `better-auth`. The admin template ships both versions of the
+three files (`create-admin --auth better-auth` picks one).
+
+**New project:** start on Better Auth. Use the template's Better Auth files (or
+the snippet above), seed the `roles` rows and the owner, done.
+
+**Existing next-auth project:**
+
+1. Move every `signIn`/`signOut`/`auth()`/`getToken` call behind the seam
+   above, still on next-auth. Ship that alone: no behaviour change.
+2. Add the Better Auth columns: `users.emailVerified` (boolean, default
+   false) and `user_sessions.token` (text, unique, nullable) and
+   `user_sessions.updatedAt`. They are additive, so code still on next-auth
+   keeps working against the changed database.
+3. Swap the three files for their Better Auth versions, replace the
+   `[...nextauth]` route with a catch-all that answers 404 (no Better Auth
+   route is mounted; server actions call `auth.api`), delete the next-auth
+   type augmentation, and swap the `next-auth` dependency for `better-auth`.
+   Pass every site origin to `baseURL`/`trustedOrigins`.
+4. Deploy. Every next-auth JWT stops being read, so everyone signs in once
+   more; passwords, MFA, roles, invites and audit history are untouched
+   (bcrypt hashes and the same tables). Old `user_sessions` rows have no token
+   and simply expire.
+
+To go back, swap the three files again: the extra columns do no harm.
+
 ## Hono
 
 `./hono` brings the same rules to a Hono app (Node, Bun, Deno, Workers):

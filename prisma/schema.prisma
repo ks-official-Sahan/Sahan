@@ -67,6 +67,8 @@ model User {
   id                 String    @id @default(cuid())
   // Stored lowercase; the service layer normalises before every write.
   email              String    @unique
+  // Read by the Better Auth engine; the app's own flows never set it.
+  emailVerified      Boolean   @default(false)
   name               String?
   passwordHash       String
   role               String    @default("EDITOR")
@@ -131,6 +133,8 @@ model RolePermission {
 // is authoritative for revocation; Redis only caches the state for 30 seconds.
 model UserSession {
   id           String    @id @default(cuid())
+  // The session cookie value (Better Auth). Null on rows from before the switch.
+  token        String?   @unique
   userId       String
   user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   ip           String?
@@ -140,6 +144,7 @@ model UserSession {
   device       String?
   mfaVerified  Boolean   @default(false)
   createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @default(now()) @updatedAt
   lastSeenAt   DateTime  @default(now())
   expiresAt    DateTime
   revokedAt    DateTime?

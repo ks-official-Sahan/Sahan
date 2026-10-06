@@ -1,29 +1,28 @@
 import "server-only";
 
-import { AuthError } from "next-auth";
+import { betterAuthSessionSource, signInRefusal } from "@sahan-sac/auth-kit/better-auth";
+import { headers } from "next/headers";
+import { redirect } from "next/navigation";
 
-import { auth, signIn, signOut, unstable_update } from "./config";
-import { AUTH_SECRET } from "./kit";
-import { passwordFingerprint } from "./session-state";
+import { auth } from "./config";
 
-// The one place server code meets the auth engine (next-auth here). Server
+// The one place server code meets the auth engine (Better Auth here). Server
 // actions, the data access layer and routes call these and never the engine
-// itself, so the Better Auth variant (create-admin --auth better-auth) swaps
-// this file, config.ts and session-cookie.ts and nothing else.
+// itself; the next-auth version of this file has the same exports.
+
+const requestHeaders = async () => new Headers(await headers());
 
 /** Reads the request's session for the data access layer. */
-export const sessionSource = auth;
+export const sessionSource = betterAuthSessionSource(auth, requestHeaders);
 
-/** next-auth sessions are JWTs, so the DAL also compares their password fingerprint (`pwf`). */
-export const CHECK_PASSWORD_FINGERPRINT = true;
+/**
+ * Better Auth sessions are database rows with no password fingerprint claim.
+ * A password change ends the user's other sessions by revoking their rows,
+ * which every password action here already does.
+ */
+export const CHECK_PASSWORD_FINGERPRINT = false;
 
-function codeOf(error: unknown): string | null {
-  if (error instanceof AuthError) {
-    const code = (error as AuthError & { code?: string }).code;
-    return typeof code === "string" ? code : "invalid";
-  }
-  return null;
-}
+type SignInBody = { email: string; password: string } | { challengeId: string };
 
 /**
  * Signs in with `{ email, password }`, or `{ challengeId }` once the emailed
@@ -32,26 +31,20 @@ function codeOf(error: unknown): string | null {
  */
 export async function attemptSignIn(credentials: Record<string, string>): Promise<{ code: string } | null> {
   try {
-    // `signIn` reports a refusal by throwing or, depending on the version, by returning a URL.
-    const result = await signIn("credentials", { ...credentials, redirect: false });
-    if (typeof result === "string" && result.includes("error=")) {
-      return { code: new URL(result, "http://local").searchParams.get("code") ?? "invalid" };
-    }
+    await auth.api.authKitSignIn({ body: credentials as SignInBody, headers: await requestHeaders() });
     return null;
   } catch (error) {
-    const code = codeOf(error);
+    const code = signInRefusal(error);
     if (code === null) throw error;
     return { code };
   }
 }
 
-/** Clears the session cookie and redirects. Revoke the session row first. */
+/** Clears the session cookies and redirects. Revoke the session row first. */
 export async function signOutAndRedirect(to: string): Promise<never> {
-  await signOut({ redirectTo: to });
-  throw new Error("unreachable: signOut redirects");
+  await auth.api.authKitClearSession({ headers: await requestHeaders() });
+  redirect(to);
 }
 
-/** Keeps the current session valid after its own password change: its JWT gets the new fingerprint. */
-export async function keepSessionAfterPasswordChange(passwordHash: string): Promise<void> {
-  await unstable_update({ pwf: passwordFingerprint(passwordHash, AUTH_SECRET) });
-}
+/** Nothing to refresh: the session is its row, which a password change leaves valid. */
+export async function keepSessionAfterPasswordChange(_passwordHash: string): Promise<void> {}

@@ -30,8 +30,6 @@ const list = text.transform((value) => splitList(value));
 const schema = z.object({
   // Auth and signing
   AUTH_SECRET: text,
-  AUTH_TRUST_HOST: flag,
-  AUTH_DEBUG: flag,
   INTERNAL_SIGNING_SECRET: text,
   MAINTENANCE_BYPASS_SECRET: text,
   ADMIN_LOGIN_UNLOCK_SECRET: text,
