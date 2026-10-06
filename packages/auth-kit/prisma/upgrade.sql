@@ -74,3 +74,12 @@ BEGIN
   ALTER TABLE "auth_tokens" ADD CONSTRAINT "auth_tokens_role_fkey"
     FOREIGN KEY ("role") REFERENCES "roles"("name") ON DELETE SET NULL ON UPDATE CASCADE;
 END $$;
+
+-- 4. auth-kit 0.7: masking and the audit actor's role. users.masked shows a
+--    super-role account as another role (presentation only); audit rows keep
+--    the actor's role at the time. Older rows take the actor's current role.
+ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "masked" BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE "audit_logs" ADD COLUMN IF NOT EXISTS "actorRole" TEXT;
+UPDATE "audit_logs" a SET "actorRole" = u."role"
+FROM "users" u
+WHERE a."actorId" = u."id" AND a."actorRole" IS NULL;

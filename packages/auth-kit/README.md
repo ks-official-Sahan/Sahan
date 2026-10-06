@@ -275,6 +275,8 @@ export const authKit = defineAuthKit<RoleName, Permission>({
   superRole: "OWNER",
   permissions: PERMISSIONS,
   neverGrantable: ["manageUsers"],
+  // Optional: a per-role cap no matrix edit can widen.
+  deniedPermissions: { MANAGER: ["manageBilling"] },
   defaultGrants: { MANAGER: ["viewDashboard", "editPosts", "publishPosts"], EDITOR: ["viewDashboard", "editPosts"] },
   // Optional: defaults to "only superRole manages anyone but themself".
   canManage: (actor, target) => actor.id !== target.id && (actor.role === "OWNER" || (actor.role === "MANAGER" && target.role === "EDITOR")),
@@ -409,6 +411,26 @@ hierarchy from one load: `canManage(actor, target)` (never yourself; the super
 role manages everyone, anyone else only strictly higher ranks) and
 `assignable(actorRole)`. `checkRoleInput` validates a new or edited role (name
 `^[A-Z][A-Z0-9_]{1,31}$`, label, description, rank 1 to 1000).
+
+`SUPER_ADMIN_ROLE` is a built-in row at rank 5: only the super role (rank 0)
+manages or assigns it, and it manages every role ranked above it. Give it
+everything except what you keep for the super role with `deniedPermissions`
+in `defineAuthKit`: `canBeGranted`, `matrixFromRows` and `validateMatrix`
+drop or refuse a denied permission, so a stored row or a matrix edit never
+widens the cap.
+
+### Masking the super role
+
+`createMask({ superRole, maskAs }, { global, users })` from `./rbac/mask`
+shows super-role accounts to everyone else as `maskAs` (for example
+SUPER_ADMIN): globally, or per account through `users.masked`. It is opt-in
+and presentation only. Every authorization check keeps the real role; run what
+you send to a viewer through `present`, `visibleRoles`, `presentCounts` and
+`canSeeAuditBy` on the server. The super role sees through every mask.
+`audit_logs.actorRole` keeps the actor's role at the time
+(`AuditEvent.actor.role`), so `canSeeAuditBy` hides rows written by the super
+role even after a role change. Tell your client in the contract that their
+developers' accounts can appear under another role, and audit every toggle.
 
 Upgrading from the `Role` enum (before 0.7): `npx auth-kit db upgrade --apply`
 (see "Upgrading the database"). It creates `roles` from the enum values
@@ -587,7 +609,8 @@ allowed, so a protected route cannot be told from a missing one.
 | --- | --- | --- |
 | `.` (root) | Pure/universal | `defineAuthKit`, `AuthDbAdapter` types, `AuditEvent`, `createAuthorize`/`AuthorizeDeps`/`AuthorizeResult`, `ensureBootstrapOwner`, `resolveCookieName`, `SESSION_MAX_AGE_SECONDS`, `verifyCredentials`/`CredentialDeps`, `createToken`/`verifyTokenTag`/`tokenState` (invite/reset links), `signUnlockCookie`/`verifyUnlockCookie`/`isUnlockSecret`/`unlockKeysFromEnv`/`unlockCookieOptions`/`constantTimeEqual`, `hashPassword`/`verifyPassword`, `checkPassword`, `safeCallbackUrl`, `createMfa`, RBAC generics (`isPermission`/`isRole`/`defaultPermissionsFor`/`canBeGranted`/`matrixFromRows`/`defaultMatrix`/`matrixToRows`/`can`/`diffMatrix`/`validateMatrix`/`createRbac`) |
 | `./rbac/rules` | Pure/universal (no React) | `can`, `defaultMatrix`, `matrixFromRows`, `matrixToRows`, `diffMatrix`, `validateMatrix` |
-| `./rbac/roles` | Pure/universal (no React) | `createRoleCatalog`, `checkRoleInput`, `RoleRecord`, `ROLE_NAME_PATTERN`, `MAX_ROLE_RANK` |
+| `./rbac/roles` | Pure/universal (no React) | `createRoleCatalog`, `checkRoleInput`, `RoleRecord`, `SUPER_ADMIN_ROLE`, `ROLE_NAME_PATTERN`, `MAX_ROLE_RANK` |
+| `./rbac/mask` | Pure/universal (no React) | `createMask`, `Mask`, `MaskState` |
 | `./kit` | Pure/universal | `defineAuthKit` and its types (also at root) |
 | `./authorize` | Pure/universal | `createAuthorize` — the credentials/MFA decision, without the next-auth error-throwing wrapper |
 | `./engines/next-auth`, `./engines/better-auth` | Next.js + that engine | `createAuthEngine(options)`: the same options and the same `AuthEngine` shape on both |

@@ -17,7 +17,7 @@ const TTL_SECONDS = 60;
 export function createRbac<TRole extends string, TPermission extends string>(deps: {
   adapter: AuthDbAdapter;
   kv: Kv;
-  kit: Pick<ResolvedAuthKit<TRole, TPermission>, "roles" | "permissions" | "superRole" | "neverGrantable" | "defaultGrants" | "keyPrefix">;
+  kit: Pick<ResolvedAuthKit<TRole, TPermission>, "roles" | "permissions" | "superRole" | "neverGrantable" | "defaultGrants" | "deniedPermissions" | "keyPrefix">;
   /** Runs the app's real audit() inside the same transaction the adapter opened. */
   writeAudit: (event: AuditEvent, tx: unknown) => Promise<void>;
   /**

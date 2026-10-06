@@ -15,7 +15,7 @@ export type Matrix<TRole extends string, TPermission extends string> = Record<TR
 type RulesKit<TRole extends string, TPermission extends string> = Pick<
   ResolvedAuthKit<TRole, TPermission>,
   "roles" | "permissions" | "superRole" | "neverGrantable" | "defaultGrants"
->;
+> & { deniedPermissions?: ResolvedAuthKit<TRole, TPermission>["deniedPermissions"] };
 
 /** The super role holds everything in code. The other roles come from the stored rows. */
 export function matrixFromRows<TRole extends string, TPermission extends string>(
@@ -92,13 +92,14 @@ export type MatrixCheck = { ok: true } | { ok: false; error: string };
 
 /** A proposed matrix may never grant a permission that only the super role can hold. */
 export function validateMatrix<TRole extends string, TPermission extends string>(
-  kit: Pick<RulesKit<TRole, TPermission>, "roles" | "superRole" | "neverGrantable">,
+  kit: Pick<RulesKit<TRole, TPermission>, "roles" | "superRole" | "neverGrantable" | "deniedPermissions">,
   matrix: Matrix<TRole, TPermission>
 ): MatrixCheck {
+  // Checks every granted cell, so a role's deniedPermissions cap holds as well as neverGrantable.
   for (const role of kit.roles) {
     if (role === kit.superRole) continue;
-    for (const permission of kit.neverGrantable) {
-      if (matrix[role].has(permission)) {
+    for (const permission of matrix[role] ?? []) {
+      if (!canBeGranted(kit, role, permission)) {
         return { ok: false, error: `${permission} cannot be granted to ${role}.` };
       }
     }

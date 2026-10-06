@@ -22,7 +22,7 @@ export type Permission = string;
 type RbacCatalogue<TRole extends string, TPermission extends string> = Pick<
   ResolvedAuthKit<TRole, TPermission>,
   "roles" | "permissions" | "superRole" | "neverGrantable" | "defaultGrants"
->;
+> & { deniedPermissions?: ResolvedAuthKit<TRole, TPermission>["deniedPermissions"] };
 
 export function isPermission<TRole extends string, TPermission extends string>(
   kit: Pick<RbacCatalogue<TRole, TPermission>, "permissions">,
@@ -38,21 +38,24 @@ export function isRole<TRole extends string, TPermission extends string>(
   return (kit.roles as readonly string[]).includes(value);
 }
 
-/** The super role defaults to every permission in code; every other role's defaults come from `defaultGrants`. */
+/**
+ * The super role defaults to every permission in code; every other role's
+ * defaults come from `defaultGrants`, minus anything it can never hold.
+ */
 export function defaultPermissionsFor<TRole extends string, TPermission extends string>(
-  kit: Pick<RbacCatalogue<TRole, TPermission>, "superRole" | "permissions" | "defaultGrants">,
+  kit: Pick<RbacCatalogue<TRole, TPermission>, "superRole" | "permissions" | "defaultGrants" | "neverGrantable" | "deniedPermissions">,
   role: TRole
 ): TPermission[] {
   if (role === kit.superRole) return [...kit.permissions];
-  return [...(kit.defaultGrants[role] ?? [])];
+  return (kit.defaultGrants[role] ?? []).filter((permission) => canBeGranted(kit, role, permission));
 }
 
-/** True when the matrix may store this permission for the role. */
+/** True when the matrix may store this permission for the role: never a `neverGrantable` one, never one denied to the role. */
 export function canBeGranted<TRole extends string, TPermission extends string>(
-  kit: Pick<RbacCatalogue<TRole, TPermission>, "superRole" | "neverGrantable">,
+  kit: Pick<RbacCatalogue<TRole, TPermission>, "superRole" | "neverGrantable" | "deniedPermissions">,
   role: TRole,
   permission: TPermission
 ): boolean {
   if (role === kit.superRole) return true;
-  return !kit.neverGrantable.includes(permission);
+  return !kit.neverGrantable.includes(permission) && !(kit.deniedPermissions?.[role]?.includes(permission) ?? false);
 }

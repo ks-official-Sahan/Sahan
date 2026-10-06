@@ -138,7 +138,7 @@ export function createAuthorize(deps: AuthorizeDeps) {
     await adapter.updateLastLoginAt(user.id, new Date());
     await audit({
       action: "auth.login.success",
-      actor: { id: user.id, email: user.email },
+      actor: { id: user.id, email: user.email, role: user.role },
       entityType: "UserSession",
       entityId: session.id,
       meta: { mfa: context.mfa },

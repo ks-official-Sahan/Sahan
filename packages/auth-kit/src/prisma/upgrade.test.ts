@@ -26,6 +26,7 @@ test("upgrade.sql: a pre-0.5, pre-0.7 database becomes the current schema, data 
       INSERT INTO role_permissions (role, permission) VALUES ('MANAGER', 'viewUsers');
       INSERT INTO auth_tokens (id, purpose, email, role, "tokenHash", "expiresAt") VALUES ('t1', 'INVITE', 'new@example.com', 'MANAGER', 'hash', now());
       INSERT INTO user_sessions (id, "userId", "expiresAt") VALUES ('s1', 'u1', now() + interval '1 day');
+      INSERT INTO audit_logs (id, "actorId", action, "entityType") VALUES ('a1', 'u1', 'user.signIn', 'user'), ('a2', NULL, 'cron.run', 'cron');
     `);
 
     // Another schema with its own "Role" enum (a copy, an extension) must be left alone and never counted.
@@ -36,6 +37,8 @@ test("upgrade.sql: a pre-0.5, pre-0.7 database becomes the current schema, data 
     await legacy.exec(UPGRADE);
 
     assert.deepEqual(await describeDb(legacy), await describeDb(current));
+    const audit = await legacy.query<{ id: string; actorRole: string | null }>(`SELECT id, "actorRole" FROM audit_logs ORDER BY id`);
+    assert.deepEqual(audit.rows, [{ id: "a1", actorRole: "DEVELOPER" }, { id: "a2", actorRole: null }], "older rows take the actor's role");
     const roles = await legacy.query<{ name: string; label: string; rank: number; system: boolean }>(
       "SELECT name, label, rank, system FROM roles ORDER BY rank"
     );

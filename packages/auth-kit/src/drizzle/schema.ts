@@ -70,6 +70,8 @@ export function createAuthSchema<TRole extends string = string>(options: AuthSch
       bio: text("bio"),
       mfaEnabled: boolean("mfaEnabled").notNull().default(false),
       mustChangePassword: boolean("mustChangePassword").notNull().default(false),
+      // Shown to non-super-role viewers as another role (see ../rbac/mask). Presentation only.
+      masked: boolean("masked").notNull().default(false),
       passwordChangedAt: at("passwordChangedAt").notNull().default(now),
       lastLoginAt: at("lastLoginAt"),
       disabledAt: at("disabledAt"),
@@ -202,8 +204,9 @@ export function createAuthSchema<TRole extends string = string>(options: AuthSch
     {
       id: text("id").primaryKey().$defaultFn(newId),
       actorId: text("actorId"),
-      // Snapshot, so the trail survives deleting the user.
+      // Snapshots, so the trail survives deleting the user or changing their role.
       actorEmail: text("actorEmail"),
+      actorRole: text("actorRole"),
       action: text("action").notNull(),
       entityType: text("entityType").notNull(),
       entityId: text("entityId"),

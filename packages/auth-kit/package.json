@@ -33,6 +33,7 @@
     "./rbac": "./src/rbac/index.ts",
     "./rbac/rules": "./src/rbac/rules.ts",
     "./rbac/roles": "./src/rbac/roles.ts",
+    "./rbac/mask": "./src/rbac/mask.ts",
     "./mfa": "./src/mfa/index.ts",
     "./security": "./src/security/index.ts",
     "./cache": "./src/cache/index.ts",
@@ -218,6 +219,11 @@
         "types": "./dist/rbac/roles.d.ts",
         "import": "./dist/rbac/roles.js",
         "default": "./dist/rbac/roles.js"
+      },
+      "./rbac/mask": {
+        "types": "./dist/rbac/mask.d.ts",
+        "import": "./dist/rbac/mask.js",
+        "default": "./dist/rbac/mask.js"
       },
       "./mfa": {
         "types": "./dist/mfa/index.d.ts",

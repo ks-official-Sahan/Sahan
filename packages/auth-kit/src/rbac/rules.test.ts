@@ -36,6 +36,20 @@ const kit = defineAuthKit({
   limits: {},
 });
 
+test("deniedPermissions caps a role: never in its defaults, its loaded rows or a valid matrix", () => {
+  const capped = { ...kit, defaultGrants: { MANAGER: ["viewBilling", "manageBilling"] as const }, deniedPermissions: { MANAGER: ["manageBilling"] as const } };
+  assert.deepEqual([...defaultMatrix(capped).MANAGER], ["viewBilling"]);
+  const loaded = matrixFromRows(capped, [
+    { role: "MANAGER", permission: "manageBilling" },
+    { role: "MANAGER", permission: "viewOrders" },
+  ]);
+  assert.deepEqual([...loaded.MANAGER], ["viewOrders"]);
+  assert.equal(can(capped, loaded, "MANAGER", "manageBilling"), false);
+  const widened = { ...defaultMatrix(capped), MANAGER: new Set<(typeof PERMISSIONS)[number]>(["manageBilling"]) };
+  assert.deepEqual(validateMatrix(capped, widened), { ok: false, error: "manageBilling cannot be granted to MANAGER." });
+  assert.ok(can(capped, loaded, "OWNER", "manageBilling"), "the super role keeps everything");
+});
+
 test("defaultMatrix: every role by every permission, from the configured defaults", () => {
   const matrix = defaultMatrix(kit);
   for (const permission of PERMISSIONS) assert.equal(can(kit, matrix, "OWNER", permission), true, `OWNER ${permission}`);

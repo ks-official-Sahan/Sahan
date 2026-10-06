@@ -27,6 +27,7 @@ export default defineConfig({
     "src/rbac/index.ts",
     "src/rbac/rules.ts",
     "src/rbac/roles.ts",
+    "src/rbac/mask.ts",
     "src/mfa/index.ts",
     "src/security/index.ts",
     "src/cache/index.ts",
