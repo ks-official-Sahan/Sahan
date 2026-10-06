@@ -110,7 +110,7 @@ function RoleForm({ title, role, lockedRank, onDone }: { title: string; role?: R
             inputMode="numeric"
             required
             defaultValue={role ? String(role.rank) : "30"}
-            hint="1 to 1000. Lower ranks manage higher ones: the built-in Manager is 10, Editor 20."
+            hint="1 to 1000. Lower ranks manage higher ones; see the ranks in the table above."
           />
         )}
         <Field label="Description" name="description" multiline maxLength={300} defaultValue={role?.description ?? ""} className="sm:col-span-2" />

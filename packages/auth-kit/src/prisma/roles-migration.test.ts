@@ -22,6 +22,10 @@ test("roles-table.sql: the old enum schema becomes the current one, data kept, s
       INSERT INTO auth_tokens (id, purpose, email, role, "tokenHash", "expiresAt") VALUES ('t1', 'INVITE', 'new@example.com', 'MANAGER', 'hash', now());
     `);
 
+    // Another schema with its own "Role" enum (a copy, an extension) must be left alone and never counted.
+    const otherSchema = `CREATE SCHEMA other; CREATE TYPE other."Role" AS ENUM ('X', 'Y');`;
+    await Promise.all([legacy.exec(otherSchema), current.exec(otherSchema)]);
+
     await legacy.exec(MIGRATION);
     await legacy.exec(MIGRATION);
 

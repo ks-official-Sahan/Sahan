@@ -9,7 +9,11 @@
 
 DO $$
 BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'Role') THEN
+  -- Only this schema's enum: another schema (a copy, an extension) may have its own.
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_type t JOIN pg_namespace n ON n.oid = t.typnamespace
+    WHERE t.typname = 'Role' AND n.nspname = current_schema()
+  ) THEN
     RAISE NOTICE 'roles-table: no "Role" enum, nothing to do';
     RETURN;
   END IF;
@@ -28,8 +32,8 @@ BEGIN
 
   INSERT INTO "roles" ("name", "label", "rank", "system", "updatedAt")
   SELECT e.enumlabel, initcap(replace(lower(e.enumlabel), '_', ' ')), (row_number() OVER (ORDER BY e.enumsortorder) - 1)::int * 10, true, CURRENT_TIMESTAMP
-  FROM pg_enum e JOIN pg_type t ON t.oid = e.enumtypid
-  WHERE t.typname = 'Role'
+  FROM pg_enum e JOIN pg_type t ON t.oid = e.enumtypid JOIN pg_namespace n ON n.oid = t.typnamespace
+  WHERE t.typname = 'Role' AND n.nspname = current_schema()
   ON CONFLICT ("name") DO NOTHING;
 
   ALTER TABLE "users" ALTER COLUMN "role" DROP DEFAULT;
@@ -37,7 +41,7 @@ BEGIN
   ALTER TABLE "users" ALTER COLUMN "role" SET DEFAULT 'EDITOR';
   ALTER TABLE "role_permissions" ALTER COLUMN "role" TYPE TEXT USING "role"::text;
   ALTER TABLE "auth_tokens" ALTER COLUMN "role" TYPE TEXT USING "role"::text;
-  DROP TYPE "Role";
+  EXECUTE format('DROP TYPE %I.%I', current_schema(), 'Role');
 
   CREATE INDEX "users_role_idx" ON "users"("role");
   ALTER TABLE "users" ADD CONSTRAINT "users_role_fkey"
