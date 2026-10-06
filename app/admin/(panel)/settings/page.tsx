@@ -170,7 +170,7 @@ export default async function SettingsPage() {
 
       <div className="lg:grid lg:grid-cols-[12rem_minmax(0,1fr)] lg:gap-10">
         <SettingsNav items={visible.map(({ id, nav }) => ({ id, label: nav }))} />
-        <div className="min-w-0 max-w-4xl space-y-12 pb-40">
+        <div className="min-w-0 max-w-4xl space-y-12 pb-[54dvh]">
           {visible.map((section) => (
             <Section key={section.id} id={section.id} title={section.title} description={section.description}>
               {section.content}
