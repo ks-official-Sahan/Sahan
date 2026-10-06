@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { defineAuthKit } from "../kit";
+import { isFixedRole } from "./permissions";
 import { can, defaultMatrix, diffMatrix, matrixFromRows, matrixToRows, validateMatrix } from "./rules";
 
 // Same small synthetic catalogue as permissions.test.ts, plus a custom
@@ -36,18 +37,22 @@ const kit = defineAuthKit({
   limits: {},
 });
 
-test("deniedPermissions caps a role: never in its defaults, its loaded rows or a valid matrix", () => {
-  const capped = { ...kit, defaultGrants: { MANAGER: ["viewBilling", "manageBilling"] as const }, deniedPermissions: { MANAGER: ["manageBilling"] as const } };
-  assert.deepEqual([...defaultMatrix(capped).MANAGER], ["viewBilling"]);
-  const loaded = matrixFromRows(capped, [
-    { role: "MANAGER", permission: "manageBilling" },
-    { role: "MANAGER", permission: "viewOrders" },
+test("fixedGrants: a role holds its code list, whatever the rows or a matrix edit say", () => {
+  type P = (typeof PERMISSIONS)[number];
+  // manageUsers is neverGrantable, yet a fixed role holds what its code list names.
+  const fixed = { ...kit, fixedGrants: { MANAGER: ["viewBilling", "manageUsers"] as const } };
+  assert.ok(isFixedRole(fixed, "MANAGER") && isFixedRole(fixed, "OWNER") && !isFixedRole(fixed, "STAFF"));
+  assert.deepEqual([...defaultMatrix(fixed).MANAGER].sort(), ["manageUsers", "viewBilling"]);
+  const loaded = matrixFromRows(fixed, [
+    { role: "MANAGER", permission: "manageOrders" },
+    { role: "STAFF", permission: "viewOrders" },
   ]);
-  assert.deepEqual([...loaded.MANAGER], ["viewOrders"]);
-  assert.equal(can(capped, loaded, "MANAGER", "manageBilling"), false);
-  const widened = { ...defaultMatrix(capped), MANAGER: new Set<(typeof PERMISSIONS)[number]>(["manageBilling"]) };
-  assert.deepEqual(validateMatrix(capped, widened), { ok: false, error: "manageBilling cannot be granted to MANAGER." });
-  assert.ok(can(capped, loaded, "OWNER", "manageBilling"), "the super role keeps everything");
+  assert.deepEqual([...loaded.MANAGER].sort(), ["manageUsers", "viewBilling"], "stored rows never change a fixed role");
+  assert.equal(can(fixed, loaded, "MANAGER", "manageUsers"), true);
+  assert.deepEqual(matrixToRows(fixed, loaded), [{ role: "STAFF", permission: "viewOrders" }], "a fixed role stores no rows");
+  const widened = { ...loaded, MANAGER: new Set<P>([...loaded.MANAGER, "manageOrders"]) };
+  assert.deepEqual(validateMatrix(fixed, widened), { ok: false, error: "manageOrders cannot be granted to MANAGER." });
+  assert.deepEqual(validateMatrix(fixed, loaded), { ok: true });
 });
 
 test("defaultMatrix: every role by every permission, from the configured defaults", () => {

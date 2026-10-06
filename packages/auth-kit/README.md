@@ -275,8 +275,8 @@ export const authKit = defineAuthKit<RoleName, Permission>({
   superRole: "OWNER",
   permissions: PERMISSIONS,
   neverGrantable: ["manageUsers"],
-  // Optional: a per-role cap no matrix edit can widen.
-  deniedPermissions: { MANAGER: ["manageBilling"] },
+  // Optional: roles whose permissions are fixed in code, like superRole.
+  fixedGrants: { AUDITOR: ["viewDashboard", "viewOrders"] },
   defaultGrants: { MANAGER: ["viewDashboard", "editPosts", "publishPosts"], EDITOR: ["viewDashboard", "editPosts"] },
   // Optional: defaults to "only superRole manages anyone but themself".
   canManage: (actor, target) => actor.id !== target.id && (actor.role === "OWNER" || (actor.role === "MANAGER" && target.role === "EDITOR")),
@@ -413,11 +413,12 @@ role manages everyone, anyone else only strictly higher ranks) and
 `^[A-Z][A-Z0-9_]{1,31}$`, label, description, rank 1 to 1000).
 
 `SUPER_ADMIN_ROLE` is a built-in row at rank 5: only the super role (rank 0)
-manages or assigns it, and it manages every role ranked above it. Give it
-everything except what you keep for the super role with `deniedPermissions`
-in `defineAuthKit`: `canBeGranted`, `matrixFromRows` and `validateMatrix`
-drop or refuse a denied permission, so a stored row or a matrix edit never
-widens the cap.
+manages or assigns it, and it manages every role ranked above it. Fix its
+permissions in code with `fixedGrants` in `defineAuthKit`, for example every
+permission except the ones you keep for the super role. `matrixFromRows`
+ignores stored rows for a fixed role, `matrixToRows` stores none and
+`validateMatrix` refuses anything outside its list, so no matrix edit widens
+or narrows it.
 
 ### Masking the super role
 

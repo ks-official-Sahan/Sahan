@@ -19,8 +19,8 @@ export interface RoleRecord {
 /**
  * The built-in super admin row: rank 5, so only roles ranked below 5 (the
  * super role) manage or assign it, and it manages every role ranked above.
- * Pair it with `deniedPermissions` in `defineAuthKit` for what it may never
- * hold, and seed it with the app's other system rows.
+ * Fix its permissions in code with `fixedGrants` in `defineAuthKit`, and seed
+ * it with the app's other system rows.
  */
 export const SUPER_ADMIN_ROLE: RoleRecord = {
   name: "SUPER_ADMIN",

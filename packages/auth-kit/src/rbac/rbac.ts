@@ -4,7 +4,7 @@ import type { AuthDbAdapter } from "../adapter";
 import type { AuditEvent } from "../audit-event";
 import type { Kv } from "../cache/memory";
 import type { ResolvedAuthKit } from "../kit";
-import { isPermission } from "./permissions";
+import { isFixedRole, isPermission } from "./permissions";
 import { can as canWith, defaultMatrix, matrixFromRows, matrixToRows, type Matrix, type PermissionRow } from "./rules";
 
 // The role by permission matrix, from the database with a 60 second Redis
@@ -17,7 +17,7 @@ const TTL_SECONDS = 60;
 export function createRbac<TRole extends string, TPermission extends string>(deps: {
   adapter: AuthDbAdapter;
   kv: Kv;
-  kit: Pick<ResolvedAuthKit<TRole, TPermission>, "roles" | "permissions" | "superRole" | "neverGrantable" | "defaultGrants" | "deniedPermissions" | "keyPrefix">;
+  kit: Pick<ResolvedAuthKit<TRole, TPermission>, "roles" | "permissions" | "superRole" | "neverGrantable" | "defaultGrants" | "fixedGrants" | "keyPrefix">;
   /** Runs the app's real audit() inside the same transaction the adapter opened. */
   writeAudit: (event: AuditEvent, tx: unknown) => Promise<void>;
   /**
@@ -76,7 +76,7 @@ export function createRbac<TRole extends string, TPermission extends string>(dep
    */
   async function replaceMatrix(matrix: Matrix<TRole, TPermission>, updatedById: string, event: AuditEvent): Promise<void> {
     const current = await currentKit();
-    const editableRoles = current.roles.filter((role) => role !== kit.superRole);
+    const editableRoles = current.roles.filter((role) => !isFixedRole(kit, role));
     const rows = matrixToRows(current, matrix).filter((row) => isPermission(kit, row.permission));
     await adapter.withTransaction(async (tx) => {
       await adapter.deleteRolePermissions(editableRoles, tx);

@@ -22,7 +22,7 @@ export type Permission = string;
 type RbacCatalogue<TRole extends string, TPermission extends string> = Pick<
   ResolvedAuthKit<TRole, TPermission>,
   "roles" | "permissions" | "superRole" | "neverGrantable" | "defaultGrants"
-> & { deniedPermissions?: ResolvedAuthKit<TRole, TPermission>["deniedPermissions"] };
+> & { fixedGrants?: ResolvedAuthKit<TRole, TPermission>["fixedGrants"] };
 
 export function isPermission<TRole extends string, TPermission extends string>(
   kit: Pick<RbacCatalogue<TRole, TPermission>, "permissions">,
@@ -38,24 +38,37 @@ export function isRole<TRole extends string, TPermission extends string>(
   return (kit.roles as readonly string[]).includes(value);
 }
 
+/** True for a role whose permissions are fixed in code: the super role, or a role in `fixedGrants`. */
+export function isFixedRole<TRole extends string, TPermission extends string>(
+  kit: Pick<RbacCatalogue<TRole, TPermission>, "superRole" | "fixedGrants">,
+  role: TRole
+): boolean {
+  return role === kit.superRole || kit.fixedGrants?.[role] !== undefined;
+}
+
 /**
- * The super role defaults to every permission in code; every other role's
- * defaults come from `defaultGrants`, minus anything it can never hold.
+ * The super role defaults to every permission and a `fixedGrants` role to its
+ * fixed list, both in code; every other role's defaults come from
+ * `defaultGrants`, minus anything it can never hold.
  */
 export function defaultPermissionsFor<TRole extends string, TPermission extends string>(
-  kit: Pick<RbacCatalogue<TRole, TPermission>, "superRole" | "permissions" | "defaultGrants" | "neverGrantable" | "deniedPermissions">,
+  kit: Pick<RbacCatalogue<TRole, TPermission>, "superRole" | "permissions" | "defaultGrants" | "neverGrantable" | "fixedGrants">,
   role: TRole
 ): TPermission[] {
   if (role === kit.superRole) return [...kit.permissions];
+  const fixed = kit.fixedGrants?.[role];
+  if (fixed) return [...fixed];
   return (kit.defaultGrants[role] ?? []).filter((permission) => canBeGranted(kit, role, permission));
 }
 
-/** True when the matrix may store this permission for the role: never a `neverGrantable` one, never one denied to the role. */
+/** True when the role may hold this permission: a fixed role only what its code list says, any other role never a `neverGrantable` one. */
 export function canBeGranted<TRole extends string, TPermission extends string>(
-  kit: Pick<RbacCatalogue<TRole, TPermission>, "superRole" | "neverGrantable" | "deniedPermissions">,
+  kit: Pick<RbacCatalogue<TRole, TPermission>, "superRole" | "neverGrantable" | "fixedGrants">,
   role: TRole,
   permission: TPermission
 ): boolean {
   if (role === kit.superRole) return true;
-  return !kit.neverGrantable.includes(permission) && !(kit.deniedPermissions?.[role]?.includes(permission) ?? false);
+  const fixed = kit.fixedGrants?.[role];
+  if (fixed) return fixed.includes(permission);
+  return !kit.neverGrantable.includes(permission);
 }
