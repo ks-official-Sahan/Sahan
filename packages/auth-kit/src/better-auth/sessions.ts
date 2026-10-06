@@ -13,7 +13,14 @@ import { describeAgent } from "../session/store";
 // Better Auth route that could create a user, set a password or end a session
 // behind auth-kit's back is switched off with AUTH_KIT_DISABLED_PATHS.
 
-export type AuthKitOrm = "prisma" | "drizzle";
+/** How Better Auth reaches the tables: Prisma models, Drizzle schema keys, or plain SQL table names (Kysely). */
+export type AuthKitOrm = "prisma" | "drizzle" | "kysely";
+
+const MODELS: Record<AuthKitOrm, { user: string; session: string }> = {
+  prisma: { user: "user", session: "userSession" },
+  drizzle: { user: "users", session: "userSessions" },
+  kysely: { user: "users", session: "user_sessions" },
+};
 
 /**
  * Model names and session settings that point Better Auth at auth-kit's
@@ -30,9 +37,9 @@ export type AuthKitOrm = "prisma" | "drizzle";
  */
 export function authKitDatabaseOptions(orm: AuthKitOrm) {
   return {
-    user: { modelName: orm === "prisma" ? "user" : "users" },
+    user: { modelName: MODELS[orm].user },
     session: {
-      modelName: orm === "prisma" ? "userSession" : "userSessions",
+      modelName: MODELS[orm].session,
       fields: { ipAddress: "ip" },
       expiresIn: SESSION_MAX_AGE_SECONDS,
       disableSessionRefresh: true,

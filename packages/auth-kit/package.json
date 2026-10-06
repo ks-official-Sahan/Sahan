@@ -20,6 +20,10 @@
     "./config": "./src/config.ts",
     "./next-auth": "./src/next-auth-engine.ts",
     "./better-auth": "./src/better-auth/index.ts",
+    "./engines/next-auth": "./src/engines/next-auth.ts",
+    "./engines/next-auth/cookie": "./src/engines/next-auth-cookie.ts",
+    "./engines/better-auth": "./src/engines/better-auth.ts",
+    "./engines/better-auth/cookie": "./src/engines/better-auth-cookie.ts",
     "./hono": "./src/hono/index.ts",
     "./user-agent": "./src/user-agent.ts",
     "./bootstrap": "./src/bootstrap.ts",
@@ -37,7 +41,7 @@
     "./prisma": "./src/prisma/index.ts",
     "./drizzle": "./src/drizzle/index.ts",
     "./prisma/auth.prisma": "./prisma/auth.prisma",
-    "./prisma/roles-table.sql": "./prisma/roles-table.sql",
+    "./prisma/upgrade.sql": "./prisma/upgrade.sql",
     "./password": "./src/password.ts",
     "./password-policy": "./src/password-policy.ts",
     "./invite-token": "./src/invite-token.ts",
@@ -63,6 +67,9 @@
   },
   "types": "./src/index.ts",
   "main": "./src/index.ts",
+  "bin": {
+    "auth-kit": "./bin/auth-kit.mjs"
+  },
   "scripts": {
     "build": "tsup",
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.build.json",
@@ -81,7 +88,8 @@
     "next": "^16.3.5",
     "next-auth": "5.0.0-beta.32",
     "react": "^19.0.0",
-    "hono": "^4.6.0"
+    "hono": "^4.6.0",
+    "pg": "^8.11.0"
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.8",
@@ -103,11 +111,12 @@
   },
   "files": [
     "dist",
+    "bin",
     "README.md",
     "CHANGELOG.md",
     "LICENSE",
     "prisma/auth.prisma",
-    "prisma/roles-table.sql"
+    "prisma/upgrade.sql"
   ],
   "publishConfig": {
     "access": "public",
@@ -144,6 +153,26 @@
         "types": "./dist/better-auth/index.d.ts",
         "import": "./dist/better-auth/index.js",
         "default": "./dist/better-auth/index.js"
+      },
+      "./engines/next-auth": {
+        "types": "./dist/engines/next-auth.d.ts",
+        "import": "./dist/engines/next-auth.js",
+        "default": "./dist/engines/next-auth.js"
+      },
+      "./engines/next-auth/cookie": {
+        "types": "./dist/engines/next-auth-cookie.d.ts",
+        "import": "./dist/engines/next-auth-cookie.js",
+        "default": "./dist/engines/next-auth-cookie.js"
+      },
+      "./engines/better-auth": {
+        "types": "./dist/engines/better-auth.d.ts",
+        "import": "./dist/engines/better-auth.js",
+        "default": "./dist/engines/better-auth.js"
+      },
+      "./engines/better-auth/cookie": {
+        "types": "./dist/engines/better-auth-cookie.d.ts",
+        "import": "./dist/engines/better-auth-cookie.js",
+        "default": "./dist/engines/better-auth-cookie.js"
       },
       "./hono": {
         "types": "./dist/hono/index.d.ts",
@@ -226,7 +255,7 @@
         "default": "./dist/drizzle/index.js"
       },
       "./prisma/auth.prisma": "./prisma/auth.prisma",
-      "./prisma/roles-table.sql": "./prisma/roles-table.sql",
+      "./prisma/upgrade.sql": "./prisma/upgrade.sql",
       "./password": {
         "types": "./dist/password.d.ts",
         "import": "./dist/password.js",
@@ -352,6 +381,9 @@
       "optional": true
     },
     "hono": {
+      "optional": true
+    },
+    "pg": {
       "optional": true
     }
   }

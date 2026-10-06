@@ -10,7 +10,7 @@ import { fileURLToPath } from "node:url";
 
 const SRC = dirname(fileURLToPath(import.meta.url));
 const ENGINE = /^(next-auth|better-auth|@auth\/core)(\/|$)/;
-const ENGINE_ENTRIES = new Set(["config.ts", "next-auth-engine.ts", "better-auth/index.ts"]);
+const ENGINE_ENTRIES = new Set(["config.ts", "next-auth-engine.ts", "better-auth/index.ts", "engines/next-auth.ts", "engines/next-auth-cookie.ts", "engines/better-auth.ts"]);
 const IMPORT = /^\s*(?:import|export)\s+(?!type\b)(?:[^"';]*?\sfrom\s+)?["']([^"']+)["']/gm;
 
 function resolveLocal(from: string, spec: string): string | null {

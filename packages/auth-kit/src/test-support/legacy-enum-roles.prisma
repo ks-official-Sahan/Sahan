@@ -1,5 +1,5 @@
 // TEST FIXTURE: prisma/auth.prisma as it was before auth-kit 0.7 (the "Role"
-// enum), for the roles-table.sql migration test. Do not edit.
+// enum), for the upgrade.sql test. Do not edit.
 //
 // auth-kit's tables, as Prisma models. Copy these into your own schema.prisma
 // (change the Role enum to your own roles) and use createPrismaAuthAdapter

@@ -6,6 +6,8 @@ import { hashPassword, verifyPassword } from "../password";
 import { checkPassword, PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from "../password-policy";
 import { clientIp, type ClientIpOptions, UNKNOWN_IP } from "../security/ip";
 
+export * from "./hash-tokens";
+export * from "./instance";
 export * from "./sessions";
 
 // The Better Auth engine. Better Auth owns sign-in, sessions, cookies, 2FA and

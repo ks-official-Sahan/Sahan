@@ -85,16 +85,18 @@ access), see "Break-glass" below.
 
 ## Auth engine
 
-Sign-in runs on Better Auth through auth-kit (`lib/auth/config.ts`).
+Sign-in runs on Better Auth through auth-kit (`lib/auth/engine.ts`).
 auth-kit's `authorize` still decides who gets in (lockout, IP limits, emailed
 codes, known-device email, audit); Better Auth only issues the session, a
-`user_sessions` row whose `token` is the session cookie. No Better Auth
+`user_sessions` row whose `token` is the SHA-256 of the session cookie. No Better Auth
 route is mounted: sign-in and sign-out are server actions calling
 `auth.api`, and `/api/auth/*` other than `expire` and `session-status`
 answers 404. Everything else reaches the engine through
-`lib/auth/engine.ts` and `lib/auth/session-cookie.ts`; switching engines
-means swapping those two files and `config.ts` (the auth-kit README, "Choosing
-the engine", has the steps).
+`lib/auth/engine.ts` and `lib/auth/session-cookie.ts`. To switch to next-auth,
+run `node packages/auth-kit/bin/auth-kit.mjs engine next-auth --write` (after
+`pnpm --filter @sahan-sac/auth-kit build`), then swap the `better-auth`
+dependency for `next-auth`; the database stays as it is and everyone signs in
+once more.
 
 ## Roles and permissions
 
@@ -119,11 +121,13 @@ The rule that doesn't change: every Server Action and every
 missing permission looks like a missing page (404), never a 403 — an
 unauthorized admin surface should never confirm it exists.
 
-**Upgrading a database from before runtime roles** (the `Role` enum): run
-`pnpm exec prisma db execute --file packages/auth-kit/prisma/roles-table.sql`
-once, before deploying the new code. It converts the enum in place, keeps
-every row, and does nothing on a second run. Code from before runtime roles
-cannot write roles to a converted database, so deploy right after.
+**Upgrading the database after an auth-kit update**: run
+`pnpm exec prisma db execute --file packages/auth-kit/prisma/upgrade.sql`
+before deploying the new code (`auth-kit doctor` says whether it is needed).
+It converts the old `Role` enum, adds the shared session columns and ends any
+session still storing a raw token, keeps every other row, and does nothing on
+a second run. Older code cannot write roles to a converted database, so
+deploy right after.
 
 ## Add a user
 

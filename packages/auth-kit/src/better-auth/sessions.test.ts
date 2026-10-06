@@ -5,10 +5,8 @@ import { pathToFileURL } from "node:url";
 import type { PGlite } from "@electric-sql/pglite";
 import { PGLiteSocketServer } from "@electric-sql/pglite-socket";
 import { PrismaPg } from "@prisma/adapter-pg";
-import { betterAuth } from "better-auth";
-import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { prismaAdapter } from "better-auth/adapters/prisma";
-import { drizzle } from "drizzle-orm/pglite";
+import { drizzle } from "drizzle-orm/node-postgres";
+import pg from "pg";
 
 import type { AuthDbAdapter } from "../adapter";
 import type { AuditEvent } from "../audit-event";
@@ -21,19 +19,15 @@ import { hashPassword } from "../password";
 import { createPrismaAuthAdapter } from "../prisma/index";
 import { createAuthDal } from "../session/dal";
 import { createSessionStore } from "../session/store";
+import type { AuthKitDatabase } from "../engines/types";
 import { drizzleDdl, generatePrismaClient, pgliteWith, prismaDdl, testSchema } from "../test-support/pg";
-import {
-  AUTH_KIT_DISABLED_PATHS,
-  authKitDatabaseOptions,
-  type AuthKitOrm,
-  authKitSessions,
-  betterAuthSessionSource,
-  signInRefusal,
-} from "./sessions";
+import { hashSessionToken } from "./hash-tokens";
+import { createAuthKitBetterAuth, type AuthKitBetterAuth } from "./instance";
+import { betterAuthSessionSource, signInRefusal } from "./sessions";
 
 // Better Auth on auth-kit's tables, end to end on an in-process Postgres, once
-// per ORM: auth-kit's authorize decides, Better Auth writes the user_sessions
-// row and the cookie, and createAuthDal reads it back.
+// per database kind: auth-kit's authorize decides, Better Auth writes the
+// user_sessions row (token hashed) and the cookie, and createAuthDal reads it back.
 
 const BASE = "http://localhost:3000";
 const SECRET = "test-secret-test-secret-test-secret-00";
@@ -43,19 +37,27 @@ const CHROME = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KH
 interface Db {
   pg: PGlite;
   adapter: AuthDbAdapter<any>;
-  database: Parameters<typeof betterAuth>[0]["database"];
+  database: AuthKitDatabase;
   close(): Promise<void>;
 }
 
+// Drizzle on a node-postgres Pool: Better Auth reaches the tables through the
+// Pool with its built-in SQL path, so no Drizzle adapter is involved.
 async function openDrizzle(): Promise<Db> {
-  const pg = await pgliteWith(await drizzleDdl());
-  const db = drizzle({ client: pg });
-  const schema = testSchema();
+  const lite = await pgliteWith(await drizzleDdl());
+  const server = new PGLiteSocketServer({ db: lite, port: 0 });
+  await server.start();
+  const pool = new pg.Pool({ connectionString: `postgresql://postgres:postgres@${server.getServerConn()}/postgres`, max: 1 });
+  const db = drizzle({ client: pool });
   return {
-    pg,
-    adapter: createDrizzleAuthAdapter(db, schema),
-    database: drizzleAdapter(db, { provider: "pg", schema: { users: schema.users, userSessions: schema.userSessions } }),
-    close: () => pg.close(),
+    pg: lite,
+    adapter: createDrizzleAuthAdapter(db, testSchema()),
+    database: { drizzle: db },
+    async close() {
+      await pool.end();
+      await server.stop();
+      await lite.close();
+    },
   };
 }
 
@@ -69,7 +71,7 @@ async function openPrisma(): Promise<Db> {
   return {
     pg,
     adapter: createPrismaAuthAdapter(prisma),
-    database: prismaAdapter(prisma, { provider: "postgresql" }),
+    database: { prisma },
     async close() {
       await prisma.$disconnect();
       await server.stop();
@@ -78,8 +80,8 @@ async function openPrisma(): Promise<Db> {
   };
 }
 
-function suite(orm: AuthKitOrm, open: () => Promise<Db>) {
-  describe(`Better Auth sessions on auth-kit tables (${orm})`, () => {
+function suite(kind: string, open: () => Promise<Db>) {
+  describe(`Better Auth sessions on auth-kit tables (${kind})`, () => {
     let db: Db;
     let seq = 0;
     const events: AuditEvent[] = [];
@@ -87,11 +89,11 @@ function suite(orm: AuthKitOrm, open: () => Promise<Db>) {
     const knownDeviceEmails: string[] = [];
     let unlocked = true;
 
-    let auth: ReturnType<typeof setup>["auth"];
-    let sessionStore: ReturnType<typeof setup>["sessionStore"];
-    let mfa: ReturnType<typeof setup>["mfa"];
+    let auth: AuthKitBetterAuth;
+    let sessionStore: Awaited<ReturnType<typeof setup>>["sessionStore"];
+    let mfa: Awaited<ReturnType<typeof setup>>["mfa"];
 
-    function setup() {
+    async function setup() {
       const audit = async (event: AuditEvent) => void events.push(event);
       const limit = async () => ({ ok: true });
       const counters = new Map<string, number>();
@@ -129,20 +131,13 @@ function suite(orm: AuthKitOrm, open: () => Promise<Db>) {
         after: (fn) => fn(),
         sendKnownDeviceEmail: async ({ email }) => void knownDeviceEmails.push(email),
       });
-      const auth = betterAuth({
-        database: db.database,
-        secret: SECRET,
-        baseURL: BASE,
-        ...authKitDatabaseOptions(orm),
-        disabledPaths: AUTH_KIT_DISABLED_PATHS,
-        plugins: [authKitSessions({ authorize, canSignIn: () => unlocked })],
-      });
+      const auth = await createAuthKitBetterAuth({ database: db.database, authorize, secret: SECRET, origins: [BASE], canSignIn: () => unlocked });
       return { auth, sessionStore, mfa };
     }
 
     before(async () => {
       db = await open();
-      ({ auth, sessionStore, mfa } = setup());
+      ({ auth, sessionStore, mfa } = await setup());
     });
     after(async () => {
       await db?.close();
@@ -193,7 +188,7 @@ function suite(orm: AuthKitOrm, open: () => Promise<Db>) {
     }
 
     async function sessionRow(token: string) {
-      const { rows } = await db.pg.query<Record<string, unknown>>(`SELECT * FROM user_sessions WHERE token = $1`, [token]);
+      const { rows } = await db.pg.query<Record<string, unknown>>(`SELECT * FROM user_sessions WHERE token = $1`, [hashSessionToken(token)]);
       return rows[0];
     }
     const tokenOf = (cookie: string) => decodeURIComponent(/better-auth\.session_token=([^;]+)/.exec(cookie)![1]).split(".")[0];
@@ -204,7 +199,8 @@ function suite(orm: AuthKitOrm, open: () => Promise<Db>) {
       assert.equal(res.status, 200);
       const cookie = cookieOf(res);
       const row = await sessionRow(tokenOf(cookie));
-      assert.ok(row, "the session row carries the cookie token");
+      assert.ok(row, "the session row carries the SHA-256 of the cookie token");
+      assert.equal((await db.pg.query(`SELECT 1 FROM user_sessions WHERE token = $1`, [tokenOf(cookie)])).rows.length, 0, "the raw token is never stored");
       assert.equal(row.userId, user.id);
       assert.equal(row.browser, "Chrome");
       assert.equal(row.os, "Windows");
