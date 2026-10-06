@@ -20,10 +20,21 @@ export function createRbac<TRole extends string, TPermission extends string>(dep
   kit: Pick<ResolvedAuthKit<TRole, TPermission>, "roles" | "permissions" | "superRole" | "neverGrantable" | "defaultGrants" | "keyPrefix">;
   /** Runs the app's real audit() inside the same transaction the adapter opened. */
   writeAudit: (event: AuditEvent, tx: unknown) => Promise<void>;
+  /**
+   * Runtime roles (the `roles` table): every role name, cached by the app.
+   * Left out, the matrix covers `kit.roles` only.
+   */
+  loadRoles?: () => Promise<readonly TRole[]>;
 }) {
   const { adapter, kv, kit, writeAudit } = deps;
   const key = `${kit.keyPrefix}rbac:v1`;
-  const editableRoles = kit.roles.filter((role) => role !== kit.superRole);
+
+  /** The kit with the current role list; the super role is always in it. */
+  const currentKit = cache(async () => {
+    if (!deps.loadRoles) return kit;
+    const loaded = await deps.loadRoles();
+    return { ...kit, roles: loaded.includes(kit.superRole) ? loaded : [kit.superRole, ...loaded] };
+  });
 
   async function readRows(): Promise<PermissionRow[]> {
     try {
@@ -39,8 +50,8 @@ export function createRbac<TRole extends string, TPermission extends string>(dep
 
   /** One read per request. A database with no rows at all has not been seeded: use the defaults. */
   const loadMatrix = cache(async (): Promise<Matrix<TRole, TPermission>> => {
-    const rows = await readRows();
-    return rows.length === 0 ? defaultMatrix(kit) : matrixFromRows(kit, rows);
+    const [rows, current] = await Promise.all([readRows(), currentKit()]);
+    return rows.length === 0 ? defaultMatrix(current) : matrixFromRows(current, rows);
   });
 
   async function invalidateMatrix(): Promise<void> {
@@ -50,7 +61,7 @@ export function createRbac<TRole extends string, TPermission extends string>(dep
   const getRolePermissions = cache(async (role: TRole): Promise<readonly TPermission[]> => {
     if (role === kit.superRole) return kit.permissions;
     const matrix = await loadMatrix();
-    return kit.permissions.filter((permission) => matrix[role].has(permission));
+    return kit.permissions.filter((permission) => matrix[role]?.has(permission) ?? false);
   });
 
   async function roleCan(role: TRole, permission: TPermission): Promise<boolean> {
@@ -64,7 +75,9 @@ export function createRbac<TRole extends string, TPermission extends string>(dep
    * defaults (see loadMatrix).
    */
   async function replaceMatrix(matrix: Matrix<TRole, TPermission>, updatedById: string, event: AuditEvent): Promise<void> {
-    const rows = matrixToRows(kit, matrix).filter((row) => isPermission(kit, row.permission));
+    const current = await currentKit();
+    const editableRoles = current.roles.filter((role) => role !== kit.superRole);
+    const rows = matrixToRows(current, matrix).filter((row) => isPermission(kit, row.permission));
     await adapter.withTransaction(async (tx) => {
       await adapter.deleteRolePermissions(editableRoles, tx);
       if (rows.length > 0) await adapter.createRolePermissions(rows.map((row) => ({ ...row, updatedById })), tx);

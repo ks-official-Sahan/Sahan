@@ -61,7 +61,8 @@ export function can<TRole extends string, TPermission extends string>(
   role: TRole,
   permission: TPermission
 ): boolean {
-  return role === kit.superRole || matrix[role].has(permission);
+  // A role missing from the matrix (deleted, or not loaded) holds nothing.
+  return role === kit.superRole || (matrix[role]?.has(permission) ?? false);
 }
 
 export interface MatrixChange<TRole extends string, TPermission extends string> {

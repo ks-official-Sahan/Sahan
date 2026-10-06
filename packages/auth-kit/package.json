@@ -28,6 +28,7 @@
     "./session/core": "./src/session/core.ts",
     "./rbac": "./src/rbac/index.ts",
     "./rbac/rules": "./src/rbac/rules.ts",
+    "./rbac/roles": "./src/rbac/roles.ts",
     "./mfa": "./src/mfa/index.ts",
     "./security": "./src/security/index.ts",
     "./cache": "./src/cache/index.ts",
@@ -36,6 +37,7 @@
     "./prisma": "./src/prisma/index.ts",
     "./drizzle": "./src/drizzle/index.ts",
     "./prisma/auth.prisma": "./prisma/auth.prisma",
+    "./prisma/roles-table.sql": "./prisma/roles-table.sql",
     "./password": "./src/password.ts",
     "./password-policy": "./src/password-policy.ts",
     "./invite-token": "./src/invite-token.ts",
@@ -104,7 +106,8 @@
     "README.md",
     "CHANGELOG.md",
     "LICENSE",
-    "prisma/auth.prisma"
+    "prisma/auth.prisma",
+    "prisma/roles-table.sql"
   ],
   "publishConfig": {
     "access": "public",
@@ -182,6 +185,11 @@
         "import": "./dist/rbac/rules.js",
         "default": "./dist/rbac/rules.js"
       },
+      "./rbac/roles": {
+        "types": "./dist/rbac/roles.d.ts",
+        "import": "./dist/rbac/roles.js",
+        "default": "./dist/rbac/roles.js"
+      },
       "./mfa": {
         "types": "./dist/mfa/index.d.ts",
         "import": "./dist/mfa/index.js",
@@ -218,6 +226,7 @@
         "default": "./dist/drizzle/index.js"
       },
       "./prisma/auth.prisma": "./prisma/auth.prisma",
+      "./prisma/roles-table.sql": "./prisma/roles-table.sql",
       "./password": {
         "types": "./dist/password.d.ts",
         "import": "./dist/password.js",

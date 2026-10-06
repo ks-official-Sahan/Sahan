@@ -1,5 +1,8 @@
+// TEST FIXTURE: prisma/auth.prisma as it was before auth-kit 0.7 (the "Role"
+// enum), for the roles-table.sql migration test. Do not edit.
+//
 // auth-kit's tables, as Prisma models. Copy these into your own schema.prisma
-// (seed the roles table with your own roles) and use createPrismaAuthAdapter
+// (change the Role enum to your own roles) and use createPrismaAuthAdapter
 // from "@sahan-sac/auth-kit/prisma". The Drizzle schema in
 // "@sahan-sac/auth-kit/drizzle" creates the same tables, columns and indexes;
 // the package tests check the two stay identical. The generator and
@@ -13,6 +16,12 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+}
+
+enum Role {
+  DEVELOPER
+  MANAGER
+  EDITOR
 }
 
 enum MfaPurpose {
@@ -35,8 +44,7 @@ model User {
   emailVerified      Boolean   @default(false)
   name               String?
   passwordHash       String
-  role               String    @default("EDITOR")
-  roleRecord         Role      @relation(fields: [role], references: [name], onDelete: Restrict, onUpdate: Cascade)
+  role               Role      @default(EDITOR)
   image              String?
   bio                String?   @db.Text
   mfaEnabled         Boolean   @default(false)
@@ -52,36 +60,13 @@ model User {
   mfaChallenges MfaChallenge[]
   auditLogs     AuditLog[]
 
-  @@index([role])
   @@map("users")
-}
-
-// Roles are rows, so an admin adds one without a deploy. `rank` is the
-// hierarchy: a lower rank manages higher ranks. The super role (rank 0) is
-// also named in code and holds every permission there, so no stored row can
-// lock the owner out. System roles cannot be renamed or deleted.
-model Role {
-  name        String   @id
-  label       String
-  description String?
-  rank        Int
-  system      Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  users       User[]
-  permissions RolePermission[]
-  tokens      AuthToken[]
-
-  @@index([rank])
-  @@map("roles")
 }
 
 // A row means the permission is granted to the role. The super role holds
 // every permission in code, so it needs no rows.
 model RolePermission {
-  role        String
-  roleRecord  Role     @relation(fields: [role], references: [name], onDelete: Cascade, onUpdate: Cascade)
+  role        Role
   permission  String
   updatedById String?
   updatedAt   DateTime @default(now()) @updatedAt
@@ -124,8 +109,7 @@ model AuthToken {
   email       String
   userId      String?
   // Role granted on acceptance (invites only).
-  role        String?
-  roleRecord  Role?        @relation(fields: [role], references: [name], onDelete: SetNull, onUpdate: Cascade)
+  role        Role?
   tokenHash   String       @unique
   createdById String?
   expiresAt   DateTime

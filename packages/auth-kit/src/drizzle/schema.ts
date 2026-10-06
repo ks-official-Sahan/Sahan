@@ -23,14 +23,35 @@ const newId = () => crypto.randomUUID();
 const at = (name: string) => timestamp(name, { precision: 3, mode: "date" });
 
 export interface AuthSchemaOptions<TRole extends string> {
-  /** Your role names, in order. They become the Postgres enum "Role". */
-  roles: readonly [TRole, ...TRole[]];
-  /** Role a new user gets when none is given. */
+  /**
+   * Your built-in role names. Roles live in the `roles` table (seed these
+   * rows); this list only types the role columns.
+   */
+  roles?: readonly [TRole, ...TRole[]];
+  /** Role a new user gets when none is given. Must exist in `roles`. */
   defaultRole: NoInfer<TRole>;
 }
 
-export function createAuthSchema<TRole extends string>(options: AuthSchemaOptions<TRole>) {
-  const roleEnum = pgEnum("Role", options.roles as [TRole, ...TRole[]]);
+export function createAuthSchema<TRole extends string = string>(options: AuthSchemaOptions<TRole>) {
+  // Roles are rows, so an admin adds one without a deploy. `rank` is the
+  // hierarchy: a lower rank manages higher ranks. System roles cannot be
+  // renamed or deleted.
+  const roles = pgTable(
+    "roles",
+    {
+      name: text("name").primaryKey().$type<TRole>(),
+      label: text("label").notNull(),
+      description: text("description"),
+      rank: integer("rank").notNull(),
+      system: boolean("system").notNull().default(false),
+      createdAt: at("createdAt").notNull().default(now),
+      updatedAt: at("updatedAt")
+        .notNull()
+        .$defaultFn(() => new Date())
+        .$onUpdate(() => new Date()),
+    },
+    (t) => [index("roles_rank_idx").on(t.rank)]
+  );
   const mfaPurposeEnum = pgEnum("MfaPurpose", ["SIGN_IN", "ENABLE", "DISABLE"]);
   const tokenPurposeEnum = pgEnum("TokenPurpose", ["INVITE", "PASSWORD_RESET", "EMAIL_CHANGE"]);
 
@@ -44,7 +65,7 @@ export function createAuthSchema<TRole extends string>(options: AuthSchemaOption
       emailVerified: boolean("emailVerified").notNull().default(false),
       name: text("name"),
       passwordHash: text("passwordHash").notNull(),
-      role: roleEnum("role").notNull().default(options.defaultRole),
+      role: text("role").$type<TRole>().notNull().default(options.defaultRole),
       image: text("image"),
       bio: text("bio"),
       mfaEnabled: boolean("mfaEnabled").notNull().default(false),
@@ -59,7 +80,13 @@ export function createAuthSchema<TRole extends string>(options: AuthSchemaOption
         .$defaultFn(() => new Date())
         .$onUpdate(() => new Date()),
     },
-    (t) => [uniqueIndex("users_email_key").on(t.email)]
+    (t) => [
+      uniqueIndex("users_email_key").on(t.email),
+      index("users_role_idx").on(t.role),
+      foreignKey({ name: "users_role_fkey", columns: [t.role], foreignColumns: [roles.name] })
+        .onDelete("restrict")
+        .onUpdate("cascade"),
+    ]
   );
 
   // A row means the permission is granted to the role. The super role holds
@@ -67,7 +94,7 @@ export function createAuthSchema<TRole extends string>(options: AuthSchemaOption
   const rolePermissions = pgTable(
     "role_permissions",
     {
-      role: roleEnum("role").notNull(),
+      role: text("role").$type<TRole>().notNull(),
       permission: text("permission").notNull(),
       updatedById: text("updatedById"),
       updatedAt: at("updatedAt")
@@ -75,7 +102,12 @@ export function createAuthSchema<TRole extends string>(options: AuthSchemaOption
         .default(now)
         .$onUpdate(() => new Date()),
     },
-    (t) => [primaryKey({ name: "role_permissions_pkey", columns: [t.role, t.permission] })]
+    (t) => [
+      primaryKey({ name: "role_permissions_pkey", columns: [t.role, t.permission] }),
+      foreignKey({ name: "role_permissions_role_fkey", columns: [t.role], foreignColumns: [roles.name] })
+        .onDelete("cascade")
+        .onUpdate("cascade"),
+    ]
   );
 
   // One row per signed-in browser. `id` is the `sid` claim in the JWT
@@ -123,7 +155,7 @@ export function createAuthSchema<TRole extends string>(options: AuthSchemaOption
       email: text("email").notNull(),
       userId: text("userId"),
       // Role granted on acceptance (invites only).
-      role: roleEnum("role"),
+      role: text("role").$type<TRole>(),
       tokenHash: text("tokenHash").notNull(),
       createdById: text("createdById"),
       expiresAt: at("expiresAt").notNull(),
@@ -133,6 +165,9 @@ export function createAuthSchema<TRole extends string>(options: AuthSchemaOption
     },
     (t) => [
       uniqueIndex("auth_tokens_tokenHash_key").on(t.tokenHash),
+      foreignKey({ name: "auth_tokens_role_fkey", columns: [t.role], foreignColumns: [roles.name] })
+        .onDelete("set null")
+        .onUpdate("cascade"),
       index("auth_tokens_email_purpose_idx").on(t.email, t.purpose),
       index("auth_tokens_expiresAt_idx").on(t.expiresAt),
       index("auth_tokens_purpose_expiresAt_idx").on(t.purpose, t.expiresAt),
@@ -190,7 +225,7 @@ export function createAuthSchema<TRole extends string>(options: AuthSchemaOption
     ]
   );
 
-  return { roleEnum, mfaPurposeEnum, tokenPurposeEnum, users, rolePermissions, userSessions, authTokens, mfaChallenges, auditLogs };
+  return { roles, mfaPurposeEnum, tokenPurposeEnum, users, rolePermissions, userSessions, authTokens, mfaChallenges, auditLogs };
 }
 
 export type AuthSchema<TRole extends string = string> = ReturnType<typeof createAuthSchema<TRole>>;
