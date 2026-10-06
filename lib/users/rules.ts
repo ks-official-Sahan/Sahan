@@ -1,5 +1,5 @@
 import type { Person, RoleCatalog } from "@/lib/auth/rbac-rules";
-import { SUPER_ROLE, type RoleName } from "@/lib/auth/permissions";
+import { MASK_ROLE, SUPER_ROLE, type RoleName } from "@/lib/auth/permissions";
 
 // Business rules for changing users, kept apart from the database so they are
 // unit tested: nobody changes themselves, a role reaches only lower-ranked
@@ -55,10 +55,15 @@ export function checkSetDisabled(context: Context & { disabled: boolean }): Chec
   return ok;
 }
 
+/** Deleting is for the two top roles only, and still only within their reach (see manage). */
+export function mayDeleteUsers(role: RoleName): boolean {
+  return role === SUPER_ROLE || role === MASK_ROLE;
+}
+
 export function checkDelete(context: Context): Check {
   const denied = manage(context);
   if (!denied.ok) return denied;
-  if (context.actor.role !== SUPER_ROLE) return refuse("Only a developer can delete users.");
+  if (!mayDeleteUsers(context.actor.role)) return refuse("You are not allowed to delete users.");
   if (loosesLastDeveloper(context)) return refuse("The last developer cannot be deleted.");
   return ok;
 }

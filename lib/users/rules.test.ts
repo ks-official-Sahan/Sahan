@@ -50,6 +50,16 @@ test("only a DEVELOPER can delete", () => {
   assert.equal(checkDelete({ roles, actor: actor("DEVELOPER"), target: target("EDITOR"), activeDevelopers: 1 }).ok, true);
 });
 
+test("SUPER_ADMIN manages every role below it, never a developer or another super admin", () => {
+  const admin = actor("SUPER_ADMIN");
+  assert.equal(checkDelete({ roles, actor: admin, target: target("MANAGER"), activeDevelopers: 1 }).ok, true);
+  assert.equal(checkDelete({ roles, actor: admin, target: target("DEVELOPER"), activeDevelopers: 2 }).ok, false);
+  assert.equal(checkDelete({ roles, actor: admin, target: target("SUPER_ADMIN"), activeDevelopers: 2 }).ok, false);
+  assert.equal(checkInvite(roles, admin, "SUPER_ADMIN").ok, false, "only a developer adds super admins");
+  assert.equal(checkInvite(roles, actor("DEVELOPER"), "SUPER_ADMIN").ok, true);
+  assert.equal(checkInvite(roles, admin, "MANAGER").ok, true);
+});
+
 test("the last enabled DEVELOPER cannot be demoted, disabled or deleted", () => {
   const dev = actor("DEVELOPER");
   const last = target("DEVELOPER");

@@ -7,10 +7,13 @@ export { createRbac } from "@sahan-sac/auth-kit/rbac";
 // existing call sites keep their single-argument calling convention.
 export {
   DEFAULT_GRANTS,
+  FIXED_GRANTS,
+  MASK_ROLE,
   NEVER_GRANTABLE,
   PERMISSIONS,
   PERMISSION_ADDED_IN,
   PERMISSION_INFO,
+  PERMISSION_SPLIT_FROM,
   RBAC_SEED_VERSION,
   ROLES,
   SUPER_ROLE,
@@ -18,6 +21,7 @@ export {
   SYSTEM_ROLE_ROWS,
   canBeGranted,
   defaultPermissionsFor,
+  isFixedRole,
   isPermission,
   isRole,
 } from "./kit-config";

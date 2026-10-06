@@ -7,22 +7,30 @@ import { checkRoleInput } from "@sahan-sac/auth-kit/rbac/roles";
 import { authorizeAction } from "@/lib/actions/guard";
 import { done, fail, type ActionState } from "@/lib/actions/state";
 import { audit } from "@/lib/admin/audit";
-import { PERMISSIONS, SUPER_ROLE, type Permission } from "@/lib/auth/permissions";
+import { PERMISSIONS, SUPER_ROLE, isFixedRole, type Permission } from "@/lib/auth/permissions";
 import { invalidateMatrix, loadMatrix, replaceMatrix } from "@/lib/auth/rbac";
 import { diffMatrix, validateMatrix, type Matrix } from "@/lib/auth/rbac-rules";
+import type { RoleCatalog } from "@/lib/auth/rbac-rules";
 import { getRoleCatalog, invalidateRoles } from "@/lib/auth/roles";
 import { withTx } from "@/lib/data";
 import { UniqueViolation } from "@/lib/data/errors";
 
 // Roles and the role by permission matrix. Only a holder of managePermissions
-// (never grantable, so only a DEVELOPER) reaches any of these. DEVELOPER is
-// not editable in the matrix: it holds everything in code
-// (docs/plan/admin-cms-adr.md, section 9). Roles are rows: adding one needs
-// no deploy, and the rank decides who manages whom.
+// reaches any of these: DEVELOPER and SUPER_ADMIN, whose permissions are fixed
+// in code and never editable in the matrix (docs/plan/admin-cms-adr.md,
+// section 9). Roles are rows: adding one needs no deploy, and the rank decides
+// who manages whom, here too: a SUPER_ADMIN changes only roles ranked below
+// its own, and grants only permissions it holds.
 
 const ROLES_PATH = "/admin/roles";
 const USERS_PATH = "/admin/users";
 const UNEXPECTED = "Something went wrong. Nothing was changed.";
+
+/** The lowest rank the actor may give a role: any, for the super role; otherwise strictly below their own. */
+function minRank(catalog: RoleCatalog, actorRole: string): number {
+  if (actorRole === SUPER_ROLE) return 1;
+  return (catalog.get(actorRole)?.rank ?? Number.POSITIVE_INFINITY) + 1;
+}
 
 /** Thrown inside a transaction to abort it with a message for the user. */
 class Refused extends Error {}
@@ -51,10 +59,21 @@ export async function saveMatrix(_previous: ActionState, formData: FormData): Pr
   // Read past the caches: the roles and the diff must describe what is stored right now.
   await Promise.all([invalidateRoles(), invalidateMatrix()]);
   const [catalog, before] = await Promise.all([getRoleCatalog(), loadMatrix()]);
-  const editable = catalog.names.filter((role) => role !== SUPER_ROLE);
+  const editable = catalog.names.filter((role) => !isFixedRole(role));
 
-  const submitted = (role: string): Set<Permission> => new Set(PERMISSIONS.filter((permission) => formData.has(`perm:${role}:${permission}`)));
-  const next: Matrix = { [SUPER_ROLE]: new Set(PERMISSIONS), ...Object.fromEntries(editable.map((role) => [role, submitted(role)])) };
+  // Only the roles ranked below the actor change, and only in the permissions
+  // the actor holds; everything else keeps what is stored (a locked box is
+  // never sent, so its absence means nothing).
+  const mayEdit = new Set(catalog.assignable(access.user.role));
+  const holds = new Set<Permission>(access.user.permissions);
+  const nextFor = (role: string): Set<Permission> => {
+    const stored = new Set(before[role] ?? []);
+    if (isFixedRole(role) || !mayEdit.has(role)) return stored;
+    const kept = [...stored].filter((permission) => !holds.has(permission));
+    const ticked = PERMISSIONS.filter((permission) => holds.has(permission) && formData.has(`perm:${role}:${permission}`));
+    return new Set([...kept, ...ticked]);
+  };
+  const next: Matrix = Object.fromEntries(catalog.names.map((role) => [role, nextFor(role)]));
 
   const valid = validateMatrix(next);
   if (!valid.ok) return fail(valid.error);
@@ -90,6 +109,8 @@ export async function createRoleAction(_previous: ActionState, formData: FormDat
     catalog.roles
   );
   if (!checked.ok) return fail("Check the form.", { [checked.field]: checked.error });
+  const floor = minRank(catalog, access.user.role);
+  if (checked.value.rank < floor) return fail("Check the form.", { rank: `Use a rank of ${floor} or more.` });
   const role = { ...checked.value, description: checked.value.description ?? null };
 
   try {
@@ -113,12 +134,14 @@ export async function updateRoleAction(_previous: ActionState, formData: FormDat
   const name = text(formData, "role");
   const catalog = await getRoleCatalog();
   const current = catalog.get(name);
-  if (!current) return fail("That role no longer exists.");
+  if (!current || !catalog.assignable(access.user.role).includes(name)) return fail("You are not allowed to change this role.");
 
   // The super role keeps rank 0: it is the top of the hierarchy in code.
   const rank = name === SUPER_ROLE ? 1 : Number(text(formData, "rank"));
   const checked = checkRoleInput({ name, label: text(formData, "label"), description: text(formData, "description"), rank }, catalog.roles, name);
   if (!checked.ok) return fail("Check the form.", { [checked.field]: checked.error });
+  const floor = minRank(catalog, access.user.role);
+  if (name !== SUPER_ROLE && checked.value.rank < floor) return fail("Check the form.", { rank: `Use a rank of ${floor} or more.` });
   const patch = {
     label: checked.value.label,
     description: checked.value.description ?? null,
@@ -153,6 +176,7 @@ export async function deleteRoleAction(_previous: ActionState, formData: FormDat
   if (!access.ok) return fail(access.error);
 
   const name = text(formData, "role");
+  if (!(await getRoleCatalog()).assignable(access.user.role).includes(name)) return fail("You are not allowed to change this role.");
   try {
     const deleted = await withTx(async (tx) => {
       const role = await tx.roles.find(name);

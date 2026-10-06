@@ -13,6 +13,8 @@ export interface RoleRow {
   rank: number;
   system: boolean;
   users: number;
+  /** Ranked below the viewer (any role, for the super role): may be edited or deleted. */
+  editable: boolean;
 }
 
 type Mode = { kind: "add" } | { kind: "edit"; role: RoleRow } | null;
@@ -22,7 +24,8 @@ type Mode = { kind: "add" } | { kind: "edit"; role: RoleRow } | null;
  * never repeat on the page). Built-in roles cannot be deleted, and a custom
  * role only once nobody holds it.
  */
-export default function RolesManager({ roles, superRole }: { roles: RoleRow[]; superRole: string }) {
+/** `superRole` is null when the viewer does not see it. */
+export default function RolesManager({ roles, superRole }: { roles: RoleRow[]; superRole: string | null }) {
   const [mode, setMode] = useState<Mode>(null);
   const close = () => setMode(null);
 
@@ -55,10 +58,12 @@ export default function RolesManager({ roles, superRole }: { roles: RoleRow[]; s
                 <td className="px-3 py-2.5 text-right tabular-nums">{role.users}</td>
                 <td className="px-3 py-2.5">
                   <div className="flex justify-end gap-2">
-                    <button type="button" className={buttonVariants.small} onClick={() => setMode({ kind: "edit", role })} aria-label={`Edit ${role.label}`}>
-                      Edit
-                    </button>
-                    {!role.system && role.users === 0 ? (
+                    {role.editable ? (
+                      <button type="button" className={buttonVariants.small} onClick={() => setMode({ kind: "edit", role })} aria-label={`Edit ${role.label}`}>
+                        Edit
+                      </button>
+                    ) : null}
+                    {role.editable && !role.system && role.users === 0 ? (
                       <ActionForm action={deleteRoleAction} showMessage={false}>
                         <input type="hidden" name="role" value={role.name} />
                         <ConfirmSubmitButton variant="smallDanger" pendingLabel="Deleting..." confirmMessage={`Delete the ${role.label} role? Open invitations for it are cancelled.`}>
@@ -75,7 +80,8 @@ export default function RolesManager({ roles, superRole }: { roles: RoleRow[]; s
       </div>
 
       <p className="text-xs text-muted-foreground">
-        A role manages every role with a higher rank number, never its own rank or above. {roles.find((role) => role.name === superRole)?.label ?? superRole} (rank 0) manages everyone.
+        A role manages every role with a higher rank number, never its own rank or above.
+        {superRole ? ` ${roles.find((role) => role.name === superRole)?.label ?? superRole} (rank 0) manages everyone.` : null}
       </p>
 
       {mode === null ? (

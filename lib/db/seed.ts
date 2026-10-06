@@ -7,6 +7,7 @@ import type { Repos } from "../data/repos";
 import { hashPassword } from "../auth/password";
 import {
   PERMISSION_ADDED_IN,
+  PERMISSION_SPLIT_FROM,
   RBAC_SEED_VERSION,
   SUPER_ROLE,
   SYSTEM_ROLE_ROWS,
@@ -75,16 +76,20 @@ export interface SeedPermissionsOptions {
   addedIn?: Partial<Record<Permission, number>>;
   /** Version of the code's permission set. */
   version?: number;
+  /** Permissions split out of another: every holder of the source gets them on upgrade. */
+  splitFrom?: Partial<Record<Permission, Permission>>;
 }
 
 /**
- * Seeds the role permission matrix for MANAGER and EDITOR (DEVELOPER always
- * holds everything in code).
+ * Seeds the role permission matrix for MANAGER and EDITOR (DEVELOPER and
+ * SUPER_ADMIN hold their permissions in code).
  *
  * - First seed (nothing stored yet): inserts each role's defaults.
  * - Later seeds: inserts only permissions added since the stored seed version,
- *   for the roles whose defaults include them. A permission the owner removed
- *   is never granted again, and a role the owner emptied stays empty.
+ *   for the roles whose defaults include them. A permission split out of
+ *   another goes to every role holding the source instead. A permission the
+ *   owner removed is never granted again, and a role the owner emptied stays
+ *   empty.
  */
 export async function seedRolePermissions(
   db: SeedDb,
@@ -93,9 +98,11 @@ export async function seedRolePermissions(
   const defaults = options.defaults ?? defaultPermissionsFor;
   const addedIn = options.addedIn ?? PERMISSION_ADDED_IN;
   const version = options.version ?? RBAC_SEED_VERSION;
+  const splitFrom = options.splitFrom ?? PERMISSION_SPLIT_FROM;
 
   const stored = await db.settings.find(SEED_VERSION_KEY);
   const storedVersion = readVersion(stored?.value);
+  const isNew = (permission: Permission) => (addedIn[permission] ?? 1) > storedVersion;
 
   let inserted = 0;
   for (const role of ["MANAGER", "EDITOR"] as const) {
@@ -106,11 +113,19 @@ export async function seedRolePermissions(
     if (firstSeed) {
       wanted = defaults(role);
     } else if (storedVersion < version) {
-      wanted = defaults(role).filter((permission) => (addedIn[permission] ?? 1) > storedVersion);
+      wanted = defaults(role).filter((permission) => isNew(permission) && !splitFrom[permission]);
     }
     if (wanted.length === 0) continue;
 
     inserted += await db.rolePermissions.grantMany(wanted.map((permission) => ({ role, permission })));
+  }
+
+  if (storedVersion > 0 && storedVersion < version) {
+    for (const [permission, source] of Object.entries(splitFrom) as Array<[Permission, Permission]>) {
+      if (!isNew(permission)) continue;
+      const holders = await db.rolePermissions.rolesWith(source);
+      inserted += await db.rolePermissions.grantMany(holders.map((role) => ({ role, permission })));
+    }
   }
 
   if (storedVersion < version) {

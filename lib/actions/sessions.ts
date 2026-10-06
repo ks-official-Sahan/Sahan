@@ -152,7 +152,7 @@ export async function forceLogoutEveryone(_previous: ActionState, formData: Form
   const access = await authorizeAction("forceLogout");
   if (!access.ok) return fail(access.error);
   const { user } = access;
-  if (user.role !== SUPER_ROLE) return fail("Only a developer can sign everyone out.");
+  if (user.role !== SUPER_ROLE) return fail("You do not have permission to do that.");
 
   const parsed = reason.safeParse(formValues(formData).reason ?? "");
   if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Check the reason.");

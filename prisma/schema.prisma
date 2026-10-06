@@ -77,6 +77,8 @@ model User {
   bio                String?   @db.Text
   mfaEnabled         Boolean   @default(false)
   mustChangePassword Boolean   @default(false)
+  // A DEVELOPER shown to everyone else as a SUPER_ADMIN (lib/auth/mask.ts). Presentation only.
+  masked             Boolean   @default(false)
   passwordChangedAt  DateTime  @default(now())
   lastLoginAt        DateTime?
   disabledAt         DateTime?
@@ -207,8 +209,9 @@ model AuditLog {
   id         String   @id @default(cuid())
   actorId    String?
   actor      User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
-  // Snapshot, so the trail survives deleting the user.
+  // Snapshots, so the trail survives deleting the user or changing their role.
   actorEmail String?
+  actorRole  String?
   action     String
   entityType String
   entityId   String?
