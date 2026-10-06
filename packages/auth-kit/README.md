@@ -310,7 +310,8 @@ the mutation it is auditing.
 import "server-only";
 import NextAuth from "next-auth";
 import { after } from "next/server";
-import { createAuthConfig, createMfa, createSessionStore, ensureBootstrapOwner, resolveCookieName } from "@sahan-sac/auth-kit";
+import { createMfa, createSessionStore, ensureBootstrapOwner, resolveCookieName } from "@sahan-sac/auth-kit";
+import { createAuthConfig } from "@sahan-sac/auth-kit/next-auth";
 import { authKit } from "./kit";
 import { myAdapter } from "./adapter";
 // ... your own kv, limit(), audit(), email sender, env resolution
@@ -719,7 +720,8 @@ the mutation it is auditing.
 import "server-only";
 import NextAuth from "next-auth";
 import { after } from "next/server";
-import { createAuthConfig, createMfa, createSessionStore, ensureBootstrapOwner, resolveCookieName } from "@sahan-sac/auth-kit";
+import { createMfa, createSessionStore, ensureBootstrapOwner, resolveCookieName } from "@sahan-sac/auth-kit";
+import { createAuthConfig } from "@sahan-sac/auth-kit/next-auth";
 import { authKit } from "./kit";
 import { myAdapter } from "./adapter";
 // ... your own kv, limit(), audit(), email sender, env resolution

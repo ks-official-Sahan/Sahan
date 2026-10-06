@@ -1,9 +1,11 @@
 import { Redis } from "@upstash/redis";
 
-import { MemoryKv, type Kv, type KvSetOptions } from "./memory";
+import { FailoverKv, MemoryKv, type Kv, type KvSetOptions } from "./memory";
 
 // Upstash Redis when UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN are
 // set and valid and REDIS_ENABLED is not off, otherwise an in-memory store.
+// A configured Redis that errors or times out falls back to memory for a
+// while (FailoverKv), so an outage never fails a request.
 // Redis is never the source of truth for a security decision: it caches and
 // limits. Every key is prefixed so the
 // instance can be shared with other apps or subsystems.
@@ -89,6 +91,7 @@ export class RedisKv implements Kv {
 const globalForKv = globalThis as unknown as {
   authKitRedis?: Redis | null;
   authKitKv?: Kv;
+  authKitFailover?: FailoverKv | null;
 };
 
 /** The Upstash client, or null when Redis is not configured. Memoized for the process lifetime: an env change needs a restart to take effect, same as any other env-derived singleton. */
@@ -103,14 +106,17 @@ export function getRedis(): Redis | null {
 export function getKv(prefix?: string): Kv {
   if (!globalForKv.authKitKv) {
     const redis = getRedis();
-    globalForKv.authKitKv = redis ? new RedisKv(redis, prefix) : new MemoryKv();
+    globalForKv.authKitFailover = redis ? new FailoverKv(new RedisKv(redis, prefix)) : null;
+    globalForKv.authKitKv = globalForKv.authKitFailover ?? new MemoryKv();
   }
   return globalForKv.authKitKv;
 }
 
-/** Which backend is active, for an integration health screen. */
-export function kvBackend(): "upstash" | "memory" {
-  return getRedis() ? "upstash" : "memory";
+/** Which backend is active, for an integration health screen. "upstash-degraded": Redis is configured but failing, so memory serves for now. */
+export function kvBackend(): "upstash" | "upstash-degraded" | "memory" {
+  if (!getRedis()) return "memory";
+  getKv();
+  return globalForKv.authKitFailover?.degraded ? "upstash-degraded" : "upstash";
 }
 
 /** Lazy handle using the default prefix: importing it never connects. Call `getKv(prefix)` directly for a namespaced client instead. */
