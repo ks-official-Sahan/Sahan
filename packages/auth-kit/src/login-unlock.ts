@@ -21,7 +21,16 @@ export interface UnlockKeys {
   unlockSecret: string;
 }
 
-/** Both secrets must be set, otherwise the login stays locked. */
+/**
+ * Is the hidden-login gate on? Only when ADMIN_LOGIN_UNLOCK_SECRET is set.
+ * Without it the login page is shown to every visitor, with the usual
+ * rate limits, and no unlock cookie is issued or required.
+ */
+export function loginUnlockEnabled(env: Record<string, string | undefined> = process.env): boolean {
+  return Boolean(env.ADMIN_LOGIN_UNLOCK_SECRET?.trim());
+}
+
+/** Both secrets must be set, otherwise no unlock cookie can be issued or verified. */
 export function unlockKeysFromEnv(
   env: Record<string, string | undefined> = process.env
 ): UnlockKeys | null {

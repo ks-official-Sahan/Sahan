@@ -1,20 +1,22 @@
 import "server-only";
 
 import { Redis } from "@upstash/redis";
+import { redisConfigFromEnv } from "@sahan-sac/auth-kit/cache/redis";
 
 import { MemoryKv, type Kv, type KvSetOptions } from "./memory";
 
 // Upstash Redis when UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN are
-// set, otherwise an in-memory store. Redis is never the source of truth for a
-// security decision (docs/plan/admin-cms-adr.md, D7 and D8): it caches and
-// limits. Every key is prefixed so the instance can be shared.
+// set and valid (https URL) and REDIS_ENABLED is not off, otherwise an
+// in-memory store. Redis is never the source of truth for a security
+// decision (docs/plan/admin-cms-adr.md, D7 and D8): it caches and limits.
+// Every key is prefixed so the instance can be shared.
 
 const PREFIX = "sahan:";
 
 type Env = Record<string, string | undefined>;
 
 export function redisConfigured(env: Env = process.env): boolean {
-  return Boolean(env.UPSTASH_REDIS_REST_URL && env.UPSTASH_REDIS_REST_TOKEN);
+  return redisConfigFromEnv(env) !== null;
 }
 
 class RedisKv implements Kv {
@@ -62,12 +64,8 @@ const globalForKv = globalThis as unknown as {
 /** The Upstash client, or null when Redis is not configured. */
 export function getRedis(): Redis | null {
   if (globalForKv.sahanRedis === undefined) {
-    globalForKv.sahanRedis = redisConfigured()
-      ? new Redis({
-          url: process.env.UPSTASH_REDIS_REST_URL as string,
-          token: process.env.UPSTASH_REDIS_REST_TOKEN as string,
-        })
-      : null;
+    const config = redisConfigFromEnv();
+    globalForKv.sahanRedis = config ? new Redis(config) : null;
   }
   return globalForKv.sahanRedis;
 }
