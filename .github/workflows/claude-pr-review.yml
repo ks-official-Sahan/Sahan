@@ -136,6 +136,7 @@ jobs:
           BATCH_FILES: ${{ vars.CLAUDE_REVIEW_BATCH_FILES }}
           BATCH_LINES: ${{ vars.CLAUDE_REVIEW_BATCH_LINES }}
           EXCLUDE: ${{ vars.CLAUDE_REVIEW_EXCLUDE }}
+          FOCUS: ${{ inputs.focus }}
         run: |
           set -euo pipefail
           export HEAD_SHA STATE
@@ -165,7 +166,9 @@ jobs:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           set -euo pipefail
-          BODY="🔍 **Claude is reviewing** \`${HEAD_SHA:0:7}\` ([view run](${RUN_URL})): ${FILES} files in ${COUNT} batches, ${PARALLEL} at a time."
+          [ "$FILES" = 1 ] && F=file || F=files
+          [ "$COUNT" = 1 ] && B=batch || B=batches
+          BODY="🔍 **Claude is reviewing** \`${HEAD_SHA:0:7}\` ([view run](${RUN_URL})): ${FILES} ${F} in ${COUNT} ${B}, ${PARALLEL} at a time."
           BODY="$BODY"$'\n\n'"${STATE_MARK} $(cat "$RUNNER_TEMP/state.json") -->"
           if [ -n "$STATUS_ID" ] && gh api -X PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$STATUS_ID" -f body="$BODY" > /dev/null; then
             echo "id=$STATUS_ID" >> "$GITHUB_OUTPUT"
