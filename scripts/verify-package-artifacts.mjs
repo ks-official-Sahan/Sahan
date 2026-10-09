@@ -37,17 +37,22 @@ async function packageDirectories() {
   return manifests.filter(Boolean);
 }
 
+const MODULE_SPECIFIER = /(?:\bfrom\s*|\bimport\s*\(\s*|\bimport\s+|\brequire\s*\(\s*)["']([^"']+)["']/g;
+const REACT_SPECIFIER = /^(?:react|react-dom)(?:\/|$)/;
+
 async function checkPublishedGraph(packagePath, entry, visited = new Set()) {
   const absolute = path.resolve(packagePath, entry);
   if (visited.has(absolute)) return;
   visited.add(absolute);
   const source = await readFile(absolute, "utf8");
-  if (/(?:from\s*|import\s*(?:\(\s*)?)["']react["']/.test(source)) {
-    throw new Error(`React leaked into the framework-neutral auth-kit graph at ${path.relative(packagePath, absolute)}`);
-  }
-  const relativeImports = [...source.matchAll(/(?:from\s*|import\s*)["'](\.[^"']+)["']/g)];
-  for (const [, specifier] of relativeImports) {
-    if (specifier) await checkPublishedGraph(packagePath, path.resolve(path.dirname(absolute), specifier), visited);
+  // Every module reference in emitted JS: `import ... from`, `export ... from`,
+  // bare `import "x"`, dynamic `import("x")` and `require("x")`. A false match
+  // inside a string or comment only fails the check, never hides a leak.
+  for (const [, specifier] of source.matchAll(MODULE_SPECIFIER)) {
+    if (REACT_SPECIFIER.test(specifier)) {
+      throw new Error(`React (${specifier}) leaked into the framework-neutral auth-kit graph at ${path.relative(packagePath, absolute)}`);
+    }
+    if (specifier.startsWith(".")) await checkPublishedGraph(packagePath, path.resolve(path.dirname(absolute), specifier), visited);
   }
 }
 
@@ -66,10 +71,11 @@ try {
 
     const unpackDir = path.join(temp, `unpack-${sourceManifest.name.split("/").at(-1)}`);
     await mkdir(unpackDir, { recursive: true });
-    run("tar", ["-xzf", archive, "-C", unpackDir]);
+    // Relative to `temp`: GNU tar (Git for Windows) reads "G:\..." as host:path.
+    run("tar", ["-xzf", path.relative(temp, archive), "-C", path.relative(temp, unpackDir)], { cwd: temp });
     const packagePath = path.join(unpackDir, "package");
     const packedManifest = JSON.parse(await readFile(path.join(packagePath, "package.json"), "utf8"));
-    const archiveFiles = new Set(run("tar", ["-tzf", archive], { stdio: "pipe" }).stdout.trim().split(/\r?\n/));
+    const archiveFiles = new Set(run("tar", ["-tzf", path.relative(temp, archive)], { cwd: temp, stdio: "pipe" }).stdout.trim().split(/\r?\n/));
     const targets = [
       ...collectExportTargets(packedManifest.exports),
       packedManifest.main,

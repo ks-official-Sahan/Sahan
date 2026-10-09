@@ -629,7 +629,7 @@ export async function bulkDeletePostsAction(_previous: ActionState, formData: Fo
     if (befores.length === 0) return fail("None of the selected posts exist any more.");
 
     await withTx(async (tx) => {
-      await Promise.all(befores.map((post) => tx.media.clearUsage("Post", post.id)));
+      await tx.media.clearUsage("Post", befores.map((post) => post.id));
       await tx.posts.deleteMany(befores.map((post) => post.id));
       await auditMany(
         befores.map((before) => ({

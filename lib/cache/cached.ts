@@ -36,9 +36,20 @@ function redisTagVersionKey(tag: string): string {
   return `tagversion:${tag}`;
 }
 
-async function redisDataKeyFor(keyParts: string[], tags: string[]): Promise<string> {
-  const versions = await Promise.all(tags.map((tag) => kv.get<number>(redisTagVersionKey(tag)).catch(() => null)));
-  return redisDataKey([...keyParts, "tagversions", ...versions.map((version) => String(version ?? 0))]);
+/**
+ * The Redis key for `keyParts` at the tags' current generations, or null when
+ * a generation could not be read. Reading a failed lookup as generation 0
+ * could match a value written before a purge, so the caller skips Redis for
+ * that call instead. The version GETs (one or two tags per read) run in
+ * parallel, so they cost one round trip of latency.
+ */
+async function redisDataKeyFor(keyParts: string[], tags: string[]): Promise<string | null> {
+  try {
+    const versions = await Promise.all(tags.map((tag) => kv.get<number>(redisTagVersionKey(tag))));
+    return redisDataKey([...keyParts, "tagversions", ...versions.map((version) => String(version ?? 0))]);
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -65,8 +76,8 @@ export function cached<Args extends unknown[], Result>(
 
   return unstable_cache(
     async (...args: Args) => {
-      if (redisTtl) {
-        const dataKey = await redisDataKeyFor(keyParts, options.tags);
+      const dataKey = redisTtl ? await redisDataKeyFor(keyParts, options.tags) : null;
+      if (dataKey) {
         const hit = await kv.get<Result>(dataKey).catch(() => null);
         if (hit !== null) return hit;
 

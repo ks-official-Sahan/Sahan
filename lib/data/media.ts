@@ -53,6 +53,13 @@ export interface MediaRepo {
   find(id: string): Promise<MediaAssetRow | null>;
   findMany(ids: string[]): Promise<MediaAssetRow[]>;
   findWithUsages(id: string): Promise<(MediaAssetRow & { usages: MediaUsageRow[] }) | null>;
+  /**
+   * Row-locks the asset until the transaction ends (SELECT ... FOR UPDATE).
+   * A usage insert needs a key-share lock on the same row for its foreign key,
+   * so it waits for the lock holder: a delete that locks first sees every
+   * usage committed before it and blocks every usage written after it.
+   */
+  lockForUpdate(id: string): Promise<void>;
   /** Bounded, newest-first library search. Returns up to `take` rows. */
   listPage(input: { query?: string; kind?: MediaKind; after?: MediaPageCursor; take: number }): Promise<MediaAssetRow[]>;
   /** Newest first. */
@@ -66,6 +73,6 @@ export interface MediaRepo {
   recordUsage(input: { mediaId: string } & Omit<MediaUsageRow, "id">): Promise<void>;
   /** Records several uses in one statement; already recorded ones are skipped. */
   recordUsages(inputs: Array<{ mediaId: string } & Omit<MediaUsageRow, "id">>): Promise<void>;
-  /** Forgets every use by one entity. */
-  clearUsage(entityType: string, entityId: string): Promise<void>;
+  /** Forgets every use by one entity, or by several in one statement. */
+  clearUsage(entityType: string, entityIds: string | readonly string[]): Promise<void>;
 }

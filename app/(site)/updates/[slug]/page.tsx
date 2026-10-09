@@ -142,6 +142,10 @@ export default async function UpdatePostPage({ params }: { params: Promise<{ slu
   const [post, posts, home] = await Promise.all([getPostBySlug(slug), getRecentPosts(50), getPageContent("home")]);
   if (!post) notFound();
 
+  // Candidates are the 50 newest public posts (one cached read, also used by
+  // generateMetadata), so recommendations lean toward fresh content and an
+  // older post is recommended only while it is among them. Deliberate: a
+  // tag-matched read across every post would add a query per article.
   const related = relatedPosts(post, posts);
   const author = post.authorName || SiteMetadata.author;
   // contentHtml is sanitized on save and again by getPostBySlug(); this only

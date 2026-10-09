@@ -3,6 +3,7 @@ import { test } from "node:test";
 
 import {
   PAGE_PATHS,
+  SITEMAP_PATHS,
   forCacheClear,
   forCollection,
   forContentPublish,
@@ -34,7 +35,7 @@ test("publishing a site section also expires the site config, and seo adds the s
   assert.deepEqual(identity.paths, PAGE_PATHS.site);
 
   const seo = forContentPublish("site", { section: "seo" });
-  assert.deepEqual(seo.paths, [...PAGE_PATHS.site, "/sitemap.xml"]);
+  assert.deepEqual(seo.paths, [...PAGE_PATHS.site, ...SITEMAP_PATHS]);
 });
 
 test("a collection change refreshes home, about and works", () => {
@@ -54,11 +55,11 @@ test("projects and experience also feed llms.txt (its Featured projects and Curr
 test("a post change refreshes the list, the post, taxonomy, feeds, the sitemap and llms.txt", () => {
   const plan = forPost("hello-world");
   assert.deepEqual(plan.tags, ["blog:list", "blog:post:hello-world", "blog:taxonomy", "chatbot:knowledge"]);
-  assert.deepEqual(plan.paths, ["/updates", "/updates/hello-world", "/api/content/v1/posts", "/api/content/v1/posts/hello-world", "/sitemap.xml", "/rss.xml", "/llms.txt"]);
+  assert.deepEqual(plan.paths, ["/updates", "/updates/hello-world", "/api/content/v1/posts", "/api/content/v1/posts/hello-world", ...SITEMAP_PATHS, "/rss.xml", "/llms.txt"]);
 });
 
 test("the post list plan also revalidates llms.txt", () => {
-  assert.deepEqual(forPostList().paths, ["/updates", "/api/content/v1/posts", "/sitemap.xml", "/rss.xml", "/llms.txt"]);
+  assert.deepEqual(forPostList().paths, ["/updates", "/api/content/v1/posts", ...SITEMAP_PATHS, "/rss.xml", "/llms.txt"]);
 });
 
 test("publishing About's hero or bento section also revalidates llms.txt (its Author bio), other sections do not", () => {

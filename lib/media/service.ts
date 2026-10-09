@@ -287,9 +287,14 @@ export async function deleteMedia(
   cloudinaryClient?: CloudinaryClient
 ): Promise<DeleteMediaResult> {
   const outcome = await withTx(async (tx) => {
-    // Check and delete in the same transaction. A concurrent content save
-    // either commits its MediaUsage first (and blocks this delete), or loses
-    // the media foreign-key race and rolls back its own content mutation.
+    // Lock, check and delete in one transaction. The row lock comes before
+    // the usage read: a content save that already inserted its MediaUsage
+    // holds a key-share lock, so this waits for it to commit and then sees
+    // the usage; a save that starts later waits for this delete and then
+    // fails its foreign key, rolling back its own content mutation. Reading
+    // usages before the lock would let a save slip in between, and the
+    // cascade on media_usages would then drop its usage row silently.
+    await tx.media.lockForUpdate(mediaId);
     const asset = await tx.media.findWithUsages(mediaId);
     if (!asset) return { kind: "missing" as const };
     if (asset.usages.length > 0) {

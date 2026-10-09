@@ -40,7 +40,7 @@ export default async function MediaDetailPage({ params }: { params: Promise<{ id
               <Card withBorder>
                 <CardSection>
                   {/* eslint-disable-next-line @next/next/no-img-element -- admin preview of a Cloudinary/LOCAL asset */}
-                  <img src={asset.url} alt={asset.alt || ""} style={{ maxWidth: "100%", maxHeight: 400 }} />
+                  <img src={asset.url} alt={asset.alt || asset.title || asset.publicId || "Uploaded image"} style={{ maxWidth: "100%", maxHeight: 400 }} />
                 </CardSection>
               </Card>
             ) : null}

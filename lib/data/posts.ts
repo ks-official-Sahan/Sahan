@@ -86,14 +86,11 @@ export interface AdminPostListRow {
 
 export interface PostRepo {
   /**
-   * Public posts, newest first, without bodies. A scheduled post becomes
-   * visible at publishAt even if the promotion cron is delayed.
+   * Bounded keyset page of public posts without bodies, newest first by
+   * effective publish time. A scheduled post becomes visible at publishAt
+   * even if the promotion cron is delayed.
    */
-  listPublished(): Promise<PublishedPostSummaryRow[]>;
-  /** Bounded keyset page of public posts, ordered by effective publish time. */
   listPublishedPage(take: number, after?: { publishedAt: Date; id: string }, indexableOnly?: boolean): Promise<PublishedPostSummaryRow[]>;
-  /** Count posts currently visible to the public, including scheduled rows whose time has arrived. */
-  countPublished(): Promise<number>;
   /** Slugs of every post visible to the public right now (same rule as findPublished). */
   listPublicSlugs(): Promise<string[]>;
   /** One public post with its body. */
@@ -110,6 +107,7 @@ export interface PostRepo {
   tagLists(limit: number, excludeId?: string): Promise<string[][]>;
   /** One admin list page, most recently edited first. `q` matches the title, ignoring case. */
   adminPage(input: { q?: string; status?: PostStatus; skip: number; take: number }): Promise<{ rows: AdminPostListRow[]; total: number }>;
+  /** Rows of any status. */
   count(): Promise<number>;
   /** Throws UniqueViolation when the slug is taken. */
   create(input: NewPost): Promise<PostRow>;

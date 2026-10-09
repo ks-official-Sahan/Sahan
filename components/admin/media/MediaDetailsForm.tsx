@@ -77,6 +77,11 @@ export default function MediaDetailsForm({
     <Stack gap="md">
       {error ? <Alert color="red" role="alert">{error}</Alert> : null}
       {message ? <Alert color="green" role="status" aria-live="polite">{message}</Alert> : null}
+      {kind === "IMAGE" && !initialAlt.trim() ? (
+        <Alert color="yellow" title="No alt text yet">
+          Screen readers skip this image until it has alt text. Describe it below and save.
+        </Alert>
+      ) : null}
       <form onSubmit={save}>
         <Stack gap="md">
           <Textarea

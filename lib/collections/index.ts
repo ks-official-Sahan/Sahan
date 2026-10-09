@@ -8,7 +8,7 @@ import { log } from "@/lib/log";
 import type { Project } from "@/types/project";
 import type { ExperienceEntry } from "@/types/experience";
 import type { ServiceCategory } from "@/types/service";
-import type { SkillCategory } from "@/types/skills";
+import type { Skill, SkillCategory } from "@/types/skills";
 
 import { loadProjects, projectSchema, type ProjectRow } from "./projects";
 import { loadExperience, experienceSchema, type ExperienceRow } from "./experience";
@@ -172,13 +172,15 @@ export async function getSkills(): Promise<SkillCategory[] | null> {
   return groups.map((group) => ({
     id: group.key,
     category: group.label,
-    skills: group.skills.map((skill) => ({
-      name: skill.name,
-      abbr: skill.abbr,
-      type: skill.type,
-      baseColor: { light: skill.colorLight, dark: skill.colorDark },
-      iconKey: skill.iconKey,
-      variant: skill.variant,
-    })),
+    skills: group.skills.map((skill): Skill => {
+      const base = {
+        name: skill.name,
+        abbr: skill.abbr,
+        type: skill.type,
+        baseColor: { light: skill.colorLight, dark: skill.colorDark },
+        iconKey: skill.iconKey,
+      };
+      return skill.variant === "stroke" ? { ...base, variant: "stroke" } : { ...base, variant: "fill" };
+    }),
   }));
 }

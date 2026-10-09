@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Alert, Badge, Button, Card, Group, Image, Select, SimpleGrid, Stack, Text, TextInput } from "@mantine/core";
 import { Search } from "lucide-react";
 
 import { MediaPicker } from "@/components/admin/media/MediaPicker";
+import { useMediaPages } from "@/components/admin/media/use-media-pages";
 
 type MediaKind = "IMAGE" | "VIDEO" | "DOCUMENT";
 interface MediaItem {
@@ -18,69 +19,15 @@ interface MediaItem {
   width: number | null;
   height: number | null;
 }
-interface MediaPage {
-  items: MediaItem[];
-  nextCursor: string | null;
-}
 
 export default function MediaLibrary({ canUpload }: { canUpload: boolean }) {
   const [query, setQuery] = useState("");
   const [kind, setKind] = useState<"ALL" | MediaKind>("ALL");
-  const [items, setItems] = useState<MediaItem[]>([]);
-  const [nextCursor, setNextCursor] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    const timer = setTimeout(() => {
-      setLoading(true);
-      setError(null);
-      const params = new URLSearchParams({ limit: "24" });
-      if (query.trim()) params.set("q", query.trim());
-      if (kind !== "ALL") params.set("kind", kind);
-      void fetch(`/api/admin/media?${params.toString()}`, { cache: "no-store", signal: controller.signal })
-        .then(async (response) => {
-          const data = (await response.json().catch(() => null)) as (MediaPage & { error?: string }) | null;
-          if (!response.ok || !data) throw new Error(data?.error || "Could not load media.");
-          setItems(data.items);
-          setNextCursor(data.nextCursor);
-        })
-        .catch((cause) => {
-          if (cause instanceof DOMException && cause.name === "AbortError") return;
-          setError(cause instanceof Error ? cause.message : "Could not load media.");
-        })
-        .finally(() => {
-          if (!controller.signal.aborted) setLoading(false);
-        });
-    }, 200);
-    return () => {
-      clearTimeout(timer);
-      controller.abort();
-    };
-  }, [kind, query, refreshKey]);
-
-  const loadMore = async () => {
-    if (!nextCursor || loadingMore) return;
-    setLoadingMore(true);
-    setError(null);
-    try {
-      const params = new URLSearchParams({ limit: "24", after: nextCursor });
-      if (query.trim()) params.set("q", query.trim());
-      if (kind !== "ALL") params.set("kind", kind);
-      const response = await fetch(`/api/admin/media?${params.toString()}`, { cache: "no-store" });
-      const data = (await response.json().catch(() => null)) as (MediaPage & { error?: string }) | null;
-      if (!response.ok || !data) throw new Error(data?.error || "Could not load more media.");
-      setItems((current) => [...current, ...data.items]);
-      setNextCursor(data.nextCursor);
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Could not load more media.");
-    } finally {
-      setLoadingMore(false);
-    }
-  };
+  const { items, nextCursor, loading, loadingMore, error, loadMore } = useMediaPages<MediaItem>(
+    { limit: "24", q: query.trim() || undefined, kind: kind === "ALL" ? undefined : kind },
+    { refreshKey }
+  );
 
   const afterUpload = () => setRefreshKey((value) => value + 1);
 
@@ -111,8 +58,8 @@ export default function MediaLibrary({ canUpload }: { canUpload: boolean }) {
         </Group>
         {canUpload ? (
           <Group>
-            <MediaPicker kind="IMAGE" onSelect={afterUpload} />
-            <MediaPicker kind="DOCUMENT" onSelect={afterUpload} />
+            <MediaPicker kind="IMAGE" uploadOnly onSelect={afterUpload} />
+            <MediaPicker kind="DOCUMENT" uploadOnly onSelect={afterUpload} />
           </Group>
         ) : null}
       </Group>

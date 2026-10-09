@@ -45,7 +45,7 @@ function newestFirst<T extends { id: string; publishedAt: Date | null; publishAt
 
 function publicPostQueries(
   client: DbClient,
-  take?: number,
+  take: number,
   after?: { publishedAt: Date; id: string },
   indexableOnly = false
 ): Promise<[PublishedPostSummaryRow[], PublishedPostSummaryRow[], PublishedPostSummaryRow[]]> {
@@ -85,19 +85,10 @@ function publicPostQueries(
     orderBy: [{ publishAt: "desc" }, { id: "desc" }],
     select: SUMMARY_SELECT,
   } as const satisfies Prisma.PostFindManyArgs;
-  const published = take === undefined
-    ? client.post.findMany(publishedArgs)
-    : client.post.findMany({ ...publishedArgs, take });
-  const scheduled = take === undefined
-    ? client.post.findMany(scheduledArgs)
-    : client.post.findMany({ ...scheduledArgs, take });
-  const promoted = take === undefined
-    ? client.post.findMany(promotedArgs)
-    : client.post.findMany({ ...promotedArgs, take });
   return Promise.all([
-    published as unknown as Promise<PublishedPostSummaryRow[]>,
-    promoted as unknown as Promise<PublishedPostSummaryRow[]>,
-    scheduled as unknown as Promise<PublishedPostSummaryRow[]>,
+    client.post.findMany({ ...publishedArgs, take }) as unknown as Promise<PublishedPostSummaryRow[]>,
+    client.post.findMany({ ...promotedArgs, take }) as unknown as Promise<PublishedPostSummaryRow[]>,
+    client.post.findMany({ ...scheduledArgs, take }) as unknown as Promise<PublishedPostSummaryRow[]>,
   ]);
 }
 
@@ -114,16 +105,9 @@ function publicNow(): Prisma.PostWhereInput {
 
 export function postRepo(client: DbClient): PostRepo {
   return {
-    async listPublished() {
-      const [published, promoted, scheduled] = await publicPostQueries(client);
-      return newestFirst([...published, ...promoted, ...scheduled]);
-    },
     async listPublishedPage(take, after, indexableOnly) {
       const [published, promoted, scheduled] = await publicPostQueries(client, take, after, indexableOnly);
       return newestFirst([...published, ...promoted, ...scheduled]).slice(0, take);
-    },
-    async countPublished() {
-      return client.post.count({ where: publicNow() });
     },
     async listPublicSlugs() {
       const rows = await client.post.findMany({ where: publicNow(), select: { slug: true } });

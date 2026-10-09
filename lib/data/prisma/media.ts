@@ -20,6 +20,11 @@ export function mediaRepo(client: DbClient): MediaRepo {
 
       // Older rows may predate MediaUsage tracking. Cover-media foreign keys
       // and project JSON references are checked directly before deletion too.
+      // Every current save records a MediaUsage row in its own transaction, so
+      // the delete path's lockForUpdate() is what makes a concurrent save and
+      // delete safe; this scan only covers rows written before tracking. The
+      // project table is a small, admin-curated portfolio list, so the JSON
+      // filter stays cheap.
       const [legacyProjectImages, legacyPostCovers] = await Promise.all([
         client.project.findMany({
           where: { image: { path: ["mediaId"], equals: id } },
@@ -38,6 +43,9 @@ export function mediaRepo(client: DbClient): MediaRepo {
         if (!usages.has(key)) usages.set(key, { id: `legacy:${key}`, entityType: "Post", entityId: post.id, field: "cover" });
       }
       return { ...asset, usages: [...usages.values()] };
+    },
+    async lockForUpdate(id) {
+      await client.$queryRaw`SELECT id FROM media_assets WHERE id = ${id} FOR UPDATE`;
     },
     listPage({ query, kind, after, take }) {
       const trimmed = query?.trim();
@@ -97,8 +105,11 @@ export function mediaRepo(client: DbClient): MediaRepo {
     async recordUsages(inputs) {
       if (inputs.length > 0) await client.mediaUsage.createMany({ data: inputs, skipDuplicates: true });
     },
-    async clearUsage(entityType, entityId) {
-      await client.mediaUsage.deleteMany({ where: { entityType, entityId } });
+    async clearUsage(entityType, entityIds) {
+      if (typeof entityIds !== "string" && entityIds.length === 0) return;
+      await client.mediaUsage.deleteMany({
+        where: { entityType, entityId: typeof entityIds === "string" ? entityIds : { in: [...entityIds] } },
+      });
     },
   };
 }

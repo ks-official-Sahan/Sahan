@@ -4,7 +4,7 @@ import { test } from "node:test";
 import { UniqueViolation } from "../errors";
 import { postRepo } from "./posts";
 
-test("listPublished reads due scheduled posts and preserves their intended order after promotion", async () => {
+test("listPublishedPage reads due scheduled posts and preserves their intended order after promotion", async () => {
   const now = Date.now();
   const published = { id: "published", status: "PUBLISHED", publishedAt: new Date(now - 60_000), publishAt: null };
   const due = { id: "due", status: "SCHEDULED", publishedAt: null, publishAt: new Date(now - 30_000) };
@@ -20,7 +20,7 @@ test("listPublished reads due scheduled posts and preserves their intended order
       },
     },
   };
-  const result = await postRepo(client as never).listPublished();
+  const result = await postRepo(client as never).listPublishedPage(10);
   assert.deepEqual(result.map((row) => row.id), ["due", "promoted", "published"]);
 });
 
@@ -73,16 +73,6 @@ test("a PUBLISHED row with a future publishAt is not visible by slug", async () 
   const visibleStatuses = where?.OR as Array<Record<string, unknown>>;
   assert.equal((visibleStatuses?.[0]?.OR as Array<Record<string, unknown>>)?.[1]?.publishAt !== undefined, true);
   assert.deepEqual(visibleStatuses?.[1], { status: "SCHEDULED", publishAt: { lte: (visibleStatuses?.[1]?.publishAt as { lte: Date }).lte } });
-});
-
-test("countPublished includes only due published and scheduled rows", async () => {
-  let where: Record<string, unknown> | undefined;
-  const client = { post: { count: async (args: { where: Record<string, unknown> }) => { where = args.where; return 2; } } };
-  assert.equal(await postRepo(client as never).countPublished(), 2);
-  const visible = where?.OR as Array<Record<string, unknown>>;
-  assert.equal(visible?.length, 2);
-  assert.equal(visible?.[0]?.status, "PUBLISHED");
-  assert.equal(visible?.[1]?.status, "SCHEDULED");
 });
 
 test("listPublicSlugs reads only slugs, under the same visibility rule as findPublished", async () => {
