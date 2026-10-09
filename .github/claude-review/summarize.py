@@ -33,6 +33,10 @@ BODY_LIMIT = 60000  # GitHub caps a review body at 65536 characters
 FIELDS = ("severity", "path", "category", "problem", "fix")
 
 
+def count(n: int, word: str) -> str:
+    return f"{n} {word}" if n == 1 else f"{n} {word}{'es' if word.endswith(('ch', 'sh', 's', 'x')) else 's'}"
+
+
 def read_json(path: Path):
     try:
         text = path.read_text(encoding="utf-8").strip()
@@ -99,10 +103,14 @@ def build(plan: dict, results: dict[str, dict], meta: dict[str, dict], env: dict
     high = sum(f["severity"] == "High" for f in findings)
     head = plan["head"]
 
+    scope_desc = ("the whole pull request" if plan["mode"] == "full"
+                  else f"incremental: only changes since `{plan['scope_base'][:7]}`, the last reviewed commit")
+    skipped = [count(len(plan["excluded"]), "generated or binary file") + " skipped"] if plan["excluded"] else []
+    skipped += [count(len(plan["done_before"]), "file") + " reviewed by an earlier run"] if plan["done_before"] else []
     sections = [
         "## Overview",
-        f"Sharded review of `{head[:7]}` ({plan['mode']} mode): {len(reviewed_now)} files in "
-        f"{len(ok_names)} of {len(names)} batches." + (f" {plan['note']}" if plan.get("note") else ""),
+        f"Sharded review of `{head[:7]}`, {scope_desc}: {count(len(reviewed_now), 'file')} in "
+        f"{len(ok_names)} of {count(len(names), 'batch')}." + (f" {plan['note']}" if plan.get("note") else ""),
         f"Verdict: {'Request changes' if high else 'Comment' if findings else 'Approve'}.",
         "",
         "## Summary of changes",
@@ -125,16 +133,17 @@ def build(plan: dict, results: dict[str, dict], meta: dict[str, dict], env: dict
     sections += [
         "",
         "## Stats",
-        f"Files reviewed: {len(reviewed_now)} of {plan.get('total_files') or '?'} "
-        f"(scope {plan['scope_files']}: {len(plan['excluded'])} generated or binary skipped, "
-        f"{len(plan['done_before'])} reviewed by an earlier run) · Batches: {len(ok_names)}/{len(names)}"
+        f"Files reviewed: {len(reviewed_now)} of {plan['scope_files']} in scope ({scope_desc}"
+        + "".join(f"; {part}" for part in skipped)
+        + f"). The pull request changes {count(int(plan.get('total_files') or 0), 'file')} in total."
+        + f" · Batches: {len(ok_names)}/{len(names)}"
         + (f" · Turns: {turns}" if turns else "") + (f" · Cost: ${cost:.3f}" if cost else ""),
     ]
     not_reviewed = [p for n in failed for p in batches[n]]
     if not_reviewed or plan["excluded"]:
         sections += ["", "## Not reviewed"]
         if not_reviewed:
-            sections.append(f"- {len(not_reviewed)} files in {len(failed)} unfinished batches (retried automatically, or on `@claude-code review`):")
+            sections.append(f"- {count(len(not_reviewed), 'file')} in {count(len(failed), 'unfinished batch')} (retried automatically, or on `@claude-code review`):")
             sections += [f"  - `{p}`" for p in not_reviewed[:40]]
             if len(not_reviewed) > 40:
                 sections.append(f"  - ...and {len(not_reviewed) - 40} more")
@@ -158,7 +167,7 @@ def build(plan: dict, results: dict[str, dict], meta: dict[str, dict], env: dict
     run_url = env.get("RUN_URL", "")
     if not failed:
         new_state = {"v": 2, "reviewed_sha": head, "continuations": 0}
-        banner = (f"✅ **Review complete** for `{head[:7]}` ([view run]({run_url})): {len(reviewed_now)} files in {len(names)} batches. "
+        banner = (f"✅ **Review complete** for `{head[:7]}` ([view run]({run_url})): {count(len(reviewed_now), 'file')} in {count(len(names), 'batch')}. "
                   "Comment `@claude-code review` anytime to review new commits incrementally.")
         do_continue = False
     else:
@@ -173,7 +182,7 @@ def build(plan: dict, results: dict[str, dict], meta: dict[str, dict], env: dict
             "continuations": cont,
             "partial": {"head": head, "base": plan["scope_base"], "done": encode_paths(done)},
         }
-        lead = f"⏳ **Partial review** of `{head[:7]}` ([view run]({run_url})): {len(failed)} of {len(names)} batches did not finish."
+        lead = f"⏳ **Partial review** of `{head[:7]}` ([view run]({run_url})): {len(failed)} of {count(len(names), 'batch')} did not finish."
         banner = (f"{lead} Retrying them automatically, round {cont}/{max_cont}." if do_continue
                   else f"{lead} Stopped retrying after {max_cont} rounds; comment `@claude-code review` to retry. Progress is kept.")
     if not names:

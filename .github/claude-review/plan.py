@@ -19,6 +19,7 @@ Environment:
   BATCH_LINES   max changed lines per batch (default 3000)
   MAX_BATCHES   max batches per run (default 250; GitHub allows 256 matrix jobs)
   EXCLUDE       optional extra regex of paths to skip
+  FOCUS         the maintainer's extra text; "full" first forces a full review
 """
 
 from __future__ import annotations
@@ -175,7 +176,14 @@ def main() -> int:
 
     reviewed = state.get("reviewed_sha") or ""
     note = ""
-    if reviewed and not contains(reviewed, head):
+    if re.match(r"\s*full\b", env.get("FOCUS", ""), re.IGNORECASE):
+        note = "Full review on request (`@claude-code review full`)."
+        state, reviewed = {}, ""
+    elif state and state.get("v") != 2:
+        # The old single-run review sampled big pull requests, so what it marked as reviewed is not trusted.
+        note = "The last review was made by the old single-run reviewer, so this is a full review."
+        state, reviewed = {}, ""
+    elif reviewed and not contains(reviewed, head):
         note = f"Commit {reviewed[:7]}, the last one reviewed, is no longer in this branch (force-push or rebase), so this is a full review."
         reviewed = ""
 
@@ -187,6 +195,9 @@ def main() -> int:
             note = f"No new commits since the last review ({head[:7]}); re-reviewing the whole pull request on request."
     elif reviewed:
         mode, scope_base = "incremental", reviewed
+    if mode == "full" and not skip:
+        # Saved with the result: a follow-up run for unfinished batches must keep this full scope.
+        state = {**state, "reviewed_sha": ""}
 
     # Files an interrupted run already reviewed, unless they changed since.
     partial = state.get("partial") or {}
@@ -278,7 +289,7 @@ def main() -> int:
     with open(env.get("GITHUB_OUTPUT", os.devnull), "a", encoding="utf-8") as fh:
         for key, value in outputs.items():
             fh.write(f"{key}={value}\n")
-    print(f"{mode} review of {head[:7]}: {len(to_review)} files in {len(batches)} batches "
+    print(f"{mode} review of {head[:7]}: {len(to_review)} file(s) in {len(batches)} batch(es) "
           f"({len(excluded)} generated or binary skipped, {len(done_before)} already reviewed).")
     return 0
 
