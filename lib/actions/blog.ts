@@ -77,14 +77,10 @@ async function syncPostMediaUsage(
   const assets = await tx.media.findMany(requested);
   const byId = new Map(assets.filter((asset) => asset.kind === "IMAGE").map((asset) => [asset.id, asset]));
   if (coverMediaId && !byId.has(coverMediaId)) throw new Error("The selected cover image is unavailable.");
-  if (coverMediaId) {
-    await tx.media.recordUsage({ mediaId: coverMediaId, entityType: "Post", entityId: postId, field: "cover" });
-  }
-  for (const mediaId of bodyIds) {
-    if (byId.has(mediaId)) {
-      await tx.media.recordUsage({ mediaId, entityType: "Post", entityId: postId, field: "body" });
-    }
-  }
+  await tx.media.recordUsages([
+    ...(coverMediaId ? [{ mediaId: coverMediaId, entityType: "Post", entityId: postId, field: "cover" }] : []),
+    ...bodyIds.filter((mediaId) => byId.has(mediaId)).map((mediaId) => ({ mediaId, entityType: "Post", entityId: postId, field: "body" })),
+  ]);
 }
 
 async function slugTaken(slug: string, excludeId?: string): Promise<boolean> {

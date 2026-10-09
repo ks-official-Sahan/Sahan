@@ -169,6 +169,15 @@ function cachedPost(slug: string) {
   });
 }
 
+// Every public slug in one small cached read: a detail lookup for an unknown
+// slug is answered from it, so crawlers probing random /updates/<slug> or
+// /api/content/v1/posts/<slug> URLs never reach the database or create a
+// cache entry per guess.
+const cachedPublicSlugs = cached(() => repos.posts.listPublicSlugs(), ["blog", "public-slugs", "v1"], {
+  tags: [TAGS.blogList],
+  revalidate: 300,
+});
+
 const cachedPublicPostCount = cached(() => repos.posts.countPublished(), ["blog", "public-count", "v1"], {
   tags: [TAGS.blogList],
   revalidate: 300,
@@ -304,24 +313,22 @@ export async function getIndexablePosts(): Promise<BlogPostSummary[]> {
 }
 
 /**
- * One published post with its body, or null. A direct indexed slug lookup
- * avoids loading every post summary for a detail page; only a cacheable public
- * count is read on misses to preserve the code-default content fallback.
+ * One published post with its body, or null. Unknown slugs are answered from
+ * the cached public slug list (no per-guess cache entry); with no posts stored
+ * or the database unreachable, the code defaults answer instead.
  */
 export async function getPostBySlug(slug: string, defaults?: BlogPostView[]): Promise<BlogPostView | null> {
   if (!isValidPostSlug(slug)) return null;
+  const slugs = await loadOrNull(cachedPublicSlugs, {
+    onError: (error) => log.warn("blog slug list read failed", { error: String(error) }),
+  });
+  if (!slugs || slugs.length === 0) return (defaults ?? defaultPosts()).find((post) => post.slug === slug) ?? null;
+  if (!slugs.includes(slug)) return null;
+
   const row = await loadOrNull(cachedPost(slug), {
     onError: (error) => log.warn("blog post read failed", { slug, error: String(error) }),
   });
-  if (row) return toView(row);
-
-  const publicCount = await loadOrNull(cachedPublicPostCount, {
-    onError: (error) => log.warn("blog post count read failed", { error: String(error) }),
-  });
-  if (publicCount === null || publicCount === 0) {
-    return (defaults ?? defaultPosts()).find((post) => post.slug === slug) ?? null;
-  }
-  return null;
+  return row ? toView(row) : null;
 }
 
 /** Up to `limit` other posts sharing the most tags/topic with `post`, newest first on ties. */

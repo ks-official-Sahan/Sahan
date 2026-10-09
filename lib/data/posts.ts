@@ -94,6 +94,8 @@ export interface PostRepo {
   listPublishedPage(take: number, after?: { publishedAt: Date; id: string }, indexableOnly?: boolean): Promise<PublishedPostSummaryRow[]>;
   /** Count posts currently visible to the public, including scheduled rows whose time has arrived. */
   countPublished(): Promise<number>;
+  /** Slugs of every post visible to the public right now (same rule as findPublished). */
+  listPublicSlugs(): Promise<string[]>;
   /** One public post with its body. */
   findPublished(slug: string): Promise<PublishedPostRow | null>;
   find(id: string): Promise<PostRow | null>;

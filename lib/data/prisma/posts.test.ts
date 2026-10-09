@@ -85,6 +85,29 @@ test("countPublished includes only due published and scheduled rows", async () =
   assert.equal(visible?.[1]?.status, "SCHEDULED");
 });
 
+test("listPublicSlugs reads only slugs, under the same visibility rule as findPublished", async () => {
+  const calls: Array<{ where: Record<string, unknown>; select?: Record<string, unknown> }> = [];
+  const client = {
+    post: {
+      findMany: async (args: { where: Record<string, unknown>; select: Record<string, unknown> }) => {
+        calls.push(args);
+        return [{ slug: "a" }, { slug: "b" }];
+      },
+      findFirst: async (args: { where: Record<string, unknown> }) => {
+        calls.push(args);
+        return null;
+      },
+    },
+  };
+  const repo = postRepo(client as never);
+  assert.deepEqual(await repo.listPublicSlugs(), ["a", "b"]);
+  assert.deepEqual(calls[0]?.select, { slug: true });
+  await repo.findPublished("a");
+  const { slug, ...rule } = calls[1]?.where ?? {};
+  assert.equal(slug, "a");
+  assert.equal(JSON.stringify(calls[0]?.where.OR, (k, v) => (k === "lte" ? "now" : v)), JSON.stringify(rule.OR, (k, v) => (k === "lte" ? "now" : v)));
+});
+
 test("updateIfUnchanged answers null when the row changed since it was read", async () => {
   const client = { post: { update: async () => Promise.reject(Object.assign(new Error("not found"), { code: "P2025" })) } };
   assert.equal(await postRepo(client as never).updateIfUnchanged("p1", new Date(), { title: "x" }), null);

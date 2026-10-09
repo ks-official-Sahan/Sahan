@@ -101,6 +101,17 @@ function publicPostQueries(
   ]);
 }
 
+/** Visible to the public at this instant: published (and its publishAt, if any, has passed) or scheduled and due. */
+function publicNow(): Prisma.PostWhereInput {
+  const now = new Date();
+  return {
+    OR: [
+      { status: "PUBLISHED", OR: [{ publishAt: null }, { publishAt: { lte: now } }] },
+      { status: "SCHEDULED", publishAt: { lte: now } },
+    ],
+  };
+}
+
 export function postRepo(client: DbClient): PostRepo {
   return {
     async listPublished() {
@@ -112,26 +123,15 @@ export function postRepo(client: DbClient): PostRepo {
       return newestFirst([...published, ...promoted, ...scheduled]).slice(0, take);
     },
     async countPublished() {
-      const now = new Date();
-      return client.post.count({
-        where: {
-          OR: [
-            { status: "PUBLISHED", OR: [{ publishAt: null }, { publishAt: { lte: now } }] },
-            { status: "SCHEDULED", publishAt: { lte: now } },
-          ],
-        },
-      });
+      return client.post.count({ where: publicNow() });
+    },
+    async listPublicSlugs() {
+      const rows = await client.post.findMany({ where: publicNow(), select: { slug: true } });
+      return rows.map((row) => row.slug);
     },
     findPublished(slug) {
-      const now = new Date();
       return client.post.findFirst({
-        where: {
-          slug,
-          OR: [
-            { status: "PUBLISHED", OR: [{ publishAt: null }, { publishAt: { lte: now } }] },
-            { status: "SCHEDULED", publishAt: { lte: now } },
-          ],
-        },
+        where: { slug, ...publicNow() },
         select: { ...SUMMARY_SELECT, contentHtml: true },
       });
     },

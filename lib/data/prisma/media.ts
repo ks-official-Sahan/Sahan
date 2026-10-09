@@ -94,6 +94,9 @@ export function mediaRepo(client: DbClient): MediaRepo {
         create: input,
       });
     },
+    async recordUsages(inputs) {
+      if (inputs.length > 0) await client.mediaUsage.createMany({ data: inputs, skipDuplicates: true });
+    },
     async clearUsage(entityType, entityId) {
       await client.mediaUsage.deleteMany({ where: { entityType, entityId } });
     },

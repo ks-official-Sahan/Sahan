@@ -64,6 +64,8 @@ export interface MediaRepo {
   delete(id: string): Promise<void>;
   /** Records one use; recording the same use twice is a no-op. */
   recordUsage(input: { mediaId: string } & Omit<MediaUsageRow, "id">): Promise<void>;
+  /** Records several uses in one statement; already recorded ones are skipped. */
+  recordUsages(inputs: Array<{ mediaId: string } & Omit<MediaUsageRow, "id">>): Promise<void>;
   /** Forgets every use by one entity. */
   clearUsage(entityType: string, entityId: string): Promise<void>;
 }
