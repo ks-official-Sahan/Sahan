@@ -2,6 +2,8 @@ import React from "react";
 import type { PageContent } from "@/lib/cms/registry";
 import type { Project } from "@/types/project";
 import type { ExperienceEntry } from "@/types/experience";
+import type { ServiceCategory } from "@/types/service";
+import type { SkillCategory } from "@/types/skills";
 import HomeHero from "@/components/home/HomeHero";
 import TeamsMarquee from "@/components/home/TeamsMarquee";
 import ProofStrip from "@/components/home/ProofStrip";
@@ -18,11 +20,13 @@ interface HomePageViewProps {
   content: PageContent<"home">;
   projects: Project[];
   experience: ExperienceEntry[];
+  serviceGroups: ServiceCategory[] | null;
+  skillGroups: SkillCategory[] | null;
 }
 
 // Story order: who (hero) -> proof (teams, numbers, work) -> why me -> what
 // (services) -> how (process, tools) -> objections (FAQ) -> action (contact).
-export default function HomePageView({ content, projects, experience }: HomePageViewProps) {
+export default function HomePageView({ content, projects, experience, serviceGroups, skillGroups }: HomePageViewProps) {
   return (
     <div>
       <HomeHero content={content.hero} channels={content.channels} />
@@ -30,9 +34,9 @@ export default function HomePageView({ content, projects, experience }: HomePage
       <ProofStrip content={content.proof} projects={projects} />
       <FeaturedWorksSection content={content.home} projects={projects} />
       <WhySection content={content.why} />
-      <ServiceOverviewSection content={content.home} />
+      <ServiceOverviewSection content={content.home} serviceGroups={serviceGroups} />
       <ProcessSection content={content.process} labels={content.home} />
-      <ToolboxSection content={content.home} />
+      <ToolboxSection content={content.home} skillGroups={skillGroups} />
       <FAQSection content={content.faq} labels={content.home} />
       <FinalCta content={content.finalCta} channels={content.channels} />
       <FaqJsonLd content={content.faq} />

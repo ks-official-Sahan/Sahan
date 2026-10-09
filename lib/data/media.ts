@@ -29,6 +29,11 @@ export interface MediaUsageRow {
   field: string;
 }
 
+export interface MediaPageCursor {
+  id: string;
+  createdAt: Date;
+}
+
 export interface NewMediaAsset {
   provider: MediaProvider;
   kind: MediaKind;
@@ -46,7 +51,10 @@ export interface NewMediaAsset {
 
 export interface MediaRepo {
   find(id: string): Promise<MediaAssetRow | null>;
+  findMany(ids: string[]): Promise<MediaAssetRow[]>;
   findWithUsages(id: string): Promise<(MediaAssetRow & { usages: MediaUsageRow[] }) | null>;
+  /** Bounded, newest-first library search. Returns up to `take` rows. */
+  listPage(input: { query?: string; kind?: MediaKind; after?: MediaPageCursor; take: number }): Promise<MediaAssetRow[]>;
   /** Newest first. */
   listRecent(limit: number): Promise<MediaAssetRow[]>;
   create(input: NewMediaAsset): Promise<MediaAssetRow>;

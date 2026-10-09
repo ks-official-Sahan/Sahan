@@ -1,6 +1,6 @@
 import "server-only";
 
-import { getPosts } from "@/lib/blog/queries";
+import { getRecentIndexablePosts } from "@/lib/blog/queries";
 import { SiteMetadata } from "@/config/site";
 
 // IndexNow: tells Bing and every other participating search engine about a
@@ -34,7 +34,7 @@ export function isIndexNowConfigured(): boolean {
 export async function collectIndexableUrls(): Promise<string[]> {
   const staticUrls = STATIC_ROUTES.map((route) => absoluteSiteUrl(route));
 
-  const posts = await getPosts();
+  const posts = await getRecentIndexablePosts(10_000);
   const postUrls = posts.map((post) => absoluteSiteUrl(`/updates/${post.slug}`));
 
   return [...new Set([...staticUrls, ...postUrls])];

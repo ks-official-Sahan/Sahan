@@ -2,44 +2,87 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { UniqueViolation } from "../errors";
-import { postRepo, PUBLISHED_WHERE } from "./posts";
+import { postRepo } from "./posts";
 
-test("the published-posts query filters on status alone, never on publishAt", () => {
-  // Scheduled visibility (docs/plan/admin-cms-adr.md, Step 12): a SCHEDULED
-  // post's publishAt reaching "now" must never by itself make the public
-  // loader show it. Only lib/cron/jobs.ts's blogPublishJob (or a manual
-  // publish) flipping the row's status does that.
-  assert.deepEqual(PUBLISHED_WHERE, { status: "PUBLISHED" });
-  assert.ok(!("publishAt" in PUBLISHED_WHERE));
-});
-
-test("listPublished passes exactly PUBLISHED_WHERE to the client", async () => {
-  let capturedWhere: unknown;
+test("listPublished reads due scheduled posts and preserves their intended order after promotion", async () => {
+  const now = Date.now();
+  const published = { id: "published", status: "PUBLISHED", publishedAt: new Date(now - 60_000), publishAt: null };
+  const due = { id: "due", status: "SCHEDULED", publishedAt: null, publishAt: new Date(now - 30_000) };
+  const promoted = { id: "promoted", status: "PUBLISHED", publishedAt: new Date(now), publishAt: new Date(now - 45_000) };
+  const future = { id: "future", status: "SCHEDULED", publishedAt: null, publishAt: new Date(now + 60_000) };
   const client = {
     post: {
-      findMany: async (args: { where: unknown }) => {
-        capturedWhere = args.where;
+      findMany: async (args: { where: { status: string; publishAt?: { lte: Date } } }) => {
+        if (args.where.status === "PUBLISHED" && !args.where.publishAt) return [published];
+        if (args.where.status === "PUBLISHED") return [promoted];
+        const cutoff = args.where.publishAt?.lte.getTime() ?? 0;
+        return [due, future].filter((row) => row.publishAt.getTime() <= cutoff);
+      },
+    },
+  };
+  const result = await postRepo(client as never).listPublished();
+  assert.deepEqual(result.map((row) => row.id), ["due", "promoted", "published"]);
+});
+
+test("listPublishedPage applies the cursor to each status query and bounds the merged result", async () => {
+  const now = new Date();
+  const rows = [
+    { id: "a", status: "PUBLISHED", publishedAt: new Date(now.getTime() - 1_000), publishAt: null },
+    { id: "b", status: "SCHEDULED", publishedAt: null, publishAt: new Date(now.getTime() - 2_000) },
+  ];
+  let calls = 0;
+  const client = {
+    post: {
+      findMany: async () => {
+        calls += 1;
+        return rows;
+      },
+    },
+  };
+  const result = await postRepo(client as never).listPublishedPage(1, { publishedAt: now, id: "z" });
+  assert.equal(calls, 3);
+  assert.deepEqual(result.map((row) => row.id), ["a"]);
+});
+
+test("indexable page excludes noindex rows at the database query", async () => {
+  const whereClauses: Array<Record<string, unknown>> = [];
+  const client = {
+    post: {
+      findMany: async (args: { where: Record<string, unknown> }) => {
+        whereClauses.push(args.where);
         return [];
       },
     },
   };
-  await postRepo(client as never).listPublished();
-  assert.deepEqual(capturedWhere, { status: "PUBLISHED" });
+  await postRepo(client as never).listPublishedPage(20, undefined, true);
+  assert.equal(whereClauses.length, 3);
+  for (const where of whereClauses) assert.equal(where.noindex, false);
 });
 
-test("a SCHEDULED row with publishAt in the past stays out of listPublished", async () => {
-  const rows = [
-    { id: "1", status: "PUBLISHED", publishAt: null },
-    { id: "2", status: "SCHEDULED", publishAt: new Date(Date.now() - 60 * 60 * 1000) },
-  ];
+test("a PUBLISHED row with a future publishAt is not visible by slug", async () => {
+  let where: Record<string, unknown> | undefined;
   const client = {
-    post: { findMany: async (args: { where: { status: string } }) => rows.filter((row) => row.status === args.where.status) },
+    post: {
+      findFirst: async (args: { where: Record<string, unknown> }) => {
+        where = args.where;
+        return null;
+      },
+    },
   };
-  const result = await postRepo(client as never).listPublished();
-  assert.deepEqual(
-    result.map((row) => row.id),
-    ["1"]
-  );
+  await postRepo(client as never).findPublished("future-post");
+  const visibleStatuses = where?.OR as Array<Record<string, unknown>>;
+  assert.equal((visibleStatuses?.[0]?.OR as Array<Record<string, unknown>>)?.[1]?.publishAt !== undefined, true);
+  assert.deepEqual(visibleStatuses?.[1], { status: "SCHEDULED", publishAt: { lte: (visibleStatuses?.[1]?.publishAt as { lte: Date }).lte } });
+});
+
+test("countPublished includes only due published and scheduled rows", async () => {
+  let where: Record<string, unknown> | undefined;
+  const client = { post: { count: async (args: { where: Record<string, unknown> }) => { where = args.where; return 2; } } };
+  assert.equal(await postRepo(client as never).countPublished(), 2);
+  const visible = where?.OR as Array<Record<string, unknown>>;
+  assert.equal(visible?.length, 2);
+  assert.equal(visible?.[0]?.status, "PUBLISHED");
+  assert.equal(visible?.[1]?.status, "SCHEDULED");
 });
 
 test("updateIfUnchanged answers null when the row changed since it was read", async () => {

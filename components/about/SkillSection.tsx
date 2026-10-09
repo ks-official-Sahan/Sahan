@@ -3,7 +3,7 @@
 import SkillGroupCard from "@/components/about/SkillGroupCard";
 import TabChip from "@/components/about/TabChip";
 import ChipMarquee from "@/components/common/ChipMarquee";
-import MaskIcon from "@/components/common/MaskIcon";
+import SkillGlyph from "@/components/common/SkillGlyph";
 import SkillCard from "@/components/common/SkillCard";
 import SkillChip from "@/components/common/SkillChip";
 import HomeSection from "@/components/home/HomeSection";
@@ -12,10 +12,12 @@ import { MySkills } from "@/contents/skills";
 import type { PageContent } from "@/lib/cms/registry";
 import { cn } from "@/lib/utils";
 import type { Skill } from "@/types/skills";
+import type { SkillCategory } from "@/types/skills";
 import React, { useMemo, useState } from "react";
 
 interface SkillSectionProps {
   content: PageContent<"about">;
+  categories?: SkillCategory[] | null;
 }
 
 const groupByType = (skills: Skill[]) => {
@@ -26,16 +28,15 @@ const groupByType = (skills: Skill[]) => {
   return Array.from(groups.entries());
 };
 
-const SkillSection = ({ content }: SkillSectionProps) => {
-  const { categories } = MySkills.tabs;
+const SkillSection = ({ content, categories: managedCategories }: SkillSectionProps) => {
+  const categories = managedCategories ?? MySkills.tabs.categories;
   const { layoutFilter } = MySkills;
 
   const [layout, setLayout] = useState(layoutFilter.options[0].id);
-  const [selectedId, setSelectedId] = useState(categories[0].id);
+  const [selectedId, setSelectedId] = useState(categories[0]?.id ?? "");
 
-  const selected =
-    categories.find((category) => category.id === selectedId) ?? categories[0];
-  const groups = useMemo(() => groupByType(selected.skills), [selected]);
+  const selected = categories.find((category) => category.id === selectedId) ?? categories[0];
+  const groups = useMemo(() => (selected ? groupByType(selected.skills) : []), [selected]);
 
   const allSkills = useMemo(() => {
     const seen = new Set<string>();
@@ -82,7 +83,7 @@ const SkillSection = ({ content }: SkillSectionProps) => {
         }
       />
 
-      {layout === layoutFilter.options[0].id ? (
+      {layout === layoutFilter.options[0].id ? selected ? (
         <div className="mt-10 flex w-full flex-col">
           {/* CATEGORIES: scrolls sideways when they do not fit */}
           <div
@@ -136,26 +137,17 @@ const SkillSection = ({ content }: SkillSectionProps) => {
             </div>
           </div>
         </div>
-      ) : (
+      ) : <p className="mt-8 text-sm opacity-70">No skills are published yet.</p> : (
         <div className="flex flex-wrap justify-center pt-12">
           {allSkills.map((skill) => (
             <SkillCard
               key={skill.name}
               title={skill.name}
-              icon={
-                skill.variant === "stroke" ? (
-                  <skill.icon
-                    size={40}
-                    className="text-black dark:text-white group-hover/canvas-card:text-white"
-                  />
-                ) : (
-                  <MaskIcon
-                    src={skill.iconSrc}
-                    size={60}
-                    className="text-black dark:text-white group-hover/canvas-card:text-white"
-                  />
-                )
-              }
+              icon={<SkillGlyph
+                skill={skill}
+                size={skill.variant === "stroke" ? 40 : 60}
+                className="text-black dark:text-white group-hover/canvas-card:text-white"
+              />}
             />
           ))}
         </div>

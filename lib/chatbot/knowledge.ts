@@ -7,7 +7,7 @@ import { loadOrNull } from "@/lib/cache/fallback";
 import { TAGS } from "@/lib/cache/tags";
 import { repos } from "@/lib/data";
 import { log } from "@/lib/log";
-import { getPosts } from "@/lib/blog/queries";
+import { getRecentPosts } from "@/lib/blog/queries";
 import { getPageContent } from "@/lib/cms/loaders";
 import { getExperience, getProjects } from "@/lib/collections";
 import { Experience } from "@/contents/experience";
@@ -55,7 +55,7 @@ async function siteContent(): Promise<string> {
   const [projects, experience, posts] = await Promise.all([
     getProjects(Projects),
     getExperience(Experience),
-    getPosts(),
+    getRecentPosts(10),
   ]);
 
   if (projects.length > 0) {
@@ -78,7 +78,7 @@ async function siteContent(): Promise<string> {
 
   if (posts.length > 0) {
     parts.push("\n### Recent writing (on /updates)\n");
-    for (const post of posts.slice(0, 10)) parts.push(`- ${post.title} (/updates/${post.slug})\n`);
+    for (const post of posts) parts.push(`- ${post.title} (/updates/${post.slug})\n`);
   }
 
   // Contact information

@@ -4,19 +4,21 @@ import HomeSection from "@/components/home/HomeSection";
 import SectionHeading from "@/components/home/SectionHeading";
 import { MySkills } from "@/contents/skills";
 import type { PageContent } from "@/lib/cms/registry";
+import type { SkillCategory } from "@/types/skills";
 import React from "react";
-
-const allSkills = MySkills.tabs.categories.flatMap((category) => category.skills);
-const byName = new Map(allSkills.map((skill) => [skill.name, skill]));
 
 interface WorksBehindProps {
   content: PageContent<"works">;
+  skillGroups?: SkillCategory[] | null;
 }
 
 // Two slow rows drifting in opposite directions. Both pause on hover, both
 // fall back to wrapped chips for reduced motion.
-const WorksBehind = ({ content }: WorksBehindProps) => {
+const WorksBehind = ({ content, skillGroups }: WorksBehindProps) => {
   const { behind } = content;
+  const categories = skillGroups ?? MySkills.tabs.categories;
+  const allSkills = categories.flatMap((category) => category.skills);
+  const byName = new Map(allSkills.map((skill) => [skill.name, skill]));
   const stack = behind.stack
     .map((name) => byName.get(name))
     .filter((skill): skill is NonNullable<typeof skill> => Boolean(skill));

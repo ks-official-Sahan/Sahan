@@ -1,21 +1,22 @@
 import ServiceBox from "@/components/about/ServiceBox";
+import ServiceGlyph from "@/components/about/ServiceGlyph";
 import ChipMarquee from "@/components/common/ChipMarquee";
 import HomeSection from "@/components/home/HomeSection";
 import SectionHeading from "@/components/home/SectionHeading";
 import { MyServices } from "@/contents/service";
+import type { ServiceCategory } from "@/types/service";
 import type { PageContent } from "@/lib/cms/registry";
 import React from "react";
 
 interface ServiceSectionProps {
   content: PageContent<"about">;
   home: PageContent<"home">;
+  serviceGroups?: ServiceCategory[] | null;
 }
 
-const allServices = MyServices.categories.flatMap(
-  (category) => category.services
-);
-
-const ServiceSection = ({ content, home }: ServiceSectionProps) => {
+const ServiceSection = ({ content, home, serviceGroups }: ServiceSectionProps) => {
+  const categories = serviceGroups ?? MyServices.categories;
+  const allServices = categories.flatMap((category) => category.services);
   return (
     <HomeSection id="services" labelledBy="services-title">
       <SectionHeading
@@ -36,14 +37,14 @@ const ServiceSection = ({ content, home }: ServiceSectionProps) => {
             key={item.id}
             className="inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full border border-bBORDERFADE bg-bCHIP py-1.5 pl-2.5 pr-4 text-sm"
           >
-            <item.icon size={16} className="text-bICON" aria-hidden="true" />
+            <ServiceGlyph service={item} size={16} className="text-bICON" />
             {item.name}
           </span>
         ))}
       </ChipMarquee>
 
       <div className="mt-10">
-        <ServiceBox content={content} />
+        <ServiceBox content={content} serviceGroups={serviceGroups} />
       </div>
     </HomeSection>
   );

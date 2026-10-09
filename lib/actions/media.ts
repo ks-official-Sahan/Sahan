@@ -1,5 +1,7 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
+
 import { authorizeAction } from "@/lib/actions/guard";
 import { cloudinary } from "@/lib/media/cloudinary-client";
 import {
@@ -20,7 +22,7 @@ export async function registerUpload(
   const auth = await authorizeAction("uploadMedia");
   if (!auth.ok) return { ok: false, error: auth.error };
 
-  return registerUploadService(
+  const result = await registerUploadService(
     {
       publicId,
       folder,
@@ -29,6 +31,8 @@ export async function registerUpload(
     },
     auth.user
   );
+  if (result.ok) revalidatePath("/admin/media");
+  return result;
 }
 
 export async function updateMedia(
@@ -50,6 +54,10 @@ export async function updateMedia(
     auth.user
   );
 
+  if (result.ok) {
+    revalidatePath("/admin/media");
+    revalidatePath(`/admin/media/${mediaId}`);
+  }
   return result;
 }
 
@@ -57,5 +65,10 @@ export async function deleteMedia(mediaId: string): Promise<DeleteMediaResult> {
   const auth = await authorizeAction("deleteMedia");
   if (!auth.ok) return { ok: false, error: auth.error };
 
-  return deleteMediaService(mediaId, auth.user, cloudinary);
+  const result = await deleteMediaService(mediaId, auth.user, cloudinary);
+  if (result.ok) {
+    revalidatePath("/admin/media");
+    revalidatePath(`/admin/media/${mediaId}`);
+  }
+  return result;
 }

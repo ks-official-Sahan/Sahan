@@ -4,17 +4,19 @@ import SectionHeading from "@/components/home/SectionHeading";
 import SnapRow from "@/components/home/SnapRow";
 import type { PageContent } from "@/lib/cms/registry";
 import { MyServices } from "@/contents/service";
+import type { ServiceCategory } from "@/types/service";
 import { ArrowUpRight } from "lucide-react";
 import Link from "next/link";
 import React from "react";
 
-const featuredServices = MyServices.categories[0].services.slice(0, 3);
-
 interface ServiceOverviewSectionProps {
   content: PageContent<"home">["home"];
+  serviceGroups?: ServiceCategory[] | null;
 }
 
-const ServiceOverviewSection = ({ content: home }: ServiceOverviewSectionProps) => {
+const ServiceOverviewSection = ({ content: home, serviceGroups }: ServiceOverviewSectionProps) => {
+  const categories = serviceGroups ?? MyServices.categories;
+  const featuredServices = categories[0]?.services.slice(0, 3) ?? [];
 
   return (
     <HomeSection id="services" labelledBy="services-title">

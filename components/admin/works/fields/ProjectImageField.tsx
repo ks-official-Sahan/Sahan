@@ -49,7 +49,7 @@ export default function ProjectImageField({
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <MediaPicker
           kind="IMAGE"
-          onSelect={(result) => patch({ src: result.src, mediaId: result.mediaId, alt: image?.alt || result.alt })}
+          onSelect={(result) => patch({ src: result.src, mediaId: result.mediaId, alt: result.alt })}
         />
         <button type="button" onClick={() => onChange(null)} disabled={!image} className={buttonVariants.smallDanger}>
           Clear

@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
-import { Button, Group, Modal, Stack, Text, TextInput } from "@mantine/core";
-import { Upload, Search, AlertCircle } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Alert, Button, Group, Image, Modal, SimpleGrid, Stack, Text, TextInput } from "@mantine/core";
+import { AlertCircle, FileText, Search, Upload } from "lucide-react";
 
 import { MEDIA_CONFIG } from "@sahan-sac/media-kit/config";
 import { uploadToMediaLibrary } from "@sahan-sac/media-kit/upload-client";
@@ -21,53 +21,136 @@ interface MediaPickerProps {
   required?: boolean;
 }
 
-// Modal component for choosing or uploading media.
-// Used by content and collection editors.
-// Keyboard and screen-reader accessible.
+interface MediaItem extends MediaPickerResult {
+  kind: "IMAGE" | "DOCUMENT";
+  title: string | null;
+  folder: string;
+  width: number | null;
+  height: number | null;
+}
+
+interface MediaPage {
+  items: MediaItem[];
+  nextCursor: string | null;
+}
+
+// Modal component for choosing or uploading media. Search and pagination stay
+// server-side, so the browser never downloads the full library to filter it.
 export function MediaPicker({ onSelect, kind = "IMAGE", required = false }: MediaPickerProps) {
   const [opened, setOpened] = useState(false);
   const [mode, setMode] = useState<"browse" | "upload">("browse");
   const [search, setSearch] = useState("");
+  const [alt, setAlt] = useState("");
+  const [items, setItems] = useState<MediaItem[]>([]);
+  const [selected, setSelected] = useState<MediaItem | null>(null);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const maxSize = kind === "IMAGE" ? MEDIA_CONFIG.images.maxSizeBytes : MEDIA_CONFIG.documents.maxSizeBytes;
   const maxSizeMB = kind === "IMAGE" ? MEDIA_CONFIG.images.maxSizeMB : MEDIA_CONFIG.documents.maxSizeMB;
   const formats = kind === "IMAGE" ? MEDIA_CONFIG.images.formats : MEDIA_CONFIG.documents.formats;
+  const altRequired = kind === "IMAGE" || required;
+
+  useEffect(() => {
+    if (!opened || mode !== "browse") return;
+    const controller = new AbortController();
+    const timer = setTimeout(() => {
+      setLoading(true);
+      setError(null);
+      const params = new URLSearchParams({ kind, limit: "24" });
+      if (search.trim()) params.set("q", search.trim());
+      void fetch(`/api/admin/media?${params.toString()}`, { signal: controller.signal, cache: "no-store" })
+        .then(async (response) => {
+          const data = (await response.json().catch(() => null)) as (MediaPage & { error?: string }) | null;
+          if (!response.ok || !data) throw new Error(data?.error || "Could not load media.");
+          setItems(data.items);
+          setNextCursor(data.nextCursor);
+          setSelected(null);
+          setAlt("");
+        })
+        .catch((cause) => {
+          if (cause instanceof DOMException && cause.name === "AbortError") return;
+          setError(cause instanceof Error ? cause.message : "Could not load media.");
+        })
+        .finally(() => {
+          if (!controller.signal.aborted) setLoading(false);
+        });
+    }, 200);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [kind, mode, opened, search]);
+
+  const loadMore = async () => {
+    if (!nextCursor || loadingMore) return;
+    setLoadingMore(true);
+    setError(null);
+    try {
+      const params = new URLSearchParams({ kind, limit: "24", after: nextCursor });
+      if (search.trim()) params.set("q", search.trim());
+      const response = await fetch(`/api/admin/media?${params.toString()}`, { cache: "no-store" });
+      const data = (await response.json().catch(() => null)) as (MediaPage & { error?: string }) | null;
+      if (!response.ok || !data) throw new Error(data?.error || "Could not load more media.");
+      setItems((current) => [...current, ...data.items]);
+      setNextCursor(data.nextCursor);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not load more media.");
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
+  const choose = useCallback(
+    (result: MediaPickerResult) => {
+      if (altRequired && !alt.trim()) {
+        setError("Add alt text before choosing this image.");
+        return;
+      }
+      onSelect({ ...result, alt: alt.trim() });
+      setOpened(false);
+      setError(null);
+    },
+    [alt, altRequired, onSelect]
+  );
 
   const handleUpload = useCallback(
     async (event: React.ChangeEvent<HTMLInputElement>) => {
       const file = event.currentTarget.files?.[0];
       if (!file) return;
+      if (altRequired && !alt.trim()) {
+        setError("Add alt text before uploading this image.");
+        event.currentTarget.value = "";
+        return;
+      }
 
       setError(null);
       setUploading(true);
-
       try {
-        const uploaded = await uploadToMediaLibrary(file, registerUpload, { fileName: file.name });
+        const uploaded = await uploadToMediaLibrary(file, registerUpload, {
+          fileName: file.name,
+          ...(altRequired ? { alt: alt.trim() } : {}),
+        });
         if (!uploaded.ok) {
           setError(uploaded.error);
           return;
         }
-        onSelect({ mediaId: uploaded.mediaId, src: uploaded.url, alt: "" });
+        onSelect({ mediaId: uploaded.mediaId, src: uploaded.url, alt: alt.trim() });
         setOpened(false);
       } finally {
         setUploading(false);
         if (fileInputRef.current) fileInputRef.current.value = "";
       }
     },
-    [onSelect]
+    [alt, altRequired, onSelect]
   );
 
   return (
     <>
-      <Button
-        onClick={() => setOpened(true)}
-        variant="light"
-        leftSection={<Upload size={16} />}
-        aria-label={`Choose ${kind.toLowerCase()}`}
-      >
+      <Button type="button" onClick={() => setOpened(true)} variant="light" leftSection={<Upload size={16} />} aria-label={`Choose ${kind.toLowerCase()}`}>
         Choose {kind.toLowerCase()}
       </Button>
 
@@ -77,6 +160,8 @@ export function MediaPicker({ onSelect, kind = "IMAGE", required = false }: Medi
           setOpened(false);
           setMode("browse");
           setSearch("");
+          setAlt("");
+          setSelected(null);
           setError(null);
         }}
         title={`Select ${kind.toLowerCase()}`}
@@ -84,67 +169,86 @@ export function MediaPicker({ onSelect, kind = "IMAGE", required = false }: Medi
         centered
       >
         <Stack gap="md">
-          {error && (
-            <Group gap="xs" p="xs" style={{ backgroundColor: "var(--mantine-color-red-0)" }} align="flex-start">
-              <AlertCircle size={20} style={{ color: "var(--mantine-color-red-6)", flexShrink: 0 }} />
-              <Text size="sm" style={{ color: "var(--mantine-color-red-7)" }}>
-                {error}
-              </Text>
-            </Group>
-          )}
+          {error ? <Alert color="red" icon={<AlertCircle size={18} />} role="alert">{error}</Alert> : null}
 
           <Group>
-            <Button.Group>
-              <Button
-                variant={mode === "browse" ? "filled" : "light"}
-                onClick={() => {
-                  setMode("browse");
-                  setSearch("");
-                }}
-              >
+            <Button.Group aria-label="Media source">
+              <Button type="button" aria-pressed={mode === "browse"} variant={mode === "browse" ? "filled" : "light"} onClick={() => setMode("browse")}>
                 Browse
               </Button>
-              <Button
-                variant={mode === "upload" ? "filled" : "light"}
-                onClick={() => {
-                  setMode("upload");
-                  setSearch("");
-                }}
-              >
+              <Button type="button" aria-pressed={mode === "upload"} variant={mode === "upload" ? "filled" : "light"} onClick={() => setMode("upload")}>
                 Upload
               </Button>
             </Button.Group>
           </Group>
 
-          {mode === "browse" && (
+          {altRequired ? (
+            <TextInput
+              label="Alt text"
+              description="Describe the image for people who cannot see it."
+              value={alt}
+              onChange={(event) => setAlt(event.currentTarget.value)}
+              maxLength={500}
+              required
+              autoComplete="off"
+            />
+          ) : null}
+
+          {mode === "browse" ? (
             <>
               <TextInput
-                placeholder="Search media..."
+                label="Search library"
+                placeholder="Search by title, ID, alt text or folder"
                 leftSection={<Search size={16} />}
                 value={search}
-                onChange={(e) => setSearch(e.currentTarget.value)}
-                aria-label="Search media"
+                onChange={(event) => setSearch(event.currentTarget.value)}
               />
-              <Text size="sm" c="dimmed">
-                Recent files would appear here. Upload a file to get started.
-              </Text>
+              {loading ? <Text role="status" aria-live="polite" size="sm">Loading media…</Text> : null}
+              {!loading && items.length === 0 ? <Text size="sm" c="dimmed">No media matches this search.</Text> : null}
+              <SimpleGrid cols={{ base: 2, sm: 3 }} spacing="sm">
+                {items.map((item) => (
+                  <button
+                    key={item.mediaId}
+                    type="button"
+                    onClick={() => {
+                      setSelected(item);
+                      setAlt(item.alt || "");
+                      setError(null);
+                    }}
+                    aria-pressed={selected?.mediaId === item.mediaId}
+                    className="rounded-md border border-border p-2 text-left aria-pressed:border-primary aria-pressed:ring-2 aria-pressed:ring-primary/40"
+                  >
+                    {item.kind === "IMAGE" ? (
+                      <Image src={item.src} alt="" h={92} fit="cover" radius="sm" />
+                    ) : (
+                      <span className="flex h-[92px] items-center justify-center rounded bg-muted/50">
+                        <FileText size={28} aria-hidden="true" />
+                      </span>
+                    )}
+                    <Text size="xs" fw={500} mt="xs" lineClamp={1}>{item.title || item.mediaId}</Text>
+                    <Text size="xs" c="dimmed" lineClamp={1}>{item.folder}</Text>
+                  </button>
+                ))}
+              </SimpleGrid>
+              {nextCursor ? <Button type="button" variant="light" onClick={() => void loadMore()} loading={loadingMore}>Load more</Button> : null}
+              {selected ? (
+                <Button type="button" onClick={() => choose(selected)} disabled={altRequired && !alt.trim()}>
+                  Use selected {kind.toLowerCase()}
+                </Button>
+              ) : null}
             </>
-          )}
-
-          {mode === "upload" && (
+          ) : (
             <>
               <input
                 ref={fileInputRef}
                 type="file"
-                accept={formats.map((f) => `.${f}`).join(",")}
+                accept={formats.map((format) => `.${format}`).join(",")}
                 onChange={handleUpload}
                 disabled={uploading}
                 aria-label={`Upload ${kind.toLowerCase()}`}
               />
-              <Text size="xs" c="dimmed">
-                Formats: {formats.join(", ")} • Max {maxSizeMB}MB
-              </Text>
-              {uploading && <Text size="sm">Uploading...</Text>}
+              <Text size="xs" c="dimmed">Formats: {formats.join(", ")} • Max {maxSizeMB} MB</Text>
+              {uploading ? <Text role="status" aria-live="polite" size="sm">Uploading…</Text> : null}
             </>
           )}
         </Stack>

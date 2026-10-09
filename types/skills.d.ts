@@ -8,6 +8,15 @@ interface SkillBase {
   /** Sub-group label shown inside a category (e.g. "frontend", "database"). */
   type: string;
   baseColor: { light: string; dark: string };
+  iconSrc?: string;
+  icon?: (props: {
+    size?: number;
+    color?: string;
+    stroke?: number;
+    className?: string;
+  }) => JSX.Element;
+  /** CMS key: a bundled skill SVG name or a registered Tabler icon. */
+  iconKey?: string;
 }
 
 export interface FillSkill extends SkillBase {
@@ -18,18 +27,11 @@ export interface FillSkill extends SkillBase {
    * is downloaded once and cached instead of repeated in every page's HTML,
    * RSC payload and client bundle.
    */
-  iconSrc: string;
 }
 
 export interface StrokeSkill extends SkillBase {
   variant: "stroke";
   // `@tabler/icons-react` is declared as an untyped module in this project.
-  icon: (props: {
-    size?: number;
-    color?: string;
-    stroke?: number;
-    className?: string;
-  }) => JSX.Element;
 }
 
 export type Skill = FillSkill | StrokeSkill;

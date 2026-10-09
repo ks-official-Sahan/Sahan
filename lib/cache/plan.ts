@@ -41,6 +41,7 @@ export function forContentPublish(
   if (page === "site") tags.push(TAGS.siteConfig);
 
   const paths: PathEntry[] = [...(options.consumers ?? PAGE_PATHS[page])];
+  if (page !== "site") paths.push(`/api/content/v1/pages/${page}`);
   if (page === "site" && options.section === "seo") paths.push("/sitemap.xml");
   // llms-txt.ts's generateLlmsTxt() reads the About page's hero/bento sections
   // for its "## Author" bio line — publishing either revalidates /llms.txt too.
@@ -56,6 +57,9 @@ export function forCollection(name: CollectionName): InvalidationPlan {
   const paths: string[] = ["/", "/about", "/works"];
   // Experience affects about and home team/timeline
   if (name === "experience") paths.push("/about");
+  paths.push(`/api/content/v1/${name}`);
+  if (name === "services") paths.push("/api/content/v1/services");
+  if (name === "skills") paths.push("/api/content/v1/skills");
   // Projects affect home featured works and works page
   if (name === "projects") {
     // Already included: "/", "/about", "/works"
@@ -74,10 +78,10 @@ export function forCollection(name: CollectionName): InvalidationPlan {
 export function forPost(slug: string): InvalidationPlan {
   return {
     tags: [TAGS.blogList, TAGS.blogPost(slug), TAGS.blogTaxonomy, TAGS.chatbotKnowledge],
-    // llms.txt's "Recent updates" section is built from the same getPosts()
-    // read as /updates and /rss.xml, so a post change revalidates it too
+    // llms.txt's "Recent updates" section is built from the same bounded
+    // indexable-post read as /rss.xml, so a post change revalidates it too
     // (lib/seo/llms-txt.ts, app/llms.txt/route.ts).
-    paths: ["/updates", `/updates/${slug}`, "/sitemap.xml", "/rss.xml", "/llms.txt"],
+    paths: ["/updates", `/updates/${slug}`, "/api/content/v1/posts", `/api/content/v1/posts/${slug}`, "/sitemap.xml", "/rss.xml", "/llms.txt"],
   };
 }
 
@@ -85,7 +89,7 @@ export function forPost(slug: string): InvalidationPlan {
 export function forPostList(): InvalidationPlan {
   return {
     tags: [TAGS.blogList, TAGS.blogTaxonomy, TAGS.chatbotKnowledge],
-    paths: ["/updates", "/sitemap.xml", "/rss.xml", "/llms.txt"],
+    paths: ["/updates", "/api/content/v1/posts", "/sitemap.xml", "/rss.xml", "/llms.txt"],
   };
 }
 
@@ -93,7 +97,7 @@ export function forPostList(): InvalidationPlan {
 export function forSettings(): InvalidationPlan {
   return {
     tags: [TAGS.settingsPublic],
-    paths: [{ path: "/", type: "layout" }],
+    paths: [{ path: "/", type: "layout" }, "/api/content/v1/posts"],
   };
 }
 

@@ -2,6 +2,7 @@ import TitleBlock from "@/components/common/TitleBlock";
 import ChipMarquee from "@/components/common/ChipMarquee";
 import { cn } from "@/lib/utils";
 import type { Service, ServiceDoneItem } from "@/types/service";
+import ServiceGlyph from "@/components/about/ServiceGlyph";
 import Link from "next/link";
 import React from "react";
 
@@ -21,7 +22,7 @@ const ServiceCard = ({
   service: Service;
   className?: string;
 }) => {
-  const { id, icon: Icon, name, description, done } = service;
+  const { id, name, description, done } = service;
 
   return (
     <div
@@ -35,7 +36,7 @@ const ServiceCard = ({
           title={name}
           titleAs="h3"
           label={id}
-          icon={<Icon size={16} className="text-bICON" aria-hidden="true" />}
+          icon={<ServiceGlyph service={service} size={16} className="text-bICON" />}
         />
         <p className="pt-4 text-[14px] font-medium opacity-80">{description}</p>
       </div>

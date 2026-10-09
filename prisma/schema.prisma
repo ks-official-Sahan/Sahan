@@ -429,6 +429,9 @@ model Post {
 
   @@index([status, publishedAt])
   @@index([status, publishAt])
+  @@index([status, noindex, publishedAt])
+  @@index([status, noindex, publishAt])
+  @@index([coverMediaId])
   @@index([authorId])
   // Admin list default sort, and the distinct-topic picker.
   @@index([updatedAt])

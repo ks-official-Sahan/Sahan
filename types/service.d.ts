@@ -14,14 +14,16 @@ export interface ServiceDone {
 
 export interface Service {
   id: string;
-  icon: LucideIcon;
+  icon?: LucideIcon;
+  /** Named Lucide icon for CMS-managed rows. */
+  iconKey?: string;
   name: string;
   description: string;
   done?: ServiceDone;
 }
 
 export interface ServiceCategory {
-  id: number;
+  id: string | number;
   name: string;
   services: Service[];
 }

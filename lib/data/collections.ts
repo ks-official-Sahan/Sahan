@@ -103,7 +103,10 @@ export type NewService = NewOf<ServiceRecord, "done" | "sortOrder" | "published"
 export interface ServiceGroupRepo extends SortedRepo<ServiceGroupRecord, NewServiceGroup> {
   /** The group with its services in display order. */
   findWithServices(id: string): Promise<(ServiceGroupRecord & { services: ServiceRecord[] }) | null>;
+  /** Groups that have at least one published service, with only published services. */
+  listPublished(): Promise<Array<ServiceGroupRecord & { services: ServiceRecord[] }>>;
   listForAdmin(): Promise<Array<{ id: string; name: string; services: Array<{ published: boolean }> }>>;
+  count(): Promise<number>;
 }
 
 export interface SkillGroupRecord {
@@ -140,8 +143,16 @@ export type NewSkill = NewOf<SkillRecord, "variant" | "grid" | "gridOrder" | "so
 export interface SkillGroupRepo extends SortedRepo<SkillGroupRecord, NewSkillGroup> {
   /** The group with its skills in display order. */
   findWithSkills(id: string): Promise<(SkillGroupRecord & { skills: SkillRecord[] }) | null>;
+  /** Groups that have at least one published skill, with only published skills. */
+  listPublished(): Promise<Array<SkillGroupRecord & { skills: SkillRecord[] }>>;
   listForAdmin(): Promise<Array<{ id: string; key: string; label: string; skills: Array<{ published: boolean }> }>>;
+  count(): Promise<number>;
 }
 
-export type ServiceRepo = SortedRepo<ServiceRecord, NewService>;
-export type SkillRepo = SortedRepo<SkillRecord, NewSkill>;
+export interface ServiceRepo extends SortedRepo<ServiceRecord, NewService> {
+  createMany(input: NewService[]): Promise<void>;
+}
+
+export interface SkillRepo extends SortedRepo<SkillRecord, NewSkill> {
+  createMany(input: NewSkill[]): Promise<void>;
+}

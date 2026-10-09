@@ -1,36 +1,26 @@
 import { z } from "zod";
 
-// Skill group and individual skill schemas.
-// SkillGroup: container with title, skills array.
-// Skill: name, proficiency level, color fields for UI display.
-
 export const skillSchema = z.object({
   id: z.string(),
-  name: z.string(),
-  proficiency: z.enum(["beginner", "intermediate", "advanced", "expert"]).optional(),
-  colorLight: z.string().optional(),
-  colorDark: z.string().optional(),
-  sortOrder: z.number(),
-  published: z.boolean(),
-  createdAt: z.date(),
-  updatedAt: z.date(),
+  groupId: z.string(),
+  name: z.string().min(1).max(120),
+  abbr: z.string().min(1).max(32),
+  type: z.string().min(1).max(80),
+  iconKey: z.string().min(1).max(80),
+  variant: z.enum(["fill", "stroke"]),
+  colorLight: z.string().regex(/^#[\da-f]{3,8}$/i),
+  colorDark: z.string().regex(/^#[\da-f]{3,8}$/i),
+  grid: z.unknown().nullable().optional(),
+  gridOrder: z.number().int().nullable().optional(),
 });
 
+/** Public skill fields only; unpublished rows and timestamps stay private. */
 export const skillGroupSchema = z.object({
   id: z.string(),
-  title: z.string(),
-  skills: z.array(skillSchema),
-  sortOrder: z.number(),
-  published: z.boolean(),
-  createdAt: z.date(),
-  updatedAt: z.date(),
+  key: z.string().min(1),
+  label: z.string().min(1),
+  skills: z.array(skillSchema).max(500),
 });
 
-export type Skill = z.infer<typeof skillSchema>;
-export type SkillGroup = z.infer<typeof skillGroupSchema>;
-
-// Placeholder loader for skills. Full implementation deferred.
-export async function loadSkills(client: any): Promise<SkillGroup[]> {
-  // TODO: Implement DB loader
-  return [];
-}
+export type PublicSkill = z.infer<typeof skillSchema>;
+export type PublicSkillGroup = z.infer<typeof skillGroupSchema>;

@@ -3,7 +3,7 @@
 import { HomeContainer } from "@/components/home/HomeSection";
 import ProjectCard from "@/components/works/ProjectCard";
 import { platformLabels } from "@/components/works/ProjectPreview";
-import { Projects, teamOf } from "@/contents/projects";
+import { teamOf } from "@/contents/projects";
 import { cn } from "@/lib/utils";
 import type { PageContent } from "@/lib/cms/registry";
 import type { Project, ProjectPlatform } from "@/types/project";
@@ -25,20 +25,19 @@ const tabParams: Record<TabId, string> = {
   client: "des",
 };
 
-// Featured first, then newest.
-const sorted = [...Projects].sort(
-  (a, b) =>
-    Number(!!b.featured) - Number(!!a.featured) ||
-    Number(b.year) - Number(a.year)
-);
-
 interface WorksExplorerProps {
   content: PageContent<"works">;
+  projects: Project[];
 }
 
-const WorksExplorer = ({ content }: WorksExplorerProps) => {
+const WorksExplorer = ({ content, projects }: WorksExplorerProps) => {
   const searchParams = useSearchParams();
   const { tabs, results } = content;
+  // Featured first, then newest. The CMS collection is the source of truth.
+  const sorted = useMemo(
+    () => [...projects].sort((a, b) => Number(!!b.featured) - Number(!!a.featured) || Number(b.year) - Number(a.year)),
+    [projects]
+  );
 
   // Reconstruct tabs array from the three label strings and fixed ids/params
   const tabsArray = [
@@ -53,7 +52,7 @@ const WorksExplorer = ({ content }: WorksExplorerProps) => {
   const [platform, setPlatform] = useState<PlatformFilter>("all");
   const [team, setTeam] = useState("all");
 
-  const inTab = useMemo(() => sorted.filter(matchers[tab]), [tab]);
+  const inTab = useMemo(() => sorted.filter(matchers[tab]), [sorted, tab]);
   const platforms = useMemo(
     () =>
       [...new Set(inTab.flatMap((project) => project.platforms ?? []))] as ProjectPlatform[],

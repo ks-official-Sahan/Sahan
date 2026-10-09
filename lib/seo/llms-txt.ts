@@ -2,7 +2,7 @@ import "server-only";
 
 import { getSetting, updateSetting } from "@/lib/settings/service";
 import { getProjects, getExperience } from "@/lib/collections";
-import { getIndexablePosts } from "@/lib/blog/queries";
+import { getRecentIndexablePosts } from "@/lib/blog/queries";
 import { getPageContent } from "@/lib/cms/loaders";
 import { Projects } from "@/contents/projects";
 import { Experience } from "@/contents/experience";
@@ -59,7 +59,7 @@ export async function generateLlmsTxt(): Promise<string> {
   const [projects, experience, posts, about] = await Promise.all([
     getProjects(Projects),
     getExperience(Experience),
-    getIndexablePosts(),
+    getRecentIndexablePosts(10),
     // The About page's "Who I Am" bio card — CMS content, editable from the
     // admin, and the same text the /about page itself renders
     // (lib/cms/pages/about.ts's `bento` section). Publishing About's hero or
@@ -114,7 +114,7 @@ export async function generateLlmsTxt(): Promise<string> {
 
   if (posts.length > 0) {
     lines.push("## Recent updates");
-    for (const post of posts.slice(0, 10)) {
+    for (const post of posts) {
       lines.push(link(`/updates/${post.slug}`, post.title, post.excerpt));
     }
     lines.push("");

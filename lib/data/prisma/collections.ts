@@ -122,11 +122,18 @@ export function serviceGroupRepo(client: DbClient): ServiceGroupRepo {
     find: (id) => client.serviceGroup.findUnique({ where: { id } }),
     findWithServices: (id) =>
       client.serviceGroup.findUnique({ where: { id }, include: { services: { orderBy: { sortOrder: "asc" } } } }),
+    listPublished: () =>
+      client.serviceGroup.findMany({
+        where: { services: { some: { published: true } } },
+        orderBy: { sortOrder: "asc" },
+        include: { services: { where: { published: true }, orderBy: { sortOrder: "asc" } } },
+      }),
     listForAdmin: () =>
       client.serviceGroup.findMany({
         orderBy: { sortOrder: "asc" },
         select: { id: true, name: true, services: { select: { published: true }, orderBy: { sortOrder: "asc" } } },
       }),
+    count: () => client.serviceGroup.count(),
     async nextSortOrder() {
       const { _max } = await client.serviceGroup.aggregate({ _max: { sortOrder: true } });
       return nextAfter(_max.sortOrder);
@@ -150,6 +157,9 @@ export function serviceGroupRepo(client: DbClient): ServiceGroupRepo {
 export function serviceRepo(client: DbClient): ServiceRepo {
   return {
     find: (id) => client.service.findUnique({ where: { id } }),
+    async createMany(input) {
+      await client.service.createMany({ data: input.map(serviceData) });
+    },
     async nextSortOrder(groupId) {
       const { _max } = await client.service.aggregate({ _max: { sortOrder: true }, where: { groupId } });
       return nextAfter(_max.sortOrder);
@@ -175,11 +185,18 @@ export function skillGroupRepo(client: DbClient): SkillGroupRepo {
     find: (id) => client.skillGroup.findUnique({ where: { id } }),
     findWithSkills: (id) =>
       client.skillGroup.findUnique({ where: { id }, include: { skills: { orderBy: { sortOrder: "asc" } } } }),
+    listPublished: () =>
+      client.skillGroup.findMany({
+        where: { skills: { some: { published: true } } },
+        orderBy: { sortOrder: "asc" },
+        include: { skills: { where: { published: true }, orderBy: { sortOrder: "asc" } } },
+      }),
     listForAdmin: () =>
       client.skillGroup.findMany({
         orderBy: { sortOrder: "asc" },
         select: { id: true, key: true, label: true, skills: { select: { published: true }, orderBy: { sortOrder: "asc" } } },
       }),
+    count: () => client.skillGroup.count(),
     async nextSortOrder() {
       const { _max } = await client.skillGroup.aggregate({ _max: { sortOrder: true } });
       return nextAfter(_max.sortOrder);
@@ -203,6 +220,9 @@ export function skillGroupRepo(client: DbClient): SkillGroupRepo {
 export function skillRepo(client: DbClient): SkillRepo {
   return {
     find: (id) => client.skill.findUnique({ where: { id } }),
+    async createMany(input) {
+      await client.skill.createMany({ data: input.map(skillData) });
+    },
     async nextSortOrder(groupId) {
       const { _max } = await client.skill.aggregate({ _max: { sortOrder: true }, where: { groupId } });
       return nextAfter(_max.sortOrder);

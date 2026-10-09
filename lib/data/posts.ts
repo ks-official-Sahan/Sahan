@@ -55,6 +55,8 @@ export interface PublishedPostSummaryRow {
   contentText: string;
   topic: string;
   tags: string[];
+  /** Scheduled publication time; used as the effective publish date before cron promotion. */
+  publishAt: Date | null;
   publishedAt: Date | null;
   updatedAt: Date;
   readMinutes: number;
@@ -84,12 +86,15 @@ export interface AdminPostListRow {
 
 export interface PostRepo {
   /**
-   * Published posts, newest first, without bodies. Status is the only
-   * visibility gate: a SCHEDULED post stays hidden until something promotes
-   * it, never because its publishAt has passed.
+   * Public posts, newest first, without bodies. A scheduled post becomes
+   * visible at publishAt even if the promotion cron is delayed.
    */
   listPublished(): Promise<PublishedPostSummaryRow[]>;
-  /** One published post with its body. */
+  /** Bounded keyset page of public posts, ordered by effective publish time. */
+  listPublishedPage(take: number, after?: { publishedAt: Date; id: string }, indexableOnly?: boolean): Promise<PublishedPostSummaryRow[]>;
+  /** Count posts currently visible to the public, including scheduled rows whose time has arrived. */
+  countPublished(): Promise<number>;
+  /** One public post with its body. */
   findPublished(slug: string): Promise<PublishedPostRow | null>;
   find(id: string): Promise<PostRow | null>;
   findWithCoverUrl(id: string): Promise<(PostRow & { coverMedia: { url: string } | null }) | null>;

@@ -32,30 +32,22 @@ function redisDataKey(keyParts: string[]): string {
   return cacheKey(...keyParts).join(":");
 }
 
-function redisTagIndexKey(tag: string): string {
-  return `tagindex:${tag}`;
+function redisTagVersionKey(tag: string): string {
+  return `tagversion:${tag}`;
 }
 
-/** Best-effort: records that `dataKey` was cached under `tag`, for purging later. */
-async function addToTagIndex(tag: string, dataKey: string): Promise<void> {
-  const existing = (await kv.get<string[]>(redisTagIndexKey(tag))) ?? [];
-  if (existing.includes(dataKey)) return;
-  await kv.set(redisTagIndexKey(tag), [...existing, dataKey], {
-    ttlSeconds: REDIS_CACHE_CAP_SECONDS * 2,
-  });
+async function redisDataKeyFor(keyParts: string[], tags: string[]): Promise<string> {
+  const versions = await Promise.all(tags.map((tag) => kv.get<number>(redisTagVersionKey(tag)).catch(() => null)));
+  return redisDataKey([...keyParts, "tagversions", ...versions.map((version) => String(version ?? 0))]);
 }
 
 /**
- * Purges every Redis-cached key ever tagged `tag`. Called from
- * `invalidate()` so a publish clears this read-through layer too, not only
- * Next's own tag cache. Best-effort: a failure here just means the short
- * TTL above is the fallback.
+ * Advances the Redis cache generation for `tag`. Old values expire naturally
+ * under the short data TTL; no shared read/modify/write index can grow without
+ * bound or lose concurrent cache-key registrations.
  */
 export async function purgeRedisTag(tag: string): Promise<void> {
-  const indexKey = redisTagIndexKey(tag);
-  const keys = (await kv.get<string[]>(indexKey)) ?? [];
-  if (keys.length > 0) await kv.del(...keys);
-  await kv.del(indexKey);
+  await kv.incr(redisTagVersionKey(tag), REDIS_CACHE_CAP_SECONDS * 2);
 }
 
 /**
@@ -69,24 +61,21 @@ export function cached<Args extends unknown[], Result>(
   options: { tags: string[]; revalidate?: number | false }
 ): (...args: Args) => Promise<Result> {
   const revalidate = options.revalidate ?? DEFAULT_REVALIDATE_SECONDS;
-  const dataKey = redisDataKey(keyParts);
   const redisTtl = revalidate === false ? undefined : Math.min(revalidate, REDIS_CACHE_CAP_SECONDS);
 
   return unstable_cache(
     async (...args: Args) => {
       if (redisTtl) {
+        const dataKey = await redisDataKeyFor(keyParts, options.tags);
         const hit = await kv.get<Result>(dataKey).catch(() => null);
         if (hit !== null) return hit;
-      }
 
-      const result = await fn(...args);
-
-      if (redisTtl) {
+        const result = await fn(...args);
         await kv.set(dataKey, result, { ttlSeconds: redisTtl }).catch(() => {});
-        await Promise.all(options.tags.map((tag) => addToTagIndex(tag, dataKey).catch(() => {})));
+        return result;
       }
 
-      return result;
+      return fn(...args);
     },
     cacheKey(...keyParts),
     { tags: options.tags, revalidate }
