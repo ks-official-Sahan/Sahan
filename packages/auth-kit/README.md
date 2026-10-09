@@ -85,16 +85,12 @@ config object (`defineAuthKit`) instead of being hardcoded.
 npm install @sahan-sac/auth-kit next-auth@5.0.0-beta.32 next react
 ```
 
-This package is published under a **private, restricted** scope
-(`@sahan-sac`). Installing it requires:
+This package is published as a **public** scoped npm package. Install it
+without an npm token:
 
-1. A paid npm organization plan for `sahan-sac` (private scoped
-   packages are not available on npm's free tier).
-2. An npm auth token with read access to that org in your `.npmrc`:
-   ```
-   //registry.npmjs.org/:_authToken=${NPM_TOKEN}
-   @sahan-sac:registry=https://registry.npmjs.org/
-   ```
+```bash
+npm install @sahan-sac/auth-kit
+```
 
 ### Peer dependencies
 
@@ -109,8 +105,10 @@ This package is published under a **private, restricted** scope
 
 All are optional: install `next-auth` for the next-auth engine or
 `better-auth` for the Better Auth engine (never both), `drizzle-orm` only
-for the Drizzle adapter, and `hono` only for `./hono`. `react` is a peer because `createRbac` and `createAuthDal` use `react`'s
-`cache()` to memoize one database read per request/render.
+for the Drizzle adapter, and `hono` only for `./hono`. The pure `./rbac`
+entry has no React dependency and does not cache reads by default. React
+server applications can import `createReactRbac` from `./rbac/react` for
+request-scoped memoization. `./session` also uses React's request cache.
 
 ## Required environment variables
 
@@ -619,6 +617,8 @@ allowed, so a protected route cannot be told from a missing one.
 | `./hono` | Any server (hono) | `securityHeaders`, `originGuard`, `rateLimit`, `session`, `requirePermission`, `betterAuthRoute` |
 | `./better-auth` | Any server (Better Auth) | `authKit` plugin, `authKitEmailPassword`, `readBetterAuthSession`; on auth-kit's tables: `authKitSessions` plugin, `authKitDatabaseOptions`, `AUTH_KIT_DISABLED_PATHS`, `betterAuthSessionSource`, `signInRefusal`; types |
 | `./session` | Next.js (`next/navigation`, `next/server`) | `createAuthDal`, `createSessionStore`, `createSessionReader`, `evaluateSession`, `passwordFingerprint`, types |
+| `./rbac/react` | React server runtime | `createReactRbac`, which provides request-scoped memoization for `createRbac` |
+| `./next-auth-types` | TypeScript / Auth.js | Explicit opt-in to `Session`, `User`, and JWT augmentation; the runtime entry is empty |
 | `./security` | Mixed — `request-device` needs `next/headers` | `clientIp`, allowlist functions, `isAllowedOrigin`/`parseOriginList`, `buildCsp`/`generateNonce`, `SECURITY_HEADERS`, `isScannerPath`, `checkOrigin`, `requestDetails` |
 | `./cache` | Server (any runtime) | `MemoryKv`, `createRateLimit`/`MemoryLimiter`/`UpstashLimiter`, `RedisKv`/`getRedis`/`getKv`/`kv` |
 | `./unlock-request` | `next/headers` | `hasValidUnlock` |
@@ -629,10 +629,14 @@ Only `.` (root), `./kit`, `./rbac`, `./mfa`, `./adapter`, `./credentials`,
 `./password*`, `./invite-token`, `./login-unlock`, `./safe-callback-url`,
 `./constants`, `./bootstrap`, `./audit-event`, `./authorize` are
 safe to import from a Client Component or a plain (non-Next.js) test runner
-— `./session`, `./security` (specifically `request-device`), `./cache` and
+— `./session`, `./rbac/react`, `./security` (specifically `request-device`), `./cache` and
 `./unlock-request` are Next.js/server-only and must stay at their subpath.
 No entry except the engine subpaths imports `next-auth` or `better-auth`, so
 an app installs only the engine it uses (a package test enforces this).
+
+In an Auth.js project, add `import "@sahan-sac/auth-kit/next-auth-types"`
+to the module that configures Auth.js. This loads the package's published
+ambient declaration and is safe at runtime.
 
 ## Security checklist for production
 

@@ -26,12 +26,5 @@ export * from "./kit";
 export * from "./mfa";
 export * from "./rbac";
 
-// Note on next-auth.d.ts: it augments `next-auth`'s `Session`/`User` and
-// `@auth/core/jwt`'s `JWT` ambiently (`declare module`), and is deliberately
-// NOT imported from here — a `.d.ts` file has no runtime module to import,
-// so a side-effect `import "./next-auth"` would compile but fail to resolve
-// at actual runtime. Instead it just needs to be part of a consuming
-// project's TypeScript `include` (a workspace consumer that globs
-// `packages/*/src/**/*.ts`, as this repo's app does, already gets it for
-// free); see the README's "TypeScript augmentation" note for the published
-// package.
+// Auth.js type augmentation is exposed at the explicit `./next-auth-types`
+// subpath so npm consumers can opt into it without widening this root's peers.

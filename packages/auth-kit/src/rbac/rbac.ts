@@ -1,5 +1,3 @@
-import { cache } from "react";
-
 import type { AuthDbAdapter } from "../adapter";
 import type { AuditEvent } from "../audit-event";
 import type { Kv } from "../cache/memory";
@@ -14,19 +12,27 @@ import { can as canWith, defaultMatrix, matrixFromRows, matrixToRows, type Matri
 
 const TTL_SECONDS = 60;
 
-export function createRbac<TRole extends string, TPermission extends string>(deps: {
+/** A request-scoped async cache adapter. The framework-neutral default is uncached. */
+export type RbacCache = <TArgs extends unknown[], TResult>(
+  fn: (...args: TArgs) => Promise<TResult>
+) => (...args: TArgs) => Promise<TResult>;
+
+const noCache: RbacCache = (fn) => fn;
+
+export interface RbacDependencies<TRole extends string, TPermission extends string> {
   adapter: AuthDbAdapter;
   kv: Kv;
   kit: Pick<ResolvedAuthKit<TRole, TPermission>, "roles" | "permissions" | "superRole" | "neverGrantable" | "defaultGrants" | "fixedGrants" | "keyPrefix">;
   /** Runs the app's real audit() inside the same transaction the adapter opened. */
   writeAudit: (event: AuditEvent, tx: unknown) => Promise<void>;
-  /**
-   * Runtime roles (the `roles` table): every role name, cached by the app.
-   * Left out, the matrix covers `kit.roles` only.
-   */
+  /** Optional request cache. Use `@sahan-sac/auth-kit/rbac/react` in React server runtimes. */
+  cache?: RbacCache;
   loadRoles?: () => Promise<readonly TRole[]>;
-}) {
+}
+
+export function createRbac<TRole extends string, TPermission extends string>(deps: RbacDependencies<TRole, TPermission>) {
   const { adapter, kv, kit, writeAudit } = deps;
+  const cache = deps.cache ?? noCache;
   const key = `${kit.keyPrefix}rbac:v1`;
 
   /** The kit with the current role list; the super role is always in it. */

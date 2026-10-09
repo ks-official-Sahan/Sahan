@@ -10,6 +10,7 @@
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
+    "verify:packages": "node scripts/verify-package-artifacts.mjs",
     "postinstall": "prisma generate",
     "test": "node --conditions=react-server --import tsx --test \"lib/**/*.test.ts\"",
     "db:generate": "prisma generate",

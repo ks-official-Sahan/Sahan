@@ -47,8 +47,8 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Test and build packages
-        run: pnpm --filter "./packages/*" run test && pnpm --filter "./packages/*" run build
+      - name: Verify packed package artifacts
+        run: npm run verify:packages
 
       - name: Version PR or publish
         uses: changesets/action@v1

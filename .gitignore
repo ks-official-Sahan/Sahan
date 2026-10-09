@@ -36,6 +36,9 @@ yarn-error.log*
 next-env.d.ts
 
 **/node_modules
+**/.prisma-test/
+# scripts/verify-package-artifacts.mjs scratch (removed on exit)
+.tmp-package-artifacts-*/
 # packages/auth-kit/node_modules
 # Package build output (published from CI)
 packages/*/dist

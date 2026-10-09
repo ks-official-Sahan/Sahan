@@ -1,6 +1,6 @@
 {
   "name": "@sahan-sac/auth-kit",
-  "version": "0.9.0",
+  "version": "0.10.0",
   "description": "Framework-agnostic core for a Next.js + Auth.js admin auth system: JWT-over-DB-session auth, RBAC, emailed-OTP MFA, hidden-login unlock gate, IP allowlist, CSRF/origin checks, CSP nonces and rate limits, generic over your own role/permission catalogue.",
   "license": "Apache-2.0",
   "repository": {
@@ -31,6 +31,7 @@
     "./session": "./src/session/index.ts",
     "./session/core": "./src/session/core.ts",
     "./rbac": "./src/rbac/index.ts",
+    "./rbac/react": "./src/rbac/react.ts",
     "./rbac/rules": "./src/rbac/rules.ts",
     "./rbac/roles": "./src/rbac/roles.ts",
     "./rbac/mask": "./src/rbac/mask.ts",
@@ -52,6 +53,7 @@
     "./constants": "./src/constants.ts",
     "./login-unlock": "./src/login-unlock.ts",
     "./unlock-request": "./src/unlock-request.ts",
+    "./next-auth-types": "./src/next-auth-types.ts",
     "./security/ip": "./src/security/ip.ts",
     "./security/allowlist": "./src/security/allowlist.ts",
     "./security/origin": "./src/security/origin.ts",
@@ -72,7 +74,7 @@
     "auth-kit": "./bin/auth-kit.mjs"
   },
   "scripts": {
-    "build": "tsup",
+    "build": "tsup && node scripts/copy-next-auth-types.mjs",
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.build.json",
     "test": "node --conditions=react-server --import tsx --test \"src/**/*.test.ts\"",
     "prepack": "npm run build && npm run test"
@@ -210,6 +212,11 @@
         "import": "./dist/rbac/index.js",
         "default": "./dist/rbac/index.js"
       },
+      "./rbac/react": {
+        "types": "./dist/rbac/react.d.ts",
+        "import": "./dist/rbac/react.js",
+        "default": "./dist/rbac/react.js"
+      },
       "./rbac/rules": {
         "types": "./dist/rbac/rules.d.ts",
         "import": "./dist/rbac/rules.js",
@@ -306,6 +313,11 @@
         "types": "./dist/unlock-request.d.ts",
         "import": "./dist/unlock-request.js",
         "default": "./dist/unlock-request.js"
+      },
+      "./next-auth-types": {
+        "types": "./dist/next-auth-types.d.ts",
+        "import": "./dist/next-auth-types.js",
+        "default": "./dist/next-auth-types.js"
       },
       "./security/ip": {
         "types": "./dist/security/ip.d.ts",

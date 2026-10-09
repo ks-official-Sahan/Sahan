@@ -2,6 +2,12 @@
 
 All notable changes to this package are documented in this file.
 
+## 0.10.0
+
+### Minor Changes
+
+- Split React request caching from the framework-neutral RBAC entry point and publish an explicit Auth.js type augmentation subpath.
+
 ## 0.9.0
 
 ### Minor Changes

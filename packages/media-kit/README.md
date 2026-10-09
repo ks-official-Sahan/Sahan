@@ -39,13 +39,15 @@ const schema = z.object({ ...mediaEnvSchema.shape, DATABASE_URL: z.string() });
 ```ts
 import { mediaEnvFromProcess } from "@sahan-sac/media-kit/env";
 import { CloudinaryClient, cloudinaryConfigFromEnv } from "@sahan-sac/media-kit/cloudinary";
-import { log } from "@/lib/log"; // any logger with a warn(message, meta) shape
 
 const env = mediaEnvFromProcess();
 const config = cloudinaryConfigFromEnv(env);
 
 export const cloudinary = config
-  ? new CloudinaryClient({ ...config, onWarn: (message, meta) => log.warn(message, meta) })
+  ? new CloudinaryClient({
+      ...config,
+      onWarn: (message, meta) => console.warn(message, meta),
+    })
   : null;
 ```
 
