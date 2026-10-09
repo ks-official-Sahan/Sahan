@@ -1,5 +1,0 @@
----
-"@sahan-sac/ai-core": minor
----
-
-Provider registry and more providers. New `@sahan-sac/ai-core/adapters`: each provider is an adapter with its own env guard and paid flag (`BUILTIN_ADAPTERS`), and `realProviders` builds the chain from it. Added OpenAI, Anthropic (Messages API over REST), DeepSeek, xAI, Perplexity and one custom OpenAI-compatible endpoint (`AI_CUSTOM_*`), all paid and gated by `AI_ALLOW_PAID` (the custom one unless `AI_CUSTOM_FREE`). `AI_PROVIDER_ORDER`, `AI_PROVIDER_ORDER_BLOG` and `AI_PROVIDER_ORDER_CHAT` choose which providers run and in what order; an explicit order is kept as given (`AiProvider.priority`), while cooling providers still drop behind healthy ones. `providerStatuses` explains each adapter's place for health screens, `textAiConfigured(env, purpose?)` checks one purpose's chain, and apps can pass their own adapters to `realProviders`. New factories `openAiCompatibleProvider` and `anthropicProvider`. Existing variables and `realProviders(env, purpose, fetch?)` work as before.

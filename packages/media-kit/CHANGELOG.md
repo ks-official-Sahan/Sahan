@@ -1,5 +1,11 @@
 # @sahan-sac/media-kit
 
+## 0.2.1
+
+### Patch Changes
+
+- 5e7f3cb: The build shares modules between subpaths (code splitting) instead of copying them into each one. Before, a class imported from two subpaths was two different classes, so `instanceof` failed (for example `EmailGuardError` from `@sahan-sac/email-kit/guards` against an error thrown through `./layout`), and module-level state such as caches existed once per subpath.
+
 ## 0.2.0
 
 ### Minor Changes

@@ -1,6 +1,6 @@
 {
   "name": "@sahan-sac/email-kit",
-  "version": "0.0.0",
+  "version": "0.2.0",
   "description": "Transactional email for server apps: Resend and SMTP (Brevo) providers with ordered fallback, a capture provider for tests, header-injection and address guards, a typed env schema, provider health, Brevo delivery diagnostics, and one escaped HTML/text layout with redacted copies for CC. Framework-agnostic; templates and audit storage stay in the app.",
   "license": "Apache-2.0",
   "repository": {

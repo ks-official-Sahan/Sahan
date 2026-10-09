@@ -1,6 +1,6 @@
 {
   "name": "@sahan-sac/media-kit",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Headless Cloudinary media layer: config, upload/format validation, HMAC URL and upload signing, delivery URL transforms, a browser upload client, and a typed CloudinaryClient. Framework-agnostic; the DB-backed service and audit trail stay in the app.",
   "license": "Apache-2.0",
   "repository": {

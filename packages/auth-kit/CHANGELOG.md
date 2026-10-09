@@ -2,6 +2,49 @@
 
 All notable changes to this package are documented in this file.
 
+## 0.8.0
+
+### Minor Changes
+
+- Step-up codes: the `STEP_UP` MFA purpose confirms one sensitive action, and `signStepUp`/`readStepUp` (`./mfa`) bind an emailed code to that action and user with a signed ticket. `renderMfaCode` now receives the `purpose`, so the code email can say what it is for. `upgrade.sql` adds the enum value, and `auth-kit doctor` also checks `users.masked`, `audit_logs.actorRole` and `STEP_UP`. Run `npx auth-kit db upgrade --apply`.
+
+## 0.7.0
+
+### Minor Changes
+
+- 6888284: `authKitSessions` and `createAuthKitBetterAuth` take `revokeSession`; with it, `authKitClearSession` revokes the session it clears, so a browser or native client signing out over HTTP leaves no live row behind. The `./engines/better-auth` engine wires it to the session store.
+- dfea086: The root entry no longer loads an auth engine. `createAuthConfig`, `InvalidLogin`, `LimitedLogin` and `MfaLogin` are no longer exported from `@sahan-sac/auth-kit`; import them from `@sahan-sac/auth-kit/next-auth` instead. An app on Better Auth can now import the root without `next-auth` installed, and a test keeps every non-engine entry free of both engines.
+  
+  A configured Redis that errors or times out no longer fails the request. `getKv()` wraps it in the new `FailoverKv`, which serves from memory for 30 seconds and then tries Redis again. `kvBackend()` reports `"upstash-degraded"` while that happens. `FailoverKv` and `withTimeout` are exported from `./cache/memory` for apps that build their own key-value store.
+- 1636d39: One engine contract, one import to switch. `./engines/next-auth` and `./engines/better-auth` each export `createAuthEngine(options)`, which takes the same options (`signIn` deps, `database`, cookie name, paths, origins) and returns the same `AuthEngine` (`sessionSource`, `checkPasswordFingerprint`, `signIn`, `signOut`, `keepSessionAfterPasswordChange`). `./engines/<engine>/cookie` exports `createSessionCookieCheck` for the proxy without loading the engine. An app imports one engine and installs only that engine's package. next-auth reads `AUTH_TRUST_HOST`/`AUTH_DEBUG` itself, and both engines answer 404 on the auth catch-all, so routes and env need no change on a switch.
+  
+  Better Auth now takes `database: { prisma }`, `{ drizzle }` (on a node-postgres or Neon Pool) or `{ pool }`. Drizzle and plain-SQL apps go through Better Auth's built-in SQL path, so they install no ORM adapter. `createAuthKitBetterAuth` builds the same instance without Next.js (for Hono).
+  
+  **Session tokens are hashed.** `user_sessions.token` stores the SHA-256 of the cookie token, never the token, so a leaked row cannot be replayed (`withHashedSessionTokens`, `hashSessionToken`). Existing Better Auth sessions sign in once more.
+  
+  **One database upgrade.** `prisma/upgrade.sql` (replacing `roles-table.sql`) brings any older database to the current schema: shared session columns, hashed tokens (ending sessions that still store a raw one), and the `roles` table. It is idempotent and works on one schema.
+  
+  **CLI.** `npx auth-kit doctor` checks the engine, env and schema. `auth-kit db upgrade [--apply] [--schema]` prints or runs the upgrade. `auth-kit engine <next-auth|better-auth> [--write]` rewrites the engine imports and prints the dependency swap. `pg` is an optional peer, used only by the CLI.
+- c085402: Runtime roles. Roles are rows in a new `roles` table (`name`, `label`, `description`, `rank`, `system`) instead of the Postgres enum `Role`, so an admin can add roles without a deploy; `users.role`, `role_permissions.role` and `auth_tokens.role` are text with foreign keys to it (restrict, cascade and set null on delete). `createAuthSchema` returns `roles` instead of `roleEnum`, and its `roles` option only types the columns now. `createRbac` takes `loadRoles` so the matrix covers stored roles, and a role the matrix does not know holds nothing. New `./rbac/roles`: `createRoleCatalog` (rank hierarchy: `canManage`, `assignable`) and `checkRoleInput`. **Upgrade:** run `npx auth-kit db upgrade --apply` (or `@sahan-sac/auth-kit/prisma/upgrade.sql`) once before deploying; it converts the enum in place, keeps every row, and is safe to rerun.
+- 71cb8d9: New `@sahan-sac/auth-kit/short-link-path`: the short-link shapes, `parseShortLink`, `shortLinkTarget` and the path builders without `node:crypto`, for React Native and edge runtimes. `./short-link` re-exports them, so existing imports are unchanged.
+- 38aa0d1: Add a built-in SUPER_ADMIN role and opt-in masking of the super role.
+  
+  - `defineAuthKit({ fixedGrants })`: roles whose permissions are fixed in code, like the super role. Stored rows and matrix edits never change them, and `isFixedRole` tells them apart.
+  - `SUPER_ADMIN_ROLE` (`./rbac/roles`): the built-in rank 5 row, managed and assigned only by the super role.
+  - `./rbac/mask`: `createMask` shows super-role accounts to other viewers as another role, globally or per account. Presentation only: authorization keeps the real role.
+  - `AuditEvent.actor.role` and the `audit_logs.actorRole` column snapshot the actor's role. `users.masked` stores the per-account mask. `upgrade.sql` adds both columns and fills `actorRole` on older rows from the actor's current role. Run `npx auth-kit db upgrade --apply`.
+
+### Patch Changes
+
+- 5e7f3cb: The build shares modules between subpaths (code splitting) instead of copying them into each one. Before, a class imported from two subpaths was two different classes, so `instanceof` failed (for example `EmailGuardError` from `@sahan-sac/email-kit/guards` against an error thrown through `./layout`), and module-level state such as caches existed once per subpath.
+
+## 0.6.0
+
+### Minor Changes
+
+- c01d431: The session store adds `revokeSessions(ids, by)`: ends a chosen set of sessions in one write and one cache delete, for a bulk "end selected" on an admin screen. Sessions that already ended are left as they were.
+- a1718a9: Shorter auth links. `createToken` now makes 34-character invite and reset tokens (128 random bits and a 64-bit tag) instead of 66; `verifyTokenTag` accepts both forms, so links already sent keep working until they expire. New `signSignInLink`, `verifySignInLink` and `signInLinkDays` (with `SIGN_IN_LINK_DEFAULT_DAYS` and `SIGN_IN_LINK_MAX_DAYS`) make a short, expiring code that unlocks the hidden login page like `?secret=` does, without the secret in a URL. Rotating either secret ends every code. New `@sahan-sac/auth-kit/short-link` packages the short links themselves: `parseShortLink`, `accountLinkPath`/`emailLinkPath`/`signInLinkPath` (`/a/<token>`, `/e/<token>`, `/s/<code>[/<admin path>]`), `shortLinkTarget`, and `resolveShortLink`, a framework-agnostic decision (redirect, with or without the unlock cookie, or the ordinary 404) a proxy answers with no database read.
+
 ## 0.5.0
 
 ### Minor Changes

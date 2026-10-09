@@ -1,6 +1,6 @@
 {
   "name": "@sahan-sac/blog-kit",
-  "version": "0.2.0",
+  "version": "0.3.1",
   "description": "Headless AI blog toolkit on @sahan-sac/ai-core: full-post generation with a JSON schema and repair pass, SEO suggestions, draft and cover helpers, AI image generation through an ImageSink port, plus pure blog utilities (slugs, Markdown and HTML conversion, charts, read time, revisions, drafts). No database, no framework.",
   "license": "Apache-2.0",
   "repository": {

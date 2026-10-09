@@ -1,6 +1,6 @@
 {
   "name": "@sahan-sac/chat-kit",
-  "version": "0.2.0",
+  "version": "0.3.1",
   "description": "Headless chatbot core for the portfolio site: guarded prompt building, prompt-injection and output-link guards, an anonymous-visitor rate-limit cookie, a knowledge-base builder that tolerates a failing source, and runChat, the pure request/response path behind /api/chat. Depends on @sahan-sac/ai-core; never on @sahan-sac/blog-kit or @sahan-sac/media-kit.",
   "license": "Apache-2.0",
   "repository": {

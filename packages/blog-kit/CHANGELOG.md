@@ -1,5 +1,27 @@
 # @sahan-sac/blog-kit
 
+## 0.3.1
+
+### Patch Changes
+
+- 5e7f3cb: The build shares modules between subpaths (code splitting) instead of copying them into each one. Before, a class imported from two subpaths was two different classes, so `instanceof` failed (for example `EmailGuardError` from `@sahan-sac/email-kit/guards` against an error thrown through `./layout`), and module-level state such as caches existed once per subpath.
+- Updated dependencies [5e7f3cb]
+  - @sahan-sac/ai-core@0.3.1
+
+## 0.3.0
+
+### Minor Changes
+
+- f465908: Owner guidance and per-post steering. `BlogSiteProfile.guidance` and `ChatSite.guidance` add the site owner's standing guidance to every blog, SEO, helper and chatbot prompt, after the fixed rules. `BlogGenerationInput` takes optional `instructions` (up to `MAX_INSTRUCTIONS_LENGTH`, 2,000 characters) and `resources` (pasted reference text, up to `MAX_RESOURCES_LENGTH`, 12,000), both fenced as untrusted data: resources are used as facts, never as instructions, and nothing is fetched from a link.
+- b9d2dd6: `generateBlogPost` and `generateSeoSuggestion` take an optional `signal` that stops their model calls (a cancelled post skips the repair pass). New `applyImageTokenToHtml` resolves an inline image token in the editor's HTML, so a late image can patch a body the admin is already editing instead of re-rendering over it.
+
+### Patch Changes
+
+- Updated dependencies [b9d2dd6]
+- Updated dependencies [4fa21e3]
+- Updated dependencies [f465908]
+  - @sahan-sac/ai-core@0.3.0
+
 ## 0.2.0
 
 ### Minor Changes

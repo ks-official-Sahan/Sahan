@@ -1,6 +1,6 @@
 {
   "name": "@sahan-sac/ai-core",
-  "version": "0.2.0",
+  "version": "0.3.1",
   "description": "Free-by-default AI provider chain with fallback (chain of responsibility over provider adapters: Gemini, OpenRouter, NVIDIA, OpenAI, Anthropic, DeepSeek, xAI, Perplexity, any OpenAI-compatible endpoint, Vertex), env-configurable order, hedging, cooldowns and deadlines, image generation and prompt-injection guards. Shared by @sahan-sac/blog-kit and @sahan-sac/chat-kit.",
   "license": "Apache-2.0",
   "repository": {
