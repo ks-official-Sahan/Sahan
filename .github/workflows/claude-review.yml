@@ -43,7 +43,7 @@ jobs:
 
           # Caveman/token-efficiency instructions
           claude_args: |
-            --model claude-sonnet-5
+            --model claude-haiku-5-5
             --effort medium
             --append-system-prompt "Caveman skill active: high-signal, objective, concise. Skip boilerplate and praise. One actionable finding per line. Save tokens aggressively — omit low-value commentary."
 
