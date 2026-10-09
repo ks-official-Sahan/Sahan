@@ -420,6 +420,17 @@ ignores stored rows for a fixed role, `matrixToRows` stores none and
 `validateMatrix` refuses anything outside its list, so no matrix edit widens
 or narrows it.
 
+### Step-up codes
+
+An emailed code with purpose `STEP_UP` confirms one sensitive action. Issue
+it with `issueChallenge({ ..., purpose: "STEP_UP" })`, then hand the browser
+`signStepUp(secret, userId, { challengeId, action })` instead of the bare
+challenge id. When the code comes back, `readStepUp(secret, userId, ticket)`
+returns the challenge and the action it was signed for (null if the ticket was
+altered or belongs to someone else); verify and consume the code, then do that
+action and nothing else. `renderMfaCode` receives the `purpose`, so the
+email can say what the code is for.
+
 ### Masking the super role
 
 `createMask({ superRole, maskAs }, { global, users })` from `./rbac/mask`

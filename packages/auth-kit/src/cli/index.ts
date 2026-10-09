@@ -115,9 +115,12 @@ async function doctor(root: string, schema: string | null): Promise<number> {
           EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = 'users' AND column_name = 'emailVerified') AS "emailVerified",
           EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = 'user_sessions' AND column_name = 'token') AS "token",
           EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = current_schema() AND table_name = 'roles') AS "roles",
+          EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = 'users' AND column_name = 'masked') AS "masked",
+          EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = 'audit_logs' AND column_name = 'actorRole') AS "actorRole",
+          EXISTS (SELECT 1 FROM pg_enum e JOIN pg_type t ON t.oid = e.enumtypid JOIN pg_namespace n ON n.oid = t.typnamespace WHERE t.typname = 'MfaPurpose' AND n.nspname = current_schema() AND e.enumlabel = 'STEP_UP') AS "stepUp",
           EXISTS (SELECT 1 FROM pg_type t JOIN pg_namespace n ON n.oid = t.typnamespace WHERE t.typname = 'Role' AND n.nspname = current_schema()) AS "roleEnum"`);
       const state = rows[0] as Record<string, boolean>;
-      const behind = !state.emailVerified || !state.token || !state.roles || state.roleEnum;
+      const behind = !state.emailVerified || !state.token || !state.roles || state.roleEnum || !state.masked || !state.actorRole || !state.stepUp;
       if (!behind && state.token) {
         const raw = await db.query(`SELECT count(*)::int AS n FROM user_sessions WHERE token IS NOT NULL AND token !~ '^[A-Za-z0-9_-]{43}$'`);
         if ((raw.rows[0] as { n: number }).n > 0) say(false, "Some sessions still store a raw token. Run: auth-kit db upgrade --apply");

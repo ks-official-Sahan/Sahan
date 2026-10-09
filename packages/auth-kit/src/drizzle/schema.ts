@@ -52,7 +52,7 @@ export function createAuthSchema<TRole extends string = string>(options: AuthSch
     },
     (t) => [index("roles_rank_idx").on(t.rank)]
   );
-  const mfaPurposeEnum = pgEnum("MfaPurpose", ["SIGN_IN", "ENABLE", "DISABLE"]);
+  const mfaPurposeEnum = pgEnum("MfaPurpose", ["SIGN_IN", "ENABLE", "DISABLE", "STEP_UP"]);
   const tokenPurposeEnum = pgEnum("TokenPurpose", ["INVITE", "PASSWORD_RESET", "EMAIL_CHANGE"]);
 
   const users = pgTable(

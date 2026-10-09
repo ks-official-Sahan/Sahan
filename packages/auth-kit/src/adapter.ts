@@ -11,7 +11,8 @@
  * just a `string` the adapter's own database enforces the shape of.
  */
 export type RoleName = string;
-export type MfaPurpose = "SIGN_IN" | "ENABLE" | "DISABLE";
+/** STEP_UP: a code that confirms one sensitive action (see ./mfa/step-up). */
+export type MfaPurpose = "SIGN_IN" | "ENABLE" | "DISABLE" | "STEP_UP";
 
 export interface AdapterAuthUser {
   id: string;

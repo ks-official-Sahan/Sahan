@@ -83,3 +83,15 @@ ALTER TABLE "audit_logs" ADD COLUMN IF NOT EXISTS "actorRole" TEXT;
 UPDATE "audit_logs" a SET "actorRole" = u."role"
 FROM "users" u
 WHERE a."actorId" = u."id" AND a."actorRole" IS NULL;
+
+-- 5. auth-kit 0.8: step-up codes. An emailed code with purpose STEP_UP
+--    confirms one sensitive action (./mfa signStepUp). Needs Postgres 12+.
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_type t JOIN pg_namespace n ON n.oid = t.typnamespace
+    WHERE t.typname = 'MfaPurpose' AND n.nspname = current_schema()
+  ) THEN
+    EXECUTE format('ALTER TYPE %I.%I ADD VALUE IF NOT EXISTS %L', current_schema(), 'MfaPurpose', 'STEP_UP');
+  END IF;
+END $$;
