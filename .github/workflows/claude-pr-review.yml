@@ -14,8 +14,8 @@ name: Claude PR review
 #              finish are retried by an automatic follow-up run (up to CLAUDE_REVIEW_MAX_CONTINUATIONS, default 7).
 #
 # State lives in a hidden marker on one status comment (github-actions[bot]): the last fully reviewed commit, and for
-# an unfinished review the files already reviewed (gzip + base64). Scripts run from the default branch's checkout
-# (github.sha), never from the pull request being reviewed.
+# an unfinished review the files already reviewed (gzip + base64). Scripts are checked out from the default branch,
+# never from the pull request being reviewed.
 #
 # Repository variables (all optional): CLAUDE_REVIEW_MODEL, CLAUDE_REVIEW_PARALLEL, CLAUDE_REVIEW_BATCH_FILES,
 # CLAUDE_REVIEW_BATCH_LINES, CLAUDE_REVIEW_MAX_TURNS, CLAUDE_REVIEW_MAX_INLINE, CLAUDE_REVIEW_MAX_CONTINUATIONS,
@@ -60,6 +60,7 @@ jobs:
       skip: ${{ steps.plan.outputs.skip }}
       batch_count: ${{ steps.plan.outputs.batch_count }}
       matrix: ${{ steps.plan.outputs.matrix }}
+      head_sha: ${{ steps.plan.outputs.head_sha }}
       status_id: ${{ steps.status.outputs.id }}
     env:
       GH_TOKEN: ${{ github.token }}
@@ -78,7 +79,8 @@ jobs:
       - name: Checkout review scripts (default branch)
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.sha }}
+          # Not github.sha: for review and review-comment events that is the PR merge commit.
+          ref: ${{ github.event.repository.default_branch }}
           path: trusted
           sparse-checkout: .github/claude-review
           persist-credentials: false
@@ -187,10 +189,11 @@ jobs:
       matrix:
         batch: ${{ fromJSON(needs.plan.outputs.matrix) }}
     steps:
-      - name: Checkout pull request head
+      - name: Checkout the planned head commit
         uses: actions/checkout@v4
         with:
-          ref: refs/pull/${{ inputs.pr }}/head
+          # The commit plan reviewed, not the moving PR ref: a push mid-review must not shift the lines.
+          ref: ${{ needs.plan.outputs.head_sha }}
           fetch-depth: 0
           persist-credentials: false
 
@@ -328,7 +331,8 @@ jobs:
       - name: Checkout review scripts (default branch)
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.sha }}
+          # Not github.sha: for review and review-comment events that is the PR merge commit.
+          ref: ${{ github.event.repository.default_branch }}
           path: trusted
           sparse-checkout: .github/claude-review
           persist-credentials: false
@@ -382,11 +386,17 @@ jobs:
           STATUS_ID: ${{ needs.plan.outputs.status_id }}
           POST_OUTCOME: ${{ steps.post.outcome }}
           OUT: ${{ runner.temp }}/out
+          PLAN_DIR: ${{ runner.temp }}/plan
         run: |
           set -euo pipefail
           BODY="$(cat "$OUT/banner.md")"
-          [ "$POST_OUTCOME" != failure ] || BODY="⚠️ **The review could not be posted** ([view run](${RUN_URL})). Progress is kept; comment \`@claude-code review\` to try again."
-          BODY="$BODY"$'\n\n'"${STATE_MARK} $(cat "$OUT/state.json") -->"
+          STATE=$(cat "$OUT/state.json")
+          if [ "$POST_OUTCOME" = failure ]; then
+            # Nothing from this run reached the PR, so keep the state from before it: its files get reviewed again.
+            BODY="⚠️ **The review could not be posted** ([view run](${RUN_URL})). Nothing from this run was saved; comment \`@claude-code review\` to try again."
+            STATE=$(jq -c '.state // {}' "$PLAN_DIR/plan.json")
+          fi
+          BODY="$BODY"$'\n\n'"${STATE_MARK} ${STATE} -->"
           if [ -z "$STATUS_ID" ] || ! gh api -X PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$STATUS_ID" -f body="$BODY" > /dev/null; then
             gh api "repos/$GITHUB_REPOSITORY/issues/$PR/comments" -f body="$BODY" > /dev/null
           fi

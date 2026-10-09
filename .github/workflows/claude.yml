@@ -35,7 +35,7 @@ name: Claude
 #   * Only OWNER / MEMBER / COLLABORATOR can trigger anything. Fork PRs and Dependabot never get an automatic
 #     review (no secrets); a maintainer can still ask for one with "@claude-code review".
 #   * Everything that touches the PR checkout is read-only, and no script is ever executed from the checkout:
-#     the review scripts (.github/claude-review/*.py) are checked out from the default branch (github.sha), and
+#     the review scripts (.github/claude-review/*.py) are checked out from the default branch, and
 #     the Claude batch runs have read-only tools and a read-only token; only the summarize job posts.
 #   * Why the concurrency group is on the job and not the workflow: workflow-level concurrency is applied when a run
 #     is queued, before any `if:` is evaluated. Every comment on a PR (the status comment, each inline
