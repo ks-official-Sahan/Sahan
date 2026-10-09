@@ -14,6 +14,7 @@ name: Claude
 #                     400 characters) is passed along as extra focus, e.g. "@claude-code review focus on caching".
 #   Follow-ups        Comment "@claude-code review" again anytime to review new commits incrementally from
 #                     the last reviewed commit. Reviews will NOT run automatically on push.
+#   Full review       "@claude-code review full" ignores earlier progress and reviews the whole pull request.
 #   Manual            gh workflow run claude.yml -f pr_number=123
 #   Anything else     "@claude-code <task>" on an issue or PR runs the generic assistant.
 #
