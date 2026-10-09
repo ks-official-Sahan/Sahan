@@ -431,19 +431,6 @@ altered or belongs to someone else); verify and consume the code, then do that
 action and nothing else. `renderMfaCode` receives the `purpose`, so the
 email can say what the code is for.
 
-### Masking the super role
-
-`createMask({ superRole, maskAs }, { global, users })` from `./rbac/mask`
-shows super-role accounts to everyone else as `maskAs` (for example
-SUPER_ADMIN): globally, or per account through `users.masked`. It is opt-in
-and presentation only. Every authorization check keeps the real role; run what
-you send to a viewer through `present`, `visibleRoles`, `presentCounts` and
-`canSeeAuditBy` on the server. The super role sees through every mask.
-`audit_logs.actorRole` keeps the actor's role at the time
-(`AuditEvent.actor.role`), so `canSeeAuditBy` hides rows written by the super
-role even after a role change. Tell your client in the contract that their
-developers' accounts can appear under another role, and audit every toggle.
-
 Upgrading from the `Role` enum (before 0.7): `npx auth-kit db upgrade --apply`
 (see "Upgrading the database"). It creates `roles` from the enum values
 (ranked 0, 10, 20 in enum order, so the first must be your super role), turns
@@ -622,7 +609,6 @@ allowed, so a protected route cannot be told from a missing one.
 | `.` (root) | Pure/universal | `defineAuthKit`, `AuthDbAdapter` types, `AuditEvent`, `createAuthorize`/`AuthorizeDeps`/`AuthorizeResult`, `ensureBootstrapOwner`, `resolveCookieName`, `SESSION_MAX_AGE_SECONDS`, `verifyCredentials`/`CredentialDeps`, `createToken`/`verifyTokenTag`/`tokenState` (invite/reset links), `signUnlockCookie`/`verifyUnlockCookie`/`isUnlockSecret`/`unlockKeysFromEnv`/`unlockCookieOptions`/`constantTimeEqual`, `hashPassword`/`verifyPassword`, `checkPassword`, `safeCallbackUrl`, `createMfa`, RBAC generics (`isPermission`/`isRole`/`defaultPermissionsFor`/`canBeGranted`/`matrixFromRows`/`defaultMatrix`/`matrixToRows`/`can`/`diffMatrix`/`validateMatrix`/`createRbac`) |
 | `./rbac/rules` | Pure/universal (no React) | `can`, `defaultMatrix`, `matrixFromRows`, `matrixToRows`, `diffMatrix`, `validateMatrix` |
 | `./rbac/roles` | Pure/universal (no React) | `createRoleCatalog`, `checkRoleInput`, `RoleRecord`, `SUPER_ADMIN_ROLE`, `ROLE_NAME_PATTERN`, `MAX_ROLE_RANK` |
-| `./rbac/mask` | Pure/universal (no React) | `createMask`, `Mask`, `MaskState` |
 | `./kit` | Pure/universal | `defineAuthKit` and its types (also at root) |
 | `./authorize` | Pure/universal | `createAuthorize` — the credentials/MFA decision, without the next-auth error-throwing wrapper |
 | `./engines/next-auth`, `./engines/better-auth` | Next.js + that engine | `createAuthEngine(options)`: the same options and the same `AuthEngine` shape on both |

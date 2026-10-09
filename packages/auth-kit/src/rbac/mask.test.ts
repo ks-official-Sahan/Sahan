@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { createMask } from "./mask";
+import { createMask, presentationModeOn } from "./mask";
 
 type Role = "DEVELOPER" | "SUPER_ADMIN" | "EDITOR";
-const policy = { superRole: "DEVELOPER", maskAs: "SUPER_ADMIN" } as const;
+const policy = { superRole: "DEVELOPER", maskAs: "SUPER_ADMIN", enabled: true } as const;
 const dev = { id: "d1", role: "DEVELOPER" as Role, email: "d@example.com" };
 const dev2 = { id: "d2", role: "DEVELOPER" as Role };
 const admin = { id: "a1", role: "SUPER_ADMIN" as Role };
@@ -51,4 +51,26 @@ test("audit rows written by a developer are for developers only, masked or not",
   assert.equal(mask.canSeeAuditBy(admin, "SUPER_ADMIN"), true);
   assert.equal(mask.canSeeAuditBy(admin, null), true);
   assert.equal(mask.canSeeAuditBy(dev, "DEVELOPER"), true);
+});
+
+test("masking is off unless the policy enables it, and stored flags are then ignored", () => {
+  const roles = [{ name: "DEVELOPER" }, { name: "SUPER_ADMIN" }, { name: "EDITOR" }];
+  for (const off of [createMask<Role>({ superRole: "DEVELOPER", maskAs: "SUPER_ADMIN" }, { global: true, users: new Set(["d1"]) }), createMask<Role>({ ...policy, enabled: false })]) {
+    assert.equal(off.enabled, false);
+    assert.equal(off.isMasked(dev), false);
+    assert.equal(off.roleFor(admin, dev), "DEVELOPER");
+    assert.equal(off.visibleRoles(admin, roles, 0).length, 3);
+    assert.deepEqual(off.presentCounts(admin, { DEVELOPER: 1, EDITOR: 4 }, 1), { DEVELOPER: 1, EDITOR: 4 });
+    assert.equal(off.canSeeAuditBy(admin, "DEVELOPER"), true);
+    assert.equal(off.hiddenAuditRole(admin), undefined);
+  }
+  const on = createMask<Role>(policy);
+  assert.equal(on.hiddenAuditRole(admin), "DEVELOPER");
+  assert.equal(on.hiddenAuditRole(dev), undefined);
+});
+
+test("ADMIN_PRESENTATION_MODE turns masking on only for the exact value true", () => {
+  for (const value of [undefined, null, "", "1", "yes", "on", "TRUE", "True", "false"]) assert.equal(presentationModeOn(value), false, String(value));
+  assert.equal(presentationModeOn("true"), true);
+  assert.equal(presentationModeOn(" true "), true);
 });
