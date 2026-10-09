@@ -130,7 +130,7 @@ session still storing a raw token, keeps every other row, and does nothing on
 a second run. Older code cannot write roles to a converted database, so
 deploy right after.
 
-## Super admins and developer masking
+## Super admins
 
 `SUPER_ADMIN` is the client's top role. Only a developer can give it, and its
 permissions are fixed in code (`FIXED_GRANTS` in `lib/auth/kit-config.ts`),
@@ -139,27 +139,11 @@ the cache, running cron jobs, security status and integration health, the IP
 allowlist, and training or switching the chatbot (`manageChatbotTraining`;
 it still sets the tone and greeting). Its rank keeps it from managing,
 signing out or deleting developers and other super admins, and in the matrix
-it changes only roles ranked below it, granting only what it holds. Audit
-rows written by a developer (`audit_logs.actorRole`, the role at the time)
-never reach it: not the audit screen, the CSV export or the dashboard.
+it changes only roles ranked below it, granting only what it holds.
 
-A developer can mask themself as a super admin on the **Account** page, or
-mask every developer at once there. Everyone but developers then sees masked
-developers as super admins (users list, filters, sorting, role counts), and
-while no developer is left unmasked the Developer role disappears from their
-screens. Masking is presentation only: what a developer can do never
-changes, and every check uses the real role. Only developers see the toggles
-and a **Masked** badge on masked developers. Every change asks for
-confirmation and then a code emailed to the developer (a step-up code bound to
-that one change), and both toggles are audited
-(`user.mask.enabled`, `user.mask.disabled`, `settings.updated` for
-`security.mask`). Tell the client in the contract that developer accounts
-can appear under another role.
-
-After deploying this release run the database upgrade (it adds
-`users.masked` and `audit_logs.actorRole`) and then `pnpm db:seed`, which adds
-the SUPER_ADMIN row and gives `manageChatbotTraining` to every role that held
-`manageChatbot`.
+After deploying this release run the database upgrade and then
+`pnpm db:seed`, which adds the SUPER_ADMIN row and gives
+`manageChatbotTraining` to every role that held `manageChatbot`.
 
 ## Add a user
 
