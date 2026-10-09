@@ -76,7 +76,7 @@
   "scripts": {
     "build": "tsup && node scripts/copy-next-auth-types.mjs",
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.build.json",
-    "test": "node --conditions=react-server --import tsx --test \"src/**/*.test.ts\"",
+    "test": "node ../../scripts/test-package.mjs --conditions=react-server",
     "prepack": "npm run build && npm run test"
   },
   "dependencies": {
