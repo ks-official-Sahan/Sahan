@@ -8,7 +8,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ slu
   const { slug } = await params;
   try {
     const data = await getPostBySlug(slug);
-    if (!data) return NextResponse.json({ error: "Post not found." }, { status: 404, headers: CONTENT_CACHE_HEADERS });
+    // A miss is never cached: the post may be published a moment later.
+    if (!data) return NextResponse.json({ error: "Post not found." }, { status: 404, headers: CONTENT_NO_STORE_HEADERS });
     return NextResponse.json({ apiVersion: 1, data }, { headers: CONTENT_CACHE_HEADERS });
   } catch (error) {
     log.error("public blog detail API failed", { slug, error: error instanceof Error ? error.message : String(error) });

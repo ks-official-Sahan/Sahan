@@ -48,16 +48,19 @@ export function mediaRepo(client: DbClient): MediaRepo {
       await client.$queryRaw`SELECT id FROM media_assets WHERE id = ${id} FOR UPDATE`;
     },
     listPage({ query, kind, after, take }) {
+      // Substring match, so "logo" finds "company logo". Unindexed ILIKE is fine
+      // for an admin library of this size: the scan walks the createdAt order
+      // and stops at `take` matches. Add a pg_trgm GIN index if it grows large.
       const trimmed = query?.trim();
       const where: Prisma.MediaAssetWhereInput = {
         ...(kind ? { kind } : {}),
         ...(trimmed
           ? {
               OR: [
-                { title: { startsWith: trimmed, mode: "insensitive" } },
-                { publicId: { startsWith: trimmed, mode: "insensitive" } },
-                { alt: { startsWith: trimmed, mode: "insensitive" } },
-                { folder: { startsWith: trimmed, mode: "insensitive" } },
+                { title: { contains: trimmed, mode: "insensitive" } },
+                { publicId: { contains: trimmed, mode: "insensitive" } },
+                { alt: { contains: trimmed, mode: "insensitive" } },
+                { folder: { contains: trimmed, mode: "insensitive" } },
               ],
             }
           : {}),

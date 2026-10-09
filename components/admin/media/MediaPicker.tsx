@@ -59,6 +59,17 @@ export function MediaPicker({ onSelect, kind = "IMAGE", required = false, upload
   const { items, nextCursor, loading, loadingMore, loadMore } = pages;
   const error = actionError ?? pages.error;
 
+  // Every way out of the modal (cancel, choose, upload) resets it, so the next
+  // open never starts with a stale search, selection or alt text.
+  const close = useCallback(() => {
+    setOpened(false);
+    setMode(uploadOnly ? "upload" : "browse");
+    setSearch("");
+    setAlt("");
+    setSelected(null);
+    setError(null);
+  }, [uploadOnly]);
+
   const choose = useCallback(
     (result: MediaPickerResult) => {
       if (altRequired && !alt.trim()) {
@@ -66,10 +77,9 @@ export function MediaPicker({ onSelect, kind = "IMAGE", required = false, upload
         return;
       }
       onSelect({ ...result, alt: alt.trim() });
-      setOpened(false);
-      setError(null);
+      close();
     },
-    [alt, altRequired, onSelect]
+    [alt, altRequired, close, onSelect]
   );
 
   const handleUpload = useCallback(
@@ -94,13 +104,13 @@ export function MediaPicker({ onSelect, kind = "IMAGE", required = false, upload
           return;
         }
         onSelect({ mediaId: uploaded.mediaId, src: uploaded.url, alt: alt.trim() });
-        setOpened(false);
+        close();
       } finally {
         setUploading(false);
         if (fileInputRef.current) fileInputRef.current.value = "";
       }
     },
-    [alt, altRequired, onSelect]
+    [alt, altRequired, close, onSelect]
   );
 
   return (
@@ -111,14 +121,7 @@ export function MediaPicker({ onSelect, kind = "IMAGE", required = false, upload
 
       <Modal
         opened={opened}
-        onClose={() => {
-          setOpened(false);
-          setMode(uploadOnly ? "upload" : "browse");
-          setSearch("");
-          setAlt("");
-          setSelected(null);
-          setError(null);
-        }}
+        onClose={close}
         title={`${uploadOnly ? "Upload" : "Select"} ${kind.toLowerCase()}`}
         size="lg"
         centered

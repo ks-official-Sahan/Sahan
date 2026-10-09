@@ -46,13 +46,14 @@ export async function GET(request: NextRequest) {
   if (kindValue && !KINDS.has(kindValue as MediaKind)) {
     return NextResponse.json({ error: "Invalid media kind." }, { status: 400, headers: NO_STORE });
   }
+  const kind = kindValue ? (kindValue as MediaKind) : undefined;
 
   const after = decodeCursor(params.get("after"));
   if (after === null) return NextResponse.json({ error: "Invalid cursor." }, { status: 400, headers: NO_STORE });
   const query = (params.get("q") ?? "").trim().slice(0, 100);
 
   try {
-    const rows = await repos.media.listPage({ query: query || undefined, kind: kindValue as MediaKind | undefined, after, take: rawLimit + 1 });
+    const rows = await repos.media.listPage({ query: query || undefined, kind, after, take: rawLimit + 1 });
     const hasMore = rows.length > rawLimit;
     const items = rows.slice(0, rawLimit);
     const last = items.at(-1);

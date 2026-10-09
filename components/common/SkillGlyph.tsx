@@ -18,7 +18,9 @@ import type { Skill } from "@/types/skills";
 
 type StrokeIcon = NonNullable<Skill["icon"]>;
 
-const strokeIcons: Record<string, StrokeIcon> = {
+// No prototype: a CMS iconKey such as "constructor" must not resolve to an
+// Object.prototype member and crash rendering.
+const strokeIcons: Record<string, StrokeIcon | undefined> = Object.assign(Object.create(null), {
   IconBrandAzure: IconBrandAzure as StrokeIcon,
   IconBrandCloudflare: IconBrandCloudflare as StrokeIcon,
   IconBrandDjango: IconBrandDjango as StrokeIcon,
@@ -41,7 +43,7 @@ const strokeIcons: Record<string, StrokeIcon> = {
   redux: IconBrandRedux as StrokeIcon,
   supabase: IconBrandSupabase as StrokeIcon,
   vercel: IconBrandVercel as StrokeIcon,
-};
+});
 
 const bundledSkillIcons = new Set([
   "activelistening", "adaptability", "angularjs", "aws", "bootstrap", "coaching",
