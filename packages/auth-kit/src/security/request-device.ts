@@ -1,26 +1,10 @@
 import { headers } from "next/headers";
-import { userAgent } from "next/server";
 
-import { clientIp, UNKNOWN_IP } from "./ip";
+import { requestDetailsFromHeaders, type RequestDeviceDetails } from "./device";
 
-export interface RequestDeviceDetails {
-  name: string | null;
-  ip: string | null;
-  browser: string | null;
-  os: string | null;
-  when: string;
-}
+export type { RequestDeviceDetails } from "./device";
 
-/** Who and what made this request, in the shape the security emails print. */
+/** Next.js wrapper: the current request's device details. Outside Next.js use `requestDetailsFromHeaders` from ./device. */
 export async function requestDetails(name: string | null): Promise<RequestDeviceDetails> {
-  const h = await headers();
-  const ip = clientIp(h);
-  const parsed = userAgent({ headers: h });
-  return {
-    name,
-    ip: ip === UNKNOWN_IP ? null : ip,
-    browser: parsed.browser.name ?? null,
-    os: parsed.os.name ?? null,
-    when: new Date().toUTCString(),
-  };
+  return requestDetailsFromHeaders(await headers(), name);
 }

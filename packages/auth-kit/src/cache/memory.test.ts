@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { MemoryKv } from "./memory";
+import { FailoverKv, MemoryKv, type Kv } from "./memory";
 
 function kvWithClock() {
   let now = 1_000_000;
@@ -61,4 +61,48 @@ test("expire updates the TTL of an existing key only", async () => {
   assert.equal(await kv.expire("k", 5), true);
   advance(6);
   assert.equal(await kv.get("k"), null);
+});
+
+function failingKv(calls: { n: number }, mode: "throw" | "hang" = "throw"): Kv {
+  const fail = () => {
+    calls.n += 1;
+    return mode === "throw" ? Promise.reject(new Error("redis down")) : new Promise<never>(() => {});
+  };
+  return { get: fail, set: fail, del: fail, incr: fail, expire: fail };
+}
+
+test("FailoverKv: a failing primary answers from the fallback, then is skipped until the cooldown ends", async () => {
+  let now = 0;
+  const calls = { n: 0 };
+  const failovers: unknown[] = [];
+  const kv = new FailoverKv(failingKv(calls), new MemoryKv(() => now), { now: () => now, cooldownMs: 30_000, onFailover: (error) => failovers.push(error) });
+
+  assert.equal(await kv.incr("count", 60), 1);
+  assert.equal(kv.degraded, true);
+  assert.equal(await kv.incr("count", 60), 2);
+  assert.equal(calls.n, 1, "primary is not retried during the cooldown");
+  assert.equal(failovers.length, 1);
+
+  now += 30_000;
+  assert.equal(kv.degraded, false);
+  await kv.get("count");
+  assert.equal(calls.n, 2, "primary is tried again after the cooldown");
+});
+
+test("FailoverKv: a hung primary times out instead of hanging the request", async () => {
+  const calls = { n: 0 };
+  const kv = new FailoverKv(failingKv(calls, "hang"), new MemoryKv(), { timeoutMs: 20 });
+  assert.equal(await kv.set("k", "v"), true);
+  assert.equal(await kv.get("k"), "v");
+  assert.equal(calls.n, 1);
+});
+
+test("FailoverKv: a healthy primary is used and the fallback stays empty", async () => {
+  const primary = new MemoryKv();
+  const fallback = new MemoryKv();
+  const kv = new FailoverKv(primary, fallback);
+  await kv.set("k", "v");
+  assert.equal(await primary.get("k"), "v");
+  assert.equal(await fallback.get("k"), null);
+  assert.equal(kv.degraded, false);
 });

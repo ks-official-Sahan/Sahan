@@ -1,13 +1,16 @@
-import "server-only";
-
 import { Ratelimit } from "@upstash/ratelimit";
 import type { Redis } from "@upstash/redis";
+
+import { withTimeout } from "./memory";
 
 // Sliding window limits, generic over whatever bucket names the app defines
 // (see `createRateLimit`). Upstash when a Redis client is given, otherwise an
 // in-memory window (per instance, so it only protects development and
 // single-instance deployments). "closed" means a limiter error denies the
 // request, "open" means it allows it.
+//
+// No server-only import: Hono and plain Node servers use this too, and
+// `server-only` throws outside a React Server runtime.
 
 export type FailMode = "open" | "closed";
 
@@ -123,18 +126,6 @@ export class UpstashLimiter implements LimitBackend {
 /** A hung limiter must not hang the request. */
 export const LIMIT_TIMEOUT_MS = 1500;
 
-async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const timeout = new Promise<never>((_, reject) => {
-    timer = setTimeout(() => reject(new Error("rate limit backend timed out")), ms);
-  });
-  try {
-    return await Promise.race([promise, timeout]);
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
 export interface CreateRateLimitOptions {
   /** Upstash client, or omit/null to use the in-memory backend. */
   redis?: Redis | null;
@@ -184,7 +175,8 @@ export function createRateLimit<TRules extends Record<string, LimitRule>>(
     try {
       return await withTimeout(
         (callOptions.backend ?? resolveBackend()).check(name, identifier, rule),
-        callOptions.timeoutMs ?? options.timeoutMs ?? LIMIT_TIMEOUT_MS
+        callOptions.timeoutMs ?? options.timeoutMs ?? LIMIT_TIMEOUT_MS,
+        "rate limit backend"
       );
     } catch {
       return { ok: rule.failMode === "open", remaining: 0, resetSeconds: 0, degraded: true };

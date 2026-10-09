@@ -1,0 +1,165 @@
+// TEST FIXTURE: prisma/auth.prisma as it was before auth-kit 0.7 (the "Role"
+// enum), for the upgrade.sql test. Do not edit.
+//
+// auth-kit's tables, as Prisma models. Copy these into your own schema.prisma
+// (change the Role enum to your own roles) and use createPrismaAuthAdapter
+// from "@sahan-sac/auth-kit/prisma". The Drizzle schema in
+// "@sahan-sac/auth-kit/drizzle" creates the same tables, columns and indexes;
+// the package tests check the two stay identical. The generator and
+// datasource blocks below exist only for those tests: copy the enums and models.
+
+generator client {
+  provider     = "prisma-client"
+  output       = "../.prisma-test/client"
+  moduleFormat = "esm"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  DEVELOPER
+  MANAGER
+  EDITOR
+}
+
+enum MfaPurpose {
+  SIGN_IN
+  ENABLE
+  DISABLE
+}
+
+enum TokenPurpose {
+  INVITE
+  PASSWORD_RESET
+  EMAIL_CHANGE
+}
+
+model User {
+  id                 String    @id @default(cuid())
+  // Stored lowercase; normalise before every write.
+  email              String    @unique
+  // Read by the Better Auth engine; the app's own flows never set it.
+  emailVerified      Boolean   @default(false)
+  name               String?
+  passwordHash       String
+  role               Role      @default(EDITOR)
+  image              String?
+  bio                String?   @db.Text
+  mfaEnabled         Boolean   @default(false)
+  mustChangePassword Boolean   @default(false)
+  passwordChangedAt  DateTime  @default(now())
+  lastLoginAt        DateTime?
+  disabledAt         DateTime?
+  createdById        String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  sessions      UserSession[]
+  mfaChallenges MfaChallenge[]
+  auditLogs     AuditLog[]
+
+  @@map("users")
+}
+
+// A row means the permission is granted to the role. The super role holds
+// every permission in code, so it needs no rows.
+model RolePermission {
+  role        Role
+  permission  String
+  updatedById String?
+  updatedAt   DateTime @default(now()) @updatedAt
+
+  @@id([role, permission])
+  @@map("role_permissions")
+}
+
+// One row per signed-in browser. `id` is the `sid` claim in the JWT
+// (next-auth engine); `token` is the session cookie value (Better Auth engine).
+model UserSession {
+  id           String    @id @default(cuid())
+  token        String?   @unique
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ip           String?
+  userAgent    String?   @db.Text
+  browser      String?
+  os           String?
+  device       String?
+  mfaVerified  Boolean   @default(false)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @default(now()) @updatedAt
+  lastSeenAt   DateTime  @default(now())
+  expiresAt    DateTime
+  revokedAt    DateTime?
+  revokedById  String?
+  revokeReason String?
+
+  @@index([userId, revokedAt])
+  @@index([expiresAt])
+  @@index([lastSeenAt])
+  @@map("user_sessions")
+}
+
+// Invite and password-reset links. Only the SHA-256 of the token is stored.
+model AuthToken {
+  id          String       @id @default(cuid())
+  purpose     TokenPurpose
+  email       String
+  userId      String?
+  // Role granted on acceptance (invites only).
+  role        Role?
+  tokenHash   String       @unique
+  createdById String?
+  expiresAt   DateTime
+  usedAt      DateTime?
+  revokedAt   DateTime?
+  createdAt   DateTime     @default(now())
+
+  @@index([email, purpose])
+  @@index([expiresAt])
+  @@index([purpose, expiresAt])
+  @@map("auth_tokens")
+}
+
+// Emailed one-time codes for sign-in, enabling and disabling MFA.
+model MfaChallenge {
+  id         String     @id @default(cuid())
+  userId     String
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  purpose    MfaPurpose
+  codeHash   String
+  attempts   Int        @default(0)
+  expiresAt  DateTime
+  verifiedAt DateTime?
+  consumedAt DateTime?
+  createdAt  DateTime   @default(now())
+
+  @@index([userId, purpose, expiresAt])
+  @@index([expiresAt])
+  @@map("mfa_challenges")
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String?
+  actor      User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  // Snapshot, so the trail survives deleting the user.
+  actorEmail String?
+  action     String
+  entityType String
+  entityId   String?
+  before     Json?
+  after      Json?
+  ip         String?
+  userAgent  String?  @db.Text
+  meta       Json?
+  createdAt  DateTime @default(now())
+
+  @@index([createdAt, id])
+  @@index([actorId])
+  @@index([action])
+  @@index([entityType, entityId])
+  @@map("audit_logs")
+}

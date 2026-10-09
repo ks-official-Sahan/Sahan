@@ -1,12 +1,13 @@
 import { Projects } from "@/contents/projects";
 import { Experience } from "@/contents/experience";
+import { withTx } from "@/lib/data/prisma";
 import { db } from "@/lib/db/prisma";
 import { seedProjects, seedExperience } from "@/lib/collections/seed";
 
 async function main() {
   console.log("Seeding collections...");
 
-  await db.$transaction(async (tx) => {
+  await withTx(async (tx) => {
     await seedProjects(tx, Projects);
     console.log(`✓ Seeded ${Projects.length} projects`);
 

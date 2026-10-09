@@ -1,22 +1,21 @@
 import { createHash } from "node:crypto";
 
-import { userAgent } from "next/server";
-
 import type { AuthDbAdapter, RoleName } from "./adapter";
 import type { AuditEvent } from "./audit-event";
 import { verifyCredentials, type CredentialDeps } from "./credentials";
 import type { createMfa } from "./mfa/mfa";
 import { verifyPassword } from "./password";
 import { clientIp, UNKNOWN_IP } from "./security/ip";
+import { parseUserAgent } from "./user-agent";
 import { passwordFingerprint } from "./session/state";
-import type { createSessionStore } from "./session/store";
+import type { createSessionStore, NewSession } from "./session/store";
 
 // The credentials `authorize` decision, pulled out of config.ts so it can be
 // unit tested without importing `next-auth` (which, in this monorepo's test
 // harness — `node --conditions=react-server` — transitively pulls in
 // `next/navigation`'s router context and fails to load outside an actual
-// Next.js runtime; `next/server`, used here for `after`/`userAgent`, does not
-// have that problem). config.ts wraps `createAuthorize`'s generic result in
+// Next.js runtime). Nothing here imports Next.js: `after` is injected and the
+// user agent is parsed by ./user-agent. config.ts wraps `createAuthorize`'s generic result in
 // the next-auth-specific `CredentialsSignin` subclasses it throws.
 
 export interface AuthorizeDeps {
@@ -65,6 +64,16 @@ export interface SignedInSession {
   mfa: boolean;
 }
 
+/**
+ * Per-call options. `createSession` replaces the session store's own row
+ * creation, for an engine that issues its own session rows (the Better Auth
+ * engine creates them with a cookie token); the rest of the sign-in, from the
+ * known-device check to the audit event, stays the same.
+ */
+export interface AuthorizeOptions {
+  createSession?: (input: NewSession) => Promise<{ id: string }>;
+}
+
 export type AuthorizeResult =
   | { kind: "signed_in"; session: SignedInSession }
   | { kind: "invalid" }
@@ -72,9 +81,8 @@ export type AuthorizeResult =
   | { kind: "mfa_required" };
 
 function describeDevice(ua: string | null): { browser: string | null; os: string | null } {
-  if (!ua) return { browser: null, os: null };
-  const parsed = userAgent({ headers: new Headers({ "user-agent": ua }) });
-  return { browser: parsed.browser.name ?? null, os: parsed.os.name ?? null };
+  const { browser, os } = parseUserAgent(ua);
+  return { browser, os };
 }
 
 const failureKey = (keyPrefix: string, email: string) =>
@@ -115,9 +123,13 @@ export function createAuthorize(deps: AuthorizeDeps) {
   }
 
   /** Creates the session row, records the sign-in and returns what goes into the JWT. */
-  async function finishSignIn(user: SigningIn, context: { ip: string | null; ua: string | null; mfa: boolean }): Promise<SignedInSession> {
+  async function finishSignIn(
+    user: SigningIn,
+    context: { ip: string | null; ua: string | null; mfa: boolean },
+    createSession: NonNullable<AuthorizeOptions["createSession"]>
+  ): Promise<SignedInSession> {
     const known = await sessionStore.isKnownDevice(user.id, context.ip, context.ua);
-    const session = await sessionStore.createSession({
+    const session = await createSession({
       userId: user.id,
       ip: context.ip,
       userAgent: context.ua,
@@ -126,7 +138,7 @@ export function createAuthorize(deps: AuthorizeDeps) {
     await adapter.updateLastLoginAt(user.id, new Date());
     await audit({
       action: "auth.login.success",
-      actor: { id: user.id, email: user.email },
+      actor: { id: user.id, email: user.email, role: user.role },
       entityType: "UserSession",
       entityId: session.id,
       meta: { mfa: context.mfa },
@@ -165,7 +177,12 @@ export function createAuthorize(deps: AuthorizeDeps) {
    * next-auth-specific error. `request` only needs `headers`, so a test can
    * pass a plain `{ headers: new Headers(...) }` instead of a real `Request`.
    */
-  return async function authorize(credentials: Partial<Record<string, unknown>>, request: { headers: Headers }): Promise<AuthorizeResult> {
+  return async function authorize(
+    credentials: Partial<Record<string, unknown>>,
+    request: { headers: Headers },
+    options: AuthorizeOptions = {}
+  ): Promise<AuthorizeResult> {
+    const createSession = options.createSession ?? sessionStore.createSession;
     const ip = clientIp(request.headers);
     const knownIp = ip === UNKNOWN_IP ? null : ip;
     const ua = request.headers.get("user-agent");
@@ -182,7 +199,7 @@ export function createAuthorize(deps: AuthorizeDeps) {
       }
       const user = await adapter.findUserById(owner.userId);
       if (!user) return { kind: "invalid" };
-      return { kind: "signed_in", session: await finishSignIn({ ...user, role: user.role as RoleName }, { ip: knownIp, ua, mfa: true }) };
+      return { kind: "signed_in", session: await finishSignIn({ ...user, role: user.role as RoleName }, { ip: knownIp, ua, mfa: true }, createSession) };
     }
 
     const result = await verifyCredentials({ email: credentials.email, password: credentials.password, ip, userAgent: ua }, baseCredentialDeps);
@@ -193,6 +210,6 @@ export function createAuthorize(deps: AuthorizeDeps) {
     // sign-in action sends the code, and the session only starts after it.
     if (result.user.mfaEnabled) return { kind: "mfa_required" };
 
-    return { kind: "signed_in", session: await finishSignIn(result.user, { ip: knownIp, ua, mfa: false }) };
+    return { kind: "signed_in", session: await finishSignIn(result.user, { ip: knownIp, ua, mfa: false }, createSession) };
   };
 }

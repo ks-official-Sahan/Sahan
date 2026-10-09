@@ -50,12 +50,14 @@ interface ProjectCardProps {
   project: Project;
   /** "featured" lays the preview beside the copy on wide screens. */
   variant?: "default" | "featured";
+  /** The first card on the page: its image is the likely LCP element. */
+  priority?: boolean;
 }
 
 // Card first, dialog second: the card gives the scan (what, for whom, when),
 // the native <dialog> gives the detail without leaving the page. Native means
 // focus is trapped, Escape closes it and the page behind is inert for free.
-const ProjectCard = ({ project, variant = "default" }: ProjectCardProps) => {
+const ProjectCard = ({ project, variant = "default", priority = false }: ProjectCardProps) => {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const featured = variant === "featured";
   const titleId = `${project.slug}-title`;
@@ -74,6 +76,7 @@ const ProjectCard = ({ project, variant = "default" }: ProjectCardProps) => {
     >
       <ProjectPreview
         project={project}
+        priority={priority}
         className={cn(featured && "lg:aspect-auto lg:w-[46%] lg:shrink-0")}
       />
 

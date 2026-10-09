@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { DEFAULT_IMAGE_MODELS, DEFAULT_TEXT_MODELS, imageModels, paidAllowed, textModels, thinkingConfigFor } from "./ai/models";
+import { DEFAULT_IMAGE_MODELS, DEFAULT_TEXT_MODELS, imageModels, paidAllowed, textModels, thinkingConfigFor } from "@sahan-sac/ai-core/models";
 import { parseEnv } from "./env";
 
 test("unset or blank model variables resolve to the verified free defaults", () => {
@@ -59,4 +59,13 @@ test("thinkingConfigFor uses a budget on Gemini 2.x and a level on 3.x", () => {
   assert.deepEqual(thinkingConfigFor("gemini-3.1-flash-lite", 500), { thinkingLevel: "minimal" });
   assert.deepEqual(thinkingConfigFor("gemini-3.1-flash-lite", 8192), { thinkingLevel: "low" });
   assert.deepEqual(thinkingConfigFor("gemini-3-pro", 500), { thinkingLevel: "low" });
+});
+
+test("ADMIN_PRESENTATION_MODE is on only for the exact value true", () => {
+  assert.equal(parseEnv({}).ADMIN_PRESENTATION_MODE, false);
+  for (const value of ["", "1", "yes", "on", "TRUE", "True", "false"]) {
+    assert.equal(parseEnv({ ADMIN_PRESENTATION_MODE: value }).ADMIN_PRESENTATION_MODE, false, value);
+  }
+  assert.equal(parseEnv({ ADMIN_PRESENTATION_MODE: "true" }).ADMIN_PRESENTATION_MODE, true);
+  assert.equal(parseEnv({ ADMIN_PRESENTATION_MODE: " true " }).ADMIN_PRESENTATION_MODE, true);
 });

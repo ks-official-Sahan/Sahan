@@ -1,6 +1,5 @@
-import { userAgent } from "next/server";
-
 import type { AuthDbAdapter } from "../adapter";
+import { parseUserAgent } from "../user-agent";
 import type { Kv } from "../cache/memory";
 import { SESSION_MAX_AGE_SECONDS } from "../constants";
 import type { RoleName } from "../rbac/permissions";
@@ -52,14 +51,11 @@ export interface SessionListItem {
   revokeReason: string | null;
 }
 
-function describeAgent(ua: string | null) {
+/** Browser, system and device type for a session row, from its User-Agent. */
+export function describeAgent(ua: string | null) {
   if (!ua) return { browser: null, os: null, device: null };
-  const parsed = userAgent({ headers: new Headers({ "user-agent": ua }) });
-  return {
-    browser: parsed.browser.name ?? null,
-    os: parsed.os.name ?? null,
-    device: parsed.device.type ?? "desktop",
-  };
+  const parsed = parseUserAgent(ua);
+  return { browser: parsed.browser, os: parsed.os, device: parsed.deviceType ?? "desktop" };
 }
 
 export function createSessionStore(deps: { adapter: AuthDbAdapter; kv: Kv; authSecret: string }) {
@@ -150,6 +146,18 @@ export function createSessionStore(deps: { adapter: AuthDbAdapter; kv: Kv; authS
     return result.count > 0;
   }
 
+  /**
+   * Ends a chosen set of sessions in one write and one cache delete (a bulk
+   * "end selected" on an admin screen). Sessions that already ended are left
+   * as they were. The caller decides which ids it may end.
+   */
+  async function revokeSessions(ids: readonly string[], by: Revoker): Promise<void> {
+    const unique = [...new Set(ids)];
+    if (unique.length === 0) return;
+    await adapter.revokeSessionsByIds(unique, by.userId, by.reason);
+    await invalidateSessionState(...unique);
+  }
+
   /** Ends every active session of a user, optionally keeping one. Returns the ids it ended. */
   async function revokeUserSessions(userId: string, by: Revoker, options: { exceptSid?: string } = {}): Promise<string[]> {
     const ids = await adapter.findActiveSessionIdsExcept(userId, options.exceptSid);
@@ -211,6 +219,7 @@ export function createSessionStore(deps: { adapter: AuthDbAdapter; kv: Kv; authS
     touchSession,
     invalidateUserSessionState,
     revokeSession,
+    revokeSessions,
     revokeUserSessions,
     forceLogoutAll,
     getKnownIps,

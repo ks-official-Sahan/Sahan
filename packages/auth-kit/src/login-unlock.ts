@@ -92,6 +92,54 @@ export function verifyUnlockCookie(
   return true;
 }
 
+// Sign-in links: a short code that unlocks the login page like ?secret= does,
+// without putting the secret in a URL. `<expiry>.<tag>`: the expiry in Unix
+// seconds, base 36, and a 96-bit MAC of it under the same key as the cookie
+// (another label, so neither value passes as the other). Stateless, so a
+// link cannot be revoked one by one: rotating either secret ends every link
+// at once, and the lifetime is capped.
+
+export const SIGN_IN_LINK_DEFAULT_DAYS = 14;
+export const SIGN_IN_LINK_MAX_DAYS = 90;
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+const SIGN_IN_LINK = /^([0-9a-z]{1,9})\.([A-Za-z0-9_-]{16})$/;
+
+/** A day count from config, whole and within 1..SIGN_IN_LINK_MAX_DAYS; anything else is the default. */
+export function signInLinkDays(value: string | number | null | undefined): number {
+  const days = typeof value === "number" ? value : Number(value?.trim() || Number.NaN);
+  if (!Number.isFinite(days)) return SIGN_IN_LINK_DEFAULT_DAYS;
+  return Math.min(SIGN_IN_LINK_MAX_DAYS, Math.max(1, Math.trunc(days)));
+}
+
+function linkTag(expiry: string, keys: UnlockKeys): string {
+  return createHmac("sha256", cookieKey(keys))
+    .update(`admin-sign-in-link:v1:${expiry}`)
+    .digest()
+    .subarray(0, 12)
+    .toString("base64url");
+}
+
+/** A code valid for `days` (clamped to 1..90) from `now`. About 23 characters. */
+export function signSignInLink(now: number, days: number, keys: UnlockKeys): string {
+  const expiry = Math.ceil((now + signInLinkDays(days) * DAY_MS) / 1000).toString(36);
+  return `${expiry}.${linkTag(expiry, keys)}`;
+}
+
+/** Is the code one this server signed, unexpired, and within the lifetime cap? */
+export function verifySignInLink(
+  code: string | null | undefined,
+  now: number,
+  keys: UnlockKeys
+): boolean {
+  const match = code ? SIGN_IN_LINK.exec(code) : null;
+  if (!match) return false;
+  const [, expiry, tag] = match;
+  if (!constantTimeEqual(tag, linkTag(expiry, keys))) return false;
+  const expiresAt = parseInt(expiry, 36) * 1000;
+  return expiresAt > now && expiresAt - now <= SIGN_IN_LINK_MAX_DAYS * DAY_MS + CLOCK_SKEW_MS;
+}
+
 /**
  * Lax and not Strict on purpose: the unlock link is often opened from a chat or
  * an email. With Strict, the redirect that follows the ?secret= request counts

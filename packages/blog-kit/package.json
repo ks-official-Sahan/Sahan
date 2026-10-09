@@ -1,0 +1,138 @@
+{
+  "name": "@sahan-sac/blog-kit",
+  "version": "0.3.1",
+  "description": "Headless AI blog toolkit on @sahan-sac/ai-core: full-post generation with a JSON schema and repair pass, SEO suggestions, draft and cover helpers, AI image generation through an ImageSink port, plus pure blog utilities (slugs, Markdown and HTML conversion, charts, read time, revisions, drafts). No database, no framework.",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ks-official-Sahan/Sahan.git",
+    "directory": "packages/blog-kit"
+  },
+  "keywords": [
+    "blog",
+    "ai",
+    "markdown",
+    "seo",
+    "llm"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "engines": {
+    "node": ">=20"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./deps": "./src/deps.ts",
+    "./generate": "./src/generate.ts",
+    "./helpers": "./src/helpers.ts",
+    "./prompts": "./src/prompts.ts",
+    "./helper-prompts": "./src/helper-prompts.ts",
+    "./images": "./src/images.ts",
+    "./slug": "./src/slug.ts",
+    "./markdown": "./src/markdown.ts",
+    "./chart": "./src/chart.ts",
+    "./readtime": "./src/readtime.ts",
+    "./revisions": "./src/revisions.ts",
+    "./ai-image-tokens": "./src/ai-image-tokens.ts",
+    "./draft": "./src/draft.ts",
+    "./concurrency": "./src/concurrency.ts",
+    "./package.json": "./package.json"
+  },
+  "types": "./src/index.ts",
+  "main": "./src/index.ts",
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.build.json",
+    "test": "node --conditions=react-server --import tsx --test \"src/**/*.test.ts\"",
+    "prepack": "npm run build && npm run test"
+  },
+  "dependencies": {
+    "@sahan-sac/ai-core": "workspace:^",
+    "marked": "^18.0.14",
+    "server-only": "^0.0.1",
+    "turndown": "^7.2.4",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/node": "^22",
+    "tsup": "^8.3.5",
+    "tsx": "^4.23.15",
+    "typescript": "^5.6.3",
+    "@types/turndown": "^5.0.6"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/",
+    "types": "./dist/index.d.ts",
+    "main": "./dist/index.js",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "import": "./dist/index.js"
+      },
+      "./deps": {
+        "types": "./dist/deps.d.ts",
+        "import": "./dist/deps.js"
+      },
+      "./generate": {
+        "types": "./dist/generate.d.ts",
+        "import": "./dist/generate.js"
+      },
+      "./helpers": {
+        "types": "./dist/helpers.d.ts",
+        "import": "./dist/helpers.js"
+      },
+      "./prompts": {
+        "types": "./dist/prompts.d.ts",
+        "import": "./dist/prompts.js"
+      },
+      "./helper-prompts": {
+        "types": "./dist/helper-prompts.d.ts",
+        "import": "./dist/helper-prompts.js"
+      },
+      "./images": {
+        "types": "./dist/images.d.ts",
+        "import": "./dist/images.js"
+      },
+      "./slug": {
+        "types": "./dist/slug.d.ts",
+        "import": "./dist/slug.js"
+      },
+      "./markdown": {
+        "types": "./dist/markdown.d.ts",
+        "import": "./dist/markdown.js"
+      },
+      "./chart": {
+        "types": "./dist/chart.d.ts",
+        "import": "./dist/chart.js"
+      },
+      "./readtime": {
+        "types": "./dist/readtime.d.ts",
+        "import": "./dist/readtime.js"
+      },
+      "./revisions": {
+        "types": "./dist/revisions.d.ts",
+        "import": "./dist/revisions.js"
+      },
+      "./ai-image-tokens": {
+        "types": "./dist/ai-image-tokens.d.ts",
+        "import": "./dist/ai-image-tokens.js"
+      },
+      "./draft": {
+        "types": "./dist/draft.d.ts",
+        "import": "./dist/draft.js"
+      },
+      "./concurrency": {
+        "types": "./dist/concurrency.d.ts",
+        "import": "./dist/concurrency.js"
+      },
+      "./package.json": "./package.json"
+    }
+  }
+}

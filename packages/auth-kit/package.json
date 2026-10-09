@@ -1,8 +1,13 @@
 {
   "name": "@sahan-sac/auth-kit",
-  "version": "0.3.0",
+  "version": "0.9.0",
   "description": "Framework-agnostic core for a Next.js + Auth.js admin auth system: JWT-over-DB-session auth, RBAC, emailed-OTP MFA, hidden-login unlock gate, IP allowlist, CSRF/origin checks, CSP nonces and rate limits, generic over your own role/permission catalogue.",
-  "license": "UNLICENSED",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ks-official-Sahan/Sahan.git",
+    "directory": "packages/auth-kit"
+  },
   "type": "module",
   "sideEffects": false,
   "engines": {
@@ -13,19 +18,37 @@
     "./kit": "./src/kit.ts",
     "./authorize": "./src/authorize.ts",
     "./config": "./src/config.ts",
+    "./next-auth": "./src/next-auth-engine.ts",
+    "./better-auth": "./src/better-auth/index.ts",
+    "./engines/next-auth": "./src/engines/next-auth.ts",
+    "./engines/next-auth/cookie": "./src/engines/next-auth-cookie.ts",
+    "./engines/better-auth": "./src/engines/better-auth.ts",
+    "./engines/better-auth/cookie": "./src/engines/better-auth-cookie.ts",
+    "./hono": "./src/hono/index.ts",
+    "./user-agent": "./src/user-agent.ts",
     "./bootstrap": "./src/bootstrap.ts",
     "./audit-event": "./src/audit-event.ts",
     "./session": "./src/session/index.ts",
+    "./session/core": "./src/session/core.ts",
     "./rbac": "./src/rbac/index.ts",
+    "./rbac/rules": "./src/rbac/rules.ts",
+    "./rbac/roles": "./src/rbac/roles.ts",
+    "./rbac/mask": "./src/rbac/mask.ts",
     "./mfa": "./src/mfa/index.ts",
     "./security": "./src/security/index.ts",
     "./cache": "./src/cache/index.ts",
     "./credentials": "./src/credentials.ts",
     "./adapter": "./src/adapter.ts",
+    "./prisma": "./src/prisma/index.ts",
+    "./drizzle": "./src/drizzle/index.ts",
+    "./prisma/auth.prisma": "./prisma/auth.prisma",
+    "./prisma/upgrade.sql": "./prisma/upgrade.sql",
     "./password": "./src/password.ts",
     "./password-policy": "./src/password-policy.ts",
     "./invite-token": "./src/invite-token.ts",
     "./safe-callback-url": "./src/safe-callback-url.ts",
+    "./short-link": "./src/short-link.ts",
+    "./short-link-path": "./src/short-link-path.ts",
     "./constants": "./src/constants.ts",
     "./login-unlock": "./src/login-unlock.ts",
     "./unlock-request": "./src/unlock-request.ts",
@@ -37,6 +60,7 @@
     "./security/scanner-paths": "./src/security/scanner-paths.ts",
     "./security/check-origin": "./src/security/check-origin.ts",
     "./security/request-device": "./src/security/request-device.ts",
+    "./security/device": "./src/security/device.ts",
     "./cache/ratelimit": "./src/cache/ratelimit.ts",
     "./cache/memory": "./src/cache/memory.ts",
     "./cache/redis": "./src/cache/redis.ts",
@@ -44,70 +68,329 @@
   },
   "types": "./src/index.ts",
   "main": "./src/index.ts",
+  "bin": {
+    "auth-kit": "./bin/auth-kit.mjs"
+  },
   "scripts": {
     "build": "tsup",
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.build.json",
     "test": "node --conditions=react-server --import tsx --test \"src/**/*.test.ts\"",
-    "prepublishOnly": "npm run build && npm run test"
+    "prepack": "npm run build && npm run test"
   },
   "dependencies": {
     "@upstash/ratelimit": "^2.1.0",
     "@upstash/redis": "^1.38.4",
-    "bcryptjs": "^3.0.3"
+    "bcryptjs": "^3.0.3",
+    "ua-parser-js": "^1.0.41"
   },
   "peerDependencies": {
+    "better-auth": "^1.7.6",
+    "drizzle-orm": ">=0.44.0 <1",
     "next": "^16.3.5",
     "next-auth": "5.0.0-beta.32",
-    "react": "^19.0.0"
+    "react": "^19.0.0",
+    "hono": "^4.6.0",
+    "pg": "^8.11.0"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.8",
+    "@electric-sql/pglite-socket": "^0.2.11",
+    "@prisma/adapter-pg": "7.10.0",
+    "@prisma/client": "7.10.0",
     "@types/node": "^22",
+    "@types/pg": "^8.23.1",
+    "@types/ua-parser-js": "^0.7.39",
+    "better-auth": "^1.7.6",
+    "drizzle-kit": "^0.31.11",
+    "drizzle-orm": "^0.45.3",
+    "hono": "^4.13.10",
+    "pg": "^8.23.0",
+    "prisma": "7.10.0",
     "tsup": "^8.3.5",
     "tsx": "^4.23.15",
     "typescript": "^5.6.3"
   },
   "files": [
     "dist",
-    "README.md"
+    "bin",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE",
+    "prisma/auth.prisma",
+    "prisma/upgrade.sql"
   ],
   "publishConfig": {
-    "access": "restricted",
+    "access": "public",
     "registry": "https://registry.npmjs.org/",
     "types": "./dist/index.d.ts",
     "main": "./dist/index.js",
     "exports": {
-      ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" },
-      "./kit": { "types": "./dist/kit.d.ts", "import": "./dist/kit.js" },
-      "./authorize": { "types": "./dist/authorize.d.ts", "import": "./dist/authorize.js" },
-      "./config": { "types": "./dist/config.d.ts", "import": "./dist/config.js" },
-      "./bootstrap": { "types": "./dist/bootstrap.d.ts", "import": "./dist/bootstrap.js" },
-      "./audit-event": { "types": "./dist/audit-event.d.ts", "import": "./dist/audit-event.js" },
-      "./session": { "types": "./dist/session/index.d.ts", "import": "./dist/session/index.js" },
-      "./rbac": { "types": "./dist/rbac/index.d.ts", "import": "./dist/rbac/index.js" },
-      "./mfa": { "types": "./dist/mfa/index.d.ts", "import": "./dist/mfa/index.js" },
-      "./security": { "types": "./dist/security/index.d.ts", "import": "./dist/security/index.js" },
-      "./cache": { "types": "./dist/cache/index.d.ts", "import": "./dist/cache/index.js" },
-      "./credentials": { "types": "./dist/credentials.d.ts", "import": "./dist/credentials.js" },
-      "./adapter": { "types": "./dist/adapter.d.ts", "import": "./dist/adapter.js" },
-      "./password": { "types": "./dist/password.d.ts", "import": "./dist/password.js" },
-      "./password-policy": { "types": "./dist/password-policy.d.ts", "import": "./dist/password-policy.js" },
-      "./invite-token": { "types": "./dist/invite-token.d.ts", "import": "./dist/invite-token.js" },
-      "./safe-callback-url": { "types": "./dist/safe-callback-url.d.ts", "import": "./dist/safe-callback-url.js" },
-      "./constants": { "types": "./dist/constants.d.ts", "import": "./dist/constants.js" },
-      "./login-unlock": { "types": "./dist/login-unlock.d.ts", "import": "./dist/login-unlock.js" },
-      "./unlock-request": { "types": "./dist/unlock-request.d.ts", "import": "./dist/unlock-request.js" },
-      "./security/ip": { "types": "./dist/security/ip.d.ts", "import": "./dist/security/ip.js" },
-      "./security/allowlist": { "types": "./dist/security/allowlist.d.ts", "import": "./dist/security/allowlist.js" },
-      "./security/origin": { "types": "./dist/security/origin.d.ts", "import": "./dist/security/origin.js" },
-      "./security/csp": { "types": "./dist/security/csp.d.ts", "import": "./dist/security/csp.js" },
-      "./security/headers": { "types": "./dist/security/headers.d.ts", "import": "./dist/security/headers.js" },
-      "./security/scanner-paths": { "types": "./dist/security/scanner-paths.d.ts", "import": "./dist/security/scanner-paths.js" },
-      "./security/check-origin": { "types": "./dist/security/check-origin.d.ts", "import": "./dist/security/check-origin.js" },
-      "./security/request-device": { "types": "./dist/security/request-device.d.ts", "import": "./dist/security/request-device.js" },
-      "./cache/ratelimit": { "types": "./dist/cache/ratelimit.d.ts", "import": "./dist/cache/ratelimit.js" },
-      "./cache/memory": { "types": "./dist/cache/memory.d.ts", "import": "./dist/cache/memory.js" },
-      "./cache/redis": { "types": "./dist/cache/redis.d.ts", "import": "./dist/cache/redis.js" },
+      ".": {
+        "types": "./dist/index.d.ts",
+        "import": "./dist/index.js",
+        "default": "./dist/index.js"
+      },
+      "./kit": {
+        "types": "./dist/kit.d.ts",
+        "import": "./dist/kit.js",
+        "default": "./dist/kit.js"
+      },
+      "./authorize": {
+        "types": "./dist/authorize.d.ts",
+        "import": "./dist/authorize.js",
+        "default": "./dist/authorize.js"
+      },
+      "./config": {
+        "types": "./dist/config.d.ts",
+        "import": "./dist/config.js",
+        "default": "./dist/config.js"
+      },
+      "./next-auth": {
+        "types": "./dist/next-auth-engine.d.ts",
+        "import": "./dist/next-auth-engine.js",
+        "default": "./dist/next-auth-engine.js"
+      },
+      "./better-auth": {
+        "types": "./dist/better-auth/index.d.ts",
+        "import": "./dist/better-auth/index.js",
+        "default": "./dist/better-auth/index.js"
+      },
+      "./engines/next-auth": {
+        "types": "./dist/engines/next-auth.d.ts",
+        "import": "./dist/engines/next-auth.js",
+        "default": "./dist/engines/next-auth.js"
+      },
+      "./engines/next-auth/cookie": {
+        "types": "./dist/engines/next-auth-cookie.d.ts",
+        "import": "./dist/engines/next-auth-cookie.js",
+        "default": "./dist/engines/next-auth-cookie.js"
+      },
+      "./engines/better-auth": {
+        "types": "./dist/engines/better-auth.d.ts",
+        "import": "./dist/engines/better-auth.js",
+        "default": "./dist/engines/better-auth.js"
+      },
+      "./engines/better-auth/cookie": {
+        "types": "./dist/engines/better-auth-cookie.d.ts",
+        "import": "./dist/engines/better-auth-cookie.js",
+        "default": "./dist/engines/better-auth-cookie.js"
+      },
+      "./hono": {
+        "types": "./dist/hono/index.d.ts",
+        "import": "./dist/hono/index.js",
+        "default": "./dist/hono/index.js"
+      },
+      "./user-agent": {
+        "types": "./dist/user-agent.d.ts",
+        "import": "./dist/user-agent.js",
+        "default": "./dist/user-agent.js"
+      },
+      "./bootstrap": {
+        "types": "./dist/bootstrap.d.ts",
+        "import": "./dist/bootstrap.js",
+        "default": "./dist/bootstrap.js"
+      },
+      "./audit-event": {
+        "types": "./dist/audit-event.d.ts",
+        "import": "./dist/audit-event.js",
+        "default": "./dist/audit-event.js"
+      },
+      "./session": {
+        "types": "./dist/session/index.d.ts",
+        "import": "./dist/session/index.js",
+        "default": "./dist/session/index.js"
+      },
+      "./session/core": {
+        "types": "./dist/session/core.d.ts",
+        "import": "./dist/session/core.js",
+        "default": "./dist/session/core.js"
+      },
+      "./rbac": {
+        "types": "./dist/rbac/index.d.ts",
+        "import": "./dist/rbac/index.js",
+        "default": "./dist/rbac/index.js"
+      },
+      "./rbac/rules": {
+        "types": "./dist/rbac/rules.d.ts",
+        "import": "./dist/rbac/rules.js",
+        "default": "./dist/rbac/rules.js"
+      },
+      "./rbac/roles": {
+        "types": "./dist/rbac/roles.d.ts",
+        "import": "./dist/rbac/roles.js",
+        "default": "./dist/rbac/roles.js"
+      },
+      "./rbac/mask": {
+        "types": "./dist/rbac/mask.d.ts",
+        "import": "./dist/rbac/mask.js",
+        "default": "./dist/rbac/mask.js"
+      },
+      "./mfa": {
+        "types": "./dist/mfa/index.d.ts",
+        "import": "./dist/mfa/index.js",
+        "default": "./dist/mfa/index.js"
+      },
+      "./security": {
+        "types": "./dist/security/index.d.ts",
+        "import": "./dist/security/index.js",
+        "default": "./dist/security/index.js"
+      },
+      "./cache": {
+        "types": "./dist/cache/index.d.ts",
+        "import": "./dist/cache/index.js",
+        "default": "./dist/cache/index.js"
+      },
+      "./credentials": {
+        "types": "./dist/credentials.d.ts",
+        "import": "./dist/credentials.js",
+        "default": "./dist/credentials.js"
+      },
+      "./adapter": {
+        "types": "./dist/adapter.d.ts",
+        "import": "./dist/adapter.js",
+        "default": "./dist/adapter.js"
+      },
+      "./prisma": {
+        "types": "./dist/prisma/index.d.ts",
+        "import": "./dist/prisma/index.js",
+        "default": "./dist/prisma/index.js"
+      },
+      "./drizzle": {
+        "types": "./dist/drizzle/index.d.ts",
+        "import": "./dist/drizzle/index.js",
+        "default": "./dist/drizzle/index.js"
+      },
+      "./prisma/auth.prisma": "./prisma/auth.prisma",
+      "./prisma/upgrade.sql": "./prisma/upgrade.sql",
+      "./password": {
+        "types": "./dist/password.d.ts",
+        "import": "./dist/password.js",
+        "default": "./dist/password.js"
+      },
+      "./password-policy": {
+        "types": "./dist/password-policy.d.ts",
+        "import": "./dist/password-policy.js",
+        "default": "./dist/password-policy.js"
+      },
+      "./invite-token": {
+        "types": "./dist/invite-token.d.ts",
+        "import": "./dist/invite-token.js",
+        "default": "./dist/invite-token.js"
+      },
+      "./short-link": {
+        "types": "./dist/short-link.d.ts",
+        "import": "./dist/short-link.js",
+        "default": "./dist/short-link.js"
+      },
+      "./short-link-path": {
+        "types": "./dist/short-link-path.d.ts",
+        "import": "./dist/short-link-path.js",
+        "default": "./dist/short-link-path.js"
+      },
+      "./safe-callback-url": {
+        "types": "./dist/safe-callback-url.d.ts",
+        "import": "./dist/safe-callback-url.js",
+        "default": "./dist/safe-callback-url.js"
+      },
+      "./constants": {
+        "types": "./dist/constants.d.ts",
+        "import": "./dist/constants.js",
+        "default": "./dist/constants.js"
+      },
+      "./login-unlock": {
+        "types": "./dist/login-unlock.d.ts",
+        "import": "./dist/login-unlock.js",
+        "default": "./dist/login-unlock.js"
+      },
+      "./unlock-request": {
+        "types": "./dist/unlock-request.d.ts",
+        "import": "./dist/unlock-request.js",
+        "default": "./dist/unlock-request.js"
+      },
+      "./security/ip": {
+        "types": "./dist/security/ip.d.ts",
+        "import": "./dist/security/ip.js",
+        "default": "./dist/security/ip.js"
+      },
+      "./security/allowlist": {
+        "types": "./dist/security/allowlist.d.ts",
+        "import": "./dist/security/allowlist.js",
+        "default": "./dist/security/allowlist.js"
+      },
+      "./security/origin": {
+        "types": "./dist/security/origin.d.ts",
+        "import": "./dist/security/origin.js",
+        "default": "./dist/security/origin.js"
+      },
+      "./security/csp": {
+        "types": "./dist/security/csp.d.ts",
+        "import": "./dist/security/csp.js",
+        "default": "./dist/security/csp.js"
+      },
+      "./security/headers": {
+        "types": "./dist/security/headers.d.ts",
+        "import": "./dist/security/headers.js",
+        "default": "./dist/security/headers.js"
+      },
+      "./security/scanner-paths": {
+        "types": "./dist/security/scanner-paths.d.ts",
+        "import": "./dist/security/scanner-paths.js",
+        "default": "./dist/security/scanner-paths.js"
+      },
+      "./security/check-origin": {
+        "types": "./dist/security/check-origin.d.ts",
+        "import": "./dist/security/check-origin.js",
+        "default": "./dist/security/check-origin.js"
+      },
+      "./security/request-device": {
+        "types": "./dist/security/request-device.d.ts",
+        "import": "./dist/security/request-device.js",
+        "default": "./dist/security/request-device.js"
+      },
+      "./security/device": {
+        "types": "./dist/security/device.d.ts",
+        "import": "./dist/security/device.js",
+        "default": "./dist/security/device.js"
+      },
+      "./cache/ratelimit": {
+        "types": "./dist/cache/ratelimit.d.ts",
+        "import": "./dist/cache/ratelimit.js",
+        "default": "./dist/cache/ratelimit.js"
+      },
+      "./cache/memory": {
+        "types": "./dist/cache/memory.d.ts",
+        "import": "./dist/cache/memory.js",
+        "default": "./dist/cache/memory.js"
+      },
+      "./cache/redis": {
+        "types": "./dist/cache/redis.d.ts",
+        "import": "./dist/cache/redis.js",
+        "default": "./dist/cache/redis.js"
+      },
       "./package.json": "./package.json"
+    }
+  },
+  "peerDependenciesMeta": {
+    "next": {
+      "optional": true
+    },
+    "next-auth": {
+      "optional": true
+    },
+    "react": {
+      "optional": true
+    },
+    "better-auth": {
+      "optional": true
+    },
+    "drizzle-orm": {
+      "optional": true
+    },
+    "hono": {
+      "optional": true
+    },
+    "pg": {
+      "optional": true
     }
   }
 }

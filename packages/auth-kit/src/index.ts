@@ -6,16 +6,13 @@
 // `./unlock-request` (next/headers) — see package.json's `exports` map and
 // the README for the full list.
 //
-// `./config` and `./credentials` are kept here even though `createAuthConfig`
-// depends on `next-auth`/`next/server` at the type/runtime level: they are
-// the one required piece of Next.js wiring every consumer needs regardless of
-// entry point, and neither has the hard "throws if bundled into a Client
-// Component" behavior `next/headers` has.
+// No auth engine either: next-auth lives at `./next-auth` and Better Auth at
+// `./better-auth`, so importing this root never resolves an engine the app
+// did not install.
 export * from "./adapter";
 export * from "./audit-event";
 export * from "./authorize";
 export * from "./bootstrap";
-export * from "./config";
 export { resolveCookieName, SESSION_MAX_AGE_SECONDS } from "./constants";
 export * from "./credentials";
 export * from "./invite-token";
@@ -23,6 +20,7 @@ export * from "./login-unlock";
 export * from "./password";
 export * from "./password-policy";
 export * from "./safe-callback-url";
+export * from "./short-link";
 export * from "./kit";
 
 export * from "./mfa";

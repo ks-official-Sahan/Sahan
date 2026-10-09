@@ -43,22 +43,107 @@ The admin panel is hidden behind two independent gates, both enforced in
    form (plus MFA if the account has it turned on, from `/admin/account`).
    A wrong password does not reveal whether the email exists.
 
+**Sign-in links** unlock the login page without the secret ever being in a
+URL. Copy one from **Account → Sign-in link** (or **Users → Sign-in link**
+to send a team member), bookmark it, or use the **Sign in again** button in
+the "signed out" email. A sign-in link looks like `https://<site>/s/<code>`;
+opening it sets the same 2-hour unlock cookie and goes to `/admin`. It does
+not sign anyone in. Links last `ADMIN_SIGN_IN_LINK_DAYS` days (default 14,
+at most 90) and cannot be revoked one by one: rotating
+`ADMIN_LOGIN_UNLOCK_SECRET` (or `AUTH_SECRET`) ends every link at once.
+The new-inquiry email's "Open in the admin" button is a sign-in link too.
+
+Emailed and copied account links are short as well: `/a/<token>` for
+invitations and password resets, `/e/<token>` for email-change
+confirmations. Each redirects to its page (`/admin/set-password`,
+`/admin/confirm-email`) after the proxy checks the token's signature; links
+in the old long form still work until they expire. The one-letter paths
+`/a`, `/e` and `/s` are reserved, so no public page may use them.
+
+**Copies of account emails.** With `EMAIL_CC` set (comma separated) and
+**Settings → Email routing → Copy account emails** on, every invitation,
+new-account and password-reset email also goes to those addresses as a
+copy marked "Copy:", with every link left out: an invite or reset link lets
+whoever holds it take the account, so only its recipient gets it. The copy
+is sent after the original is delivered and never delays the action.
+Invitation, new-account and reset emails also carry a sign-in link, so the
+recipient can find the login page later; "Create user" can email one (the
+password is never emailed).
+
+**Which domain links use.** Every emailed or copied link (invites, resets,
+sign-in links, the new-inquiry button) uses the first domain in `SITE_URLS`
+that answers `/api/health` as this app; if none does yet (for example a
+deployment from before the route existed), the first that answers at all;
+otherwise the first listed. Unset, the list is `SITE_URL`, then
+`https://sahansachintha.com`, then `https://sahansachintha.vercel.app`. The
+answer is cached for five minutes (one minute when no domain is healthy) in
+Redis, so one probe serves every instance. The request's own Host header is
+never used.
+
 If you're locked out of both (secret lost, cookie expired, no browser
 access), see "Break-glass" below.
 
+## Auth engine
+
+Sign-in runs on Better Auth through auth-kit (`lib/auth/engine.ts`).
+auth-kit's `authorize` still decides who gets in (lockout, IP limits, emailed
+codes, known-device email, audit); Better Auth only issues the session, a
+`user_sessions` row whose `token` is the SHA-256 of the session cookie. No Better Auth
+route is mounted: sign-in and sign-out are server actions calling
+`auth.api`, and `/api/auth/*` other than `expire` and `session-status`
+answers 404. Everything else reaches the engine through
+`lib/auth/engine.ts` and `lib/auth/session-cookie.ts`. To switch to next-auth,
+run `node packages/auth-kit/bin/auth-kit.mjs engine next-auth --write` (after
+`pnpm --filter @sahan-sac/auth-kit build`), then swap the `better-auth`
+dependency for `next-auth`; the database stays as it is and everyone signs in
+once more.
+
 ## Roles and permissions
 
-Four roles, from `lib/auth/permissions.ts`: `DEVELOPER` (everything, the only
-role that can manage other users, settings, and the IP allowlist), `MANAGER`
-(collections, blog, media, leads, chatbot — day-to-day content and
-enquiries), `EDITOR` (drafts only — can create and edit but not publish, and
-cannot manage anything, per `docs/plan/admin-cms-adr.md` section 9's
-permission table). The exact matrix is section 9 of the ADR; this doc doesn't
-repeat it because it changes as steps add permissions. The rule that doesn't
-change: every Server Action and every `app/api/admin/*` route checks a
-permission before doing anything, and a missing permission looks like a
-missing page (404), never a 403 — an unauthorized admin surface should never
-confirm it exists.
+Roles are rows in the `roles` table, managed at **Roles and permissions**
+(`/admin/roles`, DEVELOPER and SUPER_ADMIN). Four are built in and cannot be
+deleted: `DEVELOPER` (rank 0: every permission, in code, so no edit can lock
+the owner out), `SUPER_ADMIN` (rank 5, see below), `MANAGER` (rank 10) and
+`EDITOR` (rank 20). **Add a role**
+takes a name (capital letters, digits, underscores; fixed once created), a
+label, a description and a rank from 1 to 1000, and starts with no
+permissions: tick them in the matrix below it.
+
+The rank is the hierarchy: a role manages, invites and assigns only roles
+with a higher rank number, never its own rank or above. A custom role at 30
+sits below Editor; one at 15 sits between Manager and Editor. A role can be
+deleted once nobody holds it, and deleting it cancels its open invitations.
+Role and matrix changes are audited (`role.created`, `role.updated`,
+`role.deleted`, `rbac.matrix.updated`) and apply within a minute
+(cached in Redis for 60 seconds, dropped on every change).
+
+The rule that doesn't change: every Server Action and every
+`app/api/admin/*` route checks a permission before doing anything, and a
+missing permission looks like a missing page (404), never a 403 — an
+unauthorized admin surface should never confirm it exists.
+
+**Upgrading the database after an auth-kit update**: run
+`pnpm exec prisma db execute --file packages/auth-kit/prisma/upgrade.sql`
+before deploying the new code (`auth-kit doctor` says whether it is needed).
+It converts the old `Role` enum, adds the shared session columns and ends any
+session still storing a raw token, keeps every other row, and does nothing on
+a second run. Older code cannot write roles to a converted database, so
+deploy right after.
+
+## Super admins
+
+`SUPER_ADMIN` is the client's top role. Only a developer can give it, and its
+permissions are fixed in code (`FIXED_GRANTS` in `lib/auth/kit-config.ts`),
+so no matrix edit widens or narrows them: every permission except clearing
+the cache, running cron jobs, security status and integration health, the IP
+allowlist, and training or switching the chatbot (`manageChatbotTraining`;
+it still sets the tone and greeting). Its rank keeps it from managing,
+signing out or deleting developers and other super admins, and in the matrix
+it changes only roles ranked below it, granting only what it holds.
+
+After deploying this release run the database upgrade and then
+`pnpm db:seed`, which adds the SUPER_ADMIN row and gives
+`manageChatbotTraining` to every role that held `manageChatbot`.
 
 ## Add a user
 
@@ -95,7 +180,8 @@ rotated independently, at different costs:
   new signed URLs on their next render; nothing breaks, but any externally
   saved media link stops working.
 - `MAINTENANCE_BYPASS_SECRET`, `ADMIN_LOGIN_UNLOCK_SECRET`: rotating either
-  signs everyone out of that specific bypass/unlock cookie only. Do this on
+  signs everyone out of that specific bypass/unlock cookie only. Rotating
+  `ADMIN_LOGIN_UNLOCK_SECRET` also ends every sign-in link (`/s/...`). Do this on
   its own schedule, or immediately if the secret leaked (e.g. pasted in the
   wrong chat).
 - `CRON_SECRET`: rotate on Vercel and in `.env.local`/the deployment's env
@@ -181,12 +267,63 @@ request, no manual resync needed. Settings themselves live in Postgres and
 are never lost — Redis is a cache the proxy layer reads, not the source of
 truth.
 
+## Packages
+
+The reusable parts of the admin CMS are packages under `packages/*`,
+published to npm with Changesets (see `.changeset/README.md`). The app
+wires them together; none of them touches Prisma or React, and only auth-kit
+depends on Next.js.
+
+| Package | What it holds | Stays in the app |
+| --- | --- | --- |
+| `@sahan-sac/auth-kit` | Sessions, RBAC rules, rate-limit buckets, login unlock | Prisma adapter, route handlers, admin UI |
+| `@sahan-sac/ai-core` | AI provider adapters and their registry, the fallback chain, model resolution, image generation, prompt guards, the AI env schema and feature switches | `lib/ai/availability.ts` (the switches bound to `getEnv()`) |
+| `@sahan-sac/email-kit` | Email providers with fallback, guards, env schema, health, Brevo diagnostics, the layout and redacted CC copies | `lib/email/index.ts` (env and audit wiring), templates, `lib/email/account-mail.ts` |
+| `@sahan-sac/blog-kit` | Post, SEO, draft and cover generation, `generateBlogImage` with its `ImageSink` port, Markdown, charts, slugs, revisions | Post schema, queries, rendering (`sanitizeRich`), seed, `lib/ai/image-sink.ts` |
+| `@sahan-sac/chat-kit` | `runChat`, chat prompts and output filter, knowledge builder, `ChatStore` contract, visitor cookie | `/api/chat` (origin, rate limits, cookie, storage), `lib/chatbot/{knowledge,session,site}.ts`, the widget |
+| `@sahan-sac/media-kit` | Cloudinary client, upload validation, URL signing, delivery transforms, browser upload client | `lib/media/service.ts` (DB rows and audit), `lib/media/cloudinary-client.ts` |
+
+`ai-core`, `blog-kit` and `chat-kit` release together under one version;
+`auth-kit`, `email-kit` and `media-kit` are versioned on their own. `chat-kit` never
+imports `blog-kit` (blog posts reach the chatbot as a knowledge source), and
+`blog-kit` never imports `media-kit` (images go through `ImageSink`).
+
+Feature switches: `ENABLE_BLOG_AI` (off by default) and `ENABLE_CHATBOT`
+(on by default) each also need a provider that can answer for them.
+
+**AI providers.** Each request runs a chain: the first provider answers, and
+any failure (quota, timeout, bad key, retired model, malformed output) hands
+it to the next. Free providers (Gemini, OpenRouter, NVIDIA) run by default;
+paid ones (OpenAI, Anthropic, DeepSeek, xAI, Perplexity, a custom
+OpenAI-compatible endpoint, Vertex) join only with their key set and
+`AI_ALLOW_PAID=true`. `AI_PROVIDER_ORDER` (or `AI_PROVIDER_ORDER_BLOG` /
+`AI_PROVIDER_ORDER_CHAT`) picks exactly which providers run and in what
+order, for example `AI_PROVIDER_ORDER_CHAT=gemini,anthropic,nvidia`.
+**Settings → Integration health** shows each chain ("AI chain (blog)",
+"AI chain (chat)") and every provider's key status. AI rows are never checked
+automatically, because the only real check is a prompt that spends tokens:
+press **Check** on a row to send one short prompt through that provider (or
+through the whole chain, showing which provider answered and which fell
+through). Checks share the AI tools' rate limit (120 an hour per user) and are
+audited as `integration.ai.checked`.
+
+**AI context.** **Settings → AI context** holds standing guidance for the
+models: "Everywhere", then "Blog assistant", "SEO suggestions" and
+"Chatbot" (up to 6,000 characters each). It is added after each prompt's
+fixed rules, so it can set voice and facts but cannot switch off a safety
+rule. Never paste secrets into it. In the blog assistant, "Instructions and
+references" adds per-post instructions and pasted reference text; links in it
+are not opened. With the chatbot off,
+the site widget is not rendered, `/api/chat` answers 503, and
+`/admin/chatbot` says why.
+
 ## Verify everything is configured
 
 - `pnpm exec tsx scripts/check-env-example.mts` — `.env.example` matches
   `lib/env.ts`.
 - `/admin/settings` → integration health panel — reports database, Redis,
-  Resend, Brevo, Cloudinary and the AI provider chain as configured/reachable,
+  Resend, Brevo and Cloudinary as configured/reachable, and the AI providers
+  and chains as configured (press Check for reachability),
   never printing a secret or a fragment of one.
 - `/admin` dashboard → security status widget — shows MFA state and whether
   any account still has a temporary password.

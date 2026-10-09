@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { requirePermission } from "@/lib/auth/dal";
-import { db } from "@/lib/db/prisma";
+import { repos } from "@/lib/data";
 import EmptyState from "@/components/admin/ui/EmptyState";
 import { buttonVariants, tableClass, tdClass, thClass } from "@/components/admin/ui/styles";
 
@@ -10,14 +10,7 @@ export const metadata: Metadata = { title: "Services", robots: "noindex, nofollo
 
 export default async function ServicesPage() {
   await requirePermission("editCollections");
-  const groups = await db.serviceGroup.findMany({
-    orderBy: { sortOrder: "asc" },
-    select: {
-      id: true,
-      name: true,
-      services: { select: { published: true }, orderBy: { sortOrder: "asc" } },
-    },
-  });
+  const groups = await repos.serviceGroups.listForAdmin();
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-8">

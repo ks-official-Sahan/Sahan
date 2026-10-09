@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHmac, randomBytes } from "node:crypto";
 import { test } from "node:test";
 
 import { createToken, hashToken, tokenState, verifyTokenTag } from "./invite-token";
@@ -10,7 +11,20 @@ test("a fresh token verifies and yields the random part whose hash is stored", (
   const random = verifyTokenTag(token, SECRET);
   assert.ok(random);
   assert.equal(hashToken(random), hash);
-  assert.match(token, /^[A-Za-z0-9_-]{43}\.[A-Za-z0-9_-]{22}$/);
+  // v2: 128 random bits and a 64-bit tag, 34 characters in all.
+  assert.match(token, /^[A-Za-z0-9_-]{22}\.[A-Za-z0-9_-]{11}$/);
+});
+
+test("a v1 token (32 random bytes, 128-bit tag) from a link already sent still verifies", () => {
+  const random = randomBytes(32).toString("base64url");
+  const tag = createHmac("sha256", createHmac("sha256", SECRET).update("invite-token:v1").digest())
+    .update(random)
+    .digest()
+    .subarray(0, 16)
+    .toString("base64url");
+  assert.equal(verifyTokenTag(`${random}.${tag}`, SECRET), random);
+  // A v1 random part with a v2-length tag is neither format.
+  assert.equal(verifyTokenTag(`${random}.${tag.slice(0, 11)}`, SECRET), null);
 });
 
 test("the stored hash alone cannot rebuild a valid link", () => {

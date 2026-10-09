@@ -4,7 +4,7 @@ import Link from "next/link";
 import ActionForm, { SubmitButton } from "@/components/admin/ui/ActionForm";
 import { publishExperienceAction, reorderExperienceAction } from "@/lib/actions/works";
 import { hasPermission, requirePermission } from "@/lib/auth/dal";
-import { db } from "@/lib/db/prisma";
+import { repos } from "@/lib/data";
 import EmptyState from "@/components/admin/ui/EmptyState";
 import { badgeClass, buttonVariants, tableClass, tdClass, thClass } from "@/components/admin/ui/styles";
 
@@ -14,10 +14,7 @@ export default async function ExperiencePage() {
   const user = await requirePermission("editCollections");
   const canPublish = hasPermission(user, "publishCollections");
 
-  const experiences = await db.experience.findMany({
-    orderBy: { sortOrder: "asc" },
-    select: { id: true, company: true, role: true, period: true, type: true, published: true, sortOrder: true },
-  });
+  const experiences = await repos.experiences.listForAdmin();
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-8">

@@ -89,6 +89,13 @@ export interface AuthKitConfig<TRole extends string, TPermission extends string>
   /** Seed defaults per role (excluding `superRole`, which always defaults to every permission). */
   defaultGrants: Partial<Record<TRole, readonly TPermission[]>>;
   /**
+   * Roles whose permissions are fixed in code, like `superRole`: stored rows
+   * and matrix edits never change them, and they may hold `neverGrantable`
+   * permissions. For example a SUPER_ADMIN holding everything except a few
+   * operations kept for the super role.
+   */
+  fixedGrants?: Partial<Record<TRole, readonly TPermission[]>>;
+  /**
    * Who may manage whom (change role, disable, delete, reset password, ...).
    * Defaults to "only `superRole` manages anyone other than themself" — override
    * with your own hierarchy (e.g. a 3-tier "manager manages only the tier below").
@@ -112,6 +119,7 @@ export interface ResolvedAuthKit<TRole extends string, TPermission extends strin
   permissions: readonly TPermission[];
   neverGrantable: readonly TPermission[];
   defaultGrants: Partial<Record<TRole, readonly TPermission[]>>;
+  fixedGrants: Partial<Record<TRole, readonly TPermission[]>>;
   canManage: (actor: Person<TRole>, target: Person<TRole>) => boolean;
   assignableRoles: (actorRole: TRole) => readonly TRole[];
   limits: Record<string, LimitRule>;
@@ -153,6 +161,7 @@ export function defineAuthKit<TRole extends string, TPermission extends string>(
     permissions: config.permissions,
     neverGrantable: config.neverGrantable ?? [],
     defaultGrants: config.defaultGrants,
+    fixedGrants: config.fixedGrants ?? {},
     canManage,
     assignableRoles,
     limits: config.limits,

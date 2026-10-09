@@ -22,7 +22,8 @@ config object (`defineAuthKit`) instead of being hardcoded.
   and a `pwf` (password fingerprint) match, so **changing a password
   invalidates every older session immediately**, without a token blocklist.
 - **Revocation / force logout**: `createSessionStore` gives you
-  `revokeSession`, `revokeUserSessions`, `forceLogoutAll`, all of which drop
+  `revokeSession`, `revokeSessions` (a chosen set, in one write),
+  `revokeUserSessions`, `forceLogoutAll`, all of which drop
   the cached state so the change is visible on the very next request, not
   after a TTL.
 - **RBAC**: a role → permission matrix stored in your database, cached for a
@@ -39,7 +40,22 @@ config object (`defineAuthKit`) instead of being hardcoded.
 - **Hidden sign-in ("unlock gate")**: the login page answers 404 until a
   visitor opens it once with `?secret=<your-secret>`, which sets a short-lived
   signed cookie. This does not replace authentication — it just keeps casual
-  scanners from ever seeing a login form.
+  scanners from ever seeing a login form. `signSignInLink`/`verifySignInLink`
+  make a short, expiring code (`<expiry>.<tag>`, about 23 characters) that an
+  app can put in a link to unlock the same way without the secret in a URL;
+  rotating either secret ends every code.
+- **Short links** (`@sahan-sac/auth-kit/short-link`): `/a/<token>` for invite
+  and reset links, `/e/<token>` for email-change links and `/s/<code>` for
+  sign-in links. Build them with `accountLinkPath`/`emailLinkPath`/
+  `signInLinkPath`; in the proxy, `parseShortLink(pathname, search)` then
+  `resolveShortLink(link, { authSecret, unlockGate, keys, now, paths, rateLimit })`
+  says where to redirect and whether to set the unlock cookie. The parsing and
+  path builders alone, without `node:crypto`, are in `./short-link-path` (for
+  React Native or an edge runtime). Keep `/a`, `/e`
+  and `/s` free of your own pages.
+- **Short invite and reset tokens**: `createToken` makes 34-character tokens
+  (128 random bits, a 64-bit tag); `verifyTokenTag` still accepts the older
+  66-character form, so links already sent keep working.
 - **IP allowlist**: optional, for `/admin`-shaped paths. Fails **open** when
   the caller's IP cannot be resolved at all (no trusted proxy configured) —
   turning the allowlist on must never turn into "lock out everyone,
@@ -87,8 +103,13 @@ This package is published under a **private, restricted** scope
 | `next` | `^16.3.5` |
 | `next-auth` | `5.0.0-beta.32` |
 | `react` | `^19.0.0` |
+| `better-auth` | `^1.7.6` |
+| `drizzle-orm` | `>=0.44.0 <1` |
+| `hono` | `^4.6.0` |
 
-`react` is a peer because `createRbac` and `createAuthDal` use `react`'s
+All are optional: install `next-auth` for the next-auth engine or
+`better-auth` for the Better Auth engine (never both), `drizzle-orm` only
+for the Drizzle adapter, and `hono` only for `./hono`. `react` is a peer because `createRbac` and `createAuthDal` use `react`'s
 `cache()` to memoize one database read per request/render.
 
 ## Required environment variables
@@ -106,6 +127,29 @@ pass into the factories below.
 | `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` | Session-state cache and rate limits. Used only when both are set and the URL is https (`redisConfigFromEnv`). Falls back to an in-memory store/limiter when unset — **fine for a single server, not safe across multiple serverless instances.** Required in any real serverless/multi-instance deployment. |
 | `TRUSTED_PROXY_HOPS` | How many of *your own* reverse proxies append to `x-forwarded-for`. `0` (default) means no header is trusted and every caller reads as `"unknown"`. On Vercel this is unnecessary (its own headers are trusted automatically); use `trustProxy` in `defineAuthKit` to make this explicit config instead of environment-implicit. |
 | `ADMIN_ALLOWED_ORIGINS` | Extra allowed origins (e.g. preview deployments), comma/whitespace separated. Parse with `parseOriginList` from `./security/origin`. |
+
+## Database: Prisma or Drizzle
+
+auth-kit reads and writes its tables through `AuthDbAdapter` (`./adapter`).
+Two ready implementations ship with the package, and both pass one shared
+contract suite against a real (in-process) Postgres in the package tests:
+
+```ts
+// Prisma: copy the enums and models from prisma/auth.prisma into your schema.
+import type { Prisma } from "@prisma/client";
+import { createPrismaAuthAdapter } from "@sahan-sac/auth-kit/prisma";
+export const authAdapter = createPrismaAuthAdapter<Prisma.TransactionClient>(db);
+
+// Drizzle: the same tables as Drizzle definitions.
+import { createAuthSchema, createDrizzleAuthAdapter } from "@sahan-sac/auth-kit/drizzle";
+export const authSchema = createAuthSchema({ roles: ["DEVELOPER", "MANAGER", "EDITOR"], defaultRole: "EDITOR" });
+export const authAdapter = createDrizzleAuthAdapter(db, authSchema);
+```
+
+The two schemas create the same database, name for name (tables, columns,
+types, defaults, enums, indexes and constraints); a package test builds both
+and compares them. A project can switch ORMs without a migration.
+`@sahan-sac/auth-kit/prisma/auth.prisma` is the full Prisma source.
 
 ## The Prisma schema this package's reference adapter expects
 
@@ -126,7 +170,7 @@ model User {
   email              String    @unique
   name               String?
   passwordHash       String
-  role               String    // your own role enum/string
+  role               String    // foreign key to roles.name
   mfaEnabled         Boolean   @default(false)
   mustChangePassword Boolean   @default(false)
   lastLoginAt        DateTime?
@@ -231,6 +275,8 @@ export const authKit = defineAuthKit<RoleName, Permission>({
   superRole: "OWNER",
   permissions: PERMISSIONS,
   neverGrantable: ["manageUsers"],
+  // Optional: roles whose permissions are fixed in code, like superRole.
+  fixedGrants: { AUDITOR: ["viewDashboard", "viewOrders"] },
   defaultGrants: { MANAGER: ["viewDashboard", "editPosts", "publishPosts"], EDITOR: ["viewDashboard", "editPosts"] },
   // Optional: defaults to "only superRole manages anyone but themself".
   canManage: (actor, target) => actor.id !== target.id && (actor.role === "OWNER" || (actor.role === "MANAGER" && target.role === "EDITOR")),
@@ -266,7 +312,8 @@ the mutation it is auditing.
 import "server-only";
 import NextAuth from "next-auth";
 import { after } from "next/server";
-import { createAuthConfig, createMfa, createSessionStore, ensureBootstrapOwner, resolveCookieName } from "@sahan-sac/auth-kit";
+import { createMfa, createSessionStore, ensureBootstrapOwner, resolveCookieName } from "@sahan-sac/auth-kit";
+import { createAuthConfig } from "@sahan-sac/auth-kit/next-auth";
 import { authKit } from "./kit";
 import { myAdapter } from "./adapter";
 // ... your own kv, limit(), audit(), email sender, env resolution
@@ -350,6 +397,45 @@ inside one `adapter.withTransaction`, then drops the cache. Pure helpers
 `validateMatrix`, `can`) live in `./rbac` and all take `authKit` (or a
 `Pick` of it) as their first argument.
 
+### Runtime roles
+
+Roles are rows in the `roles` table (`name`, `label`, `description`,
+`rank`, `system`), so an admin can add one without a deploy. The super role is
+still named in code (`superRole`) and holds every permission there, so no
+stored row can lock the owner out. Pass `loadRoles` (every role name, cached by
+your app) to `createRbac` and the matrix covers the stored roles; a role the
+matrix does not know holds nothing.
+
+`createRoleCatalog(rows, superRole)` from `./rbac/roles` answers the
+hierarchy from one load: `canManage(actor, target)` (never yourself; the super
+role manages everyone, anyone else only strictly higher ranks) and
+`assignable(actorRole)`. `checkRoleInput` validates a new or edited role (name
+`^[A-Z][A-Z0-9_]{1,31}$`, label, description, rank 1 to 1000).
+
+`SUPER_ADMIN_ROLE` is a built-in row at rank 5: only the super role (rank 0)
+manages or assigns it, and it manages every role ranked above it. Fix its
+permissions in code with `fixedGrants` in `defineAuthKit`, for example every
+permission except the ones you keep for the super role. `matrixFromRows`
+ignores stored rows for a fixed role, `matrixToRows` stores none and
+`validateMatrix` refuses anything outside its list, so no matrix edit widens
+or narrows it.
+
+### Step-up codes
+
+An emailed code with purpose `STEP_UP` confirms one sensitive action. Issue
+it with `issueChallenge({ ..., purpose: "STEP_UP" })`, then hand the browser
+`signStepUp(secret, userId, { challengeId, action })` instead of the bare
+challenge id. When the code comes back, `readStepUp(secret, userId, ticket)`
+returns the challenge and the action it was signed for (null if the ticket was
+altered or belongs to someone else); verify and consume the code, then do that
+action and nothing else. `renderMfaCode` receives the `purpose`, so the
+email can say what the code is for.
+
+Upgrading from the `Role` enum (before 0.7): `npx auth-kit db upgrade --apply`
+(see "Upgrading the database"). It creates `roles` from the enum values
+(ranked 0, 10, 20 in enum order, so the first must be your super role), turns
+the three role columns into text with foreign keys and drops the enum.
+
 ### 7. MFA flows
 
 `createMfa({ adapter, authSecret, limit, sendEmail, audit, renderMfaCode })`
@@ -364,7 +450,7 @@ calls `consumeChallenge` for you.
 ### 8. Session management UI hooks
 
 `createSessionStore` also gives you `listSessions`, `getKnownIps`,
-`revokeSession`, `revokeUserSessions`, `forceLogoutAll` — wire these to a
+`revokeSession`, `revokeSessions`, `revokeUserSessions`, `forceLogoutAll` — wire these to a
 "your sessions" screen and an admin "sessions" screen.
 
 ### 9. Rate limits and custom buckets
@@ -381,27 +467,172 @@ export const { limit, rules: LIMITS } = createRateLimit(authKit.limits, { redis:
 Add a new bucket by adding a key to `defineAuthKit`'s `limits` — there is
 nothing else to register.
 
+## Better Auth engine
+
+The `./better-auth` subpath layers auth-kit's policy on
+[Better Auth](https://better-auth.com) instead of next-auth. Better Auth owns
+sign-in, sessions, cookies and routes; the `authKit()` plugin adds:
+
+- the login-unlock gate (`canSignIn` false answers 404 on `/sign-in/email`);
+- per-IP and per-account throttling through your own `limit` buckets (429);
+- auth-kit's password policy on sign-up, password change and reset (400);
+- `auth.login.success` / `auth.login.failure` / `auth.login.challenge` audit events;
+- `role` and `mustChangePassword` user fields that clients can never set.
+
+`authKitEmailPassword()` keeps auth-kit's length limits and bcrypt hashes, so
+users created under the next-auth engine keep signing in after a switch.
+
+```ts
+import { betterAuth } from "better-auth";
+import { authKit, authKitEmailPassword } from "@sahan-sac/auth-kit/better-auth";
+
+export const auth = betterAuth({
+  database: /* prismaAdapter(...) or drizzleAdapter(...) */,
+  emailAndPassword: authKitEmailPassword(),
+  plugins: [
+    authKit({
+      canSignIn: (headers) => hasValidUnlockHeader(headers),
+      limit: (bucket, key) => rateLimit(bucket, key),
+      audit: (event) => writeAuditRow(event),
+    }),
+  ],
+});
+
+// Server code: the signed-in user in auth-kit's shape, or null.
+const session = await readBetterAuthSession(auth, request.headers);
+```
+
+## Engines: one import
+
+`authorize`, the session store, the DAL and the tables are the same on both
+engines. Only the session issuer differs: next-auth signs a JWT pointing at the
+`user_sessions` row, Better Auth writes the row's `token` column (as a
+SHA-256, never the cookie value) and sets a cookie. An app picks the engine in
+two imports and installs only that engine's package.
+
+```ts
+// lib/auth/engine.ts (server only)
+import { createAuthEngine } from "@sahan-sac/auth-kit/engines/better-auth"; // or /engines/next-auth
+
+export const engine = createAuthEngine({
+  signIn: signInDeps, // createAuthorize's deps: adapter, sessionStore, mfa, limit, audit, ...
+  database: { prisma }, // or { drizzle: db } on a pg/Neon Pool, or { pool }; next-auth ignores it
+  production,
+  sessionCookieName: authKit.sessionCookieName(production),
+  loginPath: authKit.paths.login,
+  defaultRole: authKit.superRole,
+  origins: ["https://example.com", "https://www.example.com"],
+});
+
+export const { sessionSource, checkPasswordFingerprint, signIn, signOut, keepSessionAfterPasswordChange } = engine;
+
+// lib/auth/session-cookie.ts (proxy.ts and the expire route read it)
+import { createSessionCookieCheck } from "@sahan-sac/auth-kit/engines/better-auth/cookie"; // or /engines/next-auth/cookie
+export const { sessionCookies, hasSessionCookie } = createSessionCookieCheck({ cookieName, secret: process.env.AUTH_SECRET });
+```
+
+`signIn({ email, password })` or `signIn({ challengeId })` answers null (the
+cookie is set) or `{ code: "invalid" | "limited" | "mfa_required" }`.
+`signOut(to)` clears the cookies and redirects; revoke the row with the
+session store first. Pass `sessionSource` and `checkPasswordFingerprint` to
+`createAuthDal`. The `/api/auth/[...all]` catch-all answers 404 on both
+engines: everything runs as server actions, so no auth route is mounted.
+next-auth reads `AUTH_TRUST_HOST` and `AUTH_DEBUG` itself (or
+`nextAuth: { trustHost, debug }`), so the app's env schema does not change.
+
+### Switching engines
+
+```bash
+npx auth-kit engine next-auth           # dry run: lists the imports it would change
+npx auth-kit engine next-auth --write   # rewrites them (clean git tree), prints the dependency swap
+```
+
+The database needs no change. After the deploy everyone signs in once more:
+the other engine's cookie is not read. Passwords, MFA, roles, invites and audit
+history are untouched.
+
+### Upgrading the database
+
+`prisma/upgrade.sql` brings a database from any earlier auth-kit version to
+the current schema (the shared Better Auth columns, hashed session tokens, the
+`roles` table). Every step checks first, so it is safe on a current database
+and safe to rerun. It works on one schema: the URL's `schema=` parameter or
+`--schema`.
+
+```bash
+npx auth-kit doctor                # engine, env, and whether the schema is current
+npx auth-kit db upgrade            # prints the SQL
+npx auth-kit db upgrade --apply    # runs it (pg, or the app's own prisma CLI)
+```
+
+Or run it yourself: `prisma db execute --file node_modules/@sahan-sac/auth-kit/prisma/upgrade.sql`,
+`psql "$DATABASE_URL" -f ...`, or as a Drizzle custom migration.
+
+### Better Auth on any server
+
+`createAuthKitBetterAuth({ database, authorize, secret, origins })` from
+`./better-auth` builds the same Better Auth instance without Next.js, for Hono
+or plain Node (mount `auth.handler`; see below). `withHashedSessionTokens`
+and `hashSessionToken` are exported for apps that build their own adapter.
+
+## Hono
+
+`./hono` brings the same rules to a Hono app (Node, Bun, Deno, Workers):
+
+```ts
+import { Hono } from "hono";
+import { readBetterAuthSession, type KitSession } from "@sahan-sac/auth-kit/better-auth";
+import { betterAuthRoute, originGuard, rateLimit, requirePermission, securityHeaders, session } from "@sahan-sac/auth-kit/hono";
+
+const app = new Hono();
+app.use(securityHeaders());
+app.use("/api/*", originGuard({ siteUrl: process.env.SITE_URL }));
+app.on(["GET", "POST"], "/api/auth/*", betterAuthRoute(auth));
+app.use("/api/*", session((headers) => readBetterAuthSession(auth, headers)));
+app.post(
+  "/api/posts",
+  rateLimit({ limit: (key) => limiter.limit("posts:ip", key) }),
+  requirePermission<KitSession>((s) => rbac.can(s.role, "posts.write")),
+  (c) => c.json({ ok: true })
+);
+```
+
+`originGuard` refuses unsafe methods without a matching Origin (403, or 404
+with `status: 404`). For a React Native app, list its scheme in
+`nativeOrigins: ["myapp://"]` (see `@sahan-sac/auth-kit-client`). `requirePermission` answers 404 when signed out or not
+allowed, so a protected route cannot be told from a missing one.
+
 ## API reference
 
 | Subpath | Runtime | Exports |
 | --- | --- | --- |
-| `.` (root) | Pure/universal | `defineAuthKit`, `AuthDbAdapter` types, `AuditEvent`, `createAuthorize`/`AuthorizeDeps`/`AuthorizeResult`, `ensureBootstrapOwner`, `createAuthConfig`/`AuthConfigDeps`/`InvalidLogin`/`LimitedLogin`/`MfaLogin`, `resolveCookieName`, `SESSION_MAX_AGE_SECONDS`, `verifyCredentials`/`CredentialDeps`, `createToken`/`verifyTokenTag`/`tokenState` (invite/reset links), `signUnlockCookie`/`verifyUnlockCookie`/`isUnlockSecret`/`unlockKeysFromEnv`/`unlockCookieOptions`/`constantTimeEqual`, `hashPassword`/`verifyPassword`, `checkPassword`, `safeCallbackUrl`, `createMfa`, RBAC generics (`isPermission`/`isRole`/`defaultPermissionsFor`/`canBeGranted`/`matrixFromRows`/`defaultMatrix`/`matrixToRows`/`can`/`diffMatrix`/`validateMatrix`/`createRbac`) |
+| `.` (root) | Pure/universal | `defineAuthKit`, `AuthDbAdapter` types, `AuditEvent`, `createAuthorize`/`AuthorizeDeps`/`AuthorizeResult`, `ensureBootstrapOwner`, `resolveCookieName`, `SESSION_MAX_AGE_SECONDS`, `verifyCredentials`/`CredentialDeps`, `createToken`/`verifyTokenTag`/`tokenState` (invite/reset links), `signUnlockCookie`/`verifyUnlockCookie`/`isUnlockSecret`/`unlockKeysFromEnv`/`unlockCookieOptions`/`constantTimeEqual`, `hashPassword`/`verifyPassword`, `checkPassword`, `safeCallbackUrl`, `createMfa`, RBAC generics (`isPermission`/`isRole`/`defaultPermissionsFor`/`canBeGranted`/`matrixFromRows`/`defaultMatrix`/`matrixToRows`/`can`/`diffMatrix`/`validateMatrix`/`createRbac`) |
+| `./rbac/rules` | Pure/universal (no React) | `can`, `defaultMatrix`, `matrixFromRows`, `matrixToRows`, `diffMatrix`, `validateMatrix` |
+| `./rbac/roles` | Pure/universal (no React) | `createRoleCatalog`, `checkRoleInput`, `RoleRecord`, `SUPER_ADMIN_ROLE`, `ROLE_NAME_PATTERN`, `MAX_ROLE_RANK` |
 | `./kit` | Pure/universal | `defineAuthKit` and its types (also at root) |
-| `./authorize` | Next.js (`next/server`) | `createAuthorize` — the credentials/MFA decision, without the next-auth error-throwing wrapper |
-| `./config` | Next.js + next-auth | `createAuthConfig` |
+| `./authorize` | Pure/universal | `createAuthorize` — the credentials/MFA decision, without the next-auth error-throwing wrapper |
+| `./engines/next-auth`, `./engines/better-auth` | Next.js + that engine | `createAuthEngine(options)`: the same options and the same `AuthEngine` shape on both |
+| `./engines/next-auth/cookie`, `./engines/better-auth/cookie` | Edge-safe (proxy) | `createSessionCookieCheck({ cookieName, secret })`: `sessionCookies`, `hasSessionCookie` |
+| `./config`, `./next-auth` | Next.js + next-auth | `createAuthConfig`, `InvalidLogin`/`LimitedLogin`/`MfaLogin` (lower level than `./engines/next-auth`) |
+| `./prisma` | Any server | `createPrismaAuthAdapter`, `PrismaAuthClient`/`PrismaAuthModels` types |
+| `./drizzle` | Any server (drizzle-orm) | `createAuthSchema`, `createDrizzleAuthAdapter`, types |
+| `./hono` | Any server (hono) | `securityHeaders`, `originGuard`, `rateLimit`, `session`, `requirePermission`, `betterAuthRoute` |
+| `./better-auth` | Any server (Better Auth) | `authKit` plugin, `authKitEmailPassword`, `readBetterAuthSession`; on auth-kit's tables: `authKitSessions` plugin, `authKitDatabaseOptions`, `AUTH_KIT_DISABLED_PATHS`, `betterAuthSessionSource`, `signInRefusal`; types |
 | `./session` | Next.js (`next/navigation`, `next/server`) | `createAuthDal`, `createSessionStore`, `createSessionReader`, `evaluateSession`, `passwordFingerprint`, types |
 | `./security` | Mixed — `request-device` needs `next/headers` | `clientIp`, allowlist functions, `isAllowedOrigin`/`parseOriginList`, `buildCsp`/`generateNonce`, `SECURITY_HEADERS`, `isScannerPath`, `checkOrigin`, `requestDetails` |
-| `./cache` | `server-only` | `MemoryKv`, `createRateLimit`/`MemoryLimiter`/`UpstashLimiter`, `RedisKv`/`getRedis`/`getKv`/`kv` |
+| `./cache` | Server (any runtime) | `MemoryKv`, `createRateLimit`/`MemoryLimiter`/`UpstashLimiter`, `RedisKv`/`getRedis`/`getKv`/`kv` |
 | `./unlock-request` | `next/headers` | `hasValidUnlock` |
 | `./rbac`, `./mfa`, `./adapter`, `./credentials`, `./password`, `./password-policy`, `./invite-token`, `./login-unlock`, `./safe-callback-url`, `./constants`, `./bootstrap`, `./audit-event` | Pure | As above / self-explanatory from the source |
 | Fine-grained `./security/*`, `./cache/*` | — | Every module above is also reachable individually, for a bundler that wants the smallest possible import |
 
 Only `.` (root), `./kit`, `./rbac`, `./mfa`, `./adapter`, `./credentials`,
 `./password*`, `./invite-token`, `./login-unlock`, `./safe-callback-url`,
-`./constants`, `./bootstrap`, `./audit-event`, `./config`, `./authorize` are
+`./constants`, `./bootstrap`, `./audit-event`, `./authorize` are
 safe to import from a Client Component or a plain (non-Next.js) test runner
 — `./session`, `./security` (specifically `request-device`), `./cache` and
 `./unlock-request` are Next.js/server-only and must stay at their subpath.
+No entry except the engine subpaths imports `next-auth` or `better-auth`, so
+an app installs only the engine it uses (a package test enforces this).
 
 ## Security checklist for production
 

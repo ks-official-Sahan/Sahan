@@ -1,0 +1,98 @@
+{
+  "name": "@sahan-sac/media-kit",
+  "version": "0.2.1",
+  "description": "Headless Cloudinary media layer: config, upload/format validation, HMAC URL and upload signing, delivery URL transforms, a browser upload client, and a typed CloudinaryClient. Framework-agnostic; the DB-backed service and audit trail stay in the app.",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ks-official-Sahan/Sahan.git",
+    "directory": "packages/media-kit"
+  },
+  "keywords": [
+    "media",
+    "cloudinary",
+    "upload",
+    "images"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "engines": {
+    "node": ">=20"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./config": "./src/config.ts",
+    "./validation": "./src/validation.ts",
+    "./signature": "./src/signature.ts",
+    "./delivery": "./src/delivery.ts",
+    "./cloudinary": "./src/cloudinary.ts",
+    "./upload-client": "./src/upload-client.ts",
+    "./env": "./src/env.ts",
+    "./package.json": "./package.json"
+  },
+  "types": "./src/index.ts",
+  "main": "./src/index.ts",
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.build.json",
+    "test": "node --conditions=react-server --import tsx --test \"src/**/*.test.ts\"",
+    "prepack": "npm run build && npm run test"
+  },
+  "dependencies": {
+    "zod": "^4.6.5",
+    "server-only": "^0.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22",
+    "tsup": "^8.3.5",
+    "tsx": "^4.23.15",
+    "typescript": "^5.6.3"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/",
+    "types": "./dist/index.d.ts",
+    "main": "./dist/index.js",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "import": "./dist/index.js"
+      },
+      "./config": {
+        "types": "./dist/config.d.ts",
+        "import": "./dist/config.js"
+      },
+      "./validation": {
+        "types": "./dist/validation.d.ts",
+        "import": "./dist/validation.js"
+      },
+      "./signature": {
+        "types": "./dist/signature.d.ts",
+        "import": "./dist/signature.js"
+      },
+      "./delivery": {
+        "types": "./dist/delivery.d.ts",
+        "import": "./dist/delivery.js"
+      },
+      "./cloudinary": {
+        "types": "./dist/cloudinary.d.ts",
+        "import": "./dist/cloudinary.js"
+      },
+      "./upload-client": {
+        "types": "./dist/upload-client.d.ts",
+        "import": "./dist/upload-client.js"
+      },
+      "./env": {
+        "types": "./dist/env.d.ts",
+        "import": "./dist/env.js"
+      },
+      "./package.json": "./package.json"
+    }
+  }
+}

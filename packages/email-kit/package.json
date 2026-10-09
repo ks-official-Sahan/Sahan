@@ -1,0 +1,93 @@
+{
+  "name": "@sahan-sac/email-kit",
+  "version": "0.2.0",
+  "description": "Transactional email for server apps: Resend and SMTP (Brevo) providers with ordered fallback, a capture provider for tests, header-injection and address guards, a typed env schema, provider health, Brevo delivery diagnostics, and one escaped HTML/text layout with redacted copies for CC. Framework-agnostic; templates and audit storage stay in the app.",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ks-official-Sahan/Sahan.git",
+    "directory": "packages/email-kit"
+  },
+  "keywords": [
+    "email",
+    "resend",
+    "smtp",
+    "brevo",
+    "transactional"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "engines": {
+    "node": ">=20"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./env": "./src/env.ts",
+    "./guards": "./src/guards.ts",
+    "./config": "./src/config.ts",
+    "./service": "./src/service.ts",
+    "./health": "./src/health.ts",
+    "./layout": "./src/layout.ts",
+    "./recipients": "./src/recipients.ts",
+    "./brevo-diagnostics": "./src/brevo-diagnostics.ts",
+    "./providers/resend": "./src/providers/resend.ts",
+    "./providers/brevo-smtp": "./src/providers/brevo-smtp.ts",
+    "./providers/capture": "./src/providers/capture.ts",
+    "./package.json": "./package.json"
+  },
+  "types": "./src/index.ts",
+  "main": "./src/index.ts",
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.build.json",
+    "test": "node --conditions=react-server --import tsx --test \"src/**/*.test.ts\"",
+    "prepack": "npm run build && npm run test"
+  },
+  "dependencies": {
+    "zod": "^4.6.5"
+  },
+  "peerDependencies": {
+    "nodemailer": "^10.0.10",
+    "resend": "^6.28.1"
+  },
+  "peerDependenciesMeta": {
+    "nodemailer": { "optional": true },
+    "resend": { "optional": true }
+  },
+  "devDependencies": {
+    "nodemailer": "^10.0.10",
+    "resend": "^6.28.1",
+    "@types/node": "^22",
+    "@types/nodemailer": "^8.0.2",
+    "tsup": "^8.3.5",
+    "tsx": "^4.23.15",
+    "typescript": "^5.6.3"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/",
+    "types": "./dist/index.d.ts",
+    "main": "./dist/index.js",
+    "exports": {
+      ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" },
+      "./env": { "types": "./dist/env.d.ts", "import": "./dist/env.js" },
+      "./guards": { "types": "./dist/guards.d.ts", "import": "./dist/guards.js" },
+      "./config": { "types": "./dist/config.d.ts", "import": "./dist/config.js" },
+      "./service": { "types": "./dist/service.d.ts", "import": "./dist/service.js" },
+      "./health": { "types": "./dist/health.d.ts", "import": "./dist/health.js" },
+      "./layout": { "types": "./dist/layout.d.ts", "import": "./dist/layout.js" },
+      "./recipients": { "types": "./dist/recipients.d.ts", "import": "./dist/recipients.js" },
+      "./brevo-diagnostics": { "types": "./dist/brevo-diagnostics.d.ts", "import": "./dist/brevo-diagnostics.js" },
+      "./providers/resend": { "types": "./dist/providers/resend.d.ts", "import": "./dist/providers/resend.js" },
+      "./providers/brevo-smtp": { "types": "./dist/providers/brevo-smtp.d.ts", "import": "./dist/providers/brevo-smtp.js" },
+      "./providers/capture": { "types": "./dist/providers/capture.d.ts", "import": "./dist/providers/capture.js" },
+      "./package.json": "./package.json"
+    }
+  }
+}

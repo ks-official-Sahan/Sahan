@@ -44,6 +44,13 @@ test("a changed password ends older sessions", () => {
   assert.deepEqual(evaluateSession(state, { sub: "u1", pwf: undefined }, NOW), { ok: false, reason: "password_changed" });
 });
 
+test("checkPasswordFingerprint false skips only the fingerprint", () => {
+  const skip = { checkPasswordFingerprint: false };
+  assert.deepEqual(evaluateSession(state, { sub: "u1", pwf: undefined }, NOW, skip), { ok: true });
+  assert.deepEqual(evaluateSession({ ...state, revoked: true }, { sub: "u1", pwf: undefined }, NOW, skip), { ok: false, reason: "revoked" });
+  assert.deepEqual(evaluateSession(state, { sub: "u2", pwf: undefined }, NOW, skip), { ok: false, reason: "user_mismatch" });
+});
+
 test("the fingerprint is stable, short and depends on both inputs", () => {
   assert.equal(pwf, passwordFingerprint("$2b$12$hash-of-the-current-password", SECRET));
   assert.match(pwf, /^[0-9a-f]{16}$/);

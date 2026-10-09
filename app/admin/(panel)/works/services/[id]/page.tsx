@@ -15,7 +15,7 @@ import {
 } from "@/lib/actions/works";
 import type { ActionState } from "@/lib/actions/state";
 import { hasPermission, requirePermission } from "@/lib/auth/dal";
-import { db } from "@/lib/db/prisma";
+import { repos } from "@/lib/data";
 
 export const metadata: Metadata = { title: "Edit Service Group", robots: "noindex, nofollow, nocache" };
 
@@ -24,10 +24,7 @@ export default async function EditServiceGroupPage({ params }: { params: Promise
   const user = await requirePermission("editCollections");
   const canPublish = hasPermission(user, "publishCollections");
 
-  const group = await db.serviceGroup.findUnique({
-    where: { id },
-    include: { services: { orderBy: { sortOrder: "asc" } } },
-  });
+  const group = await repos.serviceGroups.findWithServices(id);
   if (!group) notFound();
 
   async function saveGroup(previous: ActionState, formData: FormData): Promise<ActionState> {

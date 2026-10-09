@@ -1,0 +1,31 @@
+{
+  "name": "@sahan-sac/example-hono-api",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Hono API with Better Auth, Drizzle and @sahan-sac/auth-kit. Runs on an in-process Postgres (PGlite) when DATABASE_URL is unset.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "start": "tsx src/server.ts",
+    "db:generate": "drizzle-kit generate",
+    "test": "node --import tsx --test \"src/**/*.test.ts\"",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "^0.5.8",
+    "@hono/node-server": "^2.1.1",
+    "@sahan-sac/auth-kit": "workspace:*",
+    "better-auth": "^1.7.6",
+    "drizzle-orm": "^0.45.3",
+    "hono": "^4.13.10",
+    "pg": "^8.23.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.4",
+    "@types/pg": "^8.23.1",
+    "drizzle-kit": "^0.31.11",
+    "tsx": "^4.23.15",
+    "typescript": "^5.9.3"
+  }
+}

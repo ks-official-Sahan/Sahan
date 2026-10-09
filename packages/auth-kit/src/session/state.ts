@@ -43,16 +43,23 @@ export function passwordFingerprint(passwordHash: string, authSecret: string): s
   return createHmac("sha256", authSecret).update(passwordHash).digest("hex").slice(0, 16);
 }
 
+/**
+ * `checkPasswordFingerprint: false` is for engines whose session is only a
+ * database row (Better Auth): there is no token that outlives the row, so a
+ * password change ends older sessions by revoking their rows instead.
+ */
 export function evaluateSession(
   state: SessionState | null,
   claims: { sub: string | undefined; pwf: string | undefined },
-  now: number
+  now: number,
+  options: { checkPasswordFingerprint?: boolean } = {}
 ): SessionVerdict {
   if (!state) return { ok: false, reason: "missing" };
   if (!claims.sub || claims.sub !== state.userId) return { ok: false, reason: "user_mismatch" };
   if (state.revoked) return { ok: false, reason: "revoked" };
   if (state.expiresAt <= now) return { ok: false, reason: "expired" };
   if (state.disabled) return { ok: false, reason: "disabled" };
+  if (options.checkPasswordFingerprint === false) return { ok: true };
   if (!claims.pwf || !constantTimeEqual(claims.pwf, state.pwf)) {
     return { ok: false, reason: "password_changed" };
   }

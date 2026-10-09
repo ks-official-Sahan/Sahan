@@ -15,7 +15,7 @@ import {
 } from "@/lib/actions/works";
 import type { ActionState } from "@/lib/actions/state";
 import { hasPermission, requirePermission } from "@/lib/auth/dal";
-import { db } from "@/lib/db/prisma";
+import { repos } from "@/lib/data";
 import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Edit Skill Group", robots: "noindex, nofollow, nocache" };
@@ -25,10 +25,7 @@ export default async function EditSkillGroupPage({ params }: { params: Promise<{
   const user = await requirePermission("editCollections");
   const canPublish = hasPermission(user, "publishCollections");
 
-  const group = await db.skillGroup.findUnique({
-    where: { id },
-    include: { skills: { orderBy: { sortOrder: "asc" } } },
-  });
+  const group = await repos.skillGroups.findWithSkills(id);
   if (!group) notFound();
 
   async function saveGroup(previous: ActionState, formData: FormData): Promise<ActionState> {

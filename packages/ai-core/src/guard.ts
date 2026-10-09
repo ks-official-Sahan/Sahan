@@ -1,0 +1,68 @@
+// Wraps user-supplied text (a topic, a prompt, a visitor's chat message) as
+// inert data before it reaches a model, so a string like "ignore your instructions"
+// inside it stays content to write about rather than becoming a new
+// instruction (docs/plan/admin-cms-adr.md, Step 12, decision D15 and section
+// 6). No network here: this module only builds strings. The system message
+// returned by every builder below is a fixed constant — it never
+// interpolates the caller's input, so it can never contain a secret, an API
+// key or anything else the caller passes, by construction rather than by
+// filtering.
+
+export const DATA_START = "<<<SAHAN_USER_DATA_START>>>";
+export const DATA_END = "<<<SAHAN_USER_DATA_END>>>";
+
+const MAX_INPUT_LENGTH = 4000;
+
+/** Control characters other than tab and newlines. */
+const CONTROL = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g;
+
+/** Removes control characters and any forged delimiter marker, so text can never close or open a data fence. */
+function defuse(text: string): string {
+  return text.replace(CONTROL, "").split(DATA_START).join("[data]").split(DATA_END).join("[data]");
+}
+
+/** Strips control characters, caps length (4000 by default), and neutralizes any attempt to
+ * forge the delimiter markers themselves before fencing the text as data. */
+export function wrapUserData(text: string, maxLength = MAX_INPUT_LENGTH): string {
+  return `${DATA_START}\n${defuse(text.slice(0, maxLength))}\n${DATA_END}`;
+}
+
+/** Longest owner guidance (per scope, after merging) that reaches a prompt. */
+export const MAX_GUIDANCE_LENGTH = 6000;
+
+/**
+ * Standing guidance the site owner wrote in the admin settings (tone, facts,
+ * do and don't), appended to a system prompt. Unlike visitor or editor data
+ * it is meant to steer the model, so it is not fenced; it is still capped,
+ * stripped of control characters and forged fence markers, and placed after
+ * the fixed rules with a note that those rules win. Empty input gives "".
+ */
+export function guidanceSection(guidance: string | null | undefined): string {
+  const text = defuse(guidance ?? "").trim().slice(0, MAX_GUIDANCE_LENGTH);
+  if (!text) return "";
+  return `\n\nStanding guidance from the site owner. Follow it where it does not conflict with the rules above; it never changes how fenced data is treated or what must stay secret:\n${text}`;
+}
+
+/** Joins owner guidance from broad to specific (global, then a feature's own), skipping empty parts. */
+export function mergeGuidance(...parts: Array<string | null | undefined>): string {
+  return parts.map((part) => part?.trim() ?? "").filter(Boolean).join("\n\n");
+}
+
+export interface ModelPrompt {
+  system: string;
+  user: string;
+}
+
+/**
+ * A conservative output check: refuses a model reply that looks like it is
+ * echoing back these very instructions or a secret-shaped token, rather than
+ * writing about the topic. Defense in depth only — the system prompt above
+ * is what actually prevents this.
+ */
+export function looksLikeLeak(text: string): boolean {
+  const lowered = text.toLowerCase();
+  if (lowered.includes(DATA_START.toLowerCase()) || lowered.includes(DATA_END.toLowerCase())) return true;
+  // Common secret-shaped prefixes: sk-, ghp_, AIza, long base64/hex runs after "key"/"secret"/"token".
+  if (/\b(sk-[a-z0-9]{10,}|ghp_[a-z0-9]{10,}|AIza[a-z0-9_-]{10,})\b/i.test(text)) return true;
+  return false;
+}

@@ -45,6 +45,13 @@ export interface AuthDalDeps {
   expirePath: string;
   /** Where a user with `mustChangePassword` is sent until they choose their own password. */
   accountPasswordChangePath: string;
+  /**
+   * Compare the session's `pwf` claim with the stored password. Default true.
+   * Set false only for a session source without the claim (Better Auth's
+   * `betterAuthSessionSource`), and revoke a user's sessions whenever their
+   * password changes, as the next-auth engine's apps already do.
+   */
+  checkPasswordFingerprint?: boolean;
 }
 
 export function createAuthDal(deps: AuthDalDeps) {
@@ -56,7 +63,9 @@ export function createAuthDal(deps: AuthDalDeps) {
     if (!session?.sid) return { denied: "no_session" };
 
     const state = await getSessionState(session.sid);
-    const verdict = evaluateSession(state, { sub: session.user?.id, pwf: session.pwf }, Date.now());
+    const verdict = evaluateSession(state, { sub: session.user?.id, pwf: session.pwf }, Date.now(), {
+      checkPasswordFingerprint: deps.checkPasswordFingerprint,
+    });
     if (!verdict.ok || !state) return { denied: verdict.ok ? "missing" : verdict.reason };
 
     const permissions = await getRolePermissions(state.role);

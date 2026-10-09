@@ -39,7 +39,8 @@ export function createMfa(deps: {
     context: { actor: { id: string; email: string } }
   ) => Promise<{ ok: boolean }>;
   audit: (event: AuditEvent) => Promise<void>;
-  renderMfaCode: (input: { name: string | null; code: string; minutes: number }) => RenderedEmail;
+  /** `purpose` says what the code is for, so the email can name it. */
+  renderMfaCode: (input: { name: string | null; code: string; minutes: number; purpose: MfaPurpose }) => RenderedEmail;
 }) {
   const { adapter, authSecret, limit, sendEmail, audit, renderMfaCode } = deps;
 
@@ -80,7 +81,7 @@ export function createMfa(deps: {
       );
     });
 
-    const rendered = renderMfaCode({ name: input.name, code, minutes: MFA_TTL_MINUTES });
+    const rendered = renderMfaCode({ name: input.name, code, minutes: MFA_TTL_MINUTES, purpose: input.purpose });
     const sent = await sendEmail(
       { to: input.email, subject: rendered.subject, html: rendered.html, text: rendered.text, category: "mfa" },
       { actor: { id: input.userId, email: input.email } }

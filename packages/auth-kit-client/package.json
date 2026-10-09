@@ -1,0 +1,70 @@
+{
+  "name": "@sahan-sac/auth-kit-client",
+  "version": "0.1.0",
+  "description": "React web and React Native (Expo) client for @sahan-sac/auth-kit's Better Auth engine: a typed auth client with auth-kit's user fields and sign-in, permission hooks, and a fetch helper that calls your API with the session.",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ks-official-Sahan/Sahan.git",
+    "directory": "packages/auth-kit-client"
+  },
+  "keywords": [
+    "react",
+    "expo",
+    "react-native",
+    "better-auth",
+    "auth",
+    "rbac"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "engines": {
+    "node": ">=20"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./package.json": "./package.json"
+  },
+  "types": "./src/index.ts",
+  "main": "./src/index.ts",
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.build.json",
+    "test": "node --import tsx --test \"src/**/*.test.ts\"",
+    "prepack": "npm run build && npm run test"
+  },
+  "peerDependencies": {
+    "better-auth": "^1.7.6",
+    "react": ">=18"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/",
+    "types": "./dist/index.d.ts",
+    "main": "./dist/index.js",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "import": "./dist/index.js"
+      },
+      "./package.json": "./package.json"
+    }
+  },
+  "devDependencies": {
+    "@sahan-sac/auth-kit": "workspace:^",
+    "@types/node": "^22.20.4",
+    "@types/react": "^19.2.18",
+    "better-auth": "^1.7.6",
+    "hono": "^4.13.10",
+    "react": "^19.2.8",
+    "tsup": "^8.5.1",
+    "tsx": "^4.23.15",
+    "typescript": "^5.9.3"
+  }
+}

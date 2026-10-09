@@ -1,0 +1,185 @@
+// auth-kit's tables, as Prisma models. Copy these into your own schema.prisma
+// (seed the roles table with your own roles) and use createPrismaAuthAdapter
+// from "@sahan-sac/auth-kit/prisma". The Drizzle schema in
+// "@sahan-sac/auth-kit/drizzle" creates the same tables, columns and indexes;
+// the package tests check the two stay identical. The generator and
+// datasource blocks below exist only for those tests: copy the enums and models.
+
+generator client {
+  provider     = "prisma-client"
+  output       = "../.prisma-test/client"
+  moduleFormat = "esm"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum MfaPurpose {
+  SIGN_IN
+  ENABLE
+  DISABLE
+  STEP_UP
+}
+
+enum TokenPurpose {
+  INVITE
+  PASSWORD_RESET
+  EMAIL_CHANGE
+}
+
+model User {
+  id                 String    @id @default(cuid())
+  // Stored lowercase; normalise before every write.
+  email              String    @unique
+  // Read by the Better Auth engine; the app's own flows never set it.
+  emailVerified      Boolean   @default(false)
+  name               String?
+  passwordHash       String
+  role               String    @default("EDITOR")
+  roleRecord         Role      @relation(fields: [role], references: [name], onDelete: Restrict, onUpdate: Cascade)
+  image              String?
+  bio                String?   @db.Text
+  mfaEnabled         Boolean   @default(false)
+  mustChangePassword Boolean   @default(false)
+  // Shown to non-super-role viewers as another role (see ./rbac/mask). Presentation only.
+  masked             Boolean   @default(false)
+  passwordChangedAt  DateTime  @default(now())
+  lastLoginAt        DateTime?
+  disabledAt         DateTime?
+  createdById        String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  sessions      UserSession[]
+  mfaChallenges MfaChallenge[]
+  auditLogs     AuditLog[]
+
+  @@index([role])
+  @@map("users")
+}
+
+// Roles are rows, so an admin adds one without a deploy. `rank` is the
+// hierarchy: a lower rank manages higher ranks. The super role (rank 0) is
+// also named in code and holds every permission there, so no stored row can
+// lock the owner out. System roles cannot be renamed or deleted.
+model Role {
+  name        String   @id
+  label       String
+  description String?
+  rank        Int
+  system      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  users       User[]
+  permissions RolePermission[]
+  tokens      AuthToken[]
+
+  @@index([rank])
+  @@map("roles")
+}
+
+// A row means the permission is granted to the role. The super role holds
+// every permission in code, so it needs no rows.
+model RolePermission {
+  role        String
+  roleRecord  Role     @relation(fields: [role], references: [name], onDelete: Cascade, onUpdate: Cascade)
+  permission  String
+  updatedById String?
+  updatedAt   DateTime @default(now()) @updatedAt
+
+  @@id([role, permission])
+  @@map("role_permissions")
+}
+
+// One row per signed-in browser. `id` is the `sid` claim in the JWT
+// (next-auth engine); `token` is the session cookie value (Better Auth engine).
+model UserSession {
+  id           String    @id @default(cuid())
+  token        String?   @unique
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ip           String?
+  userAgent    String?   @db.Text
+  browser      String?
+  os           String?
+  device       String?
+  mfaVerified  Boolean   @default(false)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @default(now()) @updatedAt
+  lastSeenAt   DateTime  @default(now())
+  expiresAt    DateTime
+  revokedAt    DateTime?
+  revokedById  String?
+  revokeReason String?
+
+  @@index([userId, revokedAt])
+  @@index([expiresAt])
+  @@index([lastSeenAt])
+  @@map("user_sessions")
+}
+
+// Invite and password-reset links. Only the SHA-256 of the token is stored.
+model AuthToken {
+  id          String       @id @default(cuid())
+  purpose     TokenPurpose
+  email       String
+  userId      String?
+  // Role granted on acceptance (invites only).
+  role        String?
+  roleRecord  Role?        @relation(fields: [role], references: [name], onDelete: SetNull, onUpdate: Cascade)
+  tokenHash   String       @unique
+  createdById String?
+  expiresAt   DateTime
+  usedAt      DateTime?
+  revokedAt   DateTime?
+  createdAt   DateTime     @default(now())
+
+  @@index([email, purpose])
+  @@index([expiresAt])
+  @@index([purpose, expiresAt])
+  @@map("auth_tokens")
+}
+
+// Emailed one-time codes for sign-in, enabling and disabling MFA.
+model MfaChallenge {
+  id         String     @id @default(cuid())
+  userId     String
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  purpose    MfaPurpose
+  codeHash   String
+  attempts   Int        @default(0)
+  expiresAt  DateTime
+  verifiedAt DateTime?
+  consumedAt DateTime?
+  createdAt  DateTime   @default(now())
+
+  @@index([userId, purpose, expiresAt])
+  @@index([expiresAt])
+  @@map("mfa_challenges")
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String?
+  actor      User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  // Snapshots, so the trail survives deleting the user or changing their role.
+  actorEmail String?
+  actorRole  String?
+  action     String
+  entityType String
+  entityId   String?
+  before     Json?
+  after      Json?
+  ip         String?
+  userAgent  String?  @db.Text
+  meta       Json?
+  createdAt  DateTime @default(now())
+
+  @@index([createdAt, id])
+  @@index([actorId])
+  @@index([action])
+  @@index([entityType, entityId])
+  @@map("audit_logs")
+}
