@@ -2,7 +2,7 @@
 
 Audited baseline: commit `e07a317` (the head of `cms-features`, merged to
 `master` as `956efcc` via PR #14). Findings describe that snapshot. Items
-fixed since are marked "Fixed in #15" below.
+fixed since are marked with the PR that fixed them ("Fixed in #15").
 
 Scope: the Sahan admin CMS, compared with
 Contentful, Sanity, Strapi 5, Payload 3, Directus 11, Storyblok, Hygraph,
@@ -76,18 +76,18 @@ Browser -> Vercel CDN -> proxy.ts (every non-static path)
 | ID | Where | Issue | Fix |
 |---|---|---|---|
 | M1 (Fixed in #15) | `packages/auth-kit/src/cache/redis.ts:82`; `lib/cache/cached.ts` | The tag-version key gets its TTL only on creation (`EXPIRE NX`). After it expires, the counter restarts at 1 and can match data written before the purge, served stale for up to about 4 min. | Refresh the TTL on every bump, or use `SET tagversion = Date.now()`. |
-| M2 | `lib/settings/kv.ts`; `proxy.ts:64-71` | During a Redis outage the failover memory store is empty, so maintenance reads off and the allowlist reads empty (fail-open). | Keep the last settled value. Add an env override and alert when `kvBackend()` is degraded. |
-| M3 | `vercel.json`; `lib/blog/queries.ts` | Scheduled posts surface through read-time `publicNow()` plus stacked TTLs (ISR 300 + data 300 + Redis 300), so up to about 15 min late. The cron is daily. | Run the cron every 5 min, or clamp revalidate to the next `publishAt`. |
-| M4 | `lib/api/content.ts:10`; `lib/cache/plan.ts` | `revalidatePath('/api/content/v1/...')` does not purge the CDN for dynamic handlers (inferred). API consumers see up to 6 min of stale data. No ETag. | Add CDN cache tags with tag purge on publish. Add a content-hash ETag with 304 support. |
-| M5 | `app/api/content/v1/posts/route.ts` | Only cursor requests are rate limited. A random `?x=` busts the CDN key on every call, and `clientIp` ignores `authKit.trustProxy`. | Reject unknown query params. Pass `trustProxy`. Add a WAF rule on `/api/content/*`. |
+| M2 (Fixed in #16) | `lib/settings/kv.ts`; `proxy.ts:64-71` | During a Redis outage the failover memory store is empty, so maintenance reads off and the allowlist reads empty (fail-open). | Keep the last settled value. Add an env override and alert when `kvBackend()` is degraded. |
+| M3 (Fixed in #18) | `vercel.json`; `lib/blog/queries.ts` | Scheduled posts surface through read-time `publicNow()` plus stacked TTLs (ISR 300 + data 300 + Redis 300), so up to about 15 min late. The cron is daily. | Run the cron every 5 min, or clamp revalidate to the next `publishAt`. |
+| M4 (ETag/304 in #16; CDN tags open) | `lib/api/content.ts:10`; `lib/cache/plan.ts` | `revalidatePath('/api/content/v1/...')` does not purge the CDN for dynamic handlers (inferred). API consumers see up to 6 min of stale data. No ETag. | Add CDN cache tags with tag purge on publish. Add a content-hash ETag with 304 support. |
+| M5 (Fixed in #16) | `app/api/content/v1/posts/route.ts` | Only cursor requests are rate limited. A random `?x=` busts the CDN key on every call, and `clientIp` ignores `authKit.trustProxy`. | Reject unknown query params. Pass `trustProxy`. Add a WAF rule on `/api/content/*`. |
 | M6 | `lib/cache/cached.ts` | The Redis layer duplicates Vercel's persistent data cache, adds up to 3 round trips per miss, and is the source of H3 and M1. No single-flight on cold keys. | Remove Redis from `cached()` on Vercel. Plan a move to `use cache` / `cacheTag` / `cacheLife` (`unstable_cache` is superseded in Next 16). |
 | M7 | `lib/data/prisma/posts.ts:6-27` | List summaries select full `contentText` to cut a 200-char excerpt. Large pages risk the 2 MB cache item limit (then a silent miss on every request). | Store `excerpt` at write time and drop `contentText` from `SUMMARY_SELECT`. |
 | M8 (Fixed in #15) | `lib/actions/works.ts:114-115,183-184` | `organization: x \|\| undefined` makes Prisma skip the field, so a project's organization and URL can never be cleared. | Map `""` to `null`. Check the other collections for the same pattern. |
-| M9 | `lib/actions/works.ts` (collections) | Edits to published rows go live immediately with no `updatedAt` guard (last write wins). | Add `updateIfUnchanged`. Optionally add a draft layer. |
-| M10 | `lib/actions/blog.ts:430-449` | Status changes are unconditional and write no revision. | Guard on `updatedAt` and record a revision. |
+| M9 (Fixed in #17) | `lib/actions/works.ts` (collections) | Edits to published rows go live immediately with no `updatedAt` guard (last write wins). | Add `updateIfUnchanged`. Optionally add a draft layer. |
+| M10 (guard in #16; revision open) | `lib/actions/blog.ts:430-449` | Status changes are unconditional and write no revision. | Guard on `updatedAt` and record a revision. |
 | M11 | `lib/actions/blog.ts` (slug edit) | A changed slug leaves the old URL as a 404 (no slug history or redirects). | Add a `PostSlugHistory` table with a 308 redirect in the post route. |
 | M12 | `prisma/schema.prisma`; `package.json` | `db push` only, no migration history. The "one DRAFT + one PUBLISHED per block" rule is enforced in code only. | Adopt `prisma migrate` with a CI diff check, and add a partial unique index. |
-| M13 | `lib/admin/audit.ts`; `lib/actions/blog.ts` | The audit row stores full post bodies before and after (up to about 200 KB each) on top of revisions. | Omit body fields from the audit row (revisions hold them) or audit a diff. |
+| M13 (Fixed in #16) | `lib/admin/audit.ts`; `lib/actions/blog.ts` | The audit row stores full post bodies before and after (up to about 200 KB each) on top of revisions. | Omit body fields from the audit row (revisions hold them) or audit a diff. |
 
 ### Low
 - **Media delivery and upload:**
@@ -104,7 +104,7 @@ Browser -> Vercel CDN -> proxy.ts (every non-static path)
   - The project slug has no format check.
   - `generatedByAI` is trusted from the form.
 - **Cache clear and maintenance page:**
-  - "Clear cache" omits the `settings` tags.
+  - "Clear cache" omits the `settings` tags (fixed in #16).
   - The maintenance page ignores the saved reason and end time.
 - **Behaviour:**
   - The AI rate-limit buckets fail open.
