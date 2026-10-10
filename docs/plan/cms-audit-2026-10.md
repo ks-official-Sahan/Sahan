@@ -159,7 +159,7 @@ Browser -> Vercel CDN -> proxy.ts (every non-static path)
 
 **P2, platform gaps worth building:**
 - M11: slug history and redirects. (Done in #23.)
-- Soft delete with a trash view.
+- Soft delete with a trash view. (Done in #24.)
 - `draftMode` preview for posts and collections, with signed share links.
 - Revision diff view.
 - Signed outgoing webhooks (HMAC, retries, idempotency key) for headless consumers.

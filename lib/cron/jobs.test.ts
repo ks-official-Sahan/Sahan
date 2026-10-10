@@ -4,7 +4,8 @@ import { strict as assert } from "node:assert";
 import type { AuditRow } from "@/lib/data/audit";
 import type { MaintenanceRepo } from "@/lib/data/maintenance";
 
-import { AUDIT_PRUNE_BATCH, auditPruneJob, blogPublishJob, revisionPruneJob, sessionCleanupJob, CLEANUP_GRACE_MS } from "./jobs";
+import { AUDIT_PRUNE_BATCH, auditPruneJob, blogPublishJob, revisionPruneJob, sessionCleanupJob, trashPurgeJob, CLEANUP_GRACE_MS } from "./jobs";
+import type { TrashItem, TrashRepo } from "@/lib/data/trash";
 
 // In-memory maintenance repositories. Each keeps the repository contract
 // (lib/data/maintenance.ts) over plain arrays, which is enough to prove the
@@ -220,5 +221,72 @@ describe("revisionPruneJob", () => {
     const result = await revisionPruneJob({ maintenance });
     assert.equal(result.deleted, 0);
     assert.ok(result.error);
+  });
+});
+
+describe("trashPurgeJob", () => {
+  const now = Date.parse("2026-11-30T00:00:00.000Z");
+  const item = (id: string, entityType: TrashItem["entityType"], data: unknown): TrashItem => ({
+    id,
+    entityType,
+    entityId: `e-${id}`,
+    label: id,
+    data,
+    deletedById: null,
+    deletedAt: new Date(now - 40 * 24 * 60 * 60 * 1000),
+  });
+
+  function fakeClient(expired: TrashItem[]) {
+    const removed: string[][] = [];
+    const created: AuditRow[] = [];
+    const trash = {
+      async expired(cutoff: Date) {
+        assert.ok(cutoff.getTime() < now);
+        return expired;
+      },
+      async remove(ids: string[]) {
+        removed.push(ids);
+        return ids.length;
+      },
+    } as unknown as TrashRepo;
+    const audit = {
+      async create(row: AuditRow) {
+        created.push(row);
+      },
+      createMany: unused,
+      page: unused,
+      actionNames: unused,
+    };
+    return { client: { trash, audit }, removed, created };
+  }
+
+  test("purges expired items, deletes media files, and keeps an item whose file Cloudinary refused", async () => {
+    const expired = [
+      item("post", "Post", { post: { slug: "a" } }),
+      item("img", "MediaAsset", { asset: { provider: "CLOUDINARY", publicId: "ok" } }),
+      item("bad", "MediaAsset", { asset: { provider: "CLOUDINARY", publicId: "refused" } }),
+    ];
+    const { client, removed, created } = fakeClient(expired);
+    const deletedFiles: string[] = [];
+    const result = await trashPurgeJob(
+      client,
+      async (publicId) => {
+        if (publicId === "refused") throw new Error("nope");
+        deletedFiles.push(publicId);
+      },
+      now
+    );
+    assert.equal(result.deleted, 2);
+    assert.deepEqual(deletedFiles, ["ok"]);
+    assert.deepEqual(removed, [["post", "img"]]);
+    assert.equal(created.length, 1);
+  });
+
+  test("does nothing and writes no audit row when nothing has expired", async () => {
+    const { client, removed, created } = fakeClient([]);
+    const result = await trashPurgeJob(client, async () => {}, now);
+    assert.equal(result.deleted, 0);
+    assert.equal(removed.length, 0);
+    assert.equal(created.length, 0);
   });
 });

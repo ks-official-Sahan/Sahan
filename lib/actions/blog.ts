@@ -15,6 +15,7 @@ import type { Repos } from "@/lib/data/repos";
 import { UniqueViolation } from "@/lib/data/errors";
 import { extractText, sanitizeRich } from "@/lib/cms/rich-text";
 import { autoExcerptOf } from "@/lib/blog/excerpt";
+import { syncPostMediaUsage } from "@/lib/blog/media-ids";
 import { isPublicPost } from "@/lib/blog/publication";
 import { postInputSchema, publishActionSchema } from "@/lib/blog/schema";
 import { parseSubmittedUpdatedAt, UPDATE_CONFLICT_MESSAGE } from "@sahan-sac/blog-kit/concurrency";
@@ -67,37 +68,6 @@ function computed(content: string) {
   const contentHtml = sanitizeRich(content);
   const contentText = extractText(contentHtml);
   return { contentHtml, contentText, autoExcerpt: autoExcerptOf(contentText), readMinutes: computeReadMinutes(contentText) };
-}
-
-function inlineMediaIds(content: string): string[] {
-  const ids = new Set<string>();
-  for (const [, attributes] of content.matchAll(/<img\b([^>]*)>/gi)) {
-    const match = attributes.match(/(?:^|\s)data-media-id\s*=\s*(?:"([\w-]{1,64})"|'([\w-]{1,64})')/i);
-    const id = match?.[1] ?? match?.[2];
-    if (id) ids.add(id);
-  }
-  return [...ids];
-}
-
-/** Keep library deletion guards aligned with the references saved on a post. */
-async function syncPostMediaUsage(
-  tx: Pick<Repos, "media">,
-  postId: string,
-  coverMediaId: string | null,
-  content: string
-): Promise<void> {
-  await tx.media.clearUsage("Post", postId);
-  const bodyIds = inlineMediaIds(content);
-  const requested = [...new Set([...(coverMediaId ? [coverMediaId] : []), ...bodyIds])];
-  if (requested.length === 0) return;
-
-  const assets = await tx.media.findMany(requested);
-  const byId = new Map(assets.filter((asset) => asset.kind === "IMAGE").map((asset) => [asset.id, asset]));
-  if (coverMediaId && !byId.has(coverMediaId)) throw new Error("The selected cover image is unavailable.");
-  await tx.media.recordUsages([
-    ...(coverMediaId ? [{ mediaId: coverMediaId, entityType: "Post", entityId: postId, field: "cover" }] : []),
-    ...bodyIds.filter((mediaId) => byId.has(mediaId)).map((mediaId) => ({ mediaId, entityType: "Post", entityId: postId, field: "body" })),
-  ]);
 }
 
 async function slugTaken(slug: string, excludeId?: string): Promise<boolean> {
@@ -394,6 +364,7 @@ async function deleteOne(id: string, actor: { id: string; email: string }): Prom
   if (!before) return false;
 
   await withTx(async (tx) => {
+    await tx.trash.put((await tx.trash.snapshotPosts([id])).map((item) => ({ entityType: "Post", entityId: item.id, label: item.label, data: item.data, deletedById: actor.id })));
     await tx.media.clearUsage("Post", id);
     await tx.posts.delete(id);
     await audit({ action: "post.deleted", actor, entityType: "Post", entityId: id, before, after: null }, tx);
@@ -415,7 +386,7 @@ export async function deletePostAction(_previous: ActionState, formData: FormDat
     if (!deleted) return fail("Post not found.");
 
     revalidatePath(ADMIN_LIST_PATH);
-    return done("Post deleted.");
+    return done("Post moved to the trash. Restore it there within 30 days.");
   } catch (error) {
     log.error("delete post failed", { error: error instanceof Error ? error.message : String(error) });
     return fail("Something went wrong. Please try again.");
@@ -656,6 +627,8 @@ export async function bulkDeletePostsAction(_previous: ActionState, formData: Fo
     if (befores.length === 0) return fail("None of the selected posts exist any more.");
 
     await withTx(async (tx) => {
+      const snapshots = await tx.trash.snapshotPosts(befores.map((post) => post.id));
+      await tx.trash.put(snapshots.map((item) => ({ entityType: "Post", entityId: item.id, label: item.label, data: item.data, deletedById: auth.user.id })));
       await tx.media.clearUsage("Post", befores.map((post) => post.id));
       await tx.posts.deleteMany(befores.map((post) => post.id));
       await auditMany(
