@@ -125,3 +125,14 @@ test("visibleAt moves the instant visibility is judged at, for every public read
   assert.ok(lte.length >= 4);
   for (const value of lte) assert.equal(value, at.toISOString());
 });
+
+test("listUpcoming reads posts due inside the window, soonest first, bounded", async () => {
+  let args: Record<string, unknown> | undefined;
+  const client = { post: { findMany: async (a: Record<string, unknown>) => ((args = a), []) } };
+  const from = new Date("2026-10-10T10:00:00.000Z");
+  const to = new Date("2026-10-10T10:20:00.000Z");
+  await postRepo(client as never).listUpcoming(from, to, 21, true);
+  assert.deepEqual(args?.where, { status: { in: ["PUBLISHED", "SCHEDULED"] }, publishAt: { gt: from, lte: to }, noindex: false });
+  assert.deepEqual(args?.orderBy, [{ publishAt: "asc" }, { id: "asc" }]);
+  assert.equal(args?.take, 21);
+});

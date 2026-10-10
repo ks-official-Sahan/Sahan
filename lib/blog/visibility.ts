@@ -9,9 +9,6 @@
 /** How far past now a cached read looks: longer than the data cache plus Redis can hold a result. */
 export const VISIBLE_AHEAD_MS = 20 * 60_000;
 
-/** Extra rows a cached page fetches, so dropping posts not yet due still leaves a full page. */
-export const UPCOMING_SLACK = 20;
-
 /** The `visibleAt` for a cached read. */
 export const visibleAhead = (now = Date.now()): Date => new Date(now + VISIBLE_AHEAD_MS);
 

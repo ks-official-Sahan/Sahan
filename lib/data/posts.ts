@@ -109,6 +109,12 @@ export interface PostRepo {
   ): Promise<PublishedPostSummaryRow[]>;
   /** The same keyset page of indexable posts as listPublishedPage, with reference fields only. */
   listIndexableRefs(take: number, after?: { publishedAt: Date; id: string }): Promise<PublishedPostRefRow[]>;
+  /**
+   * Posts that become public after `from` and by `to` (a scheduled or
+   * published post whose publishAt falls in that window), soonest first:
+   * what a cached first page adds so a post appears at its publishAt.
+   */
+  listUpcoming(from: Date, to: Date, take: number, indexableOnly?: boolean): Promise<PublishedPostSummaryRow[]>;
   /** Every post visible to the public at `visibleAt` (default now; same rule as findPublished), with its publishAt. */
   listPublicSlugs(visibleAt?: Date): Promise<Array<{ slug: string; publishAt: Date | null }>>;
   /** One post visible to the public at `visibleAt` (default now), with its body. */

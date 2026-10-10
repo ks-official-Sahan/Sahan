@@ -6,7 +6,7 @@ import { isValidPostSlug, TAGS } from "@/lib/cache/tags";
 import { repos } from "@/lib/data";
 import { extractText, sanitizeRich } from "@/lib/cms/rich-text";
 import { log } from "@/lib/log";
-import { isDue, UPCOMING_SLACK, visibleAhead } from "@/lib/blog/visibility";
+import { isDue, visibleAhead } from "@/lib/blog/visibility";
 import { UpdatesContent } from "@/contents/updates";
 
 import { computeReadMinutes } from "@sahan-sac/blog-kit/readtime";
@@ -165,7 +165,7 @@ function toView(row: FullPostRow): BlogPostView {
 // due when served (lib/blog/visibility.ts), so a scheduled post appears at
 // its publishAt instead of when the cache next refills.
 function cachedPost(slug: string) {
-  return cached((): Promise<FullPostRow | null> => repos.posts.findPublished(slug, visibleAhead()), ["blog", "post", slug], {
+  return cached((): Promise<FullPostRow | null> => repos.posts.findPublished(slug, visibleAhead()), ["blog", "post", slug, "v2"], {
     tags: [TAGS.blogPost(slug)],
     revalidate: 300,
   });
@@ -261,7 +261,19 @@ async function getPostPage(
   const read = cursor
     ? () => repos.posts.listPublishedPage(safeLimit + 1, cursor, indexableOnly)
     : cached(
-        () => repos.posts.listPublishedPage(safeLimit + 1 + UPCOMING_SLACK, undefined, indexableOnly, visibleAhead()),
+        // Two reads at one instant: the page as it is now, and the posts that
+        // become due within VISIBLE_AHEAD_MS (soonest first, so a crowd of
+        // them never pushes due posts off the page). Disjoint by
+        // construction; reversed, the upcoming ones are newest first and
+        // newer than every due row, so they lead the page once due.
+        async () => {
+          const now = new Date();
+          const [due, upcoming] = await Promise.all([
+            repos.posts.listPublishedPage(safeLimit + 1, undefined, indexableOnly, now),
+            repos.posts.listUpcoming(now, visibleAhead(now.getTime()), safeLimit + 1, indexableOnly),
+          ]);
+          return [...upcoming.reverse(), ...due];
+        },
         ["blog", "page", indexableOnly ? "indexable" : "all", String(safeLimit), "v2"],
         { tags: [TAGS.blogList], revalidate: 300 }
       );

@@ -111,6 +111,18 @@ export function postRepo(client: DbClient): PostRepo {
       const [published, promoted, scheduled] = await publicPostQueries<PublishedPostRefRow>(client, take, after, true, REF_SELECT);
       return newestFirst([...published, ...promoted, ...scheduled]).slice(0, take);
     },
+    listUpcoming(from, to, take, indexableOnly) {
+      return client.post.findMany({
+        where: {
+          status: { in: ["PUBLISHED", "SCHEDULED"] },
+          publishAt: { gt: from, lte: to },
+          ...(indexableOnly ? { noindex: false } : {}),
+        },
+        orderBy: [{ publishAt: "asc" }, { id: "asc" }],
+        take,
+        select: SUMMARY_SELECT,
+      }) as unknown as Promise<PublishedPostSummaryRow[]>;
+    },
     async listPublishedPage(take, after, indexableOnly, visibleAt) {
       const [published, promoted, scheduled] = await publicPostQueries(client, take, after, indexableOnly, SUMMARY_SELECT, visibleAt);
       return newestFirst([...published, ...promoted, ...scheduled]).slice(0, take);
