@@ -3,6 +3,7 @@
 import { useState, type ReactNode } from "react";
 
 import ActionForm, { Field, SubmitButton } from "@/components/admin/ui/ActionForm";
+import VersionField from "@/components/admin/ui/VersionField";
 import { cardClass, fieldClass } from "@/components/admin/ui/styles";
 import type { ActionState } from "@/lib/actions/state";
 import { cn } from "@/lib/utils";
@@ -59,7 +60,7 @@ export default function ExperienceForm({
   return (
     <ActionForm action={action} className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
       {experience?.id ? <input type="hidden" name="id" defaultValue={experience.id} /> : null}
-      {experience?.updatedAt ? <input type="hidden" name="updatedAt" value={experience.updatedAt} /> : null}
+      {experience?.updatedAt ? <VersionField value={experience.updatedAt} /> : null}
 
       <div className="space-y-6">
         <div className={cn(cardClass, "space-y-4")}>
