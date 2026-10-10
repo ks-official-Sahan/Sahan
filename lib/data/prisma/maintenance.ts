@@ -1,5 +1,6 @@
 import type { DashboardRepo, MaintenanceRepo } from "../maintenance";
 import type { DbClient } from "./client";
+import { table } from "./raw";
 
 export function maintenanceRepo(client: DbClient): MaintenanceRepo {
   return {
@@ -39,11 +40,11 @@ export function maintenanceRepo(client: DbClient): MaintenanceRepo {
       // A window function ranks each post's revisions newest first; everything
       // past the cap goes, however many posts have history.
       return client.$executeRaw`
-        DELETE FROM post_revisions
+        DELETE FROM ${table("post_revisions")}
         WHERE id IN (
           SELECT id FROM (
             SELECT id, row_number() OVER (PARTITION BY "postId" ORDER BY "createdAt" DESC) AS rank
-            FROM post_revisions
+            FROM ${table("post_revisions")}
           ) ranked
           WHERE ranked.rank > ${keep}
         )`;
