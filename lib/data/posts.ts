@@ -108,6 +108,8 @@ export interface PostRepo {
   findPublished(slug: string): Promise<PublishedPostRow | null>;
   find(id: string): Promise<PostRow | null>;
   findWithCoverUrl(id: string): Promise<(PostRow & { coverMedia: { url: string } | null }) | null>;
+  /** Any post by id, whatever its status, shaped like findPublished: for a signed preview. */
+  findForPreview(id: string): Promise<PublishedPostRow | null>;
   findMany(ids: string[]): Promise<PostRow[]>;
   /** Id of the post that uses `slug`, or null. */
   idBySlug(slug: string): Promise<string | null>;

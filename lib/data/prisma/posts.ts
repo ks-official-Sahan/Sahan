@@ -129,6 +129,9 @@ export function postRepo(client: DbClient): PostRepo {
     find(id) {
       return client.post.findUnique({ where: { id } });
     },
+    findForPreview(id) {
+      return client.post.findUnique({ where: { id }, select: { ...SUMMARY_SELECT, contentHtml: true } });
+    },
     findWithCoverUrl(id) {
       return client.post.findUnique({ where: { id }, include: { coverMedia: { select: { url: true } } } });
     },
