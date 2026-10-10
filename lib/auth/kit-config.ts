@@ -225,6 +225,8 @@ export const LIMITS = {
   // Wrong tries carry over between codes, so a few more sends do not help guessing;
   // this only caps email volume, and a flaky mail send still uses one.
   "mfa:send:user": { windowSeconds: 600, max: 5, failMode: "closed" },
+  // Wrong codes while confirming a new authenticator app.
+  "mfa:setup:user": { windowSeconds: 600, max: 10, failMode: "closed" },
   "invite:actor": { windowSeconds: 3600, max: 20, failMode: "closed" },
   "reset:ip": { windowSeconds: 3600, max: 8, failMode: "closed" },
   "reset:email": { windowSeconds: 3600, max: 3, failMode: "closed" },
@@ -258,6 +260,7 @@ export const authKit = defineAuthKit<RoleName, Permission>({
     // /admin/set-password, /admin/confirm-email, /admin); only this one
     // carries an app-specific query string.
     accountPasswordChange: "/admin/account?reason=change-password",
+    mfaSetup: "/admin/account?reason=set-up-mfa#security",
   },
   keyPrefix: "sahan:",
   roles: ROLES,
@@ -267,6 +270,9 @@ export const authKit = defineAuthKit<RoleName, Permission>({
   fixedGrants: FIXED_GRANTS,
   defaultGrants: DEFAULT_GRANTS,
   limits: LIMITS,
+  // The two roles that can change everything must use an authenticator app or
+  // a passkey; for them the emailed code is only a way in until they set one up.
+  strongMfaRoles: [SUPER_ROLE, MASK_ROLE],
   csp: { imgHosts: ["https://res.cloudinary.com"], connectHosts: ["https://api.cloudinary.com"] },
   trustProxy: { hops: trustedProxyHops() },
   onEvent: (event) => log.warn(`auth-kit: ${event.type}`, event),

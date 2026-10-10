@@ -94,6 +94,34 @@ never used.
 If you're locked out of both (secret lost, cookie expired, no browser
 access), see "Break-glass" below.
 
+### Second factors
+
+**Account → Authenticator app, passkeys and recovery codes** sets up the
+strong factors. With one of them, signing in asks for it after the password:
+
+- **Authenticator app:** a 6-digit code (TOTP). Scan the QR code, then
+  confirm with a code. Each code works once.
+- **Passkey:** fingerprint, face, device PIN or a security key. Passkeys work
+  on `https://sahansachintha.com` (and `www.`) in production and on
+  `http://localhost:3000`/`3001` in development, not on the `*.vercel.app`
+  domains.
+- **Recovery codes:** ten single-use codes, shown once when the first strong
+  factor is added. Make new ones from the same section; the old ones stop
+  working.
+
+Removing a factor or making new recovery codes asks for the password again.
+Adding the first strong factor signs out every other session.
+
+`DEVELOPER` and `SUPER_ADMIN` must have an authenticator app or a passkey
+(`strongMfaRoles` in `lib/auth/kit-config.ts`):
+
+- Until they add one, the account page is the only page they can open, and
+  actions and admin API routes refuse them.
+- Once they have one, the emailed code is no longer offered to them at
+  sign-in.
+- Other roles may keep using the emailed code ("Two-factor sign-in" on the
+  account page) as well as, or instead of, the strong factors.
+
 ## Auth engine
 
 Sign-in runs on Better Auth through auth-kit (`lib/auth/engine.ts`).
