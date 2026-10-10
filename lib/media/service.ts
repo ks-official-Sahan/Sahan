@@ -8,6 +8,7 @@ import { audit } from "@/lib/admin/audit";
 import { repos, withTx, type Repos } from "@/lib/data";
 import { log } from "@/lib/log";
 import { MEDIA_UPLOAD_FOLDER } from "@/lib/media/folder";
+import { normalizeTags } from "@/lib/media/tags";
 
 const IMAGE_MIME_FORMATS: Record<string, string> = {
   "image/png": "png",
@@ -135,6 +136,15 @@ export async function registerUpload(
 
     return { ok: true, asset: { id: asset.id, url: asset.url } };
   } catch (error) {
+    log.error("media register failed", { publicId, error: error instanceof Error ? error.message : String(error) });
+    // The file is already in Cloudinary. Unless the failure was this publicId
+    // being registered already (a unique violation: the row exists and owns
+    // the file), nothing references it, so delete it rather than orphan it.
+    if ((error as { code?: unknown } | null)?.code !== "P2002") {
+      await cloudinaryClient.deleteAsset(publicId).catch((cleanupError: unknown) =>
+        log.warn("media register cleanup failed", { publicId, error: String(cleanupError) })
+      );
+    }
     return { ok: false, error: "Failed to register uploaded media" };
   }
 }
@@ -255,7 +265,7 @@ export async function updateMediaMetadata(
     const updated = await tx.media.updateMetadata(input.mediaId, {
       alt: input.alt ?? asset.alt,
       title: input.title ?? asset.title,
-      tags: input.tags ?? asset.tags,
+      tags: input.tags ? normalizeTags(input.tags) : asset.tags,
     });
 
     await audit(

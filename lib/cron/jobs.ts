@@ -134,7 +134,7 @@ export async function auditPruneJob(
 
     await audit(
       {
-        action: "audit.exported",
+        action: "audit.pruned",
         entityType: "AuditLog",
         meta: { op: "prune", deletedRows: result.count, retentionDays },
       },

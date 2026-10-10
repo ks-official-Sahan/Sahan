@@ -14,7 +14,7 @@ import { projectImageSchema, projectLinkSchema } from "@/lib/collections/project
 import { decodeJsonFields } from "@/lib/forms/array-fields";
 import { log } from "@/lib/log";
 import { parseSubmittedUpdatedAt } from "@sahan-sac/blog-kit/concurrency";
-import { SLUG_MAX_LENGTH } from "@sahan-sac/blog-kit/slug";
+import { isValidSlug, SLUG_MAX_LENGTH } from "@sahan-sac/blog-kit/slug";
 
 // Works collection actions: projects, experience, services, skills CRUD.
 // Create/update use editCollections. Publish, feature, reorder use publishCollections.
@@ -78,7 +78,12 @@ const boundedImage = projectImageSchema.refine(
 // ─── Projects ────────────────────────────────────────────────────────────────
 
 const createProjectSchema = z.object({
-  slug: z.string().min(1, "Slug is required").max(SLUG_MAX_LENGTH),
+  slug: z
+    .string()
+    .trim()
+    .min(1, "Slug is required")
+    .max(SLUG_MAX_LENGTH)
+    .refine(isValidSlug, "Slug must be lowercase letters, numbers and hyphens only"),
   title: z.string().min(1, "Title is required").max(SHORT),
   tagline: z.string().min(1, "Tagline is required").max(TAGLINE),
   description: z.string().min(1, "Description is required").max(LONG),

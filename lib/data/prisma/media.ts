@@ -61,6 +61,8 @@ export function mediaRepo(client: DbClient): MediaRepo {
                 { publicId: { contains: trimmed, mode: "insensitive" } },
                 { alt: { contains: trimmed, mode: "insensitive" } },
                 { folder: { contains: trimmed, mode: "insensitive" } },
+                // Tags are stored lowercased (lib/media/service.ts, normalizeTags).
+                { tags: { has: trimmed.toLowerCase() } },
               ],
             }
           : {}),
