@@ -78,8 +78,13 @@ copy marked "Copy:", with every link left out: an invite or reset link lets
 whoever holds it take the account, so only its recipient gets it. The copy
 is sent after the original is delivered and never delays the action.
 Invitation, new-account and reset emails also carry a sign-in link, so the
-recipient can find the login page later; "Create user" can email one (the
-password is never emailed).
+recipient can find the login page later.
+
+**Creating a user.** "Create user" emails the single-use invitation link by
+default, so the person sets their own password. The other choice, "Show me a
+one-time password", generates a password, shows it to you once (copy it then)
+and never emails it; the person must change it at first sign-in. Nobody types
+a password for someone else.
 
 **Which domain links use.** Every emailed or copied link (invites, resets,
 sign-in links, the new-inquiry button) uses the first domain in `SITE_URLS`
