@@ -111,8 +111,8 @@ export async function createProjectAction(
         tagline: parsed.data.tagline,
         description: parsed.data.description,
         role: parsed.data.role,
-        organization: parsed.data.organization || undefined,
-        organizationUrl: parsed.data.organizationUrl || undefined,
+        organization: parsed.data.organization || null,
+        organizationUrl: parsed.data.organizationUrl || null,
         category: parsed.data.category,
         status: parsed.data.status,
         platforms: parsed.data.platforms,
@@ -140,7 +140,7 @@ export async function createProjectAction(
       }, tx);
     });
 
-    invalidate(forCollection("projects"));
+    await invalidate(forCollection("projects"));
     revalidatePath("/admin/works/projects");
     return done("Project created. Edit it to add more details, then publish.");
   } catch (error) {
@@ -180,8 +180,10 @@ export async function updateProjectAction(
         tagline: parsed.data.tagline,
         description: parsed.data.description,
         role: parsed.data.role,
-        organization: parsed.data.organization || undefined,
-        organizationUrl: parsed.data.organizationUrl || undefined,
+        // null, not undefined: an emptied field must clear the column
+        // (undefined would make Prisma skip it and keep the old value).
+        organization: parsed.data.organization || null,
+        organizationUrl: parsed.data.organizationUrl || null,
         category: parsed.data.category,
         status: parsed.data.status,
         platforms: parsed.data.platforms,
@@ -207,7 +209,7 @@ export async function updateProjectAction(
       }, tx);
     });
 
-    invalidate(forCollection("projects"));
+    await invalidate(forCollection("projects"));
     revalidatePath("/admin/works/projects");
     return done("Project updated.");
   } catch (error) {
@@ -245,7 +247,7 @@ export async function deleteProjectAction(
       }, tx);
     });
 
-    invalidate(forCollection("projects"));
+    await invalidate(forCollection("projects"));
     revalidatePath("/admin/works/projects");
     return done("Project deleted.");
   } catch (error) {
@@ -285,7 +287,7 @@ export async function reorderProjectAction(
       }, tx);
     });
 
-    invalidate(forCollection("projects"));
+    await invalidate(forCollection("projects"));
     revalidatePath("/admin/works/projects");
     return done("Project order updated.");
   } catch (error) {
@@ -326,7 +328,7 @@ export async function publishProjectAction(
       return updated;
     });
 
-    invalidate(forCollection("projects"));
+    await invalidate(forCollection("projects"));
     revalidatePath("/admin/works/projects");
     return done(publish ? "Project published." : "Project unpublished.");
   } catch (error) {
@@ -367,7 +369,7 @@ export async function featureProjectAction(
       return updated;
     });
 
-    invalidate(forCollection("projects"));
+    await invalidate(forCollection("projects"));
     revalidatePath("/admin/works/projects");
     return done(featured ? "Project featured." : "Project unfeatured.");
   } catch (error) {
@@ -437,7 +439,7 @@ export async function createExperienceAction(
       }, tx);
     });
 
-    invalidate(forCollection("experience"));
+    await invalidate(forCollection("experience"));
     revalidatePath("/admin/works/experience");
     return done("Experience entry created. Edit to add more details, then publish.");
   } catch (error) {
@@ -493,7 +495,7 @@ export async function updateExperienceAction(
       }, tx);
     });
 
-    invalidate(forCollection("experience"));
+    await invalidate(forCollection("experience"));
     revalidatePath("/admin/works/experience");
     return done("Experience entry updated.");
   } catch (error) {
@@ -530,7 +532,7 @@ export async function deleteExperienceAction(
       }, tx);
     });
 
-    invalidate(forCollection("experience"));
+    await invalidate(forCollection("experience"));
     revalidatePath("/admin/works/experience");
     return done("Experience entry deleted.");
   } catch (error) {
@@ -570,7 +572,7 @@ export async function reorderExperienceAction(
       }, tx);
     });
 
-    invalidate(forCollection("experience"));
+    await invalidate(forCollection("experience"));
     revalidatePath("/admin/works/experience");
     return done("Experience order updated.");
   } catch (error) {
@@ -611,7 +613,7 @@ export async function publishExperienceAction(
       return updated;
     });
 
-    invalidate(forCollection("experience"));
+    await invalidate(forCollection("experience"));
     revalidatePath("/admin/works/experience");
     return done(publish ? "Experience entry published." : "Experience entry unpublished.");
   } catch (error) {
@@ -653,7 +655,7 @@ export async function createServiceGroupAction(_previous: ActionState, formData:
       return group;
     });
 
-    invalidate(forCollection("services"));
+    await invalidate(forCollection("services"));
     revalidatePath("/admin/works/services");
     return done("Service group created. Add services to it below.");
   } catch (error) {
@@ -690,7 +692,7 @@ export async function updateServiceGroupAction(_previous: ActionState, formData:
       }, tx);
     });
 
-    invalidate(forCollection("services"));
+    await invalidate(forCollection("services"));
     revalidatePath("/admin/works/services");
     revalidatePath(`/admin/works/services/${id}`);
     return done("Service group updated.");
@@ -726,7 +728,7 @@ export async function deleteServiceGroupAction(_previous: ActionState, formData:
       }, tx);
     });
 
-    invalidate(forCollection("services"));
+    await invalidate(forCollection("services"));
     revalidatePath("/admin/works/services");
     return done("Service group deleted.");
   } catch (error) {
@@ -782,7 +784,7 @@ export async function createServiceAction(_previous: ActionState, formData: Form
       }, tx);
     });
 
-    invalidate(forCollection("services"));
+    await invalidate(forCollection("services"));
     revalidatePath("/admin/works/services");
     revalidatePath(`/admin/works/services/${parsed.data.groupId}`);
     return done("Service created.");
@@ -825,7 +827,7 @@ export async function updateServiceAction(_previous: ActionState, formData: Form
       }, tx);
     });
 
-    invalidate(forCollection("services"));
+    await invalidate(forCollection("services"));
     revalidatePath("/admin/works/services");
     revalidatePath(`/admin/works/services/${before.groupId}`);
     return done("Service updated.");
@@ -860,7 +862,7 @@ export async function deleteServiceAction(_previous: ActionState, formData: Form
       }, tx);
     });
 
-    invalidate(forCollection("services"));
+    await invalidate(forCollection("services"));
     revalidatePath("/admin/works/services");
     revalidatePath(`/admin/works/services/${before.groupId}`);
     return done("Service deleted.");
@@ -898,7 +900,7 @@ export async function reorderServiceAction(_previous: ActionState, formData: For
       }, tx);
     });
 
-    invalidate(forCollection("services"));
+    await invalidate(forCollection("services"));
     revalidatePath(`/admin/works/services/${current.groupId}`);
     return done("Service order updated.");
   } catch (error) {
@@ -932,7 +934,7 @@ export async function publishServiceAction(_previous: ActionState, formData: For
       }, tx);
     });
 
-    invalidate(forCollection("services"));
+    await invalidate(forCollection("services"));
     revalidatePath("/admin/works/services");
     revalidatePath(`/admin/works/services/${before.groupId}`);
     return done(publish ? "Service published." : "Service unpublished.");
@@ -979,7 +981,7 @@ export async function createSkillGroupAction(_previous: ActionState, formData: F
       return group;
     });
 
-    invalidate(forCollection("skills"));
+    await invalidate(forCollection("skills"));
     revalidatePath("/admin/works/skills");
     return done("Skill group created. Add skills to it below.");
   } catch (error) {
@@ -1016,7 +1018,7 @@ export async function updateSkillGroupAction(_previous: ActionState, formData: F
       }, tx);
     });
 
-    invalidate(forCollection("skills"));
+    await invalidate(forCollection("skills"));
     revalidatePath("/admin/works/skills");
     revalidatePath(`/admin/works/skills/${id}`);
     return done("Skill group updated.");
@@ -1052,7 +1054,7 @@ export async function deleteSkillGroupAction(_previous: ActionState, formData: F
       }, tx);
     });
 
-    invalidate(forCollection("skills"));
+    await invalidate(forCollection("skills"));
     revalidatePath("/admin/works/skills");
     return done("Skill group deleted.");
   } catch (error) {
@@ -1113,7 +1115,7 @@ export async function createSkillAction(_previous: ActionState, formData: FormDa
       }, tx);
     });
 
-    invalidate(forCollection("skills"));
+    await invalidate(forCollection("skills"));
     revalidatePath("/admin/works/skills");
     revalidatePath(`/admin/works/skills/${parsed.data.groupId}`);
     return done("Skill created.");
@@ -1160,7 +1162,7 @@ export async function updateSkillAction(_previous: ActionState, formData: FormDa
       }, tx);
     });
 
-    invalidate(forCollection("skills"));
+    await invalidate(forCollection("skills"));
     revalidatePath("/admin/works/skills");
     revalidatePath(`/admin/works/skills/${before.groupId}`);
     return done("Skill updated.");
@@ -1195,7 +1197,7 @@ export async function deleteSkillAction(_previous: ActionState, formData: FormDa
       }, tx);
     });
 
-    invalidate(forCollection("skills"));
+    await invalidate(forCollection("skills"));
     revalidatePath("/admin/works/skills");
     revalidatePath(`/admin/works/skills/${before.groupId}`);
     return done("Skill deleted.");
@@ -1233,7 +1235,7 @@ export async function reorderSkillAction(_previous: ActionState, formData: FormD
       }, tx);
     });
 
-    invalidate(forCollection("skills"));
+    await invalidate(forCollection("skills"));
     revalidatePath(`/admin/works/skills/${current.groupId}`);
     return done("Skill order updated.");
   } catch (error) {
@@ -1267,7 +1269,7 @@ export async function publishSkillAction(_previous: ActionState, formData: FormD
       }, tx);
     });
 
-    invalidate(forCollection("skills"));
+    await invalidate(forCollection("skills"));
     revalidatePath("/admin/works/skills");
     revalidatePath(`/admin/works/skills/${before.groupId}`);
     return done(publish ? "Skill published." : "Skill unpublished.");

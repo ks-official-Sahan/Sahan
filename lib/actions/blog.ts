@@ -175,7 +175,7 @@ export async function createPostAction(_previous: ActionState, formData: FormDat
       );
       return row;
     });
-    if (resolved.status === "PUBLISHED") invalidate(forPost(created.slug));
+    if (resolved.status === "PUBLISHED") await invalidate(forPost(created.slug));
     revalidatePath(ADMIN_LIST_PATH);
     createdId = created.id;
   } catch (error) {
@@ -274,8 +274,8 @@ export async function updatePostAction(_previous: ActionState, formData: FormDat
     // Editing the text of a post that is already public must refresh what
     // visitors see; a draft edit has nothing public to invalidate.
     if (isPublicPost(before.status, before.publishAt) || isPublicPost(updated.status, updated.publishAt) || updated.slug !== before.slug) {
-      invalidate(forPost(before.slug));
-      if (updated.slug !== before.slug) invalidate(forPost(updated.slug));
+      await invalidate(forPost(before.slug));
+      if (updated.slug !== before.slug) await invalidate(forPost(updated.slug));
     }
     revalidatePath(ADMIN_LIST_PATH);
     // The fresh updatedAt travels back so the form can re-arm its hidden
@@ -350,8 +350,8 @@ export async function restorePostRevisionAction(_previous: ActionState, formData
     });
 
     if (isPublicPost(before.status, before.publishAt) || isPublicPost(restored.status, restored.publishAt) || restored.slug !== before.slug) {
-      invalidate(forPost(before.slug));
-      if (restored.slug !== before.slug) invalidate(forPost(restored.slug));
+      await invalidate(forPost(before.slug));
+      if (restored.slug !== before.slug) await invalidate(forPost(restored.slug));
     }
     revalidatePath(ADMIN_LIST_PATH);
     revalidatePath(`${ADMIN_LIST_PATH}/${postId}`);
@@ -377,7 +377,7 @@ async function deleteOne(id: string, actor: { id: string; email: string }): Prom
     await audit({ action: "post.deleted", actor, entityType: "Post", entityId: id, before, after: null }, tx);
   });
 
-  if (isPublicPost(before.status, before.publishAt)) invalidate(forPost(before.slug));
+  if (isPublicPost(before.status, before.publishAt)) await invalidate(forPost(before.slug));
   return true;
 }
 
@@ -452,7 +452,7 @@ async function applyStatus(
     // refresh the public cache; a draft <-> scheduled transition has nothing
     // public to invalidate yet.
     if (isPublicPost(before.status, before.publishAt) || isPublicPost(updated.status, updated.publishAt)) {
-      invalidate(forPost(before.slug));
+      await invalidate(forPost(before.slug));
     }
     revalidatePath(ADMIN_LIST_PATH);
     // The edit page shows the status too; without this its controls stay stale until a reload.
@@ -558,7 +558,7 @@ export async function bulkPostStatusAction(_previous: ActionState, formData: For
 
     // Anything that was or now is public needs its pages refreshed: one
     // merged plan, so shared tags and paths are revalidated once, not per post.
-    invalidate(
+    await invalidate(
       mergePlans(
         befores
           .filter((before) =>
@@ -603,7 +603,7 @@ export async function bulkArchivePostsAction(_previous: ActionState, formData: F
       );
     });
 
-    invalidate(mergePlans(befores.filter((post) => isPublicPost(post.status, post.publishAt)).map((post) => forPost(post.slug))));
+    await invalidate(mergePlans(befores.filter((post) => isPublicPost(post.status, post.publishAt)).map((post) => forPost(post.slug))));
     revalidatePath(ADMIN_LIST_PATH);
     return done(`Archived ${befores.length} of ${parsedIds.ids.length} posts.`);
   } catch (error) {
@@ -644,7 +644,7 @@ export async function bulkDeletePostsAction(_previous: ActionState, formData: Fo
       );
     });
 
-    invalidate(
+    await invalidate(
       mergePlans(
         befores
           .filter((before) => isPublicPost(before.status, before.publishAt))
