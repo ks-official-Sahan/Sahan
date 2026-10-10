@@ -17,6 +17,8 @@ export interface AuthUser {
   mustChangePassword: boolean;
   mfaEnabled: boolean;
   mfaVerified: boolean;
+  /** In `strongMfaRoles` without an authenticator app or passkey yet: only the setup page is open. */
+  mfaSetupRequired: boolean;
 }
 
 type Resolved = { user: AuthUser } | { denied: SessionDenial | "no_session" };
@@ -45,6 +47,10 @@ export interface AuthDalDeps {
   expirePath: string;
   /** Where a user with `mustChangePassword` is sent until they choose their own password. */
   accountPasswordChangePath: string;
+  /** Roles that must set up a strong factor (`AuthKitConfig.strongMfaRoles`). Default: none. */
+  strongMfaRoles?: readonly string[];
+  /** Where such a user is sent until they do. Required when `strongMfaRoles` is not empty. */
+  mfaSetupPath?: string;
   /**
    * Compare the session's `pwf` claim with the stored password. Default true.
    * Set false only for a session source without the claim (Better Auth's
@@ -56,6 +62,8 @@ export interface AuthDalDeps {
 
 export function createAuthDal(deps: AuthDalDeps) {
   const { auth, getSessionState, touchSession, getRolePermissions, notFound, redirect, after, expirePath, accountPasswordChangePath } = deps;
+  const strongMfaRoles = deps.strongMfaRoles ?? [];
+  if (strongMfaRoles.length > 0 && !deps.mfaSetupPath) throw new Error("createAuthDal: strongMfaRoles needs mfaSetupPath.");
 
   // One lookup per request, however many components ask.
   const resolve = cache(async (): Promise<Resolved> => {
@@ -82,6 +90,7 @@ export function createAuthDal(deps: AuthDalDeps) {
         mustChangePassword: state.mustChangePassword,
         mfaEnabled: state.mfaEnabled,
         mfaVerified: state.mfaVerified,
+        mfaSetupRequired: strongMfaRoles.includes(state.role) && state.strongMfa === false,
       },
     };
   });
@@ -98,7 +107,7 @@ export function createAuthDal(deps: AuthDalDeps) {
    * (revoked, expired, disabled, password changed) goes to the route that clears
    * the cookie, because a Server Component cannot write cookies.
    */
-  async function requireUser(options: { allowPasswordChange?: boolean } = {}): Promise<AuthUser> {
+  async function requireUser(options: { allowPasswordChange?: boolean; allowMfaSetup?: boolean } = {}): Promise<AuthUser> {
     const result = await resolve();
     if (!("user" in result)) {
       if (result.denied === "no_session") notFound();
@@ -114,6 +123,9 @@ export function createAuthDal(deps: AuthDalDeps) {
     // A user whose password was set by someone else (the seeded owner, an admin
     // reset) can reach nothing but the account page until they choose their own.
     if (result.user.mustChangePassword && !options.allowPasswordChange) redirect(accountPasswordChangePath);
+    // A role that must have an authenticator app or passkey reaches nothing but
+    // the setup page until it has one. The password page comes first.
+    if (result.user.mfaSetupRequired && !options.allowMfaSetup && !result.user.mustChangePassword) redirect(deps.mfaSetupPath!);
     return result.user;
   }
 
@@ -128,7 +140,7 @@ export function createAuthDal(deps: AuthDalDeps) {
   }
 
   /** For pages: a missing permission looks like a missing page. */
-  async function requirePermission(permission: Permission, options: { allowPasswordChange?: boolean } = {}): Promise<AuthUser> {
+  async function requirePermission(permission: Permission, options: { allowPasswordChange?: boolean; allowMfaSetup?: boolean } = {}): Promise<AuthUser> {
     const user = await requireUser(options);
     if (!hasPermission(user, permission)) notFound();
     return user;

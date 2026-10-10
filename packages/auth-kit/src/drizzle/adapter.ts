@@ -1,4 +1,4 @@
-import { and, desc, eq, gt, gte, inArray, isNotNull, isNull, lt, ne, or, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, gt, gte, inArray, isNotNull, isNull, lt, ne, or, sql, type SQL } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 
 import type { AdapterSessionRow, AuthDbAdapter, MfaPurpose } from "../adapter";
@@ -23,7 +23,7 @@ export function createDrizzleAuthAdapter<TRole extends string>(
 ): AuthDbAdapter<DrizzlePgDatabase> {
   // The adapter interface carries roles as plain strings; the database enum
   // still rejects a role that is not in the schema.
-  const { users, userSessions, rolePermissions, mfaChallenges } = schema as unknown as AuthSchema;
+  const { users, userSessions, rolePermissions, mfaChallenges, mfaRecoveryCodes, webauthnCredentials } = schema as unknown as AuthSchema;
   const client = (tx?: DrizzlePgDatabase) => tx ?? db;
   const first = <T>(rows: T[]): T | null => rows[0] ?? null;
 
@@ -104,6 +104,7 @@ export function createDrizzleAuthAdapter<TRole extends string>(
               passwordHash: users.passwordHash,
               mustChangePassword: users.mustChangePassword,
               mfaEnabled: users.mfaEnabled,
+              strongMfa: sql<boolean>`("users"."totpEnabledAt" IS NOT NULL OR EXISTS (SELECT 1 FROM "webauthn_credentials" w WHERE w."userId" = "users"."id"))`.mapWith(Boolean),
             },
           })
           .from(userSessions)
@@ -323,6 +324,68 @@ export function createDrizzleAuthAdapter<TRole extends string>(
           .where(and(eq(mfaChallenges.id, id), eq(mfaChallenges.purpose, purpose), isNull(mfaChallenges.consumedAt)))
           .limit(1)
       );
+    },
+
+    // -- factors --
+    async findMfaFactors(userId) {
+      return first(
+        await db
+          .select({
+            mfaEnabled: users.mfaEnabled,
+            totpSecretCipher: users.totpSecretCipher,
+            totpEnabledAt: users.totpEnabledAt,
+            passkeys: sql<number>`(SELECT count(*)::int FROM "webauthn_credentials" w WHERE w."userId" = "users"."id")`.mapWith(Number),
+            recoveryCodesLeft: sql<number>`(SELECT count(*)::int FROM "mfa_recovery_codes" r WHERE r."userId" = "users"."id" AND r."usedAt" IS NULL)`.mapWith(Number),
+          })
+          .from(users)
+          .where(eq(users.id, userId))
+          .limit(1)
+      );
+    },
+    async setTotpSecret(userId, cipher, enabledAt, tx) {
+      await client(tx).update(users).set({ totpSecretCipher: cipher, totpEnabledAt: enabledAt }).where(eq(users.id, userId));
+    },
+    async confirmTotpSecret(userId, when) {
+      const rows = await db
+        .update(users)
+        .set({ totpEnabledAt: when })
+        .where(and(eq(users.id, userId), isNotNull(users.totpSecretCipher), isNull(users.totpEnabledAt)))
+        .returning({ id: users.id });
+      return { count: rows.length };
+    },
+    async replaceRecoveryCodes(userId, codeHashes, tx) {
+      const target = client(tx);
+      await target.delete(mfaRecoveryCodes).where(eq(mfaRecoveryCodes.userId, userId));
+      if (codeHashes.length > 0) await target.insert(mfaRecoveryCodes).values(codeHashes.map((codeHash) => ({ userId, codeHash })));
+    },
+    async consumeRecoveryCode(userId, codeHash, when) {
+      const rows = await db
+        .update(mfaRecoveryCodes)
+        .set({ usedAt: when })
+        .where(and(eq(mfaRecoveryCodes.userId, userId), eq(mfaRecoveryCodes.codeHash, codeHash), isNull(mfaRecoveryCodes.usedAt)))
+        .returning({ id: mfaRecoveryCodes.id });
+      return { count: rows.length };
+    },
+    async listPasskeys(userId) {
+      const rows = await db.select().from(webauthnCredentials).where(eq(webauthnCredentials.userId, userId)).orderBy(asc(webauthnCredentials.createdAt));
+      return rows.map((row) => ({ ...row, transports: row.transports ?? [] }));
+    },
+    async findPasskey(id) {
+      const row = first(await db.select().from(webauthnCredentials).where(eq(webauthnCredentials.id, id)).limit(1));
+      return row ? { ...row, transports: row.transports ?? [] } : null;
+    },
+    async createPasskey(input, tx) {
+      await client(tx).insert(webauthnCredentials).values(input);
+    },
+    async updatePasskeyUse(id, counter, when) {
+      await db.update(webauthnCredentials).set({ counter, lastUsedAt: when }).where(eq(webauthnCredentials.id, id));
+    },
+    async deletePasskey(userId, id, tx) {
+      const rows = await client(tx)
+        .delete(webauthnCredentials)
+        .where(and(eq(webauthnCredentials.id, id), eq(webauthnCredentials.userId, userId)))
+        .returning({ id: webauthnCredentials.id });
+      return { count: rows.length };
     },
   };
 }

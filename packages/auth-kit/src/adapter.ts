@@ -11,8 +11,11 @@
  * just a `string` the adapter's own database enforces the shape of.
  */
 export type RoleName = string;
-/** STEP_UP: a code that confirms one sensitive action (see ./mfa/step-up). */
-export type MfaPurpose = "SIGN_IN" | "ENABLE" | "DISABLE" | "STEP_UP";
+/**
+ * STEP_UP: a code that confirms one sensitive action (see ./mfa/step-up).
+ * PASSKEY_REGISTER / PASSKEY_SIGN_IN: a WebAuthn challenge (see ./webauthn).
+ */
+export type MfaPurpose = "SIGN_IN" | "ENABLE" | "DISABLE" | "STEP_UP" | "PASSKEY_REGISTER" | "PASSKEY_SIGN_IN";
 
 export interface AdapterAuthUser {
   id: string;
@@ -41,6 +44,8 @@ export interface AdapterSessionUser {
   passwordHash: string;
   mustChangePassword: boolean;
   mfaEnabled: boolean;
+  /** Has a confirmed authenticator app or at least one passkey (./mfa/factors). */
+  strongMfa: boolean;
 }
 
 export interface AdapterSessionWithUser {
@@ -84,6 +89,29 @@ export interface AdapterMfaChallenge {
   verifiedAt: Date | null;
   consumedAt: Date | null;
   expiresAt: Date;
+}
+
+/** What a user has set up for the second sign-in step. */
+export interface AdapterMfaFactors {
+  mfaEnabled: boolean;
+  /** Sealed TOTP secret; set but unconfirmed while `totpEnabledAt` is null. */
+  totpSecretCipher: string | null;
+  totpEnabledAt: Date | null;
+  passkeys: number;
+  recoveryCodesLeft: number;
+}
+
+export interface AdapterPasskey {
+  id: string;
+  userId: string;
+  publicKey: string;
+  counter: number;
+  transports: string[];
+  deviceType: string;
+  backedUp: boolean;
+  name: string;
+  createdAt: Date;
+  lastUsedAt: Date | null;
 }
 
 export interface AuthDbAdapter<TTx = unknown> {
@@ -144,4 +172,20 @@ export interface AuthDbAdapter<TTx = unknown> {
     id: string,
     purpose: MfaPurpose
   ): Promise<{ userId: string; user: { id: string; email: string; name: string | null; disabledAt: Date | null } } | null>;
+
+  // -- factors: authenticator app, recovery codes, passkeys --
+  findMfaFactors(userId: string): Promise<AdapterMfaFactors | null>;
+  /** Replaces the TOTP secret (null removes it); `enabledAt` null leaves it unconfirmed. */
+  setTotpSecret(userId: string, cipher: string | null, enabledAt: Date | null, tx?: TTx): Promise<void>;
+  /** Confirms a pending secret; count 0 when there is none or it is already confirmed. */
+  confirmTotpSecret(userId: string, when: Date): Promise<{ count: number }>;
+  replaceRecoveryCodes(userId: string, codeHashes: string[], tx?: TTx): Promise<void>;
+  /** Spends one unused code; count 0 when it does not exist or was used. */
+  consumeRecoveryCode(userId: string, codeHash: string, when: Date): Promise<{ count: number }>;
+  listPasskeys(userId: string): Promise<AdapterPasskey[]>;
+  findPasskey(id: string): Promise<AdapterPasskey | null>;
+  createPasskey(input: Omit<AdapterPasskey, "createdAt" | "lastUsedAt">, tx?: TTx): Promise<void>;
+  /** Records a sign-in with the passkey: its new counter and when. */
+  updatePasskeyUse(id: string, counter: number, when: Date): Promise<void>;
+  deletePasskey(userId: string, id: string, tx?: TTx): Promise<{ count: number }>;
 }

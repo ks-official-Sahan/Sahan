@@ -23,6 +23,8 @@ export interface AuthKitPaths {
   expire: string;
   /** Where a user with `mustChangePassword` is sent until they choose their own password. */
   accountPasswordChange: string;
+  /** Where a user in `strongMfaRoles` without an authenticator app or passkey is sent until they set one up. */
+  mfaSetup: string;
   /** Invite and reset links land here. */
   setPassword: string;
   /** Self-service "forgot password" request form. */
@@ -105,6 +107,12 @@ export interface AuthKitConfig<TRole extends string, TPermission extends string>
   assignableRoles?: (actorRole: TRole) => readonly TRole[];
   /** The app's full rate-limit bucket catalogue (bucket name -> window/ceiling/fail mode). There is no default: bucket names are app policy. */
   limits: Record<string, LimitRule>;
+  /**
+   * Roles that must set up an authenticator app or a passkey before using the
+   * admin, and that lose the emailed code once they have one (./mfa/factors).
+   * Default: none.
+   */
+  strongMfaRoles?: readonly TRole[];
   csp?: Partial<AuthKitCsp>;
   trustProxy?: Partial<AuthKitTrustProxy>;
   onEvent?: (event: AuthKitEvent) => void;
@@ -123,6 +131,7 @@ export interface ResolvedAuthKit<TRole extends string, TPermission extends strin
   canManage: (actor: Person<TRole>, target: Person<TRole>) => boolean;
   assignableRoles: (actorRole: TRole) => readonly TRole[];
   limits: Record<string, LimitRule>;
+  strongMfaRoles: readonly TRole[];
   csp: AuthKitCsp;
   trustProxy: AuthKitTrustProxy;
   onEvent: (event: AuthKitEvent) => void;
@@ -137,6 +146,7 @@ const DEFAULT_PATHS: AuthKitPaths = {
   locked: "/not-found",
   expire: "/api/auth/expire",
   accountPasswordChange: "/admin/account",
+  mfaSetup: "/admin/account",
   setPassword: "/admin/set-password",
   forgotPassword: "/admin/forgot-password",
   confirmEmail: "/admin/confirm-email",
@@ -165,6 +175,7 @@ export function defineAuthKit<TRole extends string, TPermission extends string>(
     canManage,
     assignableRoles,
     limits: config.limits,
+    strongMfaRoles: config.strongMfaRoles ?? [],
     csp: {
       imgHosts: config.csp?.imgHosts ?? [],
       connectHosts: config.csp?.connectHosts ?? [],

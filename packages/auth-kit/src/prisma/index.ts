@@ -1,4 +1,4 @@
-import type { AdapterSessionRow, AuthDbAdapter, MfaPurpose } from "../adapter";
+import type { AdapterPasskey, AdapterSessionRow, AuthDbAdapter, MfaPurpose } from "../adapter";
 
 // AuthDbAdapter over Prisma. Typed against the few model delegates it calls,
 // not a generated client, so it works with any client generated from a schema
@@ -24,11 +24,29 @@ interface Delegate {
 
 /** The models auth-kit reads and writes. A transaction client has them too. */
 export interface PrismaAuthModels {
-  user: Pick<Delegate, "findUnique" | "update" | "count">;
+  user: Pick<Delegate, "findUnique" | "update" | "updateMany" | "count">;
   userSession: Pick<Delegate, "create" | "findFirst" | "findUnique" | "findMany" | "updateMany">;
   rolePermission: Pick<Delegate, "findMany" | "deleteMany" | "createMany">;
   mfaChallenge: Pick<Delegate, "findMany" | "updateMany" | "create" | "findFirst" | "findUnique">;
+  mfaRecoveryCode: Pick<Delegate, "count" | "createMany" | "deleteMany" | "updateMany">;
+  webAuthnCredential: Pick<Delegate, "findMany" | "findUnique" | "create" | "updateMany" | "deleteMany">;
 }
+
+const PASSKEY_SELECT = {
+  id: true,
+  userId: true,
+  publicKey: true,
+  counter: true,
+  transports: true,
+  deviceType: true,
+  backedUp: true,
+  name: true,
+  createdAt: true,
+  lastUsedAt: true,
+} as const;
+
+/** The counter is a BIGINT column (an unsigned 32-bit value): a bigint in Prisma, a number here. */
+const passkeyOf = (row: Loose): AdapterPasskey => ({ ...row, counter: Number(row.counter) });
 
 export interface PrismaAuthClient<TTx> extends PrismaAuthModels {
   $transaction<T>(fn: (tx: TTx) => Promise<T>): Promise<T>;
@@ -73,7 +91,7 @@ export function createPrismaAuthAdapter<TTx extends PrismaAuthModels = PrismaAut
       });
     },
     async findSessionWithUser(sid) {
-      return db.userSession.findUnique({
+      const row = await db.userSession.findUnique({
         where: { id: sid },
         select: {
           expiresAt: true,
@@ -89,10 +107,15 @@ export function createPrismaAuthAdapter<TTx extends PrismaAuthModels = PrismaAut
               passwordHash: true,
               mustChangePassword: true,
               mfaEnabled: true,
+              totpEnabledAt: true,
+              _count: { select: { passkeys: true } },
             },
           },
         },
       });
+      if (!row) return null;
+      const { totpEnabledAt, _count, ...user } = row.user;
+      return { ...row, user: { ...user, strongMfa: totpEnabledAt !== null || _count.passkeys > 0 } };
     },
     async touchSession(sid, when) {
       await db.userSession.updateMany({ where: { id: sid, revokedAt: null }, data: { lastSeenAt: when } });
@@ -240,6 +263,54 @@ export function createPrismaAuthAdapter<TTx extends PrismaAuthModels = PrismaAut
         where: { id, purpose, consumedAt: null },
         select: { userId: true, user: { select: { id: true, email: true, name: true, disabledAt: true } } },
       });
+    },
+
+    // -- factors --
+    async findMfaFactors(userId) {
+      const row = await db.user.findUnique({
+        where: { id: userId },
+        select: { mfaEnabled: true, totpSecretCipher: true, totpEnabledAt: true, _count: { select: { passkeys: true } } },
+      });
+      if (!row) return null;
+      const recoveryCodesLeft = await db.mfaRecoveryCode.count({ where: { userId, usedAt: null } });
+      return { mfaEnabled: row.mfaEnabled, totpSecretCipher: row.totpSecretCipher, totpEnabledAt: row.totpEnabledAt, passkeys: row._count.passkeys, recoveryCodesLeft };
+    },
+    async setTotpSecret(userId, cipher, enabledAt, tx) {
+      await client(tx).user.updateMany({ where: { id: userId }, data: { totpSecretCipher: cipher, totpEnabledAt: enabledAt } });
+    },
+    async confirmTotpSecret(userId, when) {
+      const { count } = await db.user.updateMany({
+        where: { id: userId, totpSecretCipher: { not: null }, totpEnabledAt: null },
+        data: { totpEnabledAt: when },
+      });
+      return { count };
+    },
+    async replaceRecoveryCodes(userId, codeHashes, tx) {
+      const models = client(tx);
+      await models.mfaRecoveryCode.deleteMany({ where: { userId } });
+      if (codeHashes.length > 0) await models.mfaRecoveryCode.createMany({ data: codeHashes.map((codeHash) => ({ userId, codeHash })) });
+    },
+    async consumeRecoveryCode(userId, codeHash, when) {
+      const { count } = await db.mfaRecoveryCode.updateMany({ where: { userId, codeHash, usedAt: null }, data: { usedAt: when } });
+      return { count };
+    },
+    async listPasskeys(userId) {
+      const rows = await db.webAuthnCredential.findMany({ where: { userId }, orderBy: { createdAt: "asc" }, select: PASSKEY_SELECT });
+      return rows.map(passkeyOf);
+    },
+    async findPasskey(id) {
+      const row = await db.webAuthnCredential.findUnique({ where: { id }, select: PASSKEY_SELECT });
+      return row ? passkeyOf(row) : null;
+    },
+    async createPasskey(input, tx) {
+      await client(tx).webAuthnCredential.create({ data: { ...input, counter: BigInt(input.counter) } });
+    },
+    async updatePasskeyUse(id, counter, when) {
+      await db.webAuthnCredential.updateMany({ where: { id }, data: { counter: BigInt(counter), lastUsedAt: when } });
+    },
+    async deletePasskey(userId, id, tx) {
+      const { count } = await client(tx).webAuthnCredential.deleteMany({ where: { id, userId } });
+      return { count };
     },
   };
 }
