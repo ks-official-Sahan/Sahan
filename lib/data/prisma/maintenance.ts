@@ -48,6 +48,18 @@ export function maintenanceRepo(client: DbClient): MaintenanceRepo {
           WHERE ranked.rank > ${keep}
         )`;
     },
+    pruneSupersededBlocks(keep) {
+      return client.$executeRaw`
+        DELETE FROM content_blocks
+        WHERE id IN (
+          SELECT id FROM (
+            SELECT id, row_number() OVER (PARTITION BY "pageSlug", "sectionSlug" ORDER BY version DESC) AS rank
+            FROM content_blocks
+            WHERE status = 'SUPERSEDED'
+          ) ranked
+          WHERE ranked.rank > ${keep}
+        )`;
+    },
     async ping() {
       await client.$queryRaw`SELECT 1`;
     },

@@ -8,6 +8,7 @@ import { idleState } from "@/lib/actions/state";
 import { toast } from "@/lib/admin/toast";
 import type { RevisionListItem } from "@/lib/blog/revision-queries";
 
+import RevisionCompare from "./RevisionCompare";
 import SidebarCard from "./SidebarCard";
 
 // The post's saved versions, newest first (lib/blog/revisions.ts keeps the
@@ -73,15 +74,18 @@ export default function RevisionHistoryCard({ postId, revisions }: { postId: str
                   {revision.authorEmail ? ` · ${revision.authorEmail}` : ""}
                 </p>
               </div>
-              <button
-                type="submit"
-                formAction={handleRestore(revision.id)}
-                disabled={pending}
-                onClick={(event) => confirmRestore(event, revision.title)}
-                className={buttonVariants.small}
-              >
-                Restore
-              </button>
+              <div className="flex shrink-0 gap-1">
+                <RevisionCompare postId={postId} revisionId={revision.id} title={revision.title} />
+                <button
+                  type="submit"
+                  formAction={handleRestore(revision.id)}
+                  disabled={pending}
+                  onClick={(event) => confirmRestore(event, revision.title)}
+                  className={buttonVariants.small}
+                >
+                  Restore
+                </button>
+              </div>
             </li>
           ))}
         </ol>

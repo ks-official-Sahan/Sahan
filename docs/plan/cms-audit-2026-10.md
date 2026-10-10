@@ -95,8 +95,8 @@ Browser -> Vercel CDN -> proxy.ts (every non-static path)
   - `registerUpload` swallows errors and leaves an orphan Cloudinary asset on failure.
   - Tags are unvalidated and not searchable.
 - **Data growth and indexes:**
-  - Superseded ContentBlock versions are never pruned.
-  - Each section load reads every version's data.
+  - Superseded ContentBlock versions are never pruned. (Fixed in #20: the daily housekeeping cron keeps 20 per section.)
+  - Each section load reads every version's data. (Bounded by the prune in #20.)
   - `listPublicSlugs` is unbounded.
   - Missing composite or partial indexes for the keyset queries and media `(createdAt, id)`.
 - **Validation:**
@@ -161,10 +161,10 @@ Browser -> Vercel CDN -> proxy.ts (every non-static path)
 - M11: slug history and redirects.
 - Soft delete with a trash view.
 - `draftMode` preview for posts and collections, with signed share links.
-- Revision diff view.
+- Revision diff view. (Done in #20.)
 - Signed outgoing webhooks (HMAC, retries, idempotency key) for headless consumers.
 - TOTP/WebAuthn with role-enforced MFA.
-- Prune superseded section versions.
+- Prune superseded section versions. (Done in #20.)
 
 **P3, architecture:**
 - M6: drop the Redis read-through on Vercel and migrate `unstable_cache` to `use cache` / `cacheTag` / `cacheLife`.

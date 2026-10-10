@@ -9,7 +9,7 @@ import { log } from "@/lib/log";
 import { resolveSection } from "./merge";
 import { getDefinition, sectionsOf, type CmsPage, type PageContent } from "./registry";
 import type { SectionDefinition } from "./types";
-import { findDraft, findPublished, issuePath, nextVersion, planSave, type BlockStatus } from "./versions";
+import { findDraft, findPublished, HISTORY_KEPT, issuePath, nextVersion, planSave, type BlockStatus } from "./versions";
 
 // The database side of the CMS: reading a section for the editor, and the four
 // changes an editor can make (save a draft, publish, restore, discard). Every
@@ -132,7 +132,7 @@ export async function loadEditorSection(definition: SectionDefinition<unknown>):
     publishedVersion: published?.version ?? null,
     history: rows
       .filter((row) => row.status !== "DRAFT")
-      .slice(0, 20)
+      .slice(0, HISTORY_KEPT)
       .map((row) => ({
         version: row.version,
         status: row.status,

@@ -5,6 +5,7 @@ import { invalidate } from "@/lib/cache/invalidate";
 import { forPostList } from "@/lib/cache/plan";
 import { audit } from "@/lib/admin/audit";
 import { REVISIONS_KEPT } from "@sahan-sac/blog-kit/revisions";
+import { HISTORY_KEPT } from "@/lib/cms/versions";
 import { log } from "@/lib/log";
 
 // Shared cron job logic, called by both the /api/cron/* routes (automatic,
@@ -153,14 +154,32 @@ export async function auditPruneJob(
 /** The daily audit-prune schedule: old audit rows and surplus post revisions, pruned together. */
 export async function housekeepingPruneJob(
   options: { retentionDays?: number } = {}
-): Promise<{ deleted: number; auditRows: number; revisions: number; error?: string }> {
-  const [auditResult, revisionResult] = await Promise.all([auditPruneJob(options), revisionPruneJob()]);
+): Promise<{ deleted: number; auditRows: number; revisions: number; sectionVersions: number; error?: string }> {
+  const [auditResult, revisionResult, sectionResult] = await Promise.all([auditPruneJob(options), revisionPruneJob(), sectionPruneJob()]);
+  const error = auditResult.error ?? revisionResult.error ?? sectionResult.error;
   return {
-    deleted: auditResult.deleted + revisionResult.deleted,
+    deleted: auditResult.deleted + revisionResult.deleted + sectionResult.deleted,
     auditRows: auditResult.deleted,
     revisions: revisionResult.deleted,
-    ...(auditResult.error || revisionResult.error ? { error: auditResult.error ?? revisionResult.error } : {}),
+    sectionVersions: sectionResult.deleted,
+    ...(error ? { error } : {}),
   };
+}
+
+/**
+ * Keeps each CMS section's newest HISTORY_KEPT superseded versions, in one
+ * statement. Drafts and published rows are never touched. Idempotent.
+ */
+export async function sectionPruneJob(client: RevisionPruneDb = repos): Promise<{ deleted: number; error?: string }> {
+  try {
+    const deleted = await client.maintenance.pruneSupersededBlocks(HISTORY_KEPT);
+    if (deleted > 0) log.info("section prune cron: pruned old section versions", { count: deleted, kept: HISTORY_KEPT });
+    return { deleted };
+  } catch (err) {
+    const error = String(err);
+    log.error("section prune cron failed", { error });
+    return { deleted: 0, error };
+  }
 }
 
 /**

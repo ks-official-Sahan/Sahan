@@ -4,7 +4,7 @@ import { strict as assert } from "node:assert";
 import type { AuditRow } from "@/lib/data/audit";
 import type { MaintenanceRepo } from "@/lib/data/maintenance";
 
-import { AUDIT_PRUNE_BATCH, auditPruneJob, blogPublishJob, revisionPruneJob, sessionCleanupJob, CLEANUP_GRACE_MS } from "./jobs";
+import { AUDIT_PRUNE_BATCH, auditPruneJob, blogPublishJob, revisionPruneJob, sectionPruneJob, sessionCleanupJob, CLEANUP_GRACE_MS } from "./jobs";
 
 // In-memory maintenance repositories. Each keeps the repository contract
 // (lib/data/maintenance.ts) over plain arrays, which is enough to prove the
@@ -69,6 +69,7 @@ function fakeMaintenance(data: {
       return removeWhere(audit, (row) => drop.has(row.id!));
     },
     pruneRevisions: unused,
+    pruneSupersededBlocks: unused,
     ping: unused,
   };
 }
@@ -218,6 +219,23 @@ describe("revisionPruneJob", () => {
   test("db failure is caught and reported, not thrown", async () => {
     const maintenance = { ...fakeMaintenance({}), pruneRevisions: async () => { throw new Error("db down"); } };
     const result = await revisionPruneJob({ maintenance });
+    assert.equal(result.deleted, 0);
+    assert.ok(result.error);
+  });
+});
+
+describe("sectionPruneJob", () => {
+  test("prunes superseded section versions to the history cap and reports the rows deleted", async () => {
+    const kept: number[] = [];
+    const maintenance = { ...fakeMaintenance({}), pruneSupersededBlocks: async (keep: number) => (kept.push(keep), 3) };
+    const result = await sectionPruneJob({ maintenance });
+    assert.equal(result.deleted, 3);
+    assert.deepEqual(kept, [20]);
+  });
+
+  test("db failure is caught and reported, not thrown", async () => {
+    const maintenance = { ...fakeMaintenance({}), pruneSupersededBlocks: async () => { throw new Error("db down"); } };
+    const result = await sectionPruneJob({ maintenance });
     assert.equal(result.deleted, 0);
     assert.ok(result.error);
   });
