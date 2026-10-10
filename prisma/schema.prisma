@@ -56,6 +56,12 @@ enum MfaPurpose {
   STEP_UP
 }
 
+enum WebhookDeliveryStatus {
+  PENDING
+  DELIVERED
+  FAILED
+}
+
 enum TokenPurpose {
   INVITE
   PASSWORD_RESET
@@ -403,6 +409,9 @@ model Post {
   contentHtml    String      @db.Text
   // Plain text for search and read time.
   contentText    String      @db.Text
+  // The first EXCERPT_CHARS of contentText, written on save, so list reads
+  // can show an excerpt without loading the whole text (lib/blog/queries.ts).
+  autoExcerpt    String      @default("")
   topic          String
   tags           String[]    @default([])
   status         PostStatus  @default(DRAFT)
@@ -425,12 +434,14 @@ model Post {
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
 
-  revisions PostRevision[]
+  revisions     PostRevision[]
+  slugRedirects PostSlugRedirect[]
 
-  @@index([status, publishedAt])
-  @@index([status, publishAt])
-  @@index([status, noindex, publishedAt])
-  @@index([status, noindex, publishAt])
+  // Keyset pages order by (publishedAt | publishAt, id); id breaks ties.
+  @@index([status, publishedAt, id])
+  @@index([status, publishAt, id])
+  @@index([status, noindex, publishedAt, id])
+  @@index([status, noindex, publishAt, id])
   @@index([coverMediaId])
   @@index([authorId])
   // Admin list default sort, and the distinct-topic picker.
@@ -461,6 +472,19 @@ model PostRevision {
   @@map("post_revisions")
 }
 
+// An old slug of a post, kept after a rename so /updates/<old> answers with a
+// permanent redirect to the post's current slug instead of a 404. A new post
+// or rename that takes the slug removes the row (lib/actions/blog.ts).
+model PostSlugRedirect {
+  slug      String   @id
+  postId    String
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@index([postId])
+  @@map("post_slug_redirects")
+}
+
 // ─── Media ────────────────────────────────────────────────────────────────────
 
 model MediaAsset {
@@ -487,7 +511,8 @@ model MediaAsset {
 
   @@unique([provider, publicId])
   @@index([folder, createdAt])
-  @@index([createdAt])
+  // The library's keyset order (createdAt desc, id desc).
+  @@index([createdAt, id])
   @@map("media_assets")
 }
 
@@ -610,4 +635,67 @@ model ChatTrainingEntry {
 
   @@index([isActive, priority])
   @@map("chat_training_entries")
+}
+
+// ─── Trash ────────────────────────────────────────────────────────────────────
+// A deleted post, media asset or collection row, kept as a JSON snapshot for
+// 30 days so it can be restored with its id. Deleting writes this row and
+// removes the original in one transaction, so nothing else ever filters on a
+// deleted flag. The housekeeping cron purges expired rows (and only then
+// deletes a media file from Cloudinary). Design: lib/trash/*.
+model TrashItem {
+  id          String   @id @default(cuid())
+  entityType  String
+  entityId    String
+  // Shown in the trash list without parsing `data`.
+  label       String
+  data        Json
+  deletedById String?
+  deletedAt   DateTime @default(now())
+
+  @@unique([entityType, entityId])
+  @@index([deletedAt])
+  @@map("trash_items")
+}
+
+// ─── Outgoing webhooks ────────────────────────────────────────────────────────
+// Signed POSTs to external consumers when public content changes. The signing
+// secret is shown once and stored encrypted (lib/webhooks/secret.ts).
+model WebhookEndpoint {
+  id           String   @id @default(cuid())
+  url          String
+  description  String   @default("")
+  secretCipher String
+  // Event names this endpoint receives; empty means every event.
+  events       String[] @default([])
+  active       Boolean  @default(true)
+  createdById  String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  deliveries WebhookDelivery[]
+
+  @@map("webhook_endpoints")
+}
+
+model WebhookDelivery {
+  id             String                @id @default(cuid())
+  endpointId     String
+  endpoint       WebhookEndpoint       @relation(fields: [endpointId], references: [id], onDelete: Cascade)
+  event          String
+  payload        Json
+  // Sent as Idempotency-Key, so a consumer can drop a retried duplicate.
+  idempotencyKey String                @unique
+  status         WebhookDeliveryStatus @default(PENDING)
+  attempts       Int                   @default(0)
+  nextAttemptAt  DateTime?
+  responseStatus Int?
+  lastError      String?
+  createdAt      DateTime              @default(now())
+  deliveredAt    DateTime?
+
+  @@index([status, nextAttemptAt])
+  @@index([endpointId, createdAt])
+  @@index([createdAt])
+  @@map("webhook_deliveries")
 }

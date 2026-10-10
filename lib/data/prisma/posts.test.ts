@@ -107,3 +107,26 @@ test("updateIfUnchanged turns a taken slug into UniqueViolation", async () => {
   const client = { post: { update: async () => Promise.reject(Object.assign(new Error("unique"), { code: "P2002" })) } };
   await assert.rejects(postRepo(client as never).updateIfUnchanged("p1", new Date(), { slug: "taken" }), UniqueViolation);
 });
+
+test("recordRename points the old slug at the post and frees the new slug; a same-slug save does nothing", async () => {
+  const calls: Array<[string, unknown]> = [];
+  const client = {
+    postSlugRedirect: {
+      deleteMany: async (args: unknown) => (calls.push(["deleteMany", args]), { count: 0 }),
+      upsert: async (args: unknown) => (calls.push(["upsert", args]), {}),
+    },
+  };
+  const repo = postRepo(client as never);
+  await repo.recordRename("p1", "same", "same");
+  assert.equal(calls.length, 0);
+  await repo.recordRename("p1", "old-slug", "new-slug");
+  assert.deepEqual(calls, [
+    ["deleteMany", { where: { slug: "new-slug" } }],
+    ["upsert", { where: { slug: "old-slug" }, create: { slug: "old-slug", postId: "p1" }, update: { postId: "p1" } }],
+  ]);
+});
+
+test("listSlugRedirects returns each old slug with its post's current slug", async () => {
+  const client = { postSlugRedirect: { findMany: async () => [{ slug: "old", post: { slug: "current" } }] } };
+  assert.deepEqual(await postRepo(client as never).listSlugRedirects(), [{ slug: "old", targetSlug: "current" }]);
+});

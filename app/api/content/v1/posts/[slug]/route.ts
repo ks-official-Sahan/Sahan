@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { getPostBySlug } from "@/lib/blog/queries";
+import { getPostBySlug, getPostRedirect } from "@/lib/blog/queries";
 import { CONTENT_CORS_HEADERS, contentNotFound, contentResponse, contentUnavailable, rejectUnknownParams } from "@/lib/api/content";
 
 export async function GET(request: Request, { params }: { params: Promise<{ slug: string }> }) {
@@ -9,8 +9,13 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
   const { slug } = await params;
   try {
     const data = await getPostBySlug(slug);
-    // A miss is never cached: the post may be published a moment later.
-    if (!data) return contentNotFound("Post not found.");
+    if (!data) {
+      // A renamed post's old slug: permanent redirect to its current one.
+      const target = await getPostRedirect(slug);
+      if (target) return NextResponse.redirect(new URL(`/api/content/v1/posts/${target}`, request.url), 308);
+      // A miss is never cached: the post may be published a moment later.
+      return contentNotFound("Post not found.");
+    }
     return contentResponse(request, data);
   } catch (error) {
     return contentUnavailable("blog detail", error, { slug });

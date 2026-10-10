@@ -14,6 +14,7 @@ import { isDbUnavailable, repos, withTx } from "@/lib/data";
 import type { Repos } from "@/lib/data/repos";
 import { UniqueViolation } from "@/lib/data/errors";
 import { extractText, sanitizeRich } from "@/lib/cms/rich-text";
+import { autoExcerptOf } from "@/lib/blog/excerpt";
 import { isPublicPost } from "@/lib/blog/publication";
 import { postInputSchema, publishActionSchema } from "@/lib/blog/schema";
 import { parseSubmittedUpdatedAt, UPDATE_CONFLICT_MESSAGE } from "@sahan-sac/blog-kit/concurrency";
@@ -65,7 +66,7 @@ const UNEXPECTED_MESSAGE = "Something went wrong. Please try again.";
 function computed(content: string) {
   const contentHtml = sanitizeRich(content);
   const contentText = extractText(contentHtml);
-  return { contentHtml, contentText, readMinutes: computeReadMinutes(contentText) };
+  return { contentHtml, contentText, autoExcerpt: autoExcerptOf(contentText), readMinutes: computeReadMinutes(contentText) };
 }
 
 function inlineMediaIds(content: string): string[] {
@@ -162,6 +163,7 @@ export async function createPostAction(_previous: ActionState, formData: FormDat
         content: parsed.data.content,
         contentHtml: extra.contentHtml,
         contentText: extra.contentText,
+        autoExcerpt: extra.autoExcerpt,
         readMinutes: extra.readMinutes,
         topic: parsed.data.topic,
         tags: parsed.data.tags,
@@ -178,6 +180,8 @@ export async function createPostAction(_previous: ActionState, formData: FormDat
         authorId: auth.user.id,
       });
       await syncPostMediaUsage(tx, row.id, row.coverMediaId, row.content);
+      // An old slug of another post now belongs to this one.
+      await tx.posts.releaseSlug(row.slug);
       await audit(
         {
           action: resolved.status === "DRAFT" ? "post.created" : "post.created.published",
@@ -276,6 +280,7 @@ export async function updatePostAction(_previous: ActionState, formData: FormDat
       const row = await tx.posts.updateIfUnchanged(id, submittedUpdatedAt, { ...next, ...extra });
       if (!row) throw new UpdateConflictError();
       await syncPostMediaUsage(tx, id, row.coverMediaId, row.content);
+      await tx.posts.recordRename(id, before.slug, row.slug);
       // A save that changed nothing editable leaves no revision behind.
       if (!sameSnapshot(previous, next)) {
         await tx.postRevisions.create({ postId: id, title: previous.title, data: previous, reason: "update", createdById: auth.user.id });
@@ -349,6 +354,7 @@ export async function restorePostRevisionAction(_previous: ActionState, formData
       const row = await tx.posts.updateIfUnchanged(postId, before.updatedAt, { ...snapshot, ...extra });
       if (!row) throw new UpdateConflictError();
       await syncPostMediaUsage(tx, postId, row.coverMediaId, row.content);
+      await tx.posts.recordRename(postId, before.slug, row.slug);
       await tx.postRevisions.create({ postId, title: before.title, data: snapshotOf(before), reason: "restore", createdById: auth.user.id });
       await audit(
         {

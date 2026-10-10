@@ -1,4 +1,5 @@
 import "server-only";
+import { autoExcerptOf } from "@/lib/blog/excerpt";
 
 import type { NewPost } from "@/lib/data/posts";
 import type { Repos } from "@/lib/data/repos";
@@ -54,6 +55,7 @@ export async function seedBlog(client: SeedClient): Promise<SeedBlogResult> {
       content: contentHtml,
       contentHtml,
       contentText,
+      autoExcerpt: autoExcerptOf(contentText),
       topic: post.topic,
       tags: post.tags,
       status: "PUBLISHED",
