@@ -56,13 +56,12 @@ export default function BodyEditorCard({ content, onChange }: { content: string;
         </span>
 
         <div className="ml-auto flex items-center gap-2">
-          <div role="tablist" aria-label="Editor" className="inline-flex rounded-md border border-input p-0.5">
+          <div role="group" aria-label="Body format" className="inline-flex rounded-md border border-input p-0.5">
             {(["visual", "markdown"] as const).map((option) => (
               <button
                 key={option}
                 type="button"
-                role="tab"
-                aria-selected={editor === option}
+                aria-pressed={editor === option}
                 onClick={() => setEditor(option)}
                 className={cn(
                   "rounded px-3 py-1 text-xs font-medium capitalize transition-colors",

@@ -3,7 +3,12 @@
 This is for whoever runs the site day to day: the owner or a developer
 setting up a new environment. For the design and the reasoning behind every
 rule below, see `docs/plan/admin-cms-adr.md`. For the last security pass, see
-`docs/plan/admin-cms-security-review.md`.
+`docs/plan/admin-cms-security-review.md`. The public read-only API is described
+in [`docs/headless-api.md`](headless-api.md).
+
+The page editor, blog, projects, experience, services and skills are backed by
+the CMS. Collection mutations invalidate the public pages, headless API and
+cached reads that use the changed collection.
 
 ## First-time setup
 
@@ -23,9 +28,15 @@ rule below, see `docs/plan/admin-cms-adr.md`. For the last security pass, see
    `DATABASE_URL` is set. `MAINTENANCE_BYPASS_SECRET`,
    `ADMIN_LOGIN_UNLOCK_SECRET`, `MEDIA_SIGNING_SECRET` and `CRON_SECRET` are
    optional: each feature is off while its secret is unset.
-4. Run migrations against schema `sahan` (`pnpm exec prisma migrate deploy`,
-   or `migrate dev` locally). Nothing else in this database belongs to this
-   project — never point `DATABASE_URL` at a shared schema.
+4. Apply the checked-in Prisma schema to the dedicated `sahan` schema with
+   `pnpm db:push`. This repository does not keep Prisma migration history;
+   review the proposed schema changes before accepting them. Never point
+   `DATABASE_URL` at a shared schema.
+5. To initialize the works collections from the checked-in defaults, run
+   `pnpm db:seed-collections`. It is idempotent and fills only empty
+   collections. It seeds projects, experience, services and skills; review
+   the content before running it against a database that already has editorial
+   data.
 
 ## Unlock and sign in
 

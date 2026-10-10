@@ -35,6 +35,7 @@ export interface UpdateMediaInput {
 export interface DeleteMediaResult {
   ok: boolean;
   error?: string;
+  warning?: string;
   usages?: Array<{ entityType: string; entityId: string; field: string }>;
 }
 
@@ -91,6 +92,12 @@ export async function registerUpload(
       await cloudinaryClient.deleteAsset(publicId);
       const errorMsg = validation.errors?.[0]?.message || "File validation failed";
       return { ok: false, error: errorMsg };
+    }
+
+    const metadataValidation = validateMediaMetadata(alt, undefined, mediaKind);
+    if (!metadataValidation.ok) {
+      await cloudinaryClient.deleteAsset(publicId);
+      return { ok: false, error: metadataValidation.errors?.[0]?.message || "Alt text is required for images." };
     }
 
     // Create the asset record and its audit row atomically: Cloudinary work
@@ -233,7 +240,7 @@ export async function updateMediaMetadata(
   if (!asset) return { ok: false, error: "Media not found" };
 
   // Validate metadata
-  const validation = validateMediaMetadata(input.alt, input.title, asset.kind);
+  const validation = validateMediaMetadata(input.alt ?? asset.alt, input.title ?? asset.title, asset.kind);
   if (!validation.ok) {
     return { ok: false, error: validation.errors?.[0]?.message || "Invalid metadata" };
   }
@@ -279,31 +286,24 @@ export async function deleteMedia(
   actor: { id: string; email: string },
   cloudinaryClient?: CloudinaryClient
 ): Promise<DeleteMediaResult> {
-  const asset = await repos.media.findWithUsages(mediaId);
+  const outcome = await withTx(async (tx) => {
+    // Lock, check and delete in one transaction. The row lock comes before
+    // the usage read: a content save that already inserted its MediaUsage
+    // holds a key-share lock, so this waits for it to commit and then sees
+    // the usage; a save that starts later waits for this delete and then
+    // fails its foreign key, rolling back its own content mutation. Reading
+    // usages before the lock would let a save slip in between, and the
+    // cascade on media_usages would then drop its usage row silently.
+    await tx.media.lockForUpdate(mediaId);
+    const asset = await tx.media.findWithUsages(mediaId);
+    if (!asset) return { kind: "missing" as const };
+    if (asset.usages.length > 0) {
+      return {
+        kind: "in_use" as const,
+        usages: asset.usages.map((u) => ({ entityType: u.entityType, entityId: u.entityId, field: u.field })),
+      };
+    }
 
-  if (!asset) return { ok: false, error: "Media not found" };
-
-  if (asset.usages.length > 0) {
-    return {
-      ok: false,
-      error: "This media is used elsewhere and cannot be deleted",
-      usages: asset.usages.map((u) => ({
-        entityType: u.entityType,
-        entityId: u.entityId,
-        field: u.field,
-      })),
-    };
-  }
-
-  // Delete from Cloudinary first (if applicable) — external call stays
-  // outside the DB transaction, and runs before it, so a Cloudinary failure
-  // here never reaches the DB delete or its audit row.
-  if (asset.provider === "CLOUDINARY" && asset.publicId && cloudinaryClient) {
-    await cloudinaryClient.deleteAsset(asset.publicId);
-  }
-
-  // Then delete from the database and audit it atomically.
-  await withTx(async (tx) => {
     await tx.media.delete(mediaId);
 
     await audit(
@@ -321,7 +321,40 @@ export async function deleteMedia(
       },
       tx
     );
+    return { kind: "deleted" as const, asset };
   });
+
+  if (outcome.kind === "missing") return { ok: false, error: "Media not found" };
+  if (outcome.kind === "in_use") {
+    return { ok: false, error: "This media is used elsewhere and cannot be deleted", usages: outcome.usages };
+  }
+
+  // The database row is gone before external cleanup, so no new CMS save can
+  // commit a reference to an asset that Cloudinary has already deleted.
+  if (outcome.asset.provider === "CLOUDINARY") {
+    if (!outcome.asset.publicId) {
+      log.error("Cloudinary media row had no public ID during cleanup", { mediaId });
+      return { ok: true, warning: "The media was removed from the library, but its Cloudinary public ID was missing." };
+    }
+    if (!cloudinaryClient) {
+      log.warn("Cloudinary media cleanup skipped because the client is not configured", { mediaId });
+      return {
+        ok: true,
+        warning: "The media was removed from the library, but Cloudinary is not configured for external cleanup.",
+      };
+    }
+    try {
+      const deleted = await cloudinaryClient.deleteAsset(outcome.asset.publicId);
+      if (!deleted) throw new Error("Cloudinary did not confirm asset deletion");
+    } catch (error) {
+      log.error("Cloudinary media cleanup failed after library deletion", {
+        mediaId,
+        publicId: outcome.asset.publicId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return { ok: true, warning: "The media was removed from the library, but its Cloudinary copy could not be deleted. Check the server log and remove it from Cloudinary." };
+    }
+  }
 
   return { ok: true };
 }

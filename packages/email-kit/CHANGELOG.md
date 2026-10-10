@@ -1,5 +1,11 @@
 # @sahan-sac/email-kit
 
+## 0.3.0
+
+### Minor Changes
+
+- Allow Nodemailer 8 alongside Nodemailer 10 so email-kit can be installed with Auth.js, whose optional Nodemailer peer currently supports versions 7 and 8.
+
 ## 0.2.0
 
 ### Minor Changes

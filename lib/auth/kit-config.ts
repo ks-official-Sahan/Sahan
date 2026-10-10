@@ -239,6 +239,8 @@ export const LIMITS = {
   "contact:global": { windowSeconds: 3600, max: 100, failMode: "open" },
   "chat:ip": { windowSeconds: 600, max: 20, failMode: "closed" },
   "chat:session": { windowSeconds: 60, max: 6, failMode: "closed" },
+  // Uncached deep-archive pages of the public content API (cursor requests).
+  "content:ip": { windowSeconds: 60, max: 60, failMode: "open" },
 } as const satisfies Record<string, LimitRule>;
 
 export type LimitName = keyof typeof LIMITS;

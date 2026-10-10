@@ -1,4 +1,4 @@
-import MaskIcon from "@/components/common/MaskIcon";
+import SkillGlyph from "@/components/common/SkillGlyph";
 import type { Skill } from "@/types/skills";
 import React from "react";
 
@@ -9,13 +9,6 @@ const skillVars = (skill: Skill) =>
     "--skill-light": skill.baseColor.light,
     "--skill-dark": skill.baseColor.dark,
   }) as React.CSSProperties;
-
-const SkillGlyph = ({ skill, size }: { skill: Skill; size: number }) =>
-  skill.variant === "stroke" ? (
-    <skill.icon size={size} stroke={1.5} />
-  ) : (
-    <MaskIcon src={skill.iconSrc} size={size} />
-  );
 
 // One skill as a pill: brand-coloured glyph plus the name. Used inside
 // marquees, so it never shrinks or wraps.

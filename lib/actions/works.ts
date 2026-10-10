@@ -7,7 +7,7 @@ import { authorizeAction } from "@/lib/actions/guard";
 import type { ActionState } from "@/lib/actions/state";
 import { done, fail, fieldErrorsFrom } from "@/lib/actions/state";
 import { audit } from "@/lib/admin/audit";
-import { repos, withTx } from "@/lib/data";
+import { repos, withTx, type Repos } from "@/lib/data";
 import { invalidate } from "@/lib/cache/invalidate";
 import { forCollection } from "@/lib/cache/plan";
 import { projectImageSchema, projectLinkSchema } from "@/lib/collections/projects";
@@ -30,6 +30,22 @@ const URL_MAX = 2_000;
 const KEY = 64;
 const MAX_LIST = 50;
 const MAX_LINKS = 20;
+
+async function validProjectImage(image: unknown): Promise<boolean> {
+  if (image === undefined || image === null) return true;
+  const parsed = boundedImage.safeParse(image);
+  if (!parsed.success || !parsed.data) return false;
+  if (!parsed.data.mediaId) return true;
+  const asset = await repos.media.find(parsed.data.mediaId);
+  return asset?.kind === "IMAGE" && asset.url === parsed.data.src;
+}
+
+async function syncProjectImageUsage(tx: Pick<Repos, "media">, projectId: string, image: unknown): Promise<void> {
+  await tx.media.clearUsage("Project", projectId);
+  const parsed = boundedImage.safeParse(image);
+  if (!parsed.success || !parsed.data?.mediaId) return;
+  await tx.media.recordUsage({ mediaId: parsed.data.mediaId, entityType: "Project", entityId: projectId, field: "image" });
+}
 
 const boundedLink = projectLinkSchema.refine(
   (link) => link.url.length <= URL_MAX && (link.label?.length ?? 0) <= SHORT,
@@ -78,6 +94,9 @@ export async function createProjectAction(
 
   const parsed = createProjectSchema.safeParse(payload);
   if (!parsed.success) return fail("Some fields need attention.", fieldErrorsFrom(parsed.error.issues));
+  if (!(await validProjectImage(parsed.data.image))) {
+    return fail("Some fields need attention.", { image: "Choose an image that is still in the media library." });
+  }
 
   try {
     const existing = await repos.projects.findBySlug(parsed.data.slug);
@@ -107,6 +126,7 @@ export async function createProjectAction(
         published: false,
         sortOrder: nextSort,
       });
+      await syncProjectImageUsage(tx, created.id, created.image);
 
       await audit({
         action: "collection.projects.created",
@@ -146,6 +166,9 @@ export async function updateProjectAction(
   const schema = createProjectSchema.omit({ slug: true });
   const parsed = schema.safeParse(payload);
   if (!parsed.success) return fail("Some fields need attention.", fieldErrorsFrom(parsed.error.issues));
+  if (!(await validProjectImage(parsed.data.image))) {
+    return fail("Some fields need attention.", { image: "Choose an image that is still in the media library." });
+  }
 
   try {
     const before = await repos.projects.find(id);
@@ -170,6 +193,7 @@ export async function updateProjectAction(
         image: parsed.data.image,
         links: parsed.data.links,
       });
+      await syncProjectImageUsage(tx, id, updated.image);
 
       await audit({
         action: "collection.projects.updated",
@@ -207,6 +231,7 @@ export async function deleteProjectAction(
     if (!before) return fail("Project not found.");
 
     await withTx(async (tx) => {
+      await tx.media.clearUsage("Project", id);
       await tx.projects.delete(id);
       await audit({
         action: "collection.projects.deleted",
@@ -1044,7 +1069,7 @@ const createSkillSchema = z.object({
   abbr: z.string().min(1).max(32),
   type: z.string().min(1).max(KEY),
   iconKey: z.string().min(1).max(KEY),
-  variant: z.string().max(32).default("fill"),
+  variant: z.enum(["fill", "stroke"]).default("fill"),
   colorLight: z.string().max(KEY),
   colorDark: z.string().max(KEY),
 });

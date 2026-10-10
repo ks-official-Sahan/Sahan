@@ -4,6 +4,7 @@ import HomeSection from "@/components/home/HomeSection";
 import SectionHeading from "@/components/home/SectionHeading";
 import type { PageContent } from "@/lib/cms/registry";
 import { MySkills } from "@/contents/skills";
+import type { SkillCategory } from "@/types/skills";
 import { ArrowUpRight } from "lucide-react";
 import Link from "next/link";
 import React from "react";
@@ -20,9 +21,12 @@ const stackCategories = MySkills.tabs.categories.filter(
 
 interface ToolboxSectionProps {
   content: PageContent<"home">["home"];
+  skillGroups?: SkillCategory[] | null;
 }
 
-const ToolboxSection = ({ content: home }: ToolboxSectionProps) => {
+const ToolboxSection = ({ content: home, skillGroups }: ToolboxSectionProps) => {
+  const categories = skillGroups ?? MySkills.tabs.categories;
+  const stackCategories = categories.filter((category) => !softCategories.includes(category.category));
 
   return (
     <HomeSection id="toolbox" labelledBy="toolbox-title">

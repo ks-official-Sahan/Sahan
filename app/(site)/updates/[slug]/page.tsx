@@ -8,7 +8,7 @@ import { HomeContainer } from "@/components/home/HomeSection";
 import FinalCta from "@/components/home/FinalCta";
 import { SiteMetadata } from "@/config/site";
 import { getPageContent } from "@/lib/cms/loaders";
-import { getPosts, getPostBySlug, relatedPosts, type BlogPostView } from "@/lib/blog/queries";
+import { getRecentPosts, getPostBySlug, relatedPosts, type BlogPostView } from "@/lib/blog/queries";
 import { extractToc, renderPostContent } from "@/lib/blog/render";
 import { RSS_ALTERNATES } from "@/lib/metadata";
 import { jsonLdHtml } from "@/lib/seo/json-ld";
@@ -32,7 +32,9 @@ const COVER_WIDTHS = [480, 960, 1440] as const;
 const dayFormat = new Intl.DateTimeFormat("en-US", { day: "numeric", month: "long", year: "numeric" });
 
 export async function generateStaticParams() {
-  const posts = await getPosts();
+  // Older posts remain available through dynamicParams, while only the newest
+  // 50 are eagerly generated during builds.
+  const posts = await getRecentPosts(50);
   return posts.map((post) => ({ slug: post.slug }));
 }
 
@@ -137,9 +139,13 @@ function postJsonLd(post: BlogPostView) {
 
 export default async function UpdatePostPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const [post, posts, home] = await Promise.all([getPostBySlug(slug), getPosts(), getPageContent("home")]);
+  const [post, posts, home] = await Promise.all([getPostBySlug(slug), getRecentPosts(50), getPageContent("home")]);
   if (!post) notFound();
 
+  // Candidates are the 50 newest public posts (one cached read, also used by
+  // generateMetadata), so recommendations lean toward fresh content and an
+  // older post is recommended only while it is among them. Deliberate: a
+  // tag-matched read across every post would add a query per article.
   const related = relatedPosts(post, posts);
   const author = post.authorName || SiteMetadata.author;
   // contentHtml is sanitized on save and again by getPostBySlug(); this only

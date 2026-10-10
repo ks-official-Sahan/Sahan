@@ -26,9 +26,14 @@ interface UpdatesExplorerProps {
   content: PageContent<"updates">;
   /** Published posts, from the database when the Post table has rows, else the code defaults (lib/blog/queries.ts). */
   posts: UpdatesListPost[];
+  nextCursor: string | null;
 }
 
-const UpdatesExplorer = ({ content, posts }: UpdatesExplorerProps) => {
+const UpdatesExplorer = ({ content, posts: initialPosts, nextCursor: initialCursor }: UpdatesExplorerProps) => {
+  const [posts, setPosts] = useState(initialPosts);
+  const [nextCursor, setNextCursor] = useState(initialCursor);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   // Topics and tags are computed from the posts actually shown, so a filter
   // can never advertise something that is not there (docs/plan/admin-cms-adr.md, Step 12).
   const topics = useMemo(() => {
@@ -64,6 +69,28 @@ const UpdatesExplorer = ({ content, posts }: UpdatesExplorerProps) => {
     setTopic(null);
     setTag(null);
     setQuery("");
+  };
+
+  const loadMore = async () => {
+    if (!nextCursor || loadingMore) return;
+    setLoadingMore(true);
+    setLoadError(null);
+    try {
+      const response = await fetch(`/api/content/v1/posts?limit=20&cursor=${encodeURIComponent(nextCursor)}`);
+      const result = (await response.json().catch(() => null)) as
+        | { data?: { items?: UpdatesListPost[]; nextCursor?: string | null }; error?: string }
+        | null;
+      if (!response.ok || !result?.data?.items) throw new Error(result?.error || "Could not load older updates.");
+      setPosts((current) => {
+        const seen = new Set(current.map((post) => post.id));
+        return [...current, ...result.data!.items!.filter((post) => !seen.has(post.id))];
+      });
+      setNextCursor(result.data.nextCursor ?? null);
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : "Could not load older updates.");
+    } finally {
+      setLoadingMore(false);
+    }
   };
 
   return (
@@ -163,6 +190,9 @@ const UpdatesExplorer = ({ content, posts }: UpdatesExplorerProps) => {
             <p aria-live="polite" className="sr-only">
               Showing {visible.length} {visible.length === 1 ? "update" : "updates"}
             </p>
+            <p className="mb-4 text-sm text-muted-foreground">
+              Showing {posts.length} recent updates{nextCursor ? "; load older updates to browse further back." : "."}
+            </p>
 
             {visible.length > 0 ? (
               <ol
@@ -197,6 +227,19 @@ const UpdatesExplorer = ({ content, posts }: UpdatesExplorerProps) => {
                 </button>
               </div>
             )}
+            {loadError ? <p role="alert" className="mt-4 text-sm text-destructive">{loadError}</p> : null}
+            {nextCursor ? (
+              <div className="mt-8 flex justify-center">
+                <button
+                  type="button"
+                  onClick={() => void loadMore()}
+                  disabled={loadingMore}
+                  className="press min-h-11 rounded-full border border-bBORDERFADE bg-bCHIP px-5 text-sm font-semibold disabled:opacity-60"
+                >
+                  {loadingMore ? "Loading…" : "Load older updates"}
+                </button>
+              </div>
+            ) : null}
           </div>
         </div>
       </HomeContainer>

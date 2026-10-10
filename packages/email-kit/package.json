@@ -1,6 +1,6 @@
 {
   "name": "@sahan-sac/email-kit",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Transactional email for server apps: Resend and SMTP (Brevo) providers with ordered fallback, a capture provider for tests, header-injection and address guards, a typed env schema, provider health, Brevo delivery diagnostics, and one escaped HTML/text layout with redacted copies for CC. Framework-agnostic; templates and audit storage stay in the app.",
   "license": "Apache-2.0",
   "repository": {
@@ -40,14 +40,14 @@
   "scripts": {
     "build": "tsup",
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.build.json",
-    "test": "node --conditions=react-server --import tsx --test \"src/**/*.test.ts\"",
+    "test": "node ../../scripts/test-package.mjs --conditions=react-server",
     "prepack": "npm run build && npm run test"
   },
   "dependencies": {
     "zod": "^4.6.5"
   },
   "peerDependencies": {
-    "nodemailer": "^10.0.10",
+    "nodemailer": "^8.0.5 || ^10.0.10",
     "resend": "^6.28.1"
   },
   "peerDependenciesMeta": {

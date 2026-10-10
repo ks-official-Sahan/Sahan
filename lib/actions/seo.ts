@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { authorizeAction } from "@/lib/actions/guard";
 import { done, fail, type ActionState } from "@/lib/actions/state";
 import { auditSafe } from "@/lib/admin/audit";
+import { SITEMAP_PATHS } from "@/lib/cache/plan";
 import { collectIndexableUrls, isIndexNowConfigured, pingIndexNowWithStatus } from "@/lib/seo/indexnow";
 import { regenerateLlmsTxt } from "@/lib/seo/llms-txt";
 
@@ -34,13 +35,17 @@ export async function regenerateLlmsTxtAction(_previous: ActionState, _formData:
   return done(`llms.txt regenerated (${content.length} bytes).`);
 }
 
-/** Sahan's sitemap (app/sitemap.ts) is already fully dynamic per request, so
+/** Sahan's sitemap (the index at app/sitemap.xml/route.ts and the files of
+ * app/sitemaps/sitemap.ts) is already fully dynamic per request, so
  * "regenerate" is a cache revalidation, not a file rebuild. */
 export async function regenerateSitemapAction(_previous: ActionState, _formData: FormData): Promise<ActionState> {
   const authz = await authorizeAction("manageSettings");
   if (!authz.ok) return fail(authz.error);
 
-  revalidatePath("/sitemap.xml");
+  for (const entry of SITEMAP_PATHS) {
+    if (typeof entry === "string") revalidatePath(entry);
+    else revalidatePath(entry.path, entry.type);
+  }
   await auditSafe({
     action: "seo.sitemap.regenerated",
     actor: { id: authz.user.id, email: authz.user.email },

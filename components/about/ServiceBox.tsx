@@ -3,6 +3,7 @@
 import ServiceCard from "@/components/about/ServiceCard";
 import TabChip from "@/components/about/TabChip";
 import { MyServices } from "@/contents/service";
+import type { ServiceCategory } from "@/types/service";
 import type { PageContent } from "@/lib/cms/registry";
 import { ArrowUpRight } from "lucide-react";
 import Link from "next/link";
@@ -10,11 +11,12 @@ import React, { useState } from "react";
 
 interface ServiceBoxProps {
   content: PageContent<"about">;
+  serviceGroups?: ServiceCategory[] | null;
 }
 
-const ServiceBox = ({ content }: ServiceBoxProps) => {
-  const { categories } = MyServices;
-  const [selectedId, setSelectedId] = useState(categories[0].id);
+const ServiceBox = ({ content, serviceGroups }: ServiceBoxProps) => {
+  const categories = serviceGroups ?? MyServices.categories;
+  const [selectedId, setSelectedId] = useState<string | number>(categories[0]?.id ?? "");
 
   const services =
     categories.find((category) => category.id === selectedId)?.services ?? [];

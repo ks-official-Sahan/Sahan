@@ -1,6 +1,6 @@
 "use client";
 
-import MaskIcon from "@/components/common/MaskIcon";
+import SkillGlyph from "@/components/common/SkillGlyph";
 import TitleBlock from "@/components/common/TitleBlock";
 import Marquee from "@/components/ui/marquee";
 import { cn } from "@/lib/utils";
@@ -23,14 +23,6 @@ const colorClass =
   "text-[color:var(--skill-light)] dark:text-[color:var(--skill-dark)]";
 const tintClass =
   "bg-[color:var(--skill-light-tint)] dark:bg-[color:var(--skill-dark-tint)]";
-
-const SkillIcon = ({ skill, size }: { skill: Skill; size: number }) => {
-  if (skill.variant === "stroke") {
-    return <skill.icon size={size} stroke={1.5} />;
-  }
-
-  return <MaskIcon src={skill.iconSrc} size={size} />;
-};
 
 const SkillGroupCard = ({
   type,
@@ -64,7 +56,7 @@ const SkillGroupCard = ({
       {/* SELECTED SKILL */}
       <div className="relative flex flex-col justify-between">
         <div aria-hidden="true" className={colorClass}>
-          <SkillIcon skill={selected} size={96} />
+          <SkillGlyph skill={selected} size={96} />
         </div>
 
         <TitleBlock
@@ -112,7 +104,7 @@ const SkillGroupCard = ({
                     isSelected ? tintClass : "bg-bCHIP hover:bg-bPLACEHOLDER"
                   )}
                 >
-                  <SkillIcon skill={skill} size={28} />
+                  <SkillGlyph skill={skill} size={28} />
                 </button>
               );
             })}
@@ -135,7 +127,7 @@ const SkillGroupCard = ({
                   isSelected ? tintClass : "bg-bCHIP hover:bg-bPLACEHOLDER"
                 )}
               >
-                <SkillIcon skill={skill} size={28} />
+                <SkillGlyph skill={skill} size={28} />
               </button>
             );
           })

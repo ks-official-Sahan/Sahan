@@ -10,10 +10,11 @@ import React, { ReactNode } from "react";
 interface UpdatesPageViewProps {
   content: PageContent<"updates">;
   posts: UpdatesListPost[];
+  nextCursor: string | null;
   finalCta: ReactNode;
 }
 
-export default function UpdatesPageView({ content, posts, finalCta }: UpdatesPageViewProps) {
+export default function UpdatesPageView({ content, posts, nextCursor, finalCta }: UpdatesPageViewProps) {
   return (
     <div className="w-full overflow-hidden font-medium">
       <section aria-labelledby="updates-title" className="w-full">
@@ -49,7 +50,7 @@ export default function UpdatesPageView({ content, posts, finalCta }: UpdatesPag
         </HeroBackdrop>
       </section>
 
-      <UpdatesExplorer content={content} posts={posts} />
+      <UpdatesExplorer content={content} posts={posts} nextCursor={nextCursor} />
       {finalCta}
     </div>
   );

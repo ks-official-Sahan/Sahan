@@ -6,26 +6,25 @@ import { HomeContainer, stagger } from "@/components/home/HomeSection";
 import WorksBehind from "@/components/works/WorksBehind";
 import WorksExplorer from "@/components/works/WorksExplorer";
 import type { PageContent } from "@/lib/cms/registry";
-import { Projects, teamOf } from "@/contents/projects";
+import { teamOf } from "@/contents/projects";
+import type { Project } from "@/types/project";
+import type { SkillCategory } from "@/types/skills";
 import React, { ReactNode, Suspense } from "react";
 
 interface WorksPageViewProps {
   content: PageContent<"works">;
+  projects: Project[];
   finalCta: ReactNode;
+  skillGroups: SkillCategory[] | null;
 }
 
-// Numbers come straight from the project list, so they can never drift.
-const stats = [
-  { value: Projects.length, label: "Projects" },
-  {
-    value: Projects.filter((p) => p.status === "live").length,
-    label: "Live right now",
-  },
-  { value: new Set(Projects.map(teamOf)).size, label: "Teams and clients" },
-];
-
-export default function WorksPageView({ content, finalCta }: WorksPageViewProps) {
+export default function WorksPageView({ content, projects, finalCta, skillGroups }: WorksPageViewProps) {
   const { hero } = content;
+  const stats = [
+    { value: projects.length, label: "Projects" },
+    { value: projects.filter((project) => project.status === "live").length, label: "Live right now" },
+    { value: new Set(projects.map(teamOf)).size, label: "Teams and clients" },
+  ];
 
   return (
     <div className="w-full overflow-hidden font-medium">
@@ -82,9 +81,9 @@ export default function WorksPageView({ content, finalCta }: WorksPageViewProps)
       </section>
 
       <Suspense fallback={<div className="h-24" />}>
-        <WorksExplorer content={content} />
+        <WorksExplorer content={content} projects={projects} />
       </Suspense>
-      <WorksBehind content={content} />
+      <WorksBehind content={content} skillGroups={skillGroups} />
       {finalCta}
     </div>
   );

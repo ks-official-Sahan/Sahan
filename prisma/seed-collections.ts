@@ -1,8 +1,10 @@
 import { Projects } from "@/contents/projects";
 import { Experience } from "@/contents/experience";
+import { MyServices } from "@/contents/service";
+import { MySkills } from "@/contents/skills";
 import { withTx } from "@/lib/data/prisma";
 import { db } from "@/lib/db/prisma";
-import { seedProjects, seedExperience } from "@/lib/collections/seed";
+import { seedProjects, seedExperience, seedServices, seedSkills } from "@/lib/collections/seed";
 
 async function main() {
   console.log("Seeding collections...");
@@ -13,6 +15,12 @@ async function main() {
 
     await seedExperience(tx, Experience);
     console.log(`✓ Seeded ${Experience.length} experience entries`);
+
+    await seedServices(tx, MyServices.categories);
+    console.log(`✓ Seeded ${MyServices.categories.length} service groups`);
+
+    await seedSkills(tx, MySkills.tabs.categories);
+    console.log(`✓ Seeded ${MySkills.tabs.categories.length} skill groups`);
   });
 
   console.log("Collections seeded successfully.");
