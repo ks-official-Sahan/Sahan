@@ -163,7 +163,7 @@ Browser -> Vercel CDN -> proxy.ts (every non-static path)
 - `draftMode` preview for posts and collections, with signed share links.
 - Revision diff view.
 - Signed outgoing webhooks (HMAC, retries, idempotency key) for headless consumers. (Done in #25.)
-- TOTP/WebAuthn with role-enforced MFA.
+- TOTP/WebAuthn with role-enforced MFA. (Done in #26.)
 - Prune superseded section versions.
 
 **P3, architecture:**
