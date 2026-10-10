@@ -1,6 +1,10 @@
 # CMS audit against production headless CMS platforms (2026-10-10)
 
-Scope: the Sahan admin CMS on branch `cms-features` (PR #14), compared with
+Audited baseline: commit `e07a317` (the head of `cms-features`, merged to
+`master` as `956efcc` via PR #14). Findings describe that snapshot. Items
+fixed since are marked "Fixed in #15" below.
+
+Scope: the Sahan admin CMS, compared with
 Contentful, Sanity, Strapi 5, Payload 3, Directus 11, Storyblok, Hygraph,
 Prismic and Contentstack.
 
@@ -35,9 +39,9 @@ the roadmap only recommends them when the site needs them.
 | 12 | AI | 7.0 | 3% | Gated, rate-limited admin AI and a knowledge-backed chatbot. The AI cost buckets fail open. |
 | 13 | Ops and observability | 3.5 | 8% | No metrics, tracing, alerting, migration history, content export or backups. Cron is daily only. |
 | 14 | Tests | 5.5 | 5% | 134 test files and about 1,000 cases. Server actions, services, API routes and UI are untested, and there is no e2e suite. |
-| | **Weighted total** | **5.8** | 100% | Strong security core on a mid-level CMS feature set. Ops and observability are the weakest area. |
+| | **Weighted total** | **5.7** | 100% | Strong security core on a mid-level CMS feature set. Ops and observability are the weakest area. |
 
-Against the market's table stakes (research section B), Sahan has 9 of 17
+Against the market's table stakes (Appendix A), Sahan has 9 of 17
 fully, 4 partially and 4 not at all:
 - **Full:** draft/published, revisions with restore, validated schema, block modeling, media alt and usage, granular RBAC with audit, bulk actions with caps, cursor-paginated CDN delivery, keyset bounds.
 - **Partial:** scheduling (posts only), preview (sections only), rate limiting (cursor pages only), typed SDK (types exist in code, none published).
@@ -64,21 +68,21 @@ Browser -> Vercel CDN -> proxy.ts (every non-static path)
 ### High
 | ID | Where | Issue | Fix |
 |---|---|---|---|
-| H1 | `proxy.ts:69-71,240-250`; `lib/actions/settings.ts:117-133` | The proxy reads `.ips` only and ignores `.enabled`. Turning the allowlist "off" while IPs remain listed still enforces the list. The UI says off; admins can be locked out. | Return `[]` unless `enabled`. Add a test. |
-| H2 | `lib/settings/service.ts:38-55` | `readSettingRaw` catches DB errors and returns the default inside `cached()`. One DB blip caches defaults for `features` and `chatbot.config` for up to 3600 s, breaking the project's own "never cache a fallback" rule. | Throw inside the cached fn and apply the default outside with `loadOrNull`. |
-| H3 | `lib/cache/invalidate.ts:20-41` | `revalidateTag` runs before the Redis generation bump, which runs later in `after()` with swallowed errors. A regeneration in that gap re-caches the old Redis value for 300 to 3600 s. | Bump Redis first (awaited, logged), then revalidate. Or drop Redis from `cached()` on Vercel (M6). |
+| H1 (Fixed in #15) | `proxy.ts:69-71,240-250`; `lib/actions/settings.ts:117-133` | The proxy reads `.ips` only and ignores `.enabled`. Turning the allowlist "off" while IPs remain listed still enforces the list. The UI says off; admins can be locked out. | Return `[]` unless `enabled`. Add a test. |
+| H2 (Fixed in #15) | `lib/settings/service.ts:38-55` | `readSettingRaw` catches DB errors and returns the default inside `cached()`. One DB blip caches defaults for `features` and `chatbot.config` for up to 3600 s, breaking the project's own "never cache a fallback" rule. | Throw inside the cached fn and apply the default outside with `loadOrNull`. |
+| H3 (Fixed in #15) | `lib/cache/invalidate.ts:20-41` | `revalidateTag` runs before the Redis generation bump, which runs later in `after()` with swallowed errors. A regeneration in that gap re-caches the old Redis value for 300 to 3600 s. | Bump Redis first (awaited, logged), then revalidate. Or drop Redis from `cached()` on Vercel (M6). |
 
 ### Medium
 | ID | Where | Issue | Fix |
 |---|---|---|---|
-| M1 | `packages/auth-kit/src/cache/redis.ts:82`; `lib/cache/cached.ts` | The tag-version key gets its TTL only on creation (`EXPIRE NX`). After it expires, the counter restarts at 1 and can match data written before the purge, served stale for up to about 4 min. | Refresh the TTL on every bump, or use `SET tagversion = Date.now()`. |
+| M1 (Fixed in #15) | `packages/auth-kit/src/cache/redis.ts:82`; `lib/cache/cached.ts` | The tag-version key gets its TTL only on creation (`EXPIRE NX`). After it expires, the counter restarts at 1 and can match data written before the purge, served stale for up to about 4 min. | Refresh the TTL on every bump, or use `SET tagversion = Date.now()`. |
 | M2 | `lib/settings/kv.ts`; `proxy.ts:64-71` | During a Redis outage the failover memory store is empty, so maintenance reads off and the allowlist reads empty (fail-open). | Keep the last settled value. Add an env override and alert when `kvBackend()` is degraded. |
 | M3 | `vercel.json`; `lib/blog/queries.ts` | Scheduled posts surface through read-time `publicNow()` plus stacked TTLs (ISR 300 + data 300 + Redis 300), so up to about 15 min late. The cron is daily. | Run the cron every 5 min, or clamp revalidate to the next `publishAt`. |
 | M4 | `lib/api/content.ts:10`; `lib/cache/plan.ts` | `revalidatePath('/api/content/v1/...')` does not purge the CDN for dynamic handlers (inferred). API consumers see up to 6 min of stale data. No ETag. | Add CDN cache tags with tag purge on publish. Add a content-hash ETag with 304 support. |
 | M5 | `app/api/content/v1/posts/route.ts` | Only cursor requests are rate limited. A random `?x=` busts the CDN key on every call, and `clientIp` ignores `authKit.trustProxy`. | Reject unknown query params. Pass `trustProxy`. Add a WAF rule on `/api/content/*`. |
 | M6 | `lib/cache/cached.ts` | The Redis layer duplicates Vercel's persistent data cache, adds up to 3 round trips per miss, and is the source of H3 and M1. No single-flight on cold keys. | Remove Redis from `cached()` on Vercel. Plan a move to `use cache` / `cacheTag` / `cacheLife` (`unstable_cache` is superseded in Next 16). |
 | M7 | `lib/data/prisma/posts.ts:6-27` | List summaries select full `contentText` to cut a 200-char excerpt. Large pages risk the 2 MB cache item limit (then a silent miss on every request). | Store `excerpt` at write time and drop `contentText` from `SUMMARY_SELECT`. |
-| M8 | `lib/actions/works.ts:114-115,183-184` | `organization: x \|\| undefined` makes Prisma skip the field, so a project's organization and URL can never be cleared. | Map `""` to `null`. Check the other collections for the same pattern. |
+| M8 (Fixed in #15) | `lib/actions/works.ts:114-115,183-184` | `organization: x \|\| undefined` makes Prisma skip the field, so a project's organization and URL can never be cleared. | Map `""` to `null`. Check the other collections for the same pattern. |
 | M9 | `lib/actions/works.ts` (collections) | Edits to published rows go live immediately with no `updatedAt` guard (last write wins). | Add `updateIfUnchanged`. Optionally add a draft layer. |
 | M10 | `lib/actions/blog.ts:430-449` | Status changes are unconditional and write no revision. | Guard on `updatedAt` and record a revision. |
 | M11 | `lib/actions/blog.ts` (slug edit) | A changed slug leaves the old URL as a 404 (no slug history or redirects). | Add a `PostSlugHistory` table with a 308 redirect in the post route. |
@@ -111,7 +115,7 @@ Browser -> Vercel CDN -> proxy.ts (every non-static path)
 
 ## 4. Gaps against production CMS platforms
 
-| Capability | Market (research §A) | Sahan | Needed here? |
+| Capability | Market (Appendix A) | Sahan | Needed here? |
 |---|---|---|---|
 | Signed outgoing webhooks with retries and idempotency key | CF, SAN, SB, HYG, PRI | Missing | Yes, if any external consumer of the headless API exists |
 | Separate delivery / preview / management tokens | All major SaaS | Public API only, no preview API | Yes, for a preview API |
@@ -142,7 +146,7 @@ Browser -> Vercel CDN -> proxy.ts (every non-static path)
 
 ## 6. Roadmap (priority order)
 
-**P0, bugs (one PR, small):** H1, H2, H3, M1, M8.
+**P0, bugs (one PR, small):** H1, H2, H3, M1, M8. Done in #15.
 
 **P1, correctness and cost (one or two PRs):**
 - M2: KV last-known-good value plus a degraded alert.
@@ -172,3 +176,55 @@ Browser -> Vercel CDN -> proxy.ts (every non-static path)
 **Not recommended now (YAGNI for a single-owner site):** GraphQL, a UI schema
 builder, real-time co-editing, releases, localization (until multilingual is
 planned), environments beyond Neon branches.
+
+## Appendix A. Market baseline (research summary, 2026-10-10)
+
+Columns: CF Contentful, SAN Sanity, STR Strapi 5, PAY Payload 3, DIR Directus
+11, SB Storyblok. Y yes, P partial, plugin or plan-gated, N no. Rows marked
+"(unverified)" were not confirmed against vendor docs.
+
+| Capability | CF | SAN | STR | PAY | DIR | SB |
+|---|---|---|---|---|---|---|
+| Draft / published + preview API | Y | Y | Y | Y | Y | Y |
+| Revision history + restore | Y | Y | Y | Y | Y | Y |
+| Revision diff | Y | Y | P | Y | Y | Y |
+| Scheduled publish | Y | Y | Y | Y | P | Y |
+| Releases (atomic multi-publish) | Y | Y | Y | N | N | Y |
+| Visual / live preview | Y | Y | P | Y | Y | Y |
+| Separate delivery / preview / management tokens | Y | Y | P | P | P | Y |
+| Signed webhooks | Y | Y | ? | P | ? | Y |
+| Field / locale / entry RBAC | P | Y | P | Y | Y | Y |
+| Audit log | Y | Y | Y | P | Y | Y |
+| MCP server | Y | Y | Y | Y | Y | Y (unverified) |
+| Redirects management | N | N | P | Y | P | Y |
+
+Table stakes used for the 17-item count in section 1:
+1. Draft/published split with a separate preview API.
+2. Revision history with restore.
+3. Scheduled publish and unpublish.
+4. Validated schema.
+5. Reference resolution with a depth cap.
+6. Block/component modeling.
+7. Live or visual preview.
+8. Locale fallback chains.
+9. Media with transforms, alt text and usage lookup.
+10. Separate delivery, preview and management credentials.
+11. CDN delivery with rate limits on cache misses only.
+12. Signed webhooks with retries and an idempotency key.
+13. Typed SDK or type generation.
+14. Granular RBAC with an audit log.
+15. Bulk actions with caps, and export.
+16. An environment or branch story for schema changes.
+17. An MCP server or agent API.
+
+Sources (official docs):
+- Contentful technical limits: https://www.contentful.com/developers/docs/technical-limits-2025/
+- Contentful webhook verification: https://contentful.com/developers/docs/extensibility/webhooks/request-verification.md
+- Sanity API CDN: https://www.sanity.io/docs/content-lake/api-cdn
+- Sanity content releases: https://www.sanity.io/docs/content-lake/content-release-document-flow
+- Strapi releases: https://docs.strapi.io/cms/features/releases.md
+- Payload drafts: https://payloadcms.com/docs/v3/versions/drafts.md
+- Payload MCP plugin: https://payloadcms.com/docs/v3/plugins/mcp.md
+- Directus access control: https://directus.com/docs/guides/auth/access-control
+- Storyblok caching: https://www.storyblok.com/docs/concepts/caching
+- Storyblok rate limits: https://storyblok.com/docs/api/content-delivery/v2/getting-started/rate-limit

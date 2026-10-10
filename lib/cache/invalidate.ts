@@ -17,7 +17,10 @@ import type { InvalidationPlan } from "./plan";
  * Revalidating first would let a regeneration that starts in between read the
  * pre-purge Redis value and write it back into the data cache for a full
  * revalidate window. The purge is one parallel Redis round trip; a failed
- * purge is logged and the Next revalidation still runs.
+ * purge is logged and the Next revalidation still runs. The wait is bounded:
+ * every Upstash call goes through FailoverKv (lib/cache/redis.ts), which
+ * times out after 1.5 s and fails over to memory, so a hung request cannot
+ * hold a save open.
  *
  * Tags use the "max" profile (stale-while-revalidate): the old page keeps being
  * served while the new one builds, so a database blip during regeneration never
