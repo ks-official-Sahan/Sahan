@@ -32,14 +32,17 @@ const KEY = 64;
 const MAX_LIST = 50;
 const MAX_LINKS = 20;
 
-// Edits are conditional on the row's updatedAt: the version the edit form
-// was rendered from (its hidden updatedAt field), else the row read at the
-// start of the action. A save that lands in between makes the write match
-// nothing, so it is reported instead of silently overwritten. Publish,
-// feature and reorder stay unconditional: each sets one explicit value.
+// Edits are conditional on the row's updatedAt as the edit form was rendered
+// with it (its hidden updatedAt field). A save that lands after the form
+// opened makes the write match nothing, so it is reported instead of
+// silently overwritten; a form without the field is refused, not guessed.
+// Publish, feature and reorder stay unconditional: each sets one explicit
+// value. ActionForm puts the typed values back after a failed save, so the
+// editor can copy them before reloading.
 class CollectionConflictError extends Error {}
 const COLLECTION_CONFLICT_MESSAGE =
-  "This entry was changed elsewhere since you opened it. Reload to see the latest version, then apply your changes again.";
+  "This entry was changed elsewhere since you opened it. Your edits are still in this form: copy what you need, then reload to see the latest version.";
+const STALE_FORM_MESSAGE = "This form is out of date. Reload the page and try again.";
 
 async function validProjectImage(image: unknown): Promise<boolean> {
   if (image === undefined || image === null) return true;
@@ -184,7 +187,8 @@ export async function updateProjectAction(
     const before = await repos.projects.find(id);
     if (!before) return fail("Project not found.");
 
-    const expected = parseSubmittedUpdatedAt(formData.get("updatedAt")) ?? before.updatedAt;
+    const expected = parseSubmittedUpdatedAt(formData.get("updatedAt"));
+    if (!expected) return fail(STALE_FORM_MESSAGE);
     await withTx(async (tx) => {
       const updated = await tx.projects.updateIfUnchanged(id, expected, {
         title: parsed.data.title,
@@ -484,7 +488,8 @@ export async function updateExperienceAction(
     const before = await repos.experiences.find(id);
     if (!before) return fail("Experience entry not found.");
 
-    const expected = parseSubmittedUpdatedAt(formData.get("updatedAt")) ?? before.updatedAt;
+    const expected = parseSubmittedUpdatedAt(formData.get("updatedAt"));
+    if (!expected) return fail(STALE_FORM_MESSAGE);
     await withTx(async (tx) => {
       const updated = await tx.experiences.updateIfUnchanged(id, expected, {
         company: parsed.data.company,
@@ -694,7 +699,8 @@ export async function updateServiceGroupAction(_previous: ActionState, formData:
     const before = await repos.serviceGroups.find(id);
     if (!before) return fail("Service group not found.");
 
-    const expected = parseSubmittedUpdatedAt(formData.get("updatedAt")) ?? before.updatedAt;
+    const expected = parseSubmittedUpdatedAt(formData.get("updatedAt"));
+    if (!expected) return fail(STALE_FORM_MESSAGE);
     await withTx(async (tx) => {
       const updated = await tx.serviceGroups.updateIfUnchanged(id, expected, { name: parsed.data.name });
       if (!updated) throw new CollectionConflictError();
@@ -827,7 +833,8 @@ export async function updateServiceAction(_previous: ActionState, formData: Form
     const before = await repos.services.find(id);
     if (!before) return fail("Service not found.");
 
-    const expected = parseSubmittedUpdatedAt(formData.get("updatedAt")) ?? before.updatedAt;
+    const expected = parseSubmittedUpdatedAt(formData.get("updatedAt"));
+    if (!expected) return fail(STALE_FORM_MESSAGE);
     await withTx(async (tx) => {
       const updated = await tx.services.updateIfUnchanged(id, expected, {
         iconKey: parsed.data.iconKey,
@@ -1026,7 +1033,8 @@ export async function updateSkillGroupAction(_previous: ActionState, formData: F
     const before = await repos.skillGroups.find(id);
     if (!before) return fail("Skill group not found.");
 
-    const expected = parseSubmittedUpdatedAt(formData.get("updatedAt")) ?? before.updatedAt;
+    const expected = parseSubmittedUpdatedAt(formData.get("updatedAt"));
+    if (!expected) return fail(STALE_FORM_MESSAGE);
     await withTx(async (tx) => {
       const updated = await tx.skillGroups.updateIfUnchanged(id, expected, { label: parsed.data.label });
       if (!updated) throw new CollectionConflictError();
@@ -1164,7 +1172,8 @@ export async function updateSkillAction(_previous: ActionState, formData: FormDa
     const before = await repos.skills.find(id);
     if (!before) return fail("Skill not found.");
 
-    const expected = parseSubmittedUpdatedAt(formData.get("updatedAt")) ?? before.updatedAt;
+    const expected = parseSubmittedUpdatedAt(formData.get("updatedAt"));
+    if (!expected) return fail(STALE_FORM_MESSAGE);
     await withTx(async (tx) => {
       const updated = await tx.skills.updateIfUnchanged(id, expected, {
         name: parsed.data.name,
