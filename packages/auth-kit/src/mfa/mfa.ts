@@ -331,7 +331,33 @@ export function createMfa(deps: {
     await audit({ action: "auth.mfa.totp_removed", actor, entityType: "User", entityId: actor.id });
   }
 
+  /**
+   * Removes a user's factors on someone else's behalf (an administrator
+   * helping a person who lost a device): the authenticator app, one or every
+   * passkey, and/or the recovery codes. With no strong factor left the
+   * recovery codes go too. The caller authorizes the actor; this records who
+   * did it, against the user whose factors changed.
+   */
+  async function removeFactors(
+    actor: Actor,
+    input: { userId: string; totp?: boolean; passkeyId?: string; allPasskeys?: boolean; recoveryCodes?: boolean }
+  ): Promise<{ totp: boolean; passkeys: number; recoveryCodes: boolean }> {
+    const { userId } = input;
+    const totp = Boolean(input.totp);
+    if (totp) await adapter.setTotpSecret(userId, null, null);
+    const ids = input.allPasskeys ? (await adapter.listPasskeys(userId)).map((passkey) => passkey.id) : input.passkeyId ? [input.passkeyId] : [];
+    const deleted = await Promise.all(ids.map((id) => adapter.deletePasskey(userId, id)));
+    const passkeys = deleted.reduce((sum, result) => sum + result.count, 0);
+    const left = await adapter.findMfaFactors(userId);
+    const recoveryCodes =
+      Boolean(input.recoveryCodes) || (left !== null && !hasStrongFactor({ totp: left.totpEnabledAt !== null, passkeys: left.passkeys }));
+    if (recoveryCodes) await adapter.replaceRecoveryCodes(userId, []);
+    await audit({ action: "auth.mfa.factors_removed", actor, entityType: "User", entityId: userId, meta: { totp, passkeys, recoveryCodes } });
+    return { totp, passkeys, recoveryCodes };
+  }
+
   return {
+    removeFactors,
     issueChallenge,
     openTicket,
     openVerifiedTicket,

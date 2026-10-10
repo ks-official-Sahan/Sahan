@@ -12,6 +12,7 @@ import { forceLogoutUser } from "@/lib/actions/sessions";
 import { ROLE_LABEL } from "@/lib/admin/roles";
 import type { RoleName } from "@/lib/auth/permissions";
 
+import UserFactorsSection from "./UserFactorsSection";
 import { RoleSelect } from "./UserForms";
 
 // Everything one person's account offers, in a sheet instead of a cramped
@@ -42,6 +43,8 @@ export interface UserRowView {
     reset: boolean;
     delete: boolean;
     signOut: boolean;
+    /** Developers only: see and remove this person's second factors. */
+    factors: boolean;
   };
 }
 
@@ -80,7 +83,7 @@ export default function ManageUserSheet({
   onClose: () => void;
   canViewSessions: boolean;
 }) {
-  const nothing = row ? row.can.roles.length === 0 && !row.can.disable && !row.can.reset && !row.can.delete && !row.can.signOut : true;
+  const nothing = row ? row.can.roles.length === 0 && !row.can.disable && !row.can.reset && !row.can.delete && !row.can.signOut && !row.can.factors : true;
 
   return (
     <Sheet open={open && row !== null} onClose={onClose} title={row ? (row.name ?? row.email) : ""} description={row?.name ? row.email : undefined}>
@@ -184,6 +187,12 @@ export default function ManageUserSheet({
                   </ConfirmSubmitButton>
                 </ActionForm>
               ) : null}
+            </Section>
+          ) : null}
+
+          {row.can.factors ? (
+            <Section icon={<KeyRound aria-hidden className="size-4 text-muted-foreground" />} title="Second factors">
+              <UserFactorsSection key={row.id} userId={row.id} email={row.email} />
             </Section>
           ) : null}
 

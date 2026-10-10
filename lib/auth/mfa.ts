@@ -54,6 +54,7 @@ export const {
   beginTotpSetup,
   confirmTotpSetup,
   removeTotp,
+  removeFactors,
 } = mfa;
 
 /** The second-step methods this user may use, or null when the user is gone. */

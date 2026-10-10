@@ -126,6 +126,14 @@ Passkeys added before this change may not be discoverable; add them again if
 the browser does not offer them.
 
 Removing a factor or making new recovery codes asks for the password again.
+
+A `DEVELOPER` can reset someone else's second factors from **Users → (user) →
+Second factors**: the authenticator app, one passkey, the recovery codes, or
+everything. It asks for the developer's own password, signs the person out
+everywhere when an app or passkey goes, and emails them. A `DEVELOPER` or
+`SUPER_ADMIN` left without an app or passkey must set one up again before using
+the admin. **Sign out everywhere** in the same sheet ends sessions without
+touching the factors.
 Adding the first strong factor signs out every other session.
 
 `DEVELOPER` and `SUPER_ADMIN` must have an authenticator app or a passkey

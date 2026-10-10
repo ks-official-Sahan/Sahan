@@ -252,3 +252,24 @@ test("openVerifiedTicket opens a ticket that is already verified, for one sign-i
   assert.equal(await h.mfa.consumeChallenge({ challengeId: ticket.challengeId, userId: h.user.id, purpose: "SIGN_IN" }), false);
   assert.ok(h.audits.some((event) => event.action === "auth.mfa.verified" && event.meta?.passwordless === true));
 });
+
+test("removeFactors: an administrator removes another user's app and passkeys; the recovery codes go with the last strong factor", async () => {
+  const h = harness();
+  const admin = h.adapter.addUser({ email: "admin@example.com", passwordHash: "x", role: "DEVELOPER" });
+  await h.adapter.setTotpSecret(h.user.id, "sealed", new Date());
+  await h.adapter.createPasskey({ id: "a", userId: h.user.id, publicKey: "AQID", counter: 0, transports: [], deviceType: "multiDevice", backedUp: true, name: "A" });
+  await h.adapter.createPasskey({ id: "b", userId: h.user.id, publicKey: "AQID", counter: 0, transports: [], deviceType: "multiDevice", backedUp: true, name: "B" });
+  await h.mfa.issueRecoveryCodes({ id: h.user.id, email: h.user.email });
+
+  // One passkey: the app and the other passkey remain, so the codes stay.
+  assert.deepEqual(await h.mfa.removeFactors({ id: admin.id, email: admin.email }, { userId: h.user.id, passkeyId: "a" }), { totp: false, passkeys: 1, recoveryCodes: false });
+  assert.equal((await h.adapter.findMfaFactors(h.user.id))?.recoveryCodesLeft, 10);
+
+  // Everything strong: the codes go too.
+  assert.deepEqual(await h.mfa.removeFactors({ id: admin.id, email: admin.email }, { userId: h.user.id, totp: true, allPasskeys: true }), { totp: true, passkeys: 1, recoveryCodes: true });
+  const left = await h.adapter.findMfaFactors(h.user.id);
+  assert.equal(left?.totpEnabledAt, null);
+  assert.equal(left?.passkeys, 0);
+  assert.equal(left?.recoveryCodesLeft, 0);
+  assert.ok(h.audits.some((event) => event.action === "auth.mfa.factors_removed"));
+});
