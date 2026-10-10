@@ -130,7 +130,7 @@ export async function publishAction(_previous: ContentActionState, formData: For
   if (!published.ok) return { ...failed(published), base: published.code === "conflict" ? null : saved.updatedAt };
 
   if (isPageSlug(definition.page)) {
-    invalidate(forContentPublish(definition.page, { consumers: definition.consumers, section: definition.key }));
+    await invalidate(forContentPublish(definition.page, { consumers: definition.consumers, section: definition.key }));
   }
   revalidatePath(`/admin/content/${definition.page}`);
   return {

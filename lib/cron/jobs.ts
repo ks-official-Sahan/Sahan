@@ -54,7 +54,7 @@ export async function blogPublishJob(client: BlogPublishDb = repos): Promise<{ p
     // reported as "nothing was published" when the database write already
     // succeeded, so it is isolated from the job's own result.
     try {
-      invalidate(forPostList());
+      await invalidate(forPostList());
     } catch (err) {
       log.warn("blog publish cron: cache invalidation failed", { error: String(err) });
     }

@@ -3,6 +3,7 @@ import { strict as assert } from "node:assert";
 
 import {
   DEFAULT_SETTINGS,
+  enforcedIpAllowlist,
   SETTING_SCHEMAS,
   getSettingDefault,
   getSettingSchema,
@@ -127,5 +128,18 @@ describe("ai.context", () => {
     assert.deepEqual(validateSetting("ai.context", { global: "  Be brief.  " }), { global: "Be brief.", blog: "", seo: "", chatbot: "" });
     assert.throws(() => validateSetting("ai.context", { blog: "x".repeat(6001) }));
     assert.equal(isPublicSetting("ai.context"), false);
+  });
+});
+
+describe("enforcedIpAllowlist", () => {
+  test("enforces the saved IPs only while the allowlist is switched on", () => {
+    const ips = ["203.0.113.9", "198.51.100.0/24"];
+    assert.deepEqual(enforcedIpAllowlist({ enabled: true, ips, description: "" }), ips);
+    assert.deepEqual(enforcedIpAllowlist({ enabled: false, ips, description: "" }), []);
+  });
+
+  test("not set or unreadable enforces nothing", () => {
+    assert.deepEqual(enforcedIpAllowlist(null), []);
+    assert.deepEqual(enforcedIpAllowlist(undefined), []);
   });
 });

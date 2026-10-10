@@ -1,5 +1,6 @@
 import "server-only";
 
+import { randomUUID } from "node:crypto";
 import { unstable_cache } from "next/cache";
 
 import { kv } from "./redis";
@@ -45,7 +46,7 @@ function redisTagVersionKey(tag: string): string {
  */
 async function redisDataKeyFor(keyParts: string[], tags: string[]): Promise<string | null> {
   try {
-    const versions = await Promise.all(tags.map((tag) => kv.get<number>(redisTagVersionKey(tag))));
+    const versions = await Promise.all(tags.map((tag) => kv.get<string>(redisTagVersionKey(tag))));
     return redisDataKey([...keyParts, "tagversions", ...versions.map((version) => String(version ?? 0))]);
   } catch {
     return null;
@@ -53,12 +54,18 @@ async function redisDataKeyFor(keyParts: string[], tags: string[]): Promise<stri
 }
 
 /**
- * Advances the Redis cache generation for `tag`. Old values expire naturally
+ * Starts a new Redis cache generation for `tag`. Old values expire naturally
  * under the short data TTL; no shared read/modify/write index can grow without
  * bound or lose concurrent cache-key registrations.
+ *
+ * The generation is a fresh random value, not a counter. A counter key that
+ * expires restarts at 1 and can match a value written under the earlier "1"
+ * before a purge, serving stale data. A random generation never repeats, and
+ * an expired one reads as "0", whose values are older than this key's TTL
+ * (twice the data TTL) and so already gone.
  */
 export async function purgeRedisTag(tag: string): Promise<void> {
-  await kv.incr(redisTagVersionKey(tag), REDIS_CACHE_CAP_SECONDS * 2);
+  await kv.set(redisTagVersionKey(tag), randomUUID(), { ttlSeconds: REDIS_CACHE_CAP_SECONDS * 2 });
 }
 
 /**

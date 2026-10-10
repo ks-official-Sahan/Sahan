@@ -34,6 +34,15 @@ export const ipAllowlistSchema = z.object({
 });
 export type IpAllowlist = z.infer<typeof ipAllowlistSchema>;
 
+/**
+ * The IPs the proxy enforces: the list only while the allowlist is switched
+ * on. Turning it off keeps the saved entries for later but must stop
+ * enforcing them, or an admin who switched it off is still locked out.
+ */
+export function enforcedIpAllowlist(setting: IpAllowlist | null | undefined): string[] {
+  return setting?.enabled ? setting.ips : [];
+}
+
 // Chatbot: configuration for the chatbot widget
 export const chatbotConfigSchema = z.object({
   enabled: z.boolean().default(true),

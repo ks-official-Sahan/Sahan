@@ -31,6 +31,7 @@ import { hasSessionCookie } from "@/lib/auth/session-cookie";
 import { limit } from "@/lib/cache/ratelimit";
 import { log } from "@/lib/log";
 import { readKvSetting } from "@/lib/settings/kv";
+import { enforcedIpAllowlist } from "@/lib/settings/schema";
 
 // Optimistic checks only: the proxy reads cookies and never the database. The
 // data access layer (lib/auth/dal.ts) is the authority. Responsibilities 1, 2, 3, 4, 5
@@ -65,9 +66,9 @@ async function isMaintenanceActive(): Promise<boolean> {
   return Boolean((await readKvSetting("maintenance"))?.enabled);
 }
 
-/** IP allowlist from the KV mirror; not set or unreadable reads as empty (fail-open, see step 5). */
+/** Enforced IP allowlist from the KV mirror: empty when switched off, not set or unreadable (fail-open, see step 5). */
 async function getIpAllowlist(): Promise<string[]> {
-  return (await readKvSetting("security.ipAllowlist"))?.ips ?? [];
+  return enforcedIpAllowlist(await readKvSetting("security.ipAllowlist"));
 }
 
 /**
