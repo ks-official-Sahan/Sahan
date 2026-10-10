@@ -43,6 +43,7 @@ export default async function EditProjectPage({ params }: { params: Promise<{ id
 
   const editable: EditableProject = {
     id: project.id,
+    updatedAt: project.updatedAt.toISOString(),
     slug: project.slug,
     title: project.title,
     tagline: project.tagline,

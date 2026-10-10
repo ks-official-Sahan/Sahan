@@ -58,6 +58,7 @@ export default async function EditSkillGroupPage({ params }: { params: Promise<{
         <h2 className="mb-3 text-sm font-semibold">Group</h2>
         <ActionForm action={saveGroup} className="flex flex-wrap items-end gap-3">
           <input type="hidden" name="id" value={group.id} />
+          <input type="hidden" name="updatedAt" value={group.updatedAt.toISOString()} />
           <Field label="Label" name="label" required defaultValue={group.label} className="min-w-56 flex-1" />
           <SubmitButton variant="secondary" pendingLabel="Saving…">
             Save label
@@ -127,6 +128,7 @@ export default async function EditSkillGroupPage({ params }: { params: Promise<{
 
               <ActionForm action={updateSkillAction} className="mt-3 grid grid-cols-1 gap-3 s768:grid-cols-2">
                 <input type="hidden" name="id" value={skill.id} />
+                <input type="hidden" name="updatedAt" value={skill.updatedAt.toISOString()} />
                 <Field label="Name" name="name" required defaultValue={skill.name} />
                 <Field label="Abbreviation" name="abbr" required defaultValue={skill.abbr} />
                 <Field label="Sub-group (type)" name="type" required defaultValue={skill.type} hint="e.g. frontend" />

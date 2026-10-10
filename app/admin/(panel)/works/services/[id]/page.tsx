@@ -55,6 +55,7 @@ export default async function EditServiceGroupPage({ params }: { params: Promise
         <h2 className="mb-3 text-sm font-semibold">Group</h2>
         <ActionForm action={saveGroup} className="flex flex-wrap items-end gap-3">
           <input type="hidden" name="id" value={group.id} />
+          <input type="hidden" name="updatedAt" value={group.updatedAt.toISOString()} />
           <Field label="Name" name="name" required defaultValue={group.name} className="min-w-56 flex-1" />
           <SubmitButton variant="secondary" pendingLabel="Saving…">
             Save name
@@ -124,6 +125,7 @@ export default async function EditServiceGroupPage({ params }: { params: Promise
 
               <ActionForm action={updateServiceAction} className="mt-3 grid grid-cols-1 gap-3 s768:grid-cols-2">
                 <input type="hidden" name="id" value={service.id} />
+                <input type="hidden" name="updatedAt" value={service.updatedAt.toISOString()} />
                 <Field label="Name" name="name" required defaultValue={service.name} />
                 <Field label="Icon key" name="iconKey" required defaultValue={service.iconKey} />
                 <Field

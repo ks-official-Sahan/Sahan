@@ -41,6 +41,7 @@ export default async function EditExperiencePage({ params }: { params: Promise<{
 
   const editable: EditableExperience = {
     id: experience.id,
+    updatedAt: experience.updatedAt.toISOString(),
     company: experience.company,
     companyUrl: experience.companyUrl ?? "",
     role: experience.role,

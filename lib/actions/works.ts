@@ -13,6 +13,7 @@ import { forCollection } from "@/lib/cache/plan";
 import { projectImageSchema, projectLinkSchema } from "@/lib/collections/projects";
 import { decodeJsonFields } from "@/lib/forms/array-fields";
 import { log } from "@/lib/log";
+import { parseSubmittedUpdatedAt } from "@sahan-sac/blog-kit/concurrency";
 import { SLUG_MAX_LENGTH } from "@sahan-sac/blog-kit/slug";
 
 // Works collection actions: projects, experience, services, skills CRUD.
@@ -30,6 +31,15 @@ const URL_MAX = 2_000;
 const KEY = 64;
 const MAX_LIST = 50;
 const MAX_LINKS = 20;
+
+// Edits are conditional on the row's updatedAt: the version the edit form
+// was rendered from (its hidden updatedAt field), else the row read at the
+// start of the action. A save that lands in between makes the write match
+// nothing, so it is reported instead of silently overwritten. Publish,
+// feature and reorder stay unconditional: each sets one explicit value.
+class CollectionConflictError extends Error {}
+const COLLECTION_CONFLICT_MESSAGE =
+  "This entry was changed elsewhere since you opened it. Reload to see the latest version, then apply your changes again.";
 
 async function validProjectImage(image: unknown): Promise<boolean> {
   if (image === undefined || image === null) return true;
@@ -174,8 +184,9 @@ export async function updateProjectAction(
     const before = await repos.projects.find(id);
     if (!before) return fail("Project not found.");
 
+    const expected = parseSubmittedUpdatedAt(formData.get("updatedAt")) ?? before.updatedAt;
     await withTx(async (tx) => {
-      const updated = await tx.projects.update(id, {
+      const updated = await tx.projects.updateIfUnchanged(id, expected, {
         title: parsed.data.title,
         tagline: parsed.data.tagline,
         description: parsed.data.description,
@@ -195,6 +206,7 @@ export async function updateProjectAction(
         image: parsed.data.image,
         links: parsed.data.links,
       });
+      if (!updated) throw new CollectionConflictError();
       await syncProjectImageUsage(tx, id, updated.image);
 
       await audit({
@@ -213,6 +225,7 @@ export async function updateProjectAction(
     revalidatePath("/admin/works/projects");
     return done("Project updated.");
   } catch (error) {
+    if (error instanceof CollectionConflictError) return fail(COLLECTION_CONFLICT_MESSAGE);
     log.error("update project failed", { error: error instanceof Error ? error.message : String(error) });
     return fail("Something went wrong. Please try again.");
   }
@@ -471,8 +484,9 @@ export async function updateExperienceAction(
     const before = await repos.experiences.find(id);
     if (!before) return fail("Experience entry not found.");
 
+    const expected = parseSubmittedUpdatedAt(formData.get("updatedAt")) ?? before.updatedAt;
     await withTx(async (tx) => {
-      const updated = await tx.experiences.update(id, {
+      const updated = await tx.experiences.updateIfUnchanged(id, expected, {
         company: parsed.data.company,
         companyUrl: parsed.data.companyUrl || null,
         role: parsed.data.role,
@@ -482,6 +496,7 @@ export async function updateExperienceAction(
         highlights: parsed.data.highlights,
         current: parsed.data.current,
       });
+      if (!updated) throw new CollectionConflictError();
 
       await audit({
         action: "collection.experience.updated",
@@ -499,6 +514,7 @@ export async function updateExperienceAction(
     revalidatePath("/admin/works/experience");
     return done("Experience entry updated.");
   } catch (error) {
+    if (error instanceof CollectionConflictError) return fail(COLLECTION_CONFLICT_MESSAGE);
     log.error("update experience failed", { error: error instanceof Error ? error.message : String(error) });
     return fail("Something went wrong. Please try again.");
   }
@@ -678,8 +694,10 @@ export async function updateServiceGroupAction(_previous: ActionState, formData:
     const before = await repos.serviceGroups.find(id);
     if (!before) return fail("Service group not found.");
 
+    const expected = parseSubmittedUpdatedAt(formData.get("updatedAt")) ?? before.updatedAt;
     await withTx(async (tx) => {
-      const updated = await tx.serviceGroups.update(id, { name: parsed.data.name });
+      const updated = await tx.serviceGroups.updateIfUnchanged(id, expected, { name: parsed.data.name });
+      if (!updated) throw new CollectionConflictError();
       await audit({
         action: "collection.services.group.updated",
         actor: auth.user,
@@ -697,6 +715,7 @@ export async function updateServiceGroupAction(_previous: ActionState, formData:
     revalidatePath(`/admin/works/services/${id}`);
     return done("Service group updated.");
   } catch (error) {
+    if (error instanceof CollectionConflictError) return fail(COLLECTION_CONFLICT_MESSAGE);
     log.error("update service group failed", { error: error instanceof Error ? error.message : String(error) });
     return fail("Something went wrong. Please try again.");
   }
@@ -808,12 +827,14 @@ export async function updateServiceAction(_previous: ActionState, formData: Form
     const before = await repos.services.find(id);
     if (!before) return fail("Service not found.");
 
+    const expected = parseSubmittedUpdatedAt(formData.get("updatedAt")) ?? before.updatedAt;
     await withTx(async (tx) => {
-      const updated = await tx.services.update(id, {
+      const updated = await tx.services.updateIfUnchanged(id, expected, {
         iconKey: parsed.data.iconKey,
         name: parsed.data.name,
         description: parsed.data.description,
       });
+      if (!updated) throw new CollectionConflictError();
 
       await audit({
         action: "collection.services.updated",
@@ -832,6 +853,7 @@ export async function updateServiceAction(_previous: ActionState, formData: Form
     revalidatePath(`/admin/works/services/${before.groupId}`);
     return done("Service updated.");
   } catch (error) {
+    if (error instanceof CollectionConflictError) return fail(COLLECTION_CONFLICT_MESSAGE);
     log.error("update service failed", { error: error instanceof Error ? error.message : String(error) });
     return fail("Something went wrong. Please try again.");
   }
@@ -1004,8 +1026,10 @@ export async function updateSkillGroupAction(_previous: ActionState, formData: F
     const before = await repos.skillGroups.find(id);
     if (!before) return fail("Skill group not found.");
 
+    const expected = parseSubmittedUpdatedAt(formData.get("updatedAt")) ?? before.updatedAt;
     await withTx(async (tx) => {
-      const updated = await tx.skillGroups.update(id, { label: parsed.data.label });
+      const updated = await tx.skillGroups.updateIfUnchanged(id, expected, { label: parsed.data.label });
+      if (!updated) throw new CollectionConflictError();
       await audit({
         action: "collection.skills.group.updated",
         actor: auth.user,
@@ -1023,6 +1047,7 @@ export async function updateSkillGroupAction(_previous: ActionState, formData: F
     revalidatePath(`/admin/works/skills/${id}`);
     return done("Skill group updated.");
   } catch (error) {
+    if (error instanceof CollectionConflictError) return fail(COLLECTION_CONFLICT_MESSAGE);
     log.error("update skill group failed", { error: error instanceof Error ? error.message : String(error) });
     return fail("Something went wrong. Please try again.");
   }
@@ -1139,8 +1164,9 @@ export async function updateSkillAction(_previous: ActionState, formData: FormDa
     const before = await repos.skills.find(id);
     if (!before) return fail("Skill not found.");
 
+    const expected = parseSubmittedUpdatedAt(formData.get("updatedAt")) ?? before.updatedAt;
     await withTx(async (tx) => {
-      const updated = await tx.skills.update(id, {
+      const updated = await tx.skills.updateIfUnchanged(id, expected, {
         name: parsed.data.name,
         abbr: parsed.data.abbr,
         type: parsed.data.type,
@@ -1149,6 +1175,7 @@ export async function updateSkillAction(_previous: ActionState, formData: FormDa
         colorLight: parsed.data.colorLight,
         colorDark: parsed.data.colorDark,
       });
+      if (!updated) throw new CollectionConflictError();
 
       await audit({
         action: "collection.skills.updated",
@@ -1167,6 +1194,7 @@ export async function updateSkillAction(_previous: ActionState, formData: FormDa
     revalidatePath(`/admin/works/skills/${before.groupId}`);
     return done("Skill updated.");
   } catch (error) {
+    if (error instanceof CollectionConflictError) return fail(COLLECTION_CONFLICT_MESSAGE);
     log.error("update skill failed", { error: error instanceof Error ? error.message : String(error) });
     return fail("Something went wrong. Please try again.");
   }
