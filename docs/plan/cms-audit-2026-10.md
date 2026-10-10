@@ -169,8 +169,8 @@ Browser -> Vercel CDN -> proxy.ts (every non-static path)
 **P3, architecture:**
 - M6: drop the Redis read-through on Vercel and migrate `unstable_cache` to `use cache` / `cacheTag` / `cacheLife`.
 - M12: `prisma migrate` with committed history.
-- Observability: Server-Timing on content routes, cache hit/miss counters, p95 dashboards, request IDs.
-- Co-locate the Vercel region with Neon.
+- Observability: Server-Timing on content routes, cache hit/miss counters, p95 dashboards, request IDs. (Server-Timing with per-request Redis hit/miss and load counts in #22; Vercel's `x-vercel-id` already identifies each request in its logs, and p95 lives in Vercel Observability.)
+- Co-locate the Vercel region with Neon. (Done in #22: Neon is us-east-1, functions pinned to `iad1` in vercel.json.)
 - e2e suite for login, editing, publishing and the content API.
 
 **Not recommended now (YAGNI for a single-owner site):** GraphQL, a UI schema

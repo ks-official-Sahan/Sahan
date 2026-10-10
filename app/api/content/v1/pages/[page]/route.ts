@@ -3,8 +3,9 @@ import { NextResponse } from "next/server";
 import { getPageContent } from "@/lib/cms/loaders";
 import { isCmsPage } from "@/lib/cms/registry";
 import { CONTENT_CORS_HEADERS, contentNotFound, contentResponse, contentUnavailable, rejectUnknownParams } from "@/lib/api/content";
+import { timed } from "@/lib/observability/timing";
 
-export async function GET(request: Request, { params }: { params: Promise<{ page: string }> }) {
+export const GET = timed(async function GET(request: Request, { params }: { params: Promise<{ page: string }> }) {
   const rejected = rejectUnknownParams(request);
   if (rejected) return rejected;
   const { page } = await params;
@@ -15,7 +16,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ page
   } catch (error) {
     return contentUnavailable("CMS page", error, { page });
   }
-}
+});
 
 export function OPTIONS() {
   return new NextResponse(null, { status: 204, headers: CONTENT_CORS_HEADERS });
