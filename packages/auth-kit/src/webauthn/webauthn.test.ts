@@ -40,12 +40,28 @@ function harness() {
         ? { verified: true, registrationInfo: { credential: { id: "cred-1", publicKey: new Uint8Array([1, 2, 3]), counter: 0, transports: ["internal"] }, credentialDeviceType: "multiDevice", credentialBackedUp: true } }
         : { verified: false }) as never;
     },
-    async verifyAuthenticationResponse(options: { response: { challenge: string; counter: number }; expectedChallenge: (c: string) => boolean; credential: { counter: number } }) {
-      const ok = options.expectedChallenge(options.response.challenge) && options.response.counter > options.credential.counter;
-      return { verified: ok, authenticationInfo: { newCounter: options.response.counter } } as never;
+    async verifyAuthenticationResponse(options: {
+      response: { challenge: string; counter: number; userVerified?: boolean };
+      expectedChallenge: (c: string) => boolean | Promise<boolean>;
+      credential: { counter: number };
+      requireUserVerification?: boolean;
+    }) {
+      const challengeOk = await options.expectedChallenge(options.response.challenge);
+      const uvOk = !options.requireUserVerification || options.response.userVerified !== false;
+      const ok = challengeOk && uvOk && options.response.counter > options.credential.counter;
+      return { verified: ok, authenticationInfo: { newCounter: options.response.counter, userVerified: options.response.userVerified !== false } } as never;
     },
   } as unknown as PasskeysDeps["lib"];
-  const passkeys = createPasskeys({ adapter, mfa, authSecret: SECRET, audit: async (event) => void audits.push(event.action), rpName: "Sahan", rpID: "example.com", origin: "https://example.com", lib });
+  const stored = new Set<string>();
+  const challengeStore = {
+    async put(key: string) {
+      stored.add(key);
+    },
+    async take(key: string) {
+      return stored.delete(key);
+    },
+  };
+  const passkeys = createPasskeys({ adapter, mfa, authSecret: SECRET, audit: async (event) => void audits.push(event.action), rpName: "Sahan", rpID: "example.com", origin: "https://example.com", lib, challengeStore });
   return { adapter, user, mfa, passkeys, audits, issued: () => issued };
 }
 
@@ -114,4 +130,41 @@ test("no passkeys means no sign-in options; removing the last strong factor drop
   assert.equal(await h.passkeys.removePasskey(h.user, "nope"), false);
   assert.equal(await h.passkeys.removePasskey(h.user, "cred-1"), true);
   assert.equal((await h.adapter.findMfaFactors(h.user.id))?.recoveryCodesLeft, 0);
+});
+
+const passwordlessAssertion = (challenge: string, counter: number, id: string, userHandle: string | null, userVerified = true) =>
+  ({ id, challenge, counter, userVerified, response: userHandle === null ? {} : { userHandle: Buffer.from(userHandle).toString("base64url") } }) as never;
+
+test("passwordless: the passkey's own user signs in once per challenge, with user verification", async () => {
+  const h = harness();
+  await h.adapter.createPasskey({ id: "mine", userId: h.user.id, publicKey: "AQID", counter: 0, transports: [], deviceType: "multiDevice", backedUp: true, name: "Mine" });
+  await h.passkeys.passwordlessOptions();
+  const challenge = h.issued();
+  assert.deepEqual(await h.passkeys.verifyPasswordless(passwordlessAssertion(challenge, 1, "mine", h.user.id)), { ok: true, userId: h.user.id, passkeyId: "mine" });
+  assert.equal((await h.adapter.findPasskey("mine"))?.counter, 1);
+  // The challenge was taken: the same answer again is refused.
+  assert.equal((await h.passkeys.verifyPasswordless(passwordlessAssertion(challenge, 2, "mine", h.user.id))).ok, false);
+});
+
+test("passwordless: two users on one device each get their own account, and a mismatched user handle is refused", async () => {
+  const h = harness();
+  const other = h.adapter.addUser({ email: "other@example.com", passwordHash: "x", role: "EDITOR" });
+  await h.adapter.createPasskey({ id: "mine", userId: h.user.id, publicKey: "AQID", counter: 0, transports: [], deviceType: "multiDevice", backedUp: true, name: "Mine" });
+  await h.adapter.createPasskey({ id: "theirs", userId: other.id, publicKey: "AQID", counter: 0, transports: [], deviceType: "multiDevice", backedUp: true, name: "Theirs" });
+
+  await h.passkeys.passwordlessOptions();
+  assert.deepEqual(await h.passkeys.verifyPasswordless(passwordlessAssertion(h.issued(), 1, "theirs", other.id)), { ok: true, userId: other.id, passkeyId: "theirs" });
+
+  await h.passkeys.passwordlessOptions();
+  assert.equal((await h.passkeys.verifyPasswordless(passwordlessAssertion(h.issued(), 2, "mine", other.id))).ok, false, "credential and user handle disagree");
+});
+
+test("passwordless: refused without user verification, for an unknown credential, or for a challenge never issued", async () => {
+  const h = harness();
+  await h.adapter.createPasskey({ id: "mine", userId: h.user.id, publicKey: "AQID", counter: 0, transports: [], deviceType: "multiDevice", backedUp: true, name: "Mine" });
+  await h.passkeys.passwordlessOptions();
+  const challenge = h.issued();
+  assert.equal((await h.passkeys.verifyPasswordless(passwordlessAssertion(challenge, 1, "mine", h.user.id, false))).ok, false);
+  assert.deepEqual(await h.passkeys.verifyPasswordless(passwordlessAssertion("never-issued", 1, "mine", h.user.id)), { ok: false, reason: "invalid" });
+  assert.deepEqual(await h.passkeys.verifyPasswordless(passwordlessAssertion(challenge, 1, "unknown", h.user.id)), { ok: false, reason: "invalid" });
 });

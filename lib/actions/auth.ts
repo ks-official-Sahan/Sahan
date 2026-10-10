@@ -1,5 +1,6 @@
 "use server";
 
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { auditSafe } from "@/lib/admin/audit";
@@ -11,6 +12,7 @@ import {
   challengeOwner,
   issueChallenge,
   openTicket,
+  openVerifiedTicket,
   signInMethods,
   verifyChallenge,
   verifyRecoveryCode,
@@ -20,10 +22,12 @@ import {
   type VerifyResult,
 } from "@/lib/auth/mfa";
 import { MFA_TTL_MINUTES, normalizeCode } from "@/lib/auth/mfa-rules";
-import { passkeys } from "@/lib/auth/passkeys";
+import { passkeys, passkeySignInEnabled } from "@/lib/auth/passkeys";
 import { safeCallbackUrl } from "@/lib/auth/safe-callback-url";
 import { revokeSession } from "@/lib/auth/session-store";
+import { limit } from "@/lib/cache/ratelimit";
 import { repos } from "@/lib/data";
+import { clientIp, UNKNOWN_IP } from "@/lib/security/ip";
 import type { AuthenticationResponseJSON } from "@sahan-sac/auth-kit/webauthn";
 
 // Sign-in and sign-out as Server Functions. They stay POST requests to the
@@ -31,17 +35,24 @@ import type { AuthenticationResponseJSON } from "@sahan-sac/auth-kit/webauthn";
 // (docs/plan/admin-cms-adr.md, sections 4.5 and 6.1).
 //
 // An account with a second factor signs in in two steps. The password step
-// starts no session: it opens the second step, which is an emailed code, or,
-// for an account with an authenticator app or passkey, a ticket verified by
-// one of those (or a recovery code). The second step starts the session.
+// starts no session: it opens a sign-in ticket, and the user verifies it with
+// any method they set up (authenticator app, passkey, emailed code, or a
+// recovery code). The second step starts the session. An account with only
+// the emailed code gets its code at once.
+//
+// When the security.passkeySignIn setting is on, a passkey alone signs in
+// (passwordlessSignInOptions / completePasswordlessSignIn): the passkey must
+// verify the user (biometrics or device PIN), so it proves both steps. The
+// unlock gate, a per-address limit, the disabled-account check and the
+// sign-in itself (new-device email, audit) still apply.
 
 export interface SignInState {
   error: string | null;
   /** Present while the form is on its second step. */
   challengeId?: string;
-  /** "email": a code was emailed. "factor": authenticator app, passkey or recovery code. */
-  step?: "email" | "factor";
   methods?: MfaMethods;
+  /** True once a code was emailed for this sign-in. */
+  emailSent?: boolean;
   notice?: string | null;
   /** Orders results from the different step actions; the form shows the newest. */
   at?: number;
@@ -63,7 +74,9 @@ const CODE_ERRORS = {
   consumed: "That code was already used. Sign in again.",
 } as const;
 const EXPIRED = "That code expired. Sign in again.";
-const NO_EMAIL = "Use your authenticator app, a passkey or a recovery code.";
+const NO_EMAIL = "Emailed codes are off for this account. Use another method.";
+const PASSKEY_FAILED = "That passkey did not work. Try again or use another method.";
+const PASSWORDLESS_OFF = "Passkey sign-in is not available. Sign in with your email and password.";
 
 const stamp = (state: SignInState): SignInState => ({ ...state, at: Date.now() });
 
@@ -71,11 +84,11 @@ function messageFor(code: string | null | undefined): string {
   return (code && MESSAGES[code]) || GENERIC;
 }
 
-const codeStep = (challengeId: string, email: string, notice?: string): SignInState =>
-  stamp({ error: null, challengeId, step: "email", notice: notice ?? `We emailed a 6 digit code to ${email}. It works for ${MFA_TTL_MINUTES} minutes.` });
+/** The second step, with every method the account may use. */
+const secondStep = (challengeId: string, methods: MfaMethods, extra: Partial<SignInState> = {}): SignInState =>
+  stamp({ error: null, notice: null, ...extra, challengeId, methods });
 
-const factorStep = (challengeId: string, methods: MfaMethods, error: string | null = null): SignInState =>
-  stamp({ error, challengeId, step: "factor", methods, notice: null });
+const emailedNotice = (email: string) => `We emailed a 6 digit code to ${email}. It works for ${MFA_TTL_MINUTES} minutes.`;
 
 const issueError = (issued: Extract<IssueResult, { ok: false }>): SignInState =>
   stamp({ error: issued.error === "limited" ? `${ISSUE_ERRORS.limited} ${retryMessage(issued.retryAfterSeconds ?? 0)}` : ISSUE_ERRORS[issued.error] });
@@ -115,12 +128,14 @@ export async function startSignIn(_previous: SignInState, formData: FormData): P
     const user = await repos.users.findRefByEmail(String(email).trim().toLowerCase());
     if (!user || user.disabledAt) return stamp({ error: GENERIC });
     const methods = await signInMethods(user.id);
-    if (methods && (methods.totp || methods.passkey)) {
+    if (!methods) return stamp({ error: GENERIC });
+    if (methods.totp || methods.passkey) {
+      // The user picks the method; nothing is emailed until they ask for it.
       const opened = await openTicket({ userId: user.id, purpose: "SIGN_IN" });
-      return opened.ok ? factorStep(opened.challengeId, methods) : issueError(opened);
+      return opened.ok ? secondStep(opened.challengeId, methods) : issueError(opened);
     }
     const issued = await issueChallenge({ userId: user.id, email: user.email, name: user.name, purpose: "SIGN_IN" });
-    return issued.ok ? codeStep(issued.challengeId, user.email) : issueError(issued);
+    return issued.ok ? secondStep(issued.challengeId, methods, { emailSent: true, notice: emailedNotice(user.email) }) : issueError(issued);
   }
   if (refused) return stamp({ error: messageFor(refused.code) });
 
@@ -138,7 +153,7 @@ export async function completeSignIn(_previous: SignInState, formData: FormData)
   if (!open) return stamp({ error: EXPIRED });
 
   const code = normalizeCode(String(formData.get("code") ?? ""));
-  const keep: SignInState = { error: null, challengeId: open.challengeId, step: "email" };
+  const keep = secondStep(open.challengeId, open.methods, { emailSent: true });
   if (!code) return stamp({ ...keep, error: "Enter the 6 digit code." });
 
   const verified = await verifyChallenge({ challengeId: open.challengeId, userId: open.owner.userId, email: open.owner.user.email, purpose: "SIGN_IN", code });
@@ -154,7 +169,7 @@ export async function completeFactorSignIn(_previous: SignInState, formData: For
 
   const method = formData.get("method") === "recovery" ? "recovery" : "totp";
   const code = String(formData.get("code") ?? "").trim();
-  const keep = factorStep(open.challengeId, open.methods);
+  const keep = secondStep(open.challengeId, open.methods);
   if (!open.methods[method]) return stamp({ ...keep, error: "That sign-in method is not set up for this account." });
   if (!code) return stamp({ ...keep, error: method === "totp" ? "Enter the 6 digit code from your app." : "Enter one of your recovery codes." });
 
@@ -164,17 +179,18 @@ export async function completeFactorSignIn(_previous: SignInState, formData: For
   return finish(open.challengeId, formData.get("callbackUrl"));
 }
 
-/** Emails a code: a new one on the email step, or instead of the app where the account allows it. */
+/** Emails a code for this sign-in: the first one, or a new one. Any other method still works afterwards. */
 export async function resendSignInCode(_previous: SignInState, formData: FormData): Promise<SignInState> {
   if (!(await hasValidUnlock())) return stamp({ error: GENERIC });
   const open = await ticket(formData.get("challengeId"));
   if (!open) return stamp({ error: EXPIRED });
-  // A role that must use a strong factor cannot fall back to email once it has one.
-  if (!open.methods.email) return factorStep(open.challengeId, open.methods, NO_EMAIL);
+  if (!open.methods.email) return secondStep(open.challengeId, open.methods, { error: NO_EMAIL });
 
   // Wrong tries carry over to the new code, so asking again is no way around the limit.
   const issued = await issueChallenge({ userId: open.owner.userId, email: open.owner.user.email, name: open.owner.user.name, purpose: "SIGN_IN" });
-  return issued.ok ? codeStep(issued.challengeId, open.owner.user.email, `A code was sent to ${open.owner.user.email}.`) : issueError(issued);
+  return issued.ok
+    ? secondStep(issued.challengeId, open.methods, { emailSent: true, notice: emailedNotice(open.owner.user.email) })
+    : issueError(issued);
 }
 
 export type PasskeyOptionsResult = { ok: true; passkeyChallengeId: string; options: unknown } | { ok: false; error: string };
@@ -200,7 +216,7 @@ export async function completePasskeySignIn(input: {
   const open = await ticket(input.challengeId);
   if (!open) return stamp({ error: EXPIRED });
   if (!input.response || typeof input.response.id !== "string" || typeof input.passkeyChallengeId !== "string") {
-    return factorStep(open.challengeId, open.methods, "The passkey answer was not readable. Try again.");
+    return secondStep(open.challengeId, open.methods, { error: "The passkey answer was not readable. Try again." });
   }
 
   const verified = await passkeys.verifyAuthentication({
@@ -212,10 +228,48 @@ export async function completePasskeySignIn(input: {
   });
   if (!verified.ok) {
     return verified.reason === "invalid"
-      ? factorStep(open.challengeId, open.methods, "That passkey did not work. Try again or use another method.")
+      ? secondStep(open.challengeId, open.methods, { error: PASSKEY_FAILED })
       : stamp({ error: CODE_ERRORS[verified.reason] });
   }
   return finish(open.challengeId, input.callbackUrl);
+}
+
+/** The gate for passwordless sign-in: unlock cookie, the setting, and a per-address limit. */
+async function passwordlessAllowed(): Promise<string | null> {
+  if (!(await hasValidUnlock())) return GENERIC;
+  if (!(await passkeySignInEnabled())) return PASSWORDLESS_OFF;
+  const ip = clientIp(await headers());
+  if (ip !== UNKNOWN_IP && !(await limit("passkey-sign-in:ip", ip)).ok) return MESSAGES.limited;
+  return null;
+}
+
+export type PasswordlessOptionsResult = { ok: true; options: unknown } | { ok: false; error: string };
+
+/**
+ * WebAuthn options for "Sign in with a passkey": no account is named, so the
+ * browser shows every passkey saved for this site and the person picks theirs.
+ */
+export async function passwordlessSignInOptions(): Promise<PasswordlessOptionsResult> {
+  const refused = await passwordlessAllowed();
+  if (refused) return { ok: false, error: refused };
+  return { ok: true, options: await passkeys.passwordlessOptions() };
+}
+
+/** Verifies a passwordless passkey assertion and starts the session for the passkey's owner. */
+export async function completePasswordlessSignIn(input: { response: AuthenticationResponseJSON; callbackUrl: string }): Promise<SignInState> {
+  // Each attempt needs fresh options, which count against the per-address limit.
+  if (!(await hasValidUnlock())) return stamp({ error: GENERIC });
+  if (!(await passkeySignInEnabled())) return stamp({ error: PASSWORDLESS_OFF });
+  if (!input?.response || typeof input.response.id !== "string") return stamp({ error: PASSKEY_FAILED });
+
+  const verified = await passkeys.verifyPasswordless(input.response);
+  if (!verified.ok) return stamp({ error: verified.reason === "expired" ? "The passkey prompt expired. Try again." : PASSKEY_FAILED });
+
+  const user = await repos.users.findRef(verified.userId);
+  if (!user || user.disabledAt) return stamp({ error: PASSKEY_FAILED });
+  const opened = await openVerifiedTicket({ userId: user.id, email: user.email, method: "passkey" });
+  if (!opened.ok) return issueError(opened);
+  return finish(opened.challengeId, input.callbackUrl);
 }
 
 export async function signOutAction(): Promise<void> {

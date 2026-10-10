@@ -109,6 +109,22 @@ strong factors. With one of them, signing in asks for it after the password:
   factor is added. Make new ones from the same section; the old ones stop
   working.
 
+At sign-in, the second step shows a tab for each method the account set up
+(passkey, authenticator app, emailed code); the browser remembers the last
+one picked. The emailed code is sent only when chosen. Recovery codes sit
+behind **Can't use these?**, and are offered on their own after two wrong
+tries.
+
+**Passkey sign-in** (Settings → Passkey sign-in, `DEVELOPER` only, off by
+default) adds **Sign in with a passkey** to the sign-in page. The browser lists
+the passkeys saved on the device for this site and each person picks their own,
+so a shared device works. The passkey must check a fingerprint, face or device
+PIN, so it replaces both the password and the second step, and counts as strong
+MFA. The unlock cookie, a per-address limit (`passkey-sign-in:ip`), the
+disabled-account check, the new-device email and the audit log still apply.
+Passkeys added before this change may not be discoverable; add them again if
+the browser does not offer them.
+
 Removing a factor or making new recovery codes asks for the password again.
 Adding the first strong factor signs out every other session.
 
@@ -117,10 +133,8 @@ Adding the first strong factor signs out every other session.
 
 - Until they add one, the account page is the only page they can open, and
   actions and admin API routes refuse them.
-- Once they have one, the emailed code is no longer offered to them at
-  sign-in.
-- Other roles may keep using the emailed code ("Two-factor sign-in" on the
-  account page) as well as, or instead of, the strong factors.
+- Everyone, these roles included, may still choose the emailed code at
+  sign-in while "Two-factor sign-in" is on in the account page.
 
 ## Auth engine
 

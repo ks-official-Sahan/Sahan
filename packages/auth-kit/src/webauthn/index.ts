@@ -14,12 +14,20 @@ import { hasStrongFactor } from "../mfa/factors";
 import type { createMfa, VerifyResult } from "../mfa/mfa";
 import { challengeStatus, MFA_MAX_ATTEMPTS, MFA_TTL_MINUTES, newChallengeId } from "../mfa/rules";
 
-// Passkeys (WebAuthn) as a second factor: registering one from the account
-// page, and using one to verify the sign-in ticket (../mfa/mfa.ts). The
-// WebAuthn work is @simplewebauthn/server's, an optional peer dependency
-// that only projects importing this subpath install. Each ceremony's
-// challenge lives in mfa_challenges (PASSKEY_REGISTER / PASSKEY_SIGN_IN) as
-// a keyed hash, single use, with the same attempt cap as a code.
+// Passkeys (WebAuthn): registering one from the account page, using one to
+// verify the sign-in ticket (../mfa/mfa.ts), and, where the app allows it,
+// signing in with a passkey alone. The WebAuthn work is
+// @simplewebauthn/server's, an optional peer dependency that only projects
+// importing this subpath install. A second-step ceremony's challenge lives in
+// mfa_challenges (PASSKEY_REGISTER / PASSKEY_SIGN_IN) as a keyed hash, single
+// use, with the same attempt cap as a code. A passwordless ceremony has no
+// user yet, so its challenge lives in `challengeStore` (a Redis key, taken
+// once).
+//
+// Passwordless sign-in uses discoverable passkeys: the browser or OS shows
+// its own account picker with every passkey saved for this site on the
+// device, so two people sharing a device each pick their own. The chosen
+// credential id (and its user handle, checked too) names the account.
 
 export type { AuthenticationResponseJSON, RegistrationResponseJSON };
 
@@ -42,9 +50,20 @@ export interface PasskeysDeps {
   rpID: string;
   /** The exact origin(s) the ceremony runs on, for example "https://example.com". */
   origin: string | string[];
+  /**
+   * Single-use storage for passwordless challenges: `put` records a key for
+   * `ttlSeconds`; `take` deletes it and says whether it was there (Redis DEL
+   * count). Required only for passwordless sign-in.
+   */
+  challengeStore?: {
+    put(key: string, ttlSeconds: number): Promise<void>;
+    take(key: string): Promise<boolean>;
+  };
   /** For tests only: replaces @simplewebauthn/server's functions. */
   lib?: WebAuthnLib;
 }
+
+export type PasswordlessResult = { ok: true; userId: string; passkeyId: string } | { ok: false; reason: "invalid" | "expired" | "unavailable" };
 
 function challengeHash(challenge: string, id: string, secret: string): string {
   return createHmac("sha256", secret).update(`webauthn:v1:${id}:${challenge}`).digest("hex");
@@ -103,7 +122,8 @@ export function createPasskeys(deps: PasskeysDeps) {
       userID: new TextEncoder().encode(actor.id),
       attestationType: "none",
       excludeCredentials: existing.map((passkey) => ({ id: passkey.id, transports: passkey.transports as never })),
-      authenticatorSelection: { residentKey: "preferred", userVerification: "preferred" },
+      // Discoverable, so the passkey can also sign in on its own (the browser's account picker).
+      authenticatorSelection: { residentKey: "required", userVerification: "preferred" },
     });
     return { challengeId: await storeChallenge(actor.id, "PASSKEY_REGISTER", options.challenge), options };
   }
@@ -193,6 +213,54 @@ export function createPasskeys(deps: PasskeysDeps) {
     });
   }
 
+  const passwordlessKey = (challenge: string) => `webauthn:passwordless:${challengeHash(challenge, "passwordless", authSecret)}`;
+
+  /**
+   * Options for a passwordless navigator.credentials.get(): no credential
+   * list (the browser offers every discoverable passkey for this site) and
+   * user verification required, so the passkey proves both steps.
+   */
+  async function passwordlessOptions(): Promise<PublicKeyCredentialRequestOptionsJSON> {
+    if (!deps.challengeStore) throw new Error("createPasskeys: passwordless sign-in needs challengeStore.");
+    const options = await lib.generateAuthenticationOptions({ rpID, userVerification: "required" });
+    await deps.challengeStore.put(passwordlessKey(options.challenge), MFA_TTL_MINUTES * 60);
+    return options;
+  }
+
+  /**
+   * Verifies a passwordless assertion: the challenge is taken once, the
+   * credential and its user handle must name the same user, and the
+   * authenticator must have verified the user. Returns who signed in; the
+   * caller opens a verified ticket (mfa.openVerifiedTicket) and signs in.
+   */
+  async function verifyPasswordless(response: AuthenticationResponseJSON): Promise<PasswordlessResult> {
+    if (!deps.challengeStore) return { ok: false, reason: "unavailable" };
+    const store = deps.challengeStore;
+    const passkey = typeof response?.id === "string" ? await adapter.findPasskey(response.id) : null;
+    if (!passkey) return { ok: false, reason: "invalid" };
+    // The user handle is the user id the passkey was created with (registrationOptions).
+    const handle = response.response?.userHandle;
+    if (handle && Buffer.from(handle, "base64url").toString("utf8") !== passkey.userId) return { ok: false, reason: "invalid" };
+
+    let taken = false;
+    let verification: Awaited<ReturnType<WebAuthnLib["verifyAuthenticationResponse"]>>;
+    try {
+      verification = await lib.verifyAuthenticationResponse({
+        response,
+        expectedChallenge: async (challenge) => (taken = await store.take(passwordlessKey(challenge))),
+        expectedOrigin: origin,
+        expectedRPID: rpID,
+        credential: { id: passkey.id, publicKey: new Uint8Array(Buffer.from(passkey.publicKey, "base64url")), counter: passkey.counter, transports: passkey.transports as never },
+        requireUserVerification: true,
+      });
+    } catch {
+      return { ok: false, reason: taken ? "invalid" : "expired" };
+    }
+    if (!verification.verified || !verification.authenticationInfo.userVerified) return { ok: false, reason: "invalid" };
+    await adapter.updatePasskeyUse(passkey.id, verification.authenticationInfo.newCounter, new Date());
+    return { ok: true, userId: passkey.userId, passkeyId: passkey.id };
+  }
+
   /** Removes one of the user's passkeys. With no strong factor left, recovery codes go too. */
   async function removePasskey(actor: Actor, id: string): Promise<boolean> {
     const removed = await adapter.deletePasskey(actor.id, id);
@@ -203,5 +271,5 @@ export function createPasskeys(deps: PasskeysDeps) {
     return true;
   }
 
-  return { registrationOptions, verifyRegistration, authenticationOptions, verifyAuthentication, removePasskey };
+  return { registrationOptions, verifyRegistration, authenticationOptions, verifyAuthentication, passwordlessOptions, verifyPasswordless, removePasskey };
 }

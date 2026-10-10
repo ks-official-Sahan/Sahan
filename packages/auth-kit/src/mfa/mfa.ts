@@ -149,6 +149,25 @@ export function createMfa(deps: {
   }
 
   /**
+   * A sign-in ticket that is verified at once, for a factor that proved both
+   * steps by itself: a passwordless passkey sign-in with user verification.
+   * The sign-in then consumes it like any other verified ticket.
+   */
+  async function openVerifiedTicket(input: { userId: string; email: string; method: FactorMethod }): Promise<IssueResult> {
+    const opened = await openTicket({ userId: input.userId, purpose: "SIGN_IN" });
+    if (!opened.ok) return opened;
+    await adapter.markMfaChallengeVerified(opened.challengeId, new Date());
+    await audit({
+      action: "auth.mfa.verified",
+      actor: { id: input.userId, email: input.email },
+      entityType: "User",
+      entityId: input.userId,
+      meta: { purpose: "SIGN_IN", method: input.method, passwordless: true },
+    });
+    return opened;
+  }
+
+  /**
    * The shared verification path: the challenge must be open, the attempt is
    * counted first (atomically, while attempts remain), then `check` runs.
    */
@@ -315,6 +334,7 @@ export function createMfa(deps: {
   return {
     issueChallenge,
     openTicket,
+    openVerifiedTicket,
     verifyChallenge,
     verifyTotp,
     verifyRecoveryCode,

@@ -1,10 +1,11 @@
-// Which second-step methods a user may use, from their role and what they
-// have set up. Pure policy, shared by the sign-in step, the account page and
-// the admin gate:
+// Which second-step methods a user may use, from what they have set up. Pure
+// policy, shared by the sign-in step, the account page and the admin gate:
 // - an authenticator app (TOTP) or a passkey is a strong factor;
+// - the emailed code is offered whenever it is switched on, and the user picks
+//   the method on the sign-in step;
 // - recovery codes stand in for a lost strong factor;
-// - the emailed code is a fallback: roles listed in `strongMfaRoles` lose it
-//   once they have a strong factor, and must set one up before using the admin.
+// - roles listed in `strongMfaRoles` must set up a strong factor before using
+//   the admin (they may still choose the emailed code at sign-in).
 
 export interface UserFactors {
   /** Emailed codes are switched on (users.mfaEnabled). */
@@ -35,15 +36,17 @@ export function needsSecondStep(factors: UserFactors): boolean {
   return factors.emailOtp || hasStrongFactor(factors);
 }
 
-/** The methods the second sign-in step offers this user. */
-export function mfaMethodsFor(role: string, factors: UserFactors, strongMfaRoles: readonly string[]): MfaMethods {
-  const strong = hasStrongFactor(factors);
+/**
+ * The methods the second sign-in step offers this user. `role` and
+ * `strongMfaRoles` are kept for callers that pass them; the offer no longer
+ * depends on the role.
+ */
+export function mfaMethodsFor(_role: string, factors: UserFactors, _strongMfaRoles: readonly string[] = []): MfaMethods {
   return {
-    // A required role keeps the emailed code only until it has a strong factor.
-    email: factors.emailOtp && !(strong && requiresStrongMfa(role, strongMfaRoles)),
+    email: factors.emailOtp,
     totp: factors.totp,
     passkey: factors.passkeys > 0,
-    recovery: strong && factors.recoveryCodesLeft > 0,
+    recovery: hasStrongFactor(factors) && factors.recoveryCodesLeft > 0,
   };
 }
 

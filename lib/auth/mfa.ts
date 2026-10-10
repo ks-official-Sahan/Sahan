@@ -43,6 +43,7 @@ export const mfa = createMfa({
 export const {
   issueChallenge,
   openTicket,
+  openVerifiedTicket,
   verifyChallenge,
   verifyTotp,
   verifyRecoveryCode,

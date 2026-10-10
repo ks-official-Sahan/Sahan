@@ -445,8 +445,11 @@ once:
    (`users.mfaEnabled`), a confirmed authenticator app, or a passkey.
 2. Your sign-in action looks at `factorsOf(userId)` and `mfaMethodsFor(role,
    factors, strongMfaRoles)`:
-   - an authenticator app or passkey: `openTicket` (nothing is emailed);
+   - an authenticator app or passkey: `openTicket` (nothing is emailed yet);
    - otherwise: `issueChallenge` emails a 6-digit code.
+   The user may pick any method in `MfaMethods` (`email`, `totp`, `passkey`),
+   with `recovery` as the last resort. Asking for an emailed code later issues
+   a new challenge that every method can still verify.
 3. The UI collects the factor and calls `verifyChallenge` (emailed code),
    `verifyTotp`, `verifyRecoveryCode`, or `createPasskeys(...).verifyAuthentication`
    (`./webauthn`).
@@ -476,8 +479,8 @@ Setting up factors:
   authenticator app or a passkey. `createAuthDal` takes `strongMfaRoles` and
   `mfaSetupPath`; open the setup page with `requireUser({ allowMfaSetup: true })`.
 - `AuthUser.mfaSetupRequired` tells actions and route handlers to refuse.
-- Once they have a strong factor, `mfaMethodsFor` no longer offers them the
-  emailed code.
+- They may still choose the emailed code at sign-in, like everyone else, when
+  `users.mfaEnabled` is on.
 
 **Passkeys** (`./webauthn`) need the optional peer `@simplewebauthn/server`:
 
@@ -491,7 +494,30 @@ const passkeys = createPasskeys({ adapter, mfa, authSecret, audit, rpName: "My s
 
 Ceremony challenges are stored hashed in `mfa_challenges`, single use. A
 passkey must belong to the signing-in user, and its signature counter is
-recorded on every use.
+recorded on every use. Registration asks for a discoverable passkey
+(`residentKey: "required"`), so it can also sign in on its own.
+
+**Passwordless sign-in** (optional; keep it behind a setting). Pass
+`challengeStore` (single-use keys, for example Redis `SET` with a TTL and
+`DEL`), then:
+
+```ts
+// passkeys.passwordlessOptions() -> browser startAuthentication -> passkeys.verifyPasswordless(response)
+const result = await passkeys.verifyPasswordless(response);
+if (result.ok) {
+  const ticket = await mfa.openVerifiedTicket({ userId: result.userId, email, method: "passkey" });
+  // sign in with { challengeId: ticket.challengeId }, as after any second step
+}
+```
+
+- No account is named up front. The browser lists every passkey saved for the
+  site on that device, so two people sharing a device each pick their own; the
+  chosen credential id and its user handle name the account, and both must
+  agree.
+- User verification (biometrics or device PIN) is required, so the passkey
+  proves both steps and satisfies strong-MFA roles.
+- Keep your unlock gate, rate limit and disabled-account check in front of it;
+  the sign-in itself still runs `authorize` (known-device email, audit).
 
 ### 8. Session management UI hooks
 

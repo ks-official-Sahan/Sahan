@@ -227,6 +227,8 @@ export const LIMITS = {
   "mfa:send:user": { windowSeconds: 600, max: 5, failMode: "closed" },
   // Wrong codes while confirming a new authenticator app.
   "mfa:setup:user": { windowSeconds: 600, max: 10, failMode: "closed" },
+  // Passwordless passkey sign-ins started from one address.
+  "passkey-sign-in:ip": { windowSeconds: 600, max: 20, failMode: "closed" },
   "invite:actor": { windowSeconds: 3600, max: 20, failMode: "closed" },
   "reset:ip": { windowSeconds: 3600, max: 8, failMode: "closed" },
   "reset:email": { windowSeconds: 3600, max: 3, failMode: "closed" },
@@ -270,8 +272,8 @@ export const authKit = defineAuthKit<RoleName, Permission>({
   fixedGrants: FIXED_GRANTS,
   defaultGrants: DEFAULT_GRANTS,
   limits: LIMITS,
-  // The two roles that can change everything must use an authenticator app or
-  // a passkey; for them the emailed code is only a way in until they set one up.
+  // The two roles that can change everything must set up an authenticator app
+  // or a passkey before they can use the admin.
   strongMfaRoles: [SUPER_ROLE, MASK_ROLE],
   csp: { imgHosts: ["https://res.cloudinary.com"], connectHosts: ["https://api.cloudinary.com"] },
   trustProxy: { hops: trustedProxyHops() },

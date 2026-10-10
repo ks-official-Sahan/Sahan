@@ -242,3 +242,13 @@ test("removing the only strong factor removes the recovery codes too", async () 
   await h.mfa.removeTotp(h.user);
   assert.deepEqual(await h.mfa.factorsOf(h.user.id), { emailOtp: false, totp: false, passkeys: 0, recoveryCodesLeft: 0 });
 });
+
+test("openVerifiedTicket opens a ticket that is already verified, for one sign-in", async () => {
+  const h = harness();
+  const ticket = await h.mfa.openVerifiedTicket({ userId: h.user.id, email: h.user.email, method: "passkey" });
+  assert.ok(ticket.ok);
+  assert.equal(h.sent.length, 0);
+  assert.ok(await h.mfa.consumeChallenge({ challengeId: ticket.challengeId, userId: h.user.id, purpose: "SIGN_IN" }));
+  assert.equal(await h.mfa.consumeChallenge({ challengeId: ticket.challengeId, userId: h.user.id, purpose: "SIGN_IN" }), false);
+  assert.ok(h.audits.some((event) => event.action === "auth.mfa.verified" && event.meta?.passwordless === true));
+});
