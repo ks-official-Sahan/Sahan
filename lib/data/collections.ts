@@ -9,6 +9,11 @@ export interface SortedRepo<Row, New> {
   nextSortOrder(groupId?: string): Promise<number>;
   create(input: New): Promise<Row>;
   update(id: string, changes: Partial<New>): Promise<Row>;
+  /**
+   * Updates only while the row's updatedAt still equals `expectedUpdatedAt`;
+   * null when it changed or was deleted since then (nothing is written).
+   */
+  updateIfUnchanged(id: string, expectedUpdatedAt: Date, changes: Partial<New>): Promise<Row | null>;
   delete(id: string): Promise<void>;
   /** Swaps sortOrder with the nearest row above or below (in the same group); no change at either end. */
   move(row: { id: string; sortOrder: number; groupId?: string }, direction: "up" | "down"): Promise<void>;

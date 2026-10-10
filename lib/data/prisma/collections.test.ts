@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { swapWithNeighbour } from "./collections";
+import { serviceGroupRepo, swapWithNeighbour } from "./collections";
 
 function table(rows: Array<{ id: string; sortOrder: number }>) {
   const neighbour = async (where: { sortOrder: { lt: number } | { gt: number } }, order: "asc" | "desc") => {
@@ -40,4 +40,18 @@ test("swapWithNeighbour leaves the ends alone", async () => {
   await swapWithNeighbour({ ...rows[0] }, "up", t.neighbour, t.setSortOrder);
   await swapWithNeighbour({ ...rows[1] }, "down", t.neighbour, t.setSortOrder);
   assert.deepEqual(t.order(), ["a", "b"]);
+});
+
+test("updateIfUnchanged writes only while updatedAt matches, and answers null otherwise", async () => {
+  const seen: unknown[] = [];
+  const expected = new Date("2026-10-10T00:00:00.000Z");
+  const ok = { serviceGroup: { update: async (args: unknown) => (seen.push(args), { id: "g1", name: "New" }) } };
+  assert.deepEqual(await serviceGroupRepo(ok as never).updateIfUnchanged("g1", expected, { name: "New" }), { id: "g1", name: "New" });
+  assert.deepEqual(seen[0], { where: { id: "g1", updatedAt: expected }, data: { name: "New" } });
+
+  const stale = { serviceGroup: { update: async () => Promise.reject(Object.assign(new Error("not found"), { code: "P2025" })) } };
+  assert.equal(await serviceGroupRepo(stale as never).updateIfUnchanged("g1", expected, { name: "New" }), null);
+
+  const down = { serviceGroup: { update: async () => Promise.reject(Object.assign(new Error("timeout"), { code: "P1008" })) } };
+  await assert.rejects(serviceGroupRepo(down as never).updateIfUnchanged("g1", expected, { name: "New" }), /timeout/);
 });

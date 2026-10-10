@@ -12,11 +12,22 @@ import type {
   SkillRepo,
 } from "../collections";
 import type { DbClient } from "./client";
+import { isNotFound } from "./errors";
 
 type Neighbour = { id: string; sortOrder: number } | null;
 type NeighbourWhere = { sortOrder: { lt: number } | { gt: number } };
 
 const nextAfter = (max: number | null): number => (max ?? 0) + 1;
+
+/** Runs a conditional update (`where: { id, updatedAt }`); null when it matched no row (P2025). */
+async function nullIfStale<T>(write: () => Promise<T>): Promise<T | null> {
+  try {
+    return await write();
+  } catch (error) {
+    if (isNotFound(error)) return null;
+    throw error;
+  }
+}
 
 /** Swaps `row` with its nearest neighbour in `direction`; nothing to do at either end. */
 export async function swapWithNeighbour(
@@ -72,6 +83,8 @@ export function projectRepo(client: DbClient): ProjectRepo {
     },
     create: (input) => client.project.create({ data: projectData(input) }),
     update: (id, changes) => client.project.update({ where: { id }, data: projectData(changes) }),
+    updateIfUnchanged: (id, expectedUpdatedAt, changes) =>
+      nullIfStale(() => client.project.update({ where: { id, updatedAt: expectedUpdatedAt }, data: projectData(changes) })),
     async delete(id) {
       await client.project.delete({ where: { id } });
     },
@@ -104,6 +117,8 @@ export function experienceRepo(client: DbClient): ExperienceRepo {
     },
     create: (input) => client.experience.create({ data: input }),
     update: (id, changes) => client.experience.update({ where: { id }, data: changes }),
+    updateIfUnchanged: (id, expectedUpdatedAt, changes) =>
+      nullIfStale(() => client.experience.update({ where: { id, updatedAt: expectedUpdatedAt }, data: changes })),
     async delete(id) {
       await client.experience.delete({ where: { id } });
     },
@@ -140,6 +155,8 @@ export function serviceGroupRepo(client: DbClient): ServiceGroupRepo {
     },
     create: (input) => client.serviceGroup.create({ data: input }),
     update: (id, changes) => client.serviceGroup.update({ where: { id }, data: changes }),
+    updateIfUnchanged: (id, expectedUpdatedAt, changes) =>
+      nullIfStale(() => client.serviceGroup.update({ where: { id, updatedAt: expectedUpdatedAt }, data: changes })),
     async delete(id) {
       // Service.groupId cascades, so this also removes the group's services.
       await client.serviceGroup.delete({ where: { id } });
@@ -166,6 +183,8 @@ export function serviceRepo(client: DbClient): ServiceRepo {
     },
     create: (input) => client.service.create({ data: serviceData(input) }),
     update: (id, changes) => client.service.update({ where: { id }, data: serviceData(changes) }),
+    updateIfUnchanged: (id, expectedUpdatedAt, changes) =>
+      nullIfStale(() => client.service.update({ where: { id, updatedAt: expectedUpdatedAt }, data: serviceData(changes) })),
     async delete(id) {
       await client.service.delete({ where: { id } });
     },
@@ -203,6 +222,8 @@ export function skillGroupRepo(client: DbClient): SkillGroupRepo {
     },
     create: (input) => client.skillGroup.create({ data: input }),
     update: (id, changes) => client.skillGroup.update({ where: { id }, data: changes }),
+    updateIfUnchanged: (id, expectedUpdatedAt, changes) =>
+      nullIfStale(() => client.skillGroup.update({ where: { id, updatedAt: expectedUpdatedAt }, data: changes })),
     async delete(id) {
       // Skill.groupId cascades, so this also removes the group's skills.
       await client.skillGroup.delete({ where: { id } });
@@ -229,6 +250,8 @@ export function skillRepo(client: DbClient): SkillRepo {
     },
     create: (input) => client.skill.create({ data: skillData(input) }),
     update: (id, changes) => client.skill.update({ where: { id }, data: skillData(changes) }),
+    updateIfUnchanged: (id, expectedUpdatedAt, changes) =>
+      nullIfStale(() => client.skill.update({ where: { id, updatedAt: expectedUpdatedAt }, data: skillData(changes) })),
     async delete(id) {
       await client.skill.delete({ where: { id } });
     },
