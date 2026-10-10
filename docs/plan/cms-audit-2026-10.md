@@ -162,7 +162,7 @@ Browser -> Vercel CDN -> proxy.ts (every non-static path)
 - Soft delete with a trash view. (Done in #24.)
 - `draftMode` preview for posts and collections, with signed share links.
 - Revision diff view.
-- Signed outgoing webhooks (HMAC, retries, idempotency key) for headless consumers.
+- Signed outgoing webhooks (HMAC, retries, idempotency key) for headless consumers. (Done in #25.)
 - TOTP/WebAuthn with role-enforced MFA.
 - Prune superseded section versions.
 

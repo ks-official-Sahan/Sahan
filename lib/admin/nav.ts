@@ -12,6 +12,7 @@ import {
   Trash2,
   ShieldCheck,
   UserCircle,
+  Webhook,
   Users,
   type LucideIcon,
 } from "lucide-react";
@@ -72,6 +73,7 @@ export const ADMIN_NAV: readonly AdminNavItem[] = [
   { href: "/admin/sessions", label: "Sessions", icon: MonitorSmartphone, permission: "viewSessions", group: "access" },
   { href: "/admin/audit", label: "Audit log", icon: ScrollText, permission: "viewAuditLogs", group: "access" },
   { href: "/admin/settings", label: "Settings", icon: Settings, permission: "manageSettings", group: "system" },
+  { href: "/admin/webhooks", label: "Webhooks", icon: Webhook, permission: "manageSettings", group: "system" },
   { href: "/admin/account", label: "Account", icon: UserCircle, permission: null, group: "account" },
 ];
 
