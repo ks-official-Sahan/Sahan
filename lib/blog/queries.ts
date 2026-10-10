@@ -6,6 +6,7 @@ import { isValidPostSlug, TAGS } from "@/lib/cache/tags";
 import { repos } from "@/lib/data";
 import { extractText, sanitizeRich } from "@/lib/cms/rich-text";
 import { log } from "@/lib/log";
+import { isDue, visibleAhead } from "@/lib/blog/visibility";
 import { UpdatesContent } from "@/contents/updates";
 
 import { computeReadMinutes } from "@sahan-sac/blog-kit/readtime";
@@ -160,8 +161,11 @@ function toView(row: FullPostRow): BlogPostView {
   };
 }
 
+// The cached reads below look VISIBLE_AHEAD_MS ahead and drop rows not yet
+// due when served (lib/blog/visibility.ts), so a scheduled post appears at
+// its publishAt instead of when the cache next refills.
 function cachedPost(slug: string) {
-  return cached((): Promise<FullPostRow | null> => repos.posts.findPublished(slug), ["blog", "post", slug], {
+  return cached((): Promise<FullPostRow | null> => repos.posts.findPublished(slug, visibleAhead()), ["blog", "post", slug, "v2"], {
     tags: [TAGS.blogPost(slug)],
     revalidate: 300,
   });
@@ -171,7 +175,7 @@ function cachedPost(slug: string) {
 // slug is answered from it, so crawlers probing random /updates/<slug> or
 // /api/content/v1/posts/<slug> URLs never reach the database or create a
 // cache entry per guess.
-const cachedPublicSlugs = cached(() => repos.posts.listPublicSlugs(), ["blog", "public-slugs", "v1"], {
+const cachedPublicSlugs = cached(() => repos.posts.listPublicSlugs(visibleAhead()), ["blog", "public-slugs", "v2"], {
   tags: [TAGS.blogList],
   revalidate: 300,
 });
@@ -254,16 +258,30 @@ async function getPostPage(
 ): Promise<PublicPostPage> {
   const safeLimit = Math.max(1, Math.min(maxLimit, Math.trunc(limit)));
   const cursor = dbCursor(after);
-  const readRows = () => repos.posts.listPublishedPage(safeLimit + 1, cursor, indexableOnly);
   const read = cursor
-    ? readRows
-    : cached(readRows, ["blog", "page", indexableOnly ? "indexable" : "all", String(safeLimit)], {
-        tags: [TAGS.blogList],
-        revalidate: 300,
-      });
-  const rows = await loadOrNull(read, {
-    onError: (error) => log.warn("blog page read failed during build, using defaults", { error: String(error) }),
-  });
+    ? () => repos.posts.listPublishedPage(safeLimit + 1, cursor, indexableOnly)
+    : cached(
+        // Two reads at one instant: the page as it is now, and the posts that
+        // become due within VISIBLE_AHEAD_MS (soonest first, so a crowd of
+        // them never pushes due posts off the page). Disjoint by
+        // construction; reversed, the upcoming ones are newest first and
+        // newer than every due row, so they lead the page once due.
+        async () => {
+          const now = new Date();
+          const [due, upcoming] = await Promise.all([
+            repos.posts.listPublishedPage(safeLimit + 1, undefined, indexableOnly, now),
+            repos.posts.listUpcoming(now, visibleAhead(now.getTime()), safeLimit + 1, indexableOnly),
+          ]);
+          return [...upcoming.reverse(), ...due];
+        },
+        ["blog", "page", indexableOnly ? "indexable" : "all", String(safeLimit), "v2"],
+        { tags: [TAGS.blogList], revalidate: 300 }
+      );
+  const rows = (
+    await loadOrNull(read, {
+      onError: (error) => log.warn("blog page read failed during build, using defaults", { error: String(error) }),
+    })
+  )?.filter((row) => isDue(row));
   if (rows && rows.length === 0 && !cursor && (await storedPostsExist())) return { items: [], nextCursor: null };
   if (!rows || rows.length === 0) {
     return { items: cursor ? [] : defaultSummaries(safeLimit), nextCursor: null };
@@ -389,12 +407,12 @@ export async function getPostBySlug(slug: string, defaults?: BlogPostView[]): Pr
   if (!slugs || (slugs.length === 0 && !(await storedPostsExist()))) {
     return (defaults ?? defaultPosts()).find((post) => post.slug === slug) ?? null;
   }
-  if (!slugs.includes(slug)) return null;
+  if (!slugs.some((entry) => entry.slug === slug && isDue(entry))) return null;
 
   const row = await loadOrNull(cachedPost(slug), {
     onError: (error) => log.warn("blog post read failed", { slug, error: String(error) }),
   });
-  return row ? toView(row) : null;
+  return row && isDue(row) ? toView(row) : null;
 }
 
 /** Up to `limit` other posts sharing the most tags/topic with `post`, newest first on ties. */
