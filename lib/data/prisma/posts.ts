@@ -50,9 +50,9 @@ function publicPostQueries<Row = PublishedPostSummaryRow>(
   take: number,
   after?: { publishedAt: Date; id: string },
   indexableOnly = false,
-  select: Prisma.PostSelect = SUMMARY_SELECT
+  select: Prisma.PostSelect = SUMMARY_SELECT,
+  now = new Date()
 ): Promise<[Row[], Row[], Row[]]> {
-  const now = new Date();
   const publishedWhere: Prisma.PostWhereInput = {
     status: "PUBLISHED",
     publishAt: null,
@@ -95,9 +95,8 @@ function publicPostQueries<Row = PublishedPostSummaryRow>(
   ]);
 }
 
-/** Visible to the public at this instant: published (and its publishAt, if any, has passed) or scheduled and due. */
-function publicNow(): Prisma.PostWhereInput {
-  const now = new Date();
+/** Visible to the public at `now`: published (and its publishAt, if any, has passed) or scheduled and due. */
+function publicNow(now = new Date()): Prisma.PostWhereInput {
   return {
     OR: [
       { status: "PUBLISHED", OR: [{ publishAt: null }, { publishAt: { lte: now } }] },
@@ -112,17 +111,16 @@ export function postRepo(client: DbClient): PostRepo {
       const [published, promoted, scheduled] = await publicPostQueries<PublishedPostRefRow>(client, take, after, true, REF_SELECT);
       return newestFirst([...published, ...promoted, ...scheduled]).slice(0, take);
     },
-    async listPublishedPage(take, after, indexableOnly) {
-      const [published, promoted, scheduled] = await publicPostQueries(client, take, after, indexableOnly);
+    async listPublishedPage(take, after, indexableOnly, visibleAt) {
+      const [published, promoted, scheduled] = await publicPostQueries(client, take, after, indexableOnly, SUMMARY_SELECT, visibleAt);
       return newestFirst([...published, ...promoted, ...scheduled]).slice(0, take);
     },
-    async listPublicSlugs() {
-      const rows = await client.post.findMany({ where: publicNow(), select: { slug: true } });
-      return rows.map((row) => row.slug);
+    listPublicSlugs(visibleAt) {
+      return client.post.findMany({ where: publicNow(visibleAt), select: { slug: true, publishAt: true } });
     },
-    findPublished(slug) {
+    findPublished(slug, visibleAt) {
       return client.post.findFirst({
-        where: { slug, ...publicNow() },
+        where: { slug, ...publicNow(visibleAt) },
         select: { ...SUMMARY_SELECT, contentHtml: true },
       });
     },
