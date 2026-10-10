@@ -12,6 +12,7 @@ import { listPostRevisions } from "@/lib/blog/revision-queries";
 import BlogEditorForm from "@/components/admin/blog/BlogEditorForm";
 import PostStatusControls from "@/components/admin/blog/PostStatusControls";
 import RevisionHistoryCard from "@/components/admin/blog/RevisionHistoryCard";
+import ShareLinkCard from "@/components/admin/blog/ShareLinkCard";
 import { sanitizeRich } from "@/lib/cms/rich-text";
 
 export const metadata = { title: "Edit post" };
@@ -77,7 +78,12 @@ export default async function EditBlogPostPage({ params }: { params: Promise<{ i
             canDelete={canDelete}
           />
         ) : <span className={badgeClass}>{post.status}</span>}
-        historyPanel={<RevisionHistoryCard postId={post.id} revisions={revisions} />}
+        historyPanel={
+          <>
+            <ShareLinkCard postId={post.id} />
+            <RevisionHistoryCard postId={post.id} revisions={revisions} />
+          </>
+        }
         post={{
           id: post.id,
           slug: post.slug,
