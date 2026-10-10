@@ -69,6 +69,15 @@ export interface PublishedPostSummaryRow {
   author: { name: string | null } | null;
 }
 
+/** The fields a sitemap or URL list needs: no text, so 1,000 rows stay small. */
+export interface PublishedPostRefRow {
+  id: string;
+  slug: string;
+  publishAt: Date | null;
+  publishedAt: Date | null;
+  updatedAt: Date;
+}
+
 export interface PublishedPostRow extends PublishedPostSummaryRow {
   contentHtml: string;
 }
@@ -91,6 +100,8 @@ export interface PostRepo {
    * even if the promotion cron is delayed.
    */
   listPublishedPage(take: number, after?: { publishedAt: Date; id: string }, indexableOnly?: boolean): Promise<PublishedPostSummaryRow[]>;
+  /** The same keyset page of indexable posts as listPublishedPage, with reference fields only. */
+  listIndexableRefs(take: number, after?: { publishedAt: Date; id: string }): Promise<PublishedPostRefRow[]>;
   /** Slugs of every post visible to the public right now (same rule as findPublished). */
   listPublicSlugs(): Promise<string[]>;
   /** One public post with its body. */

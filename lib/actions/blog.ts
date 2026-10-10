@@ -38,6 +38,22 @@ const ADMIN_LIST_PATH = "/admin/blog";
  * transaction with a typed reason" idiom as lib/cms/service.ts's `Abort`. */
 class UpdateConflictError extends Error {}
 
+/**
+ * A post row for the audit log, without its body fields (content,
+ * contentHtml, contentText: up to hundreds of KB each). Revisions keep the
+ * text of every edit, so the audit row only needs what changed around it.
+ * Deletes are the exception and keep the full row: until posts have a trash,
+ * that audit row is the only copy left.
+ */
+function auditView<T extends object>(post: T): Omit<T, "content" | "contentHtml" | "contentText"> {
+  const { content: _content, contentHtml: _html, contentText: _text, ...rest } = post as T & {
+    content?: unknown;
+    contentHtml?: unknown;
+    contentText?: unknown;
+  };
+  return rest;
+}
+
 // A UniqueViolation maps a slug collision to a field error instead of a 500,
 // whether it came from the slugTaken() pre-check missing a race or a row
 // edited directly elsewhere. isDbUnavailable means the change was rolled back
@@ -169,7 +185,7 @@ export async function createPostAction(_previous: ActionState, formData: FormDat
           entityType: "Post",
           entityId: row.id,
           before: null,
-          after: row,
+          after: auditView(row),
         },
         tx
       );
@@ -265,7 +281,7 @@ export async function updatePostAction(_previous: ActionState, formData: FormDat
         await tx.postRevisions.create({ postId: id, title: previous.title, data: previous, reason: "update", createdById: auth.user.id });
       }
       await audit(
-        { action: "post.updated", actor: auth.user, entityType: "Post", entityId: id, before, after: row },
+        { action: "post.updated", actor: auth.user, entityType: "Post", entityId: id, before: auditView(before), after: auditView(row) },
         tx
       );
       return row;
@@ -340,8 +356,8 @@ export async function restorePostRevisionAction(_previous: ActionState, formData
           actor: auth.user,
           entityType: "Post",
           entityId: postId,
-          before,
-          after: row,
+          before: auditView(before),
+          after: auditView(row),
           meta: { revisionId },
         },
         tx
@@ -433,15 +449,19 @@ async function applyStatus(
     const data = statusData(action, publishAt);
 
     const updated = await withTx(async (tx) => {
-      const row = await tx.posts.update(id, data);
+      // Conditional on the row read above: a save or status change that lands
+      // in between makes this match nothing, so it never overwrites that
+      // change with a status decided against the older row.
+      const row = await tx.posts.updateIfUnchanged(id, before.updatedAt, data);
+      if (!row) throw new UpdateConflictError();
       await audit(
         {
           action: STATUS_AUDIT_ACTION[action],
           actor,
           entityType: "Post",
           entityId: id,
-          before,
-          after: row,
+          before: auditView(before),
+          after: auditView(row),
         },
         tx
       );
@@ -466,6 +486,7 @@ async function applyStatus(
     };
     return done(messages[action]);
   } catch (error) {
+    if (error instanceof UpdateConflictError) return fail(UPDATE_CONFLICT_MESSAGE);
     log.error("post status change failed", { error: error instanceof Error ? error.message : String(error), action });
     return fail("Something went wrong. Please try again.");
   }
@@ -549,8 +570,8 @@ export async function bulkPostStatusAction(_previous: ActionState, formData: For
           actor: auth.user,
           entityType: "Post",
           entityId: before.id,
-          before,
-          after: { ...before, ...data },
+          before: auditView(before),
+          after: auditView({ ...before, ...data }),
         })),
         tx
       );
@@ -596,8 +617,8 @@ export async function bulkArchivePostsAction(_previous: ActionState, formData: F
           actor: auth.user,
           entityType: "Post",
           entityId: before.id,
-          before,
-          after: { ...before, ...data },
+          before: auditView(before),
+          after: auditView({ ...before, ...data }),
         })),
         tx
       );

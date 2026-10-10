@@ -1,19 +1,19 @@
 import { NextResponse } from "next/server";
 
 import { getPostBySlug } from "@/lib/blog/queries";
-import { CONTENT_CACHE_HEADERS, CONTENT_CORS_HEADERS, CONTENT_NO_STORE_HEADERS } from "@/lib/api/content";
-import { log } from "@/lib/log";
+import { CONTENT_CORS_HEADERS, contentNotFound, contentResponse, contentUnavailable, rejectUnknownParams } from "@/lib/api/content";
 
-export async function GET(_request: Request, { params }: { params: Promise<{ slug: string }> }) {
+export async function GET(request: Request, { params }: { params: Promise<{ slug: string }> }) {
+  const rejected = rejectUnknownParams(request);
+  if (rejected) return rejected;
   const { slug } = await params;
   try {
     const data = await getPostBySlug(slug);
     // A miss is never cached: the post may be published a moment later.
-    if (!data) return NextResponse.json({ error: "Post not found." }, { status: 404, headers: CONTENT_NO_STORE_HEADERS });
-    return NextResponse.json({ apiVersion: 1, data }, { headers: CONTENT_CACHE_HEADERS });
+    if (!data) return contentNotFound("Post not found.");
+    return contentResponse(request, data);
   } catch (error) {
-    log.error("public blog detail API failed", { slug, error: error instanceof Error ? error.message : String(error) });
-    return NextResponse.json({ error: "Content is temporarily unavailable." }, { status: 503, headers: { ...CONTENT_NO_STORE_HEADERS, "Retry-After": "5" } });
+    return contentUnavailable("blog detail", error, { slug });
   }
 }
 

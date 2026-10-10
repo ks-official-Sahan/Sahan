@@ -1,5 +1,5 @@
 import { SiteMetadata } from "@/config/site";
-import { getIndexablePostPage, SITEMAP_PAGE_SIZE } from "@/lib/blog/queries";
+import { getSitemapPostRefs } from "@/lib/blog/queries";
 import { getPageLastModified } from "@/lib/cms/loaders";
 import type { CmsPage } from "@/lib/cms/registry";
 import { sitemapIds, sitemapStart } from "@/lib/seo/sitemap";
@@ -34,13 +34,13 @@ export default async function sitemap({ id: idPromise }: { id: Promise<string> }
   if (after === null) return [];
 
   const isFirst = after === undefined;
-  const [page, lastModifiedByRoute] = await Promise.all([
-    getIndexablePostPage(SITEMAP_PAGE_SIZE, after),
+  const [posts, lastModifiedByRoute] = await Promise.all([
+    getSitemapPostRefs(after),
     isFirst
       ? Promise.all(STATIC_ROUTES.map((route) => (route.page ? getPageLastModified(route.page) : Promise.resolve(null))))
       : Promise.resolve([] as Array<string | null>),
   ]);
-  const newestPostAt = page.items[0]?.publishedAt ? new Date(page.items[0].publishedAt).toISOString() : null;
+  const newestPostAt = posts[0]?.publishedAt ?? null;
 
   const staticEntries: MetadataRoute.Sitemap = isFirst
     ? STATIC_ROUTES.map((route, index) => {
@@ -54,7 +54,7 @@ export default async function sitemap({ id: idPromise }: { id: Promise<string> }
       })
     : [];
 
-  const postEntries: MetadataRoute.Sitemap = page.items.map((post) => {
+  const postEntries: MetadataRoute.Sitemap = posts.map((post) => {
     const lastModified = post.updatedAt ?? post.publishedAt;
     return {
       url: `${SiteMetadata.siteUrl}/updates/${post.slug}`,

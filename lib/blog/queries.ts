@@ -225,6 +225,12 @@ export function decodePublicPostCursor(value: string | null): PublicPostCursor |
   }
 }
 
+/** A public cursor as the repository's keyset bound; undefined when absent or unparsable. */
+function dbCursor(after: PublicPostCursor | undefined): { publishedAt: Date; id: string } | undefined {
+  const date = after ? new Date(after.publishedAt) : undefined;
+  return after && date && Number.isFinite(date.getTime()) ? { publishedAt: date, id: after.id } : undefined;
+}
+
 /** The keyset cursor that continues after `row` (its effective publish time, then id). */
 function cursorAfter(row: { id: string; publishAt: Date | string | null; publishedAt: Date | string | null }): PublicPostCursor | null {
   const effectiveDate = row.publishAt ?? row.publishedAt;
@@ -247,8 +253,7 @@ async function getPostPage(
   maxLimit: number
 ): Promise<PublicPostPage> {
   const safeLimit = Math.max(1, Math.min(maxLimit, Math.trunc(limit)));
-  const date = after ? new Date(after.publishedAt) : undefined;
-  const cursor = after && date && Number.isFinite(date.getTime()) ? { publishedAt: date, id: after.id } : undefined;
+  const cursor = dbCursor(after);
   const readRows = () => repos.posts.listPublishedPage(safeLimit + 1, cursor, indexableOnly);
   const read = cursor
     ? readRows
@@ -295,7 +300,7 @@ const cachedSitemapCursors = cached(
     const cursors: PublicPostCursor[] = [];
     let after: { publishedAt: Date; id: string } | undefined;
     for (;;) {
-      const rows = await repos.posts.listPublishedPage(SITEMAP_PAGE_SIZE + 1, after, true);
+      const rows = await repos.posts.listIndexableRefs(SITEMAP_PAGE_SIZE + 1, after);
       const last = rows.length > SITEMAP_PAGE_SIZE ? rows[SITEMAP_PAGE_SIZE - 1] : undefined;
       const next = last ? cursorAfter(last) : null;
       if (!next) return cursors;
@@ -315,6 +320,37 @@ export async function getSitemapCursors(): Promise<PublicPostCursor[]> {
   return cursors ?? [];
 }
 
+/** One post as a sitemap or URL list needs it. */
+export interface PostRef {
+  slug: string;
+  /** Effective publish time (publishAt, else publishedAt), ISO; null for code defaults. */
+  publishedAt: string | null;
+  updatedAt: string | null;
+}
+
+const toIso = (value: Date | string | null): string | null => (value ? new Date(value).toISOString() : null);
+
+/**
+ * One sitemap file's posts: SITEMAP_PAGE_SIZE indexable posts after `after`,
+ * reference fields only. The full summary select carries each post's whole
+ * text (for excerpts); at 1,000 rows that can pass the data cache's 2 MB
+ * entry limit, and a cache write that fails turns every read into a miss.
+ * Only the first file's read is cached, like getPostPage().
+ */
+export async function getSitemapPostRefs(after?: PublicPostCursor): Promise<PostRef[]> {
+  const cursor = dbCursor(after);
+  const readRows = () => repos.posts.listIndexableRefs(SITEMAP_PAGE_SIZE, cursor);
+  const read = cursor ? readRows : cached(readRows, ["blog", "sitemap-first", "v1"], { tags: [TAGS.blogList], revalidate: 300 });
+  const rows = await loadOrNull(read, {
+    onError: (error) => log.warn("sitemap post read failed during build, using defaults", { error: String(error) }),
+  });
+  if (rows && rows.length === 0 && !cursor && (await storedPostsExist())) return [];
+  if (!rows || rows.length === 0) {
+    return cursor ? [] : defaultPosts().map((post) => ({ slug: post.slug, publishedAt: null, updatedAt: null }));
+  }
+  return rows.map((row) => ({ slug: row.slug, publishedAt: toIso(row.publishAt ?? row.publishedAt), updatedAt: toIso(row.updatedAt) }));
+}
+
 /** Up to 50 newest public posts in one cached read: article recommendations, previews, chat context. */
 export async function getRecentPosts(limit = 20): Promise<BlogPostSummary[]> {
   return (await getPublicPostPage(limit)).items;
@@ -326,18 +362,15 @@ export async function getRecentIndexablePosts(limit = 20): Promise<BlogPostSumma
 }
 
 /**
- * Every indexable post up to `max` (IndexNow's whole-site submit takes at
- * most 10,000 URLs), read in pages of 1,000: at most ten bounded reads for an
- * admin action, instead of a bulk read routed through small pages.
+ * Every indexable post's URL fields, up to `max` (IndexNow's whole-site
+ * submit takes at most 10,000 URLs): one reference-only read per sitemap
+ * file, using the cached sitemap boundaries, so at most ten bounded reads.
  */
-export async function getAllIndexablePosts(max = 10_000): Promise<BlogPostSummary[]> {
-  const items: BlogPostSummary[] = [];
-  let cursor: PublicPostCursor | undefined;
-  while (items.length < max) {
-    const page = await getIndexablePostPage(Math.min(1_000, max - items.length), cursor);
-    items.push(...page.items);
-    if (!page.nextCursor) break;
-    cursor = page.nextCursor;
+export async function getAllIndexablePosts(max = 10_000): Promise<PostRef[]> {
+  const items = await getSitemapPostRefs();
+  for (const cursor of await getSitemapCursors()) {
+    if (items.length >= max) break;
+    items.push(...(await getSitemapPostRefs(cursor)));
   }
   return items.slice(0, max);
 }

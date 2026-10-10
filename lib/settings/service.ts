@@ -3,7 +3,7 @@ import "server-only";
 import { cached } from "@/lib/cache/cached";
 import { invalidate } from "@/lib/cache/invalidate";
 import { forSettings } from "@/lib/cache/plan";
-import { staticTags } from "@/lib/cache/tags";
+import { staticTags, TAGS } from "@/lib/cache/tags";
 import { repos, withTx } from "@/lib/data";
 import { audit } from "@/lib/admin/audit";
 import type { AuthUser } from "@/lib/auth/dal";
@@ -81,7 +81,7 @@ async function readSettingRaw<K extends SettingKey>(key: K): Promise<SettingValu
 
 /** One cached setting. Use in request handlers and Server Components. */
 export async function getSetting<K extends SettingKey>(key: K): Promise<SettingValue<K>> {
-  const read = cached(() => readStoredSetting(key), [`setting:${key}`], { tags: ["settings", `settings:${key}`] });
+  const read = cached(() => readStoredSetting(key), [`setting:${key}`], { tags: [TAGS.settings, `settings:${key}`] });
   return orDefault(read, () => getSettingDefault(key) as SettingValue<K>, { key });
 }
 
@@ -125,7 +125,7 @@ export async function collectAllSettings(): Promise<Record<SettingKey, unknown>>
 }
 
 export async function getAllSettings(): Promise<Record<SettingKey, unknown>> {
-  const read = cached(() => readStoredSettings(ALL_KEYS), ["settings:all"], { tags: ["settings"] });
+  const read = cached(() => readStoredSettings(ALL_KEYS), ["settings:all"], { tags: [TAGS.settings] });
   return orDefault(read, () => defaultsFor(ALL_KEYS), { count: ALL_KEYS.length });
 }
 
@@ -171,7 +171,7 @@ export async function updateSetting<K extends SettingKey>(
   await mirrorSettingToKv(key, validated);
 
   const plan = forSettings();
-  await invalidate({ tags: [...new Set([`settings:${key}`, "settings", ...plan.tags])], paths: plan.paths });
+  await invalidate({ tags: [...new Set([`settings:${key}`, TAGS.settings, ...plan.tags])], paths: plan.paths });
 }
 
 /**

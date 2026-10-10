@@ -1,6 +1,6 @@
 import type { Prisma } from "@prisma/client";
 
-import type { PostRepo, PostRevisionRepo, PublishedPostSummaryRow } from "../posts";
+import type { PostRepo, PostRevisionRepo, PublishedPostRefRow, PublishedPostSummaryRow } from "../posts";
 import type { DbClient } from "./client";
 import { isNotFound, translateUnique } from "./errors";
 
@@ -25,6 +25,8 @@ const SUMMARY_SELECT = {
   author: { select: { name: true } },
 } as const;
 
+const REF_SELECT = { id: true, slug: true, publishAt: true, publishedAt: true, updatedAt: true } as const;
+
 function publicPostAfter(field: "publishedAt" | "publishAt", cursor?: { publishedAt: Date; id: string }): Prisma.PostWhereInput {
   if (!cursor) return {};
   return {
@@ -43,12 +45,13 @@ function newestFirst<T extends { id: string; publishedAt: Date | null; publishAt
   return rows.sort((a, b) => effectivePublishedAt(b).getTime() - effectivePublishedAt(a).getTime() || b.id.localeCompare(a.id));
 }
 
-function publicPostQueries(
+function publicPostQueries<Row = PublishedPostSummaryRow>(
   client: DbClient,
   take: number,
   after?: { publishedAt: Date; id: string },
-  indexableOnly = false
-): Promise<[PublishedPostSummaryRow[], PublishedPostSummaryRow[], PublishedPostSummaryRow[]]> {
+  indexableOnly = false,
+  select: Prisma.PostSelect = SUMMARY_SELECT
+): Promise<[Row[], Row[], Row[]]> {
   const now = new Date();
   const publishedWhere: Prisma.PostWhereInput = {
     status: "PUBLISHED",
@@ -73,22 +76,22 @@ function publicPostQueries(
   const publishedArgs = {
     where: publishedWhere,
     orderBy: [{ publishedAt: "desc" }, { id: "desc" }],
-    select: SUMMARY_SELECT,
+    select,
   } as const satisfies Prisma.PostFindManyArgs;
   const scheduledArgs = {
     where: scheduledWhere,
     orderBy: [{ publishAt: "desc" }, { id: "desc" }],
-    select: SUMMARY_SELECT,
+    select,
   } as const satisfies Prisma.PostFindManyArgs;
   const promotedArgs = {
     where: promotedScheduledWhere,
     orderBy: [{ publishAt: "desc" }, { id: "desc" }],
-    select: SUMMARY_SELECT,
+    select,
   } as const satisfies Prisma.PostFindManyArgs;
   return Promise.all([
-    client.post.findMany({ ...publishedArgs, take }) as unknown as Promise<PublishedPostSummaryRow[]>,
-    client.post.findMany({ ...promotedArgs, take }) as unknown as Promise<PublishedPostSummaryRow[]>,
-    client.post.findMany({ ...scheduledArgs, take }) as unknown as Promise<PublishedPostSummaryRow[]>,
+    client.post.findMany({ ...publishedArgs, take }) as unknown as Promise<Row[]>,
+    client.post.findMany({ ...promotedArgs, take }) as unknown as Promise<Row[]>,
+    client.post.findMany({ ...scheduledArgs, take }) as unknown as Promise<Row[]>,
   ]);
 }
 
@@ -105,6 +108,10 @@ function publicNow(): Prisma.PostWhereInput {
 
 export function postRepo(client: DbClient): PostRepo {
   return {
+    async listIndexableRefs(take, after) {
+      const [published, promoted, scheduled] = await publicPostQueries<PublishedPostRefRow>(client, take, after, true, REF_SELECT);
+      return newestFirst([...published, ...promoted, ...scheduled]).slice(0, take);
+    },
     async listPublishedPage(take, after, indexableOnly) {
       const [published, promoted, scheduled] = await publicPostQueries(client, take, after, indexableOnly);
       return newestFirst([...published, ...promoted, ...scheduled]).slice(0, take);
