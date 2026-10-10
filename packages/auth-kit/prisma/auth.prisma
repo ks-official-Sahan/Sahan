@@ -20,6 +20,8 @@ enum MfaPurpose {
   ENABLE
   DISABLE
   STEP_UP
+  PASSKEY_REGISTER
+  PASSKEY_SIGN_IN
 }
 
 enum TokenPurpose {
@@ -41,6 +43,9 @@ model User {
   image              String?
   bio                String?   @db.Text
   mfaEnabled         Boolean   @default(false)
+  // Authenticator-app (TOTP) secret, sealed with AES-256-GCM by the app; null until set up.
+  totpSecretCipher   String?
+  totpEnabledAt      DateTime?
   mustChangePassword Boolean   @default(false)
   // Shown to non-super-role viewers as another role (see ./rbac/mask). Presentation only.
   masked             Boolean   @default(false)
@@ -53,6 +58,8 @@ model User {
 
   sessions      UserSession[]
   mfaChallenges MfaChallenge[]
+  recoveryCodes MfaRecoveryCode[]
+  passkeys      WebAuthnCredential[]
   auditLogs     AuditLog[]
 
   @@index([role])
@@ -182,4 +189,38 @@ model AuditLog {
   @@index([action])
   @@index([entityType, entityId])
   @@map("audit_logs")
+}
+
+// Single-use recovery codes for a user with an authenticator app or passkey.
+// Only a hash is stored; `usedAt` is set atomically when one is spent.
+model MfaRecoveryCode {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  codeHash  String
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@unique([userId, codeHash])
+  @@map("mfa_recovery_codes")
+}
+
+// Passkeys (WebAuthn credentials). `id` is the credential id the
+// authenticator returns (base64url); `publicKey` is its COSE key, base64url.
+model WebAuthnCredential {
+  id         String    @id
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  publicKey  String
+  // The authenticator's signature counter: an unsigned 32-bit value.
+  counter    BigInt    @default(0)
+  transports String[]  @default([])
+  deviceType String
+  backedUp   Boolean   @default(false)
+  name       String    @default("Passkey")
+  createdAt  DateTime  @default(now())
+  lastUsedAt DateTime?
+
+  @@index([userId])
+  @@map("webauthn_credentials")
 }

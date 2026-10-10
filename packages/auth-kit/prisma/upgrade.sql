@@ -95,3 +95,43 @@ BEGIN
     EXECUTE format('ALTER TYPE %I.%I ADD VALUE IF NOT EXISTS %L', current_schema(), 'MfaPurpose', 'STEP_UP');
   END IF;
 END $$;
+
+-- 6. auth-kit 0.11: authenticator apps (TOTP), recovery codes and passkeys.
+--    Additive only: existing users keep emailed codes until they enroll.
+ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "totpSecretCipher" TEXT;
+ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "totpEnabledAt" TIMESTAMP(3);
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_type t JOIN pg_namespace n ON n.oid = t.typnamespace
+    WHERE t.typname = 'MfaPurpose' AND n.nspname = current_schema()
+  ) THEN
+    EXECUTE format('ALTER TYPE %I.%I ADD VALUE IF NOT EXISTS %L', current_schema(), 'MfaPurpose', 'PASSKEY_REGISTER');
+    EXECUTE format('ALTER TYPE %I.%I ADD VALUE IF NOT EXISTS %L', current_schema(), 'MfaPurpose', 'PASSKEY_SIGN_IN');
+  END IF;
+END $$;
+CREATE TABLE IF NOT EXISTS "mfa_recovery_codes" (
+  "id" TEXT NOT NULL,
+  "userId" TEXT NOT NULL,
+  "codeHash" TEXT NOT NULL,
+  "usedAt" TIMESTAMP(3),
+  "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT "mfa_recovery_codes_pkey" PRIMARY KEY ("id"),
+  CONSTRAINT "mfa_recovery_codes_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE
+);
+CREATE UNIQUE INDEX IF NOT EXISTS "mfa_recovery_codes_userId_codeHash_key" ON "mfa_recovery_codes"("userId", "codeHash");
+CREATE TABLE IF NOT EXISTS "webauthn_credentials" (
+  "id" TEXT NOT NULL,
+  "userId" TEXT NOT NULL,
+  "publicKey" TEXT NOT NULL,
+  "counter" BIGINT NOT NULL DEFAULT 0,
+  "transports" TEXT[] DEFAULT ARRAY[]::TEXT[],
+  "deviceType" TEXT NOT NULL,
+  "backedUp" BOOLEAN NOT NULL DEFAULT false,
+  "name" TEXT NOT NULL DEFAULT 'Passkey',
+  "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "lastUsedAt" TIMESTAMP(3),
+  CONSTRAINT "webauthn_credentials_pkey" PRIMARY KEY ("id"),
+  CONSTRAINT "webauthn_credentials_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE
+);
+CREATE INDEX IF NOT EXISTS "webauthn_credentials_userId_idx" ON "webauthn_credentials"("userId");
