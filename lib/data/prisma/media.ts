@@ -2,6 +2,7 @@ import type { Prisma } from "@prisma/client";
 
 import type { MediaRepo } from "../media";
 import type { DbClient } from "./client";
+import { normalizeTags } from "@/lib/media/tags";
 
 export function mediaRepo(client: DbClient): MediaRepo {
   return {
@@ -52,6 +53,9 @@ export function mediaRepo(client: DbClient): MediaRepo {
       // for an admin library of this size: the scan walks the createdAt order
       // and stops at `take` matches. Add a pg_trgm GIN index if it grows large.
       const trimmed = query?.trim();
+      // Tags are stored normalized (lib/media/tags.ts); tags saved before that
+      // kept their casing, so the term as typed is matched too.
+      const tagTerms = trimmed ? [...new Set([...normalizeTags([trimmed]), trimmed])] : [];
       const where: Prisma.MediaAssetWhereInput = {
         ...(kind ? { kind } : {}),
         ...(trimmed
@@ -61,8 +65,7 @@ export function mediaRepo(client: DbClient): MediaRepo {
                 { publicId: { contains: trimmed, mode: "insensitive" } },
                 { alt: { contains: trimmed, mode: "insensitive" } },
                 { folder: { contains: trimmed, mode: "insensitive" } },
-                // Tags are stored lowercased (lib/media/service.ts, normalizeTags).
-                { tags: { has: trimmed.toLowerCase() } },
+                { tags: { hasSome: tagTerms } },
               ],
             }
           : {}),
@@ -86,6 +89,10 @@ export function mediaRepo(client: DbClient): MediaRepo {
     },
     create(input) {
       return client.mediaAsset.create({ data: input });
+    },
+    async existsByPublicId(provider, publicId) {
+      const row = await client.mediaAsset.findUnique({ where: { provider_publicId: { provider, publicId } }, select: { id: true } });
+      return row !== null;
     },
     async createIfMissing(input) {
       await client.mediaAsset.upsert({

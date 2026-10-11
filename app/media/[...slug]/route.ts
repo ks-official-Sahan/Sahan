@@ -60,8 +60,9 @@ export async function GET(
   }
 
   // Redirect to the Cloudinary delivery URL. A signed URL always maps to the
-  // same asset and transform, so browsers and the CDN may keep the redirect.
+  // same asset and transform, so caches may keep the redirect, but only
+  // briefly: a deleted or replaced asset stops resolving within minutes.
   const response = NextResponse.redirect(deliveryUrl, { status: 307 });
-  response.headers.set("Cache-Control", "public, max-age=86400, s-maxage=86400");
+  response.headers.set("Cache-Control", "public, max-age=300, s-maxage=300, stale-while-revalidate=3600");
   return response;
 }

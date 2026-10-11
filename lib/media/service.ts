@@ -137,13 +137,20 @@ export async function registerUpload(
     return { ok: true, asset: { id: asset.id, url: asset.url } };
   } catch (error) {
     log.error("media register failed", { publicId, error: error instanceof Error ? error.message : String(error) });
-    // The file is already in Cloudinary. Unless the failure was this publicId
-    // being registered already (a unique violation: the row exists and owns
-    // the file), nothing references it, so delete it rather than orphan it.
-    if ((error as { code?: unknown } | null)?.code !== "P2002") {
-      await cloudinaryClient.deleteAsset(publicId).catch((cleanupError: unknown) =>
-        log.warn("media register cleanup failed", { publicId, error: String(cleanupError) })
-      );
+    // The file is already in Cloudinary. Delete it only when no row owns it:
+    // a unique violation means one does, and so may a transaction that
+    // committed before the connection failed, or an earlier registration of
+    // the same publicId (getAsset failing before any write). When the check
+    // itself fails, keep the file: an orphan is cheaper than a broken asset.
+    const owned =
+      (error as { code?: unknown } | null)?.code === "P2002" ||
+      (await repos.media.existsByPublicId("CLOUDINARY", publicId).catch(() => true));
+    if (!owned) {
+      const deleted = await cloudinaryClient.deleteAsset(publicId).catch((cleanupError: unknown) => {
+        log.warn("media register cleanup failed", { publicId, error: String(cleanupError) });
+        return null;
+      });
+      if (deleted === false) log.warn("media register cleanup failed", { publicId, error: "Cloudinary refused the delete" });
     }
     return { ok: false, error: "Failed to register uploaded media" };
   }
