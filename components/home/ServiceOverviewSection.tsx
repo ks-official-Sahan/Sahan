@@ -1,3 +1,4 @@
+import Icon from "@/components/icons/Icon";
 import ServiceCard from "@/components/about/ServiceCard";
 import HomeSection from "@/components/home/HomeSection";
 import SectionHeading from "@/components/home/SectionHeading";
@@ -5,7 +6,6 @@ import SnapRow from "@/components/home/SnapRow";
 import type { PageContent } from "@/lib/cms/registry";
 import { MyServices } from "@/contents/service";
 import type { ServiceCategory } from "@/types/service";
-import { ArrowUpRight } from "lucide-react";
 import Link from "next/link";
 import React from "react";
 
@@ -30,11 +30,7 @@ const ServiceOverviewSection = ({ content: home, serviceGroups }: ServiceOvervie
             className="press arrow-nudge inline-flex min-h-11 items-center gap-2 rounded-full border border-bBORDERFADE bg-bCARD px-5 text-sm font-semibold"
           >
             View all services
-            <ArrowUpRight
-              size={16}
-              aria-hidden="true"
-              className="arrow-nudge-icon"
-            />
+            <Icon name="arrow-up-right" className="size-4 arrow-nudge-icon" />
           </Link>
         }
       />

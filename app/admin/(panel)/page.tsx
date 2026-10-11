@@ -1,8 +1,8 @@
-import { Activity, AlertTriangle, FileText, Inbox, KeyRound, PenLine, ShieldCheck } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense, type ReactNode } from "react";
 
+import Icon from "@/components/icons/Icon";
 import RefreshButton from "@/components/admin/dashboard/RefreshButton";
 import { RevealGroup, RevealItem } from "@/components/admin/dashboard/Reveal";
 import StatTile from "@/components/admin/dashboard/StatTile";
@@ -115,7 +115,7 @@ async function AccountAlerts({ user }: { user: AuthUser }) {
           className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-300/60 bg-amber-50 px-4 py-3 text-sm dark:border-amber-500/30 dark:bg-amber-500/10"
         >
           <div className="flex items-start gap-3">
-            <AlertTriangle aria-hidden className="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-400" />
+            <Icon name="triangle-alert" className="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-400" />
             <div>
               <p className="font-medium text-amber-950 dark:text-amber-100">{alert.title}</p>
               <p className="text-amber-900/80 dark:text-amber-200/80">{alert.body}</p>
@@ -164,7 +164,7 @@ async function Tiles({
           href="/admin/leads?status=NEW"
           label="New inquiries"
           value={inquiries}
-          icon={<Inbox className="size-4" />}
+          icon={<Icon name="mail-filled" className="size-4" />}
           caption="waiting for a reply"
           trend={trend}
           delta={{ value: lastWeek(trend), period: "this week" }}
@@ -183,7 +183,7 @@ async function Tiles({
             href="/admin/blog?status=DRAFT"
             label="Not yet public"
             value={content.unpublished}
-            icon={<PenLine className="size-4" />}
+            icon={<Icon name="pen" className="size-4" />}
             caption={`includes ${content.drafts} draft ${content.drafts === 1 ? "block" : "blocks"}`}
           />
         ),
@@ -195,7 +195,7 @@ async function Tiles({
             href="/admin/blog?status=PUBLISHED"
             label="Posts published"
             value={sum(trend)}
-            icon={<FileText className="size-4" />}
+            icon={<Icon name="file-description" className="size-4" />}
             caption="in the last 30 days"
             trend={trend}
           />
@@ -212,7 +212,7 @@ async function Tiles({
           href="/admin/audit"
           label="Admin activity"
           value={lastWeek(trend)}
-          icon={<Activity className="size-4" />}
+          icon={<Icon name="chart-line" className="size-4" />}
           caption="changes in the last 7 days"
           trend={trend}
         />
@@ -226,7 +226,7 @@ async function Tiles({
         href="/admin/account#security"
         label="Your sign-in"
         value={strongCount}
-        icon={strongCount > 0 ? <ShieldCheck className="size-4" /> : <KeyRound className="size-4" />}
+        icon={strongCount > 0 ? <Icon name="shield-check" className="size-4" /> : <Icon name="lock" className="size-4" />}
         caption={strongCount > 0 ? "strong factors (app or passkeys)" : "no app or passkey yet"}
       />
     ),

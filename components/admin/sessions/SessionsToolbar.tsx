@@ -2,9 +2,9 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Loader2, Search } from "lucide-react";
 import { useEffect, useState, useTransition } from "react";
 
+import UiIcon from "@/components/icons/Icon";
 import Icon from "@/components/icons/Icon";
 import { fieldClass } from "@/components/admin/ui/styles";
 import type { SessionStatusFilter } from "@/lib/data/user-sessions";
@@ -63,7 +63,7 @@ export default function SessionsToolbar({ view, userLabel, shown }: { view: Sess
       >
         {view.user ? <input type="hidden" name="user" value={view.user} /> : null}
         <div className="relative min-w-0 flex-1 basis-56">
-          <Search aria-hidden className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <UiIcon name="magnifier" className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <label htmlFor="sessions-q" className="sr-only">
             Search sessions by name, email or IP address
           </label>
@@ -103,7 +103,7 @@ export default function SessionsToolbar({ view, userLabel, shown }: { view: Sess
         <span className="flex min-w-24 items-center gap-1.5 text-xs text-muted-foreground" aria-live="polite">
           {pending ? (
             <>
-              <Loader2 aria-hidden className="size-3.5 animate-spin motion-reduce:animate-none" />
+              <UiIcon lucideIconName="Loader2" className="size-3.5 animate-spin motion-reduce:animate-none" />
               Updating…
             </>
           ) : (

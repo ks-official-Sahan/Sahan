@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Alert, Button, Stack, TextInput, Textarea } from "@mantine/core";
-import { Save } from "lucide-react";
 
 import Icon from "@/components/icons/Icon";
 import { deleteMedia, updateMedia } from "@/lib/actions/media";

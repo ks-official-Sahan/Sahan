@@ -29,7 +29,7 @@ export default function UserMenu({ user }: { user: UserMenuUser }) {
           type="submit"
           className="inline-flex h-9 items-center gap-1.5 rounded-md px-3 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-          <Icon name="log-out" className="size-3.5" />
+          <Icon name="logout" className="size-3.5" />
           Sign out
         </button>
       </form>

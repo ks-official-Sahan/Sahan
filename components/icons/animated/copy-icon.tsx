@@ -37,7 +37,7 @@ const CopyIcon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
     return (
       <m.span
         ref={scope}
-        className={`inline-flex items-center justify-center ${className}`}
+        className={`inline-flex size-full items-center justify-center ${className}`}
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"

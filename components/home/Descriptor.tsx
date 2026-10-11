@@ -1,8 +1,8 @@
 "use client";
 
+import Icon from "@/components/icons/Icon";
 import { cn } from "@/lib/utils";
 import type { FAQItem } from "@/types/faq";
-import { Minus, Plus } from "lucide-react";
 import React from "react";
 
 interface DescriptorProps {
@@ -42,7 +42,7 @@ const Descriptor = ({ item, isOpen, onToggle, index }: DescriptorProps) => {
             aria-hidden="true"
             className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[8px] bg-bCHIP opacity-70"
           >
-            {isOpen ? <Minus size={20} /> : <Plus size={20} />}
+            {isOpen ? <Icon lucideIconName="Minus" className="size-5" /> : <Icon lucideIconName="Plus" className="size-5" />}
           </span>
         </button>
       </h3>

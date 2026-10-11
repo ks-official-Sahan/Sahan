@@ -50,7 +50,7 @@ const LogoutIcon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
     return (
       <m.span
         ref={scope}
-        className={`inline-flex ${className}`}
+        className={`inline-flex size-full ${className}`}
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"

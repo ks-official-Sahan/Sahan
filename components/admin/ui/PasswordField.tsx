@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
-import { Wand2 } from "lucide-react";
 
+import UiIcon from "@/components/icons/Icon";
 import Icon from "@/components/icons/Icon";
 import { generatePassword } from "@/lib/admin/generate-password";
 import { toast } from "@/lib/admin/toast";
@@ -98,10 +98,10 @@ export function PasswordInput({ id, name, generate = false, className, disabled,
         {generate ? (
           <>
             <button type="button" className={iconButton} onClick={fillGenerated} disabled={disabled} aria-label="Generate a strong password" title="Generate">
-              <Wand2 size={15} aria-hidden />
+              <UiIcon name="sparkles" className="size-[15px]" />
             </button>
             <button type="button" className={iconButton} onClick={copy} disabled={disabled} aria-label="Copy password" title="Copy">
-              {copied ? <Icon name="check" className="size-[15px] text-emerald-600 dark:text-emerald-400" /> : <Icon name="copy" className="size-[15px]" />}
+              {copied ? <Icon name="checked" className="size-[15px] text-emerald-600 dark:text-emerald-400" /> : <Icon name="copy" className="size-[15px]" />}
             </button>
           </>
         ) : null}

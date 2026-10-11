@@ -1,6 +1,6 @@
+import Icon from "@/components/icons/Icon";
 import { Site } from "@/config/site";
 import type { PageContent } from "@/lib/cms/registry";
-import { Mail, MessageCircle } from "lucide-react";
 import Link from "next/link";
 import React from "react";
 
@@ -28,11 +28,11 @@ const AvailableCard = ({ content }: AvailableCardProps) => {
 
       <div className="flex w-full flex-col gap-[10px]">
         <a href={`mailto:${Site.email}`} className={actionClass}>
-          <Mail size={14} className="text-bICON" aria-hidden="true" />
+          <Icon name="mail-filled" className="size-3.5 text-bICON" />
           <span className="opacity-80">{content.emailLabel}</span>
         </a>
         <Link href="/contact" className={actionClass}>
-          <MessageCircle size={14} className="text-bICON" aria-hidden="true" />
+          <Icon name="message-circle" className="size-3.5 text-bICON" />
           <span className="opacity-80">{content.messageLabel}</span>
         </Link>
       </div>

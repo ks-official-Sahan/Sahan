@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { type ReactNode, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useFormStatus } from "react-dom";
-import { ArrowLeft } from "lucide-react";
 
+import UiIcon from "@/components/icons/Icon";
 import Icon from "@/components/icons/Icon";
 import ActionForm, { Field, SubmitButton } from "@/components/admin/ui/ActionForm";
 import type { ActionState } from "@/lib/actions/state";
@@ -446,7 +446,7 @@ export default function BlogEditorForm({
           aria-label="Back to posts"
           className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-border bg-card text-muted-foreground hover:text-foreground"
         >
-          <ArrowLeft size={16} />
+          <UiIcon name="arrow-narrow-left" className="size-4" />
         </Link>
         <div className="min-w-0">
           <h1 className="truncate text-sm font-medium">{title || (post?.id ? "Edit post" : "New post")}</h1>

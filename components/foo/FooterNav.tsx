@@ -1,13 +1,8 @@
 "use client";
-import {
-  BriefcaseBusiness,
-  Handshake,
-  HomeIcon,
-  Rss,
-  User,
-} from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import React, { useEffect, useState } from "react";
+
+import Icon from "@/components/icons/Icon";
 
 const FooterNav = ({ className }: { className?: string }) => {
   const [currentPath, setCurrentPath] = useState("");
@@ -70,7 +65,7 @@ const FooterNav = ({ className }: { className?: string }) => {
                 `}
           >
             <div className="w-full h-full flex justify-center items-center">
-              <HomeIcon size={20} />
+              <Icon name="home" className="size-5" />
             </div>
           </button>
           <button
@@ -87,7 +82,7 @@ const FooterNav = ({ className }: { className?: string }) => {
                 `}
           >
             <div className="w-full h-full flex justify-center items-center">
-              <User size={20} />
+              <Icon name="user" className="size-5" />
             </div>
           </button>
         </div>
@@ -106,7 +101,7 @@ const FooterNav = ({ className }: { className?: string }) => {
                 `}
           >
             <div className="w-full h-full flex justify-center items-center">
-              <BriefcaseBusiness size={20} />
+              <Icon name="stack-3" className="size-5" />
             </div>
           </button>
           <button
@@ -123,7 +118,7 @@ const FooterNav = ({ className }: { className?: string }) => {
                 `}
           >
             <div className="w-full h-full flex justify-center items-center">
-              <Rss size={20} />
+              <Icon lucideIconName="Rss" className="size-5" />
             </div>
           </button>
         </div>
@@ -142,7 +137,7 @@ const FooterNav = ({ className }: { className?: string }) => {
             `}
       >
         <div className="-rotate-90 w-[84px] h-[34px] px-[13px] rounded-full border flex items-center gap-[4px]">
-          <Handshake size={12} />{" "}
+          <Icon name="hand-heart" className="size-3" />{" "}
           <span className="text-[10px] font-semibold ">Contact</span>
         </div>
       </button>

@@ -1,3 +1,4 @@
+import Icon from "@/components/icons/Icon";
 import AvailableCard from "@/components/about/AvailableCard";
 import GitHubStatsCard from "@/components/about/GitHubStatsCard";
 import CountUp from "@/components/home/CountUp";
@@ -8,7 +9,6 @@ import { Projects } from "@/contents/projects";
 import type { PageContent } from "@/lib/cms/registry";
 import type { GitHubStats } from "@/lib/github";
 import { cn } from "@/lib/utils";
-import { Briefcase } from "lucide-react";
 import React from "react";
 
 interface AboutBentoProps {
@@ -53,7 +53,7 @@ const AboutBento = ({ content, githubStats }: AboutBentoProps) => {
           aria-hidden="true"
           className="flex h-10 w-10 items-center justify-center rounded-full bg-bICON_FADE text-bICON"
         >
-          <Briefcase size={18} />
+          <Icon name="stack-3" className="size-[18px]" />
         </span>
         <div>
           <div className="text-lg font-semibold">{currentRole?.role}</div>

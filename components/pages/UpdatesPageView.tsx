@@ -1,10 +1,10 @@
 "use client";
 
+import Icon from "@/components/icons/Icon";
 import HeroBackdrop from "@/components/home/HeroBackdrop";
 import { HomeContainer, stagger } from "@/components/home/HomeSection";
 import UpdatesExplorer, { type UpdatesListPost } from "@/components/updates/UpdatesExplorer";
 import type { PageContent } from "@/lib/cms/registry";
-import { Rss } from "lucide-react";
 import React, { ReactNode } from "react";
 
 interface UpdatesPageViewProps {
@@ -41,7 +41,7 @@ export default function UpdatesPageView({ content, posts, nextCursor, finalCta }
                   style={stagger(2)}
                   className="hero-rise inline-flex items-center gap-2 rounded-full border border-bBORDERFADE bg-bCHIP px-3 py-1.5 text-xs font-medium opacity-80 transition-opacity hover:opacity-100"
                 >
-                  <Rss size={14} aria-hidden="true" />
+                  <Icon lucideIconName="Rss" className="size-3.5" />
                   RSS feed
                 </a>
               </div>

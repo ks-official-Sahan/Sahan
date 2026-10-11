@@ -35,7 +35,7 @@ export default function MobileNav({ sections }: { sections: NavSectionView[] }) 
         onClick={() => dialogRef.current?.showModal()}
         className="inline-flex size-9 items-center justify-center rounded-md text-foreground transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
-        <Icon name="menu" className="size-5" />
+        <Icon lucideIconName="Menu" className="size-5" />
       </button>
       <dialog
         ref={dialogRef}

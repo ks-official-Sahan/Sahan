@@ -1,3 +1,4 @@
+import UiIcon, { type IconSpec } from "@/components/icons/Icon";
 import { cn } from "@/lib/utils";
 import type {
   Project,
@@ -5,20 +6,6 @@ import type {
   ProjectPlatform,
   ProjectStatus,
 } from "@/types/project";
-import {
-  AppWindow,
-  Clock,
-  FileText,
-  Globe,
-  LayoutDashboard,
-  Lock,
-  MonitorPlay,
-  Play,
-  Rocket,
-  Smartphone,
-  Store,
-  WifiOff,
-} from "lucide-react";
 import Image from "next/image";
 import React from "react";
 
@@ -30,10 +17,10 @@ export const platformLabels: Record<ProjectPlatform, string> = {
 };
 
 const platformIcons = {
-  android: Smartphone,
-  ios: Smartphone,
-  web: Globe,
-  "web-admin": LayoutDashboard,
+  android: { lucideIconName: "Smartphone" },
+  ios: { lucideIconName: "Smartphone" },
+  web: { name: "globe" },
+  "web-admin": { name: "layout-dashboard" },
 } as const;
 
 export const linkLabels: Record<ProjectLinkKind, string> = {
@@ -47,13 +34,13 @@ export const linkLabels: Record<ProjectLinkKind, string> = {
 };
 
 export const linkIcons = {
-  website: Globe,
-  webapp: AppWindow,
-  playstore: Play,
-  appstore: Store,
-  demo: MonitorPlay,
-  casestudy: FileText,
-  facebook: Globe,
+  website: { name: "globe" },
+  webapp: { lucideIconName: "AppWindow" },
+  playstore: { name: "player" },
+  appstore: { name: "cart" },
+  demo: { name: "player" },
+  casestudy: { name: "file-description" },
+  facebook: { name: "globe" },
 } as const;
 
 export const statusLabels: Record<ProjectStatus, string> = {
@@ -65,11 +52,11 @@ export const statusLabels: Record<ProjectStatus, string> = {
   private: "Private",
 };
 
-const statusIcons: Partial<Record<ProjectStatus, typeof Lock>> = {
-  upcoming: Rocket,
-  unpublished: Clock,
-  offline: WifiOff,
-  private: Lock,
+const statusIcons: Partial<Record<ProjectStatus, IconSpec>> = {
+  upcoming: { name: "rocket" },
+  unpublished: { name: "clock" },
+  offline: { name: "wifi-off" },
+  private: { name: "lock" },
 };
 
 // A stable 0-100 number per project, so each tile lights up from a different
@@ -93,7 +80,7 @@ export const StatusBadge = ({
   status: ProjectStatus;
   className?: string;
 }) => {
-  const Icon = statusIcons[status];
+  const statusIcon = statusIcons[status];
 
   return (
     <span
@@ -102,8 +89,8 @@ export const StatusBadge = ({
         className
       )}
     >
-      {Icon ? (
-        <Icon size={12} aria-hidden="true" />
+      {statusIcon ? (
+        <UiIcon {...statusIcon} size={12} />
       ) : (
         <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-bICON" />
       )}
@@ -180,13 +167,13 @@ const ProjectPreview = ({
 
           <div className="absolute bottom-3 left-3 flex items-center gap-1.5">
             {[...new Set(project.platforms?.map((p) => platformIcons[p]))].map(
-              (Icon, index) => (
+              (icon, index) => (
                 <span
                   key={index}
                   aria-hidden="true"
                   className="flex h-8 w-8 items-center justify-center rounded-full border border-bBORDERFADE bg-bFCARD"
                 >
-                  <Icon size={15} />
+                  <UiIcon {...icon} size={15} />
                 </span>
               )
             )}

@@ -1,115 +1,50 @@
 "use client";
 
-import {
-  Briefcase,
-  ImageIcon,
-  Inbox,
-  Loader2,
-  Menu,
-  Monitor,
-  MonitorSmartphone,
-  Newspaper,
-  Search,
-  Settings,
-  Sun,
-  Wand2,
-  type LucideIcon,
-} from "lucide-react";
 import { LazyMotion, domAnimation, useReducedMotion } from "motion/react";
 import { useEffect, useRef, type ComponentType, type RefAttributes } from "react";
 
 import { cn } from "@/lib/utils";
 
-import CheckedIcon from "./animated/checked-icon";
-import CopyIcon from "./animated/copy-icon";
-import ExternalLinkIcon from "./animated/external-link-icon";
-import EyeIcon from "./animated/eye-icon";
-import EyeOffIcon from "./animated/eye-off-icon";
-import FileDescriptionIcon from "./animated/file-description-icon";
-import HistoryCircleIcon from "./animated/history-circle-icon";
-import InfoCircleIcon from "./animated/info-circle-icon";
-import LayoutDashboardIcon from "./animated/layout-dashboard-icon";
-import LinkIcon from "./animated/link-icon";
-import LogoutIcon from "./animated/logout-icon";
-import MessageCircleIcon from "./animated/message-circle-icon";
-import MoonIcon from "./animated/moon-icon";
-import PlugConnectedIcon from "./animated/plug-connected-icon";
-import RefreshIcon from "./animated/refresh-icon";
-import SaveIcon from "./animated/save-icon";
-import ShieldCheckIcon from "./animated/shield-check-icon";
-import SparklesIcon from "./animated/sparkles-icon";
-import TrashIcon from "./animated/trash-icon";
-import TriangleAlertIcon from "./animated/triangle-alert-icon";
+import { ANIMATED_ICONS, type ItshoverIconName } from "./animated-registry";
 import type { AnimatedIconHandle, AnimatedIconProps } from "./animated/types";
-import UploadIcon from "./animated/upload-icon";
-import UserIcon from "./animated/user-icon";
-import UsersIcon from "./animated/users-icon";
-import XIcon from "./animated/x-icon";
+import { LUCIDE_ICONS, type LucideIconName } from "./lucide-registry";
+
+export type { ItshoverIconName, LucideIconName };
 
 type AnimatedComponent = ComponentType<AnimatedIconProps & RefAttributes<AnimatedIconHandle>>;
 
-// Icons with a hover animation (itshover, 24px round-cap outline, the same
-// visual family as lucide). Names follow lucide's, so swapping is a rename.
-const ANIMATED = {
-  check: CheckedIcon,
-  copy: CopyIcon,
-  "external-link": ExternalLinkIcon,
-  eye: EyeIcon,
-  "eye-off": EyeOffIcon,
-  "file-text": FileDescriptionIcon,
-  history: HistoryCircleIcon,
-  info: InfoCircleIcon,
-  "layout-dashboard": LayoutDashboardIcon,
-  link: LinkIcon,
-  "log-out": LogoutIcon,
-  "message-circle": MessageCircleIcon,
-  moon: MoonIcon,
-  plug: PlugConnectedIcon,
-  refresh: RefreshIcon,
-  save: SaveIcon,
-  "shield-check": ShieldCheckIcon,
-  sparkles: SparklesIcon,
-  trash: TrashIcon,
-  "triangle-alert": TriangleAlertIcon,
-  upload: UploadIcon,
-  user: UserIcon,
-  users: UsersIcon,
-  x: XIcon,
-} satisfies Record<string, AnimatedComponent>;
-
-// Static lucide icons where itshover has no match in the same style.
-const STATIC = {
-  briefcase: Briefcase,
-  image: ImageIcon,
-  inbox: Inbox,
-  loader: Loader2,
-  menu: Menu,
-  monitor: Monitor,
-  "monitor-smartphone": MonitorSmartphone,
-  newspaper: Newspaper,
-  search: Search,
-  settings: Settings,
-  sun: Sun,
-  wand: Wand2,
-} satisfies Record<string, LucideIcon>;
-
-export type IconName = keyof typeof ANIMATED | keyof typeof STATIC;
-
 /** The control whose hover or keyboard focus plays the icon's animation. */
-const TRIGGER = "a, button, summary, label, [role='button'], [role='menuitem'], [data-icon-trigger]";
+const TRIGGER = "a, button, summary, label, [role='button'], [role='menuitem'], [role='tab'], [data-icon-trigger]";
+
+export interface IconProps {
+  /** An animated itshover icon (components/icons/animated). Wins over `lucideIconName`. */
+  name?: ItshoverIconName;
+  /** A static lucide icon, for names itshover does not have. */
+  lucideIconName?: LucideIconName;
+  /** Size and color utilities. The SVG fills the box; the default is `size-4`. */
+  className?: string;
+  /** Accessible name. Without it the icon is decorative (`aria-hidden`). */
+  label?: string;
+  strokeWidth?: number;
+  /** Pixel size, for call sites that size by number rather than class. */
+  size?: number;
+}
+
+/** An icon choice that a config or CMS map can store and pass to <Icon>. */
+export type IconSpec = Pick<IconProps, "name" | "lucideIconName">;
 
 /**
- * One icon for the whole UI. Animated icons play when the surrounding link or
- * button is hovered or keyboard-focused, so the whole control is the target,
- * not the few pixels of the SVG. Reduced motion renders them still. Size comes
- * from `className` (default `size-4`); the SVG fills it.
+ * One icon for the whole app. An animated icon plays when the surrounding
+ * link or button is hovered or keyboard-focused, so the whole control is the
+ * target, not the few pixels of the SVG. Reduced motion keeps it still. Each
+ * animated icon is its own chunk, so a page loads only the icons it shows.
  */
-export default function Icon({ name, className, label }: { name: IconName; className?: string; label?: string }) {
+export default function Icon({ name, lucideIconName, className, label, strokeWidth, size }: IconProps) {
   const wrapper = useRef<HTMLSpanElement>(null);
   const handle = useRef<AnimatedIconHandle>(null);
   const reduced = useReducedMotion();
-  const Animated: AnimatedComponent | null = name in ANIMATED ? ANIMATED[name as keyof typeof ANIMATED] : null;
-  const Static: LucideIcon | null = Animated ? null : STATIC[name as keyof typeof STATIC];
+  const Animated = (name ? ANIMATED_ICONS[name] : null) as AnimatedComponent | null;
+  const Static = !Animated && lucideIconName ? LUCIDE_ICONS[lucideIconName] : null;
 
   useEffect(() => {
     const own = wrapper.current;
@@ -136,14 +71,15 @@ export default function Icon({ name, className, label }: { name: IconName; class
     <span
       ref={wrapper}
       className={cn("inline-flex size-4 shrink-0", className)}
+      style={size ? { width: size, height: size } : undefined}
       {...(label ? { role: "img", "aria-label": label } : { "aria-hidden": true })}
     >
       {Animated ? (
         <LazyMotion features={domAnimation}>
-          <Animated ref={handle} size="100%" />
+          <Animated ref={handle} size="100%" strokeWidth={strokeWidth} />
         </LazyMotion>
       ) : Static ? (
-        <Static size="100%" aria-hidden />
+        <Static size="100%" strokeWidth={strokeWidth} aria-hidden />
       ) : null}
     </span>
   );

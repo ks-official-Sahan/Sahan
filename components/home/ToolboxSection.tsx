@@ -1,3 +1,4 @@
+import Icon from "@/components/icons/Icon";
 import ChipMarquee from "@/components/common/ChipMarquee";
 import SkillChip from "@/components/common/SkillChip";
 import HomeSection from "@/components/home/HomeSection";
@@ -5,7 +6,6 @@ import SectionHeading from "@/components/home/SectionHeading";
 import type { PageContent } from "@/lib/cms/registry";
 import { MySkills } from "@/contents/skills";
 import type { SkillCategory } from "@/types/skills";
-import { ArrowUpRight } from "lucide-react";
 import Link from "next/link";
 import React from "react";
 
@@ -40,11 +40,7 @@ const ToolboxSection = ({ content: home, skillGroups }: ToolboxSectionProps) => 
             className="press arrow-nudge inline-flex min-h-11 items-center gap-2 rounded-full border border-bBORDERFADE bg-bCARD px-5 text-sm font-semibold"
           >
             All skills
-            <ArrowUpRight
-              size={16}
-              aria-hidden="true"
-              className="arrow-nudge-icon"
-            />
+            <Icon name="arrow-up-right" className="size-4 arrow-nudge-icon" />
           </Link>
         }
       />
