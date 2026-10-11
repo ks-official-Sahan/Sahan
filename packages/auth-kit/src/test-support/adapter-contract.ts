@@ -70,6 +70,7 @@ export function runAdapterContract(name: string, open: () => Promise<ContractHar
         passwordHash: "hash",
         disabledAt: null,
         mfaEnabled: true,
+        strongMfa: false,
       });
       assert.equal(await h.adapter.findUserForAuth("nobody@example.com"), null);
       assert.deepEqual(await h.adapter.findUserById(user.id), { id: user.id, email: user.email, name: auth?.name, role: "MANAGER", passwordHash: "hash" });
@@ -99,8 +100,10 @@ export function runAdapterContract(name: string, open: () => Promise<ContractHar
         "name",
         "passwordHash",
         "role",
+        "strongMfa",
       ]);
       assert.equal(row.user.email, user.email);
+      assert.equal(row.user.strongMfa, false);
       assert.equal(await h.adapter.findSessionWithUser("missing"), null);
 
       const seen = new Date(Date.now() + 1000);
@@ -249,6 +252,83 @@ export function runAdapterContract(name: string, open: () => Promise<ContractHar
       assert.deepEqual(await h.adapter.consumeMfaChallenge(consume), { count: 1 });
       assert.deepEqual(await h.adapter.consumeMfaChallenge(consume), { count: 0 });
       assert.equal(await h.adapter.findMfaChallengeOwner(id, "SIGN_IN"), null);
+    });
+
+    test("factors: TOTP secret set, confirmed once and removed; strongMfa follows it", async () => {
+      const user = await seedUser({ mfaEnabled: true });
+      assert.deepEqual(await h.adapter.findMfaFactors(user.id), { mfaEnabled: true, totpSecretCipher: null, totpEnabledAt: null, passkeys: 0, recoveryCodesLeft: 0 });
+      assert.equal(await h.adapter.findMfaFactors("missing"), null);
+
+      await h.adapter.setTotpSecret(user.id, "sealed", null);
+      assert.equal((await h.adapter.findMfaFactors(user.id))?.totpSecretCipher, "sealed");
+      const sid = (await session(user.id)).id;
+      assert.equal((await h.adapter.findSessionWithUser(sid))?.user.strongMfa, false, "an unconfirmed secret is not a factor");
+
+      const when = new Date("2026-03-04T05:06:07.000Z");
+      assert.deepEqual(await h.adapter.confirmTotpSecret(user.id, "other", when), { count: 0 }, "a replaced secret is not confirmed");
+      assert.deepEqual(await h.adapter.confirmTotpSecret(user.id, "sealed", when), { count: 1 });
+      assert.deepEqual(await h.adapter.confirmTotpSecret(user.id, "sealed", when), { count: 0 });
+      assert.deepEqual(await h.adapter.beginTotpSecret(user.id, "next"), { count: 0 }, "a confirmed secret is kept");
+      assert.equal((await h.adapter.findMfaFactors(user.id))?.totpEnabledAt?.getTime(), when.getTime());
+      assert.equal((await h.adapter.findSessionWithUser(sid))?.user.strongMfa, true);
+
+      await h.adapter.withTransaction((tx) => h.adapter.setTotpSecret(user.id, null, null, tx));
+      assert.deepEqual(await h.adapter.confirmTotpSecret(user.id, "sealed", when), { count: 0 }, "nothing pending to confirm");
+      assert.deepEqual(await h.adapter.beginTotpSecret(user.id, "fresh"), { count: 1 });
+      assert.equal((await h.adapter.findMfaFactors(user.id))?.totpSecretCipher, "fresh");
+      await h.adapter.withTransaction(async (tx) => {
+        await h.adapter.lockUser(user.id, tx);
+        assert.equal((await h.adapter.findMfaFactors(user.id, tx))?.totpSecretCipher, "fresh");
+      });
+      assert.equal((await h.adapter.findSessionWithUser(sid))?.user.strongMfa, false);
+    });
+
+    test("factors: recovery codes are replaced as a set and each spent once", async () => {
+      const user = await seedUser();
+      await h.adapter.replaceRecoveryCodes(user.id, ["h1", "h2", "h3"]);
+      assert.equal((await h.adapter.findMfaFactors(user.id))?.recoveryCodesLeft, 3);
+      const now = new Date();
+      assert.deepEqual(await h.adapter.consumeRecoveryCode(user.id, "h2", now), { count: 1 });
+      assert.deepEqual(await h.adapter.consumeRecoveryCode(user.id, "h2", now), { count: 0 });
+      assert.deepEqual(await h.adapter.consumeRecoveryCode(user.id, "nope", now), { count: 0 });
+      const other = await seedUser();
+      assert.deepEqual(await h.adapter.consumeRecoveryCode(other.id, "h1", now), { count: 0 }, "codes belong to one user");
+      assert.equal((await h.adapter.findMfaFactors(user.id))?.recoveryCodesLeft, 2);
+      await h.adapter.withTransaction((tx) => h.adapter.replaceRecoveryCodes(user.id, ["h9"], tx));
+      assert.equal((await h.adapter.findMfaFactors(user.id))?.recoveryCodesLeft, 1);
+      await h.adapter.replaceRecoveryCodes(user.id, []);
+      assert.equal((await h.adapter.findMfaFactors(user.id))?.recoveryCodesLeft, 0);
+    });
+
+    test("factors: passkeys are created, listed, used and deleted by their owner only", async () => {
+      const user = await seedUser();
+      const other = await seedUser();
+      const id = `cred-${seq}`;
+      await h.adapter.createPasskey({ id, userId: user.id, publicKey: "pk", counter: 4_000_000_000, transports: ["internal", "hybrid"], deviceType: "multiDevice", backedUp: true, name: "Laptop" });
+      const listed = await h.adapter.listPasskeys(user.id);
+      assert.equal(listed.length, 1);
+      assert.deepEqual({ ...listed[0], createdAt: undefined }, {
+        id, userId: user.id, publicKey: "pk", counter: 4_000_000_000, transports: ["internal", "hybrid"], deviceType: "multiDevice", backedUp: true, name: "Laptop", createdAt: undefined, lastUsedAt: null,
+      });
+      assert.equal((await h.adapter.findMfaFactors(user.id))?.passkeys, 1);
+      const sid = (await session(user.id)).id;
+      assert.equal((await h.adapter.findSessionWithUser(sid))?.user.strongMfa, true);
+
+      const when = new Date("2026-05-06T07:08:09.000Z");
+      await h.adapter.updatePasskeyUse(id, 4_000_000_001, when);
+      const used = await h.adapter.findPasskey(id);
+      assert.equal(used?.counter, 4_000_000_001);
+      assert.equal(used?.lastUsedAt?.getTime(), when.getTime());
+      assert.equal(await h.adapter.findPasskey("missing"), null);
+
+      assert.deepEqual(await h.adapter.deletePasskey(other.id, id), { count: 0 });
+      assert.deepEqual(await h.adapter.withTransaction((tx) => h.adapter.deletePasskey(user.id, id, tx)), { count: 1 });
+      await h.adapter.createPasskey({ id: `${id}-a`, userId: user.id, publicKey: "pk", counter: 0, transports: [], deviceType: "singleDevice", backedUp: false, name: "A" });
+      await h.adapter.createPasskey({ id: `${id}-b`, userId: user.id, publicKey: "pk", counter: 0, transports: [], deviceType: "singleDevice", backedUp: false, name: "B" });
+      assert.deepEqual(await h.adapter.deletePasskeys(other.id), { count: 0 });
+      assert.deepEqual(await h.adapter.withTransaction((tx) => h.adapter.deletePasskeys(user.id, tx)), { count: 2 });
+      assert.equal((await h.adapter.findMfaFactors(user.id))?.passkeys, 0);
+      assert.deepEqual(await h.adapter.listPasskeys(user.id), []);
     });
 
     test("mfa: open challenges expire, one by one or per user and purpose", async () => {

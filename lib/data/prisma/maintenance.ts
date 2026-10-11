@@ -1,5 +1,6 @@
 import type { DashboardRepo, MaintenanceRepo } from "../maintenance";
 import type { DbClient } from "./client";
+import { table } from "./raw";
 
 export function maintenanceRepo(client: DbClient): MaintenanceRepo {
   return {
@@ -39,11 +40,11 @@ export function maintenanceRepo(client: DbClient): MaintenanceRepo {
       // A window function ranks each post's revisions newest first; everything
       // past the cap goes, however many posts have history.
       return client.$executeRaw`
-        DELETE FROM post_revisions
+        DELETE FROM ${table("post_revisions")}
         WHERE id IN (
           SELECT id FROM (
             SELECT id, row_number() OVER (PARTITION BY "postId" ORDER BY "createdAt" DESC) AS rank
-            FROM post_revisions
+            FROM ${table("post_revisions")}
           ) ranked
           WHERE ranked.rank > ${keep}
         )`;
@@ -68,6 +69,41 @@ export function maintenanceRepo(client: DbClient): MaintenanceRepo {
 
 export function dashboardRepo(client: DbClient): DashboardRepo {
   return {
+    async activitySeries(days, hideActorRole) {
+      const span = Math.min(Math.max(Math.trunc(days), 1), 90);
+      const hide = hideActorRole ?? null;
+      const rows = await client.$queryRaw<{ day: string; inquiries: number; posts: number; activity: number }[]>`
+        WITH days AS (
+          SELECT generate_series(
+            date_trunc('day', now() AT TIME ZONE 'UTC') - make_interval(days => ${span - 1}::int),
+            date_trunc('day', now() AT TIME ZONE 'UTC'),
+            interval '1 day'
+          ) AS day
+        ),
+        since AS (SELECT min(day) AS start FROM days),
+        i AS (
+          SELECT date_trunc('day', "createdAt") AS day, count(*)::int AS n
+          FROM ${table("inquiries")}, since WHERE "createdAt" >= since.start GROUP BY 1
+        ),
+        p AS (
+          SELECT date_trunc('day', "publishedAt") AS day, count(*)::int AS n
+          FROM ${table("posts")}, since WHERE status = 'PUBLISHED' AND "publishedAt" >= since.start GROUP BY 1
+        ),
+        a AS (
+          SELECT date_trunc('day', "createdAt") AS day, count(*)::int AS n
+          FROM ${table("audit_logs")}, since
+          WHERE "createdAt" >= since.start AND (${hide}::text IS NULL OR "actorRole" IS DISTINCT FROM ${hide}::text)
+          GROUP BY 1
+        )
+        SELECT to_char(days.day, 'YYYY-MM-DD') AS day,
+               COALESCE(i.n, 0) AS inquiries, COALESCE(p.n, 0) AS posts, COALESCE(a.n, 0) AS activity
+        FROM days
+        LEFT JOIN i ON i.day = days.day
+        LEFT JOIN p ON p.day = days.day
+        LEFT JOIN a ON a.day = days.day
+        ORDER BY days.day`;
+      return rows.map((row) => ({ day: row.day, inquiries: Number(row.inquiries), posts: Number(row.posts), activity: Number(row.activity) }));
+    },
     recentActivity(limit, hideActorRole) {
       return client.auditLog.findMany({
         where: hideActorRole ? { OR: [{ actorRole: null }, { actorRole: { not: hideActorRole } }] } : undefined,

@@ -65,6 +65,8 @@ export interface MediaRepo {
   /** Newest first. */
   listRecent(limit: number): Promise<MediaAssetRow[]>;
   create(input: NewMediaAsset): Promise<MediaAssetRow>;
+  /** Whether a row already owns this provider file. */
+  existsByPublicId(provider: NewMediaAsset["provider"], publicId: string): Promise<boolean>;
   /** Creates the asset unless one with the same provider and publicId exists. */
   createIfMissing(input: NewMediaAsset & { publicId: string }): Promise<void>;
   updateMetadata(id: string, input: { alt: string | null; title: string | null; tags: string[] }): Promise<MediaAssetRow>;

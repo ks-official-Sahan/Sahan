@@ -35,6 +35,7 @@ describe("setting keys", () => {
         "rbac.seedVersion",
         "security.ipAllowlist",
         "security.mask",
+        "security.passkeySignIn",
         "seo.llmsTxt",
       ].sort()
     );
@@ -141,5 +142,12 @@ describe("enforcedIpAllowlist", () => {
   test("not set or unreadable enforces nothing", () => {
     assert.deepEqual(enforcedIpAllowlist(null), []);
     assert.deepEqual(enforcedIpAllowlist(undefined), []);
+  });
+});
+
+describe("security.passkeySignIn", () => {
+  test("is off by default and never public", () => {
+    assert.deepEqual(getSettingDefault("security.passkeySignIn"), { enabled: false });
+    assert.equal(isPublicSetting("security.passkeySignIn"), false);
   });
 });
