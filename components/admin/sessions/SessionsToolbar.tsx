@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Loader2, Search, X } from "lucide-react";
+import { Loader2, Search } from "lucide-react";
 import { useEffect, useState, useTransition } from "react";
 
+import Icon from "@/components/icons/Icon";
 import { fieldClass } from "@/components/admin/ui/styles";
 import type { SessionStatusFilter } from "@/lib/data/user-sessions";
 import { sessionViewSearch, type SessionView } from "@/lib/sessions/query";
@@ -120,7 +121,7 @@ export default function SessionsToolbar({ view, userLabel, shown }: { view: Sess
               aria-label="Show everyone's sessions"
               className="-mr-1 inline-flex size-5 items-center justify-center rounded-full hover:bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
-              <X aria-hidden className="size-3.5" />
+              <Icon name="x" className="size-3.5" />
             </Link>
           </span>
         </p>

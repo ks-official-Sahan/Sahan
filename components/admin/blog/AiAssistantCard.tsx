@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Check, Loader2, MinusCircle, Sparkles, X } from "lucide-react";
+import { Check, Loader2, MinusCircle } from "lucide-react";
 
+import Icon from "@/components/icons/Icon";
 import { buttonVariants, fieldClass, textareaClass } from "@/components/admin/ui/styles";
 import { applyImageTokenToHtml } from "@sahan-sac/blog-kit/ai-image-tokens";
 import { markdownToHtml } from "@sahan-sac/blog-kit/markdown";
@@ -437,7 +438,7 @@ export default function AiAssistantCard({
         <div className="flex flex-wrap items-center gap-2">
           {busy ? (
             <button ref={cancelRef} type="button" onClick={() => controllerRef.current?.abort()} className={cn(buttonVariants.secondary, "gap-1.5")}>
-              <X size={15} aria-hidden />
+              <Icon name="x" className="size-[15px]" />
               Cancel
             </button>
           ) : null}
@@ -448,7 +449,7 @@ export default function AiAssistantCard({
             disabled={busy || !prompt.trim()}
             className={cn(buttonVariants.primary, "gap-2")}
           >
-            {busy ? <Loader2 size={15} className="animate-spin motion-reduce:animate-none" aria-hidden /> : <Sparkles size={15} aria-hidden />}
+            {busy ? <Loader2 size={15} className="animate-spin motion-reduce:animate-none" aria-hidden /> : <Icon name="sparkles" className="size-[15px]" />}
             {busy ? "Generating…" : "Generate post"}
           </button>
         </div>

@@ -7,6 +7,7 @@ import { AlertCircle, FileText, Search, Upload } from "lucide-react";
 import { MEDIA_CONFIG } from "@sahan-sac/media-kit/config";
 import { uploadToMediaLibrary } from "@sahan-sac/media-kit/upload-client";
 
+import Icon from "@/components/icons/Icon";
 import { useMediaPages } from "@/components/admin/media/use-media-pages";
 import { registerUpload } from "@/lib/actions/media";
 
@@ -115,7 +116,7 @@ export function MediaPicker({ onSelect, kind = "IMAGE", required = false, upload
 
   return (
     <>
-      <Button type="button" onClick={() => setOpened(true)} variant="light" leftSection={<Upload size={16} />}>
+      <Button type="button" onClick={() => setOpened(true)} variant="light" leftSection={<Icon name="upload" />}>
         {uploadOnly ? "Upload" : "Choose"} {kind.toLowerCase()}
       </Button>
 

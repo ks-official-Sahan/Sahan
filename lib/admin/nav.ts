@@ -1,22 +1,4 @@
-import {
-  Bot,
-  Briefcase,
-  FileText,
-  ImageIcon,
-  Inbox,
-  LayoutDashboard,
-  MonitorSmartphone,
-  Newspaper,
-  ScrollText,
-  Settings,
-  Trash2,
-  ShieldCheck,
-  UserCircle,
-  Webhook,
-  Users,
-  type LucideIcon,
-} from "lucide-react";
-
+import type { IconName } from "@/components/icons/Icon";
 import type { Permission } from "@/lib/auth/permissions";
 
 import { ADMIN_HOME } from "./active";
@@ -52,7 +34,7 @@ export const ADMIN_NAV_GROUPS: readonly AdminNavGroup[] = [
 export interface AdminNavItem {
   href: string;
   label: string;
-  icon: LucideIcon;
+  icon: IconName;
   /** Permission that shows the link (any one of a list). `null` means every signed-in user. */
   permission: Permission | readonly Permission[] | null;
   group: AdminNavGroupId;
@@ -60,21 +42,21 @@ export interface AdminNavItem {
 
 /** Declared in display order: groups first, then items inside each group. */
 export const ADMIN_NAV: readonly AdminNavItem[] = [
-  { href: ADMIN_HOME, label: "Dashboard", icon: LayoutDashboard, permission: "viewDashboard", group: "overview" },
-  { href: "/admin/content", label: "Pages", icon: FileText, permission: "editPages", group: "content" },
-  { href: "/admin/works", label: "Works", icon: Briefcase, permission: "editCollections", group: "content" },
-  { href: "/admin/blog", label: "Blog", icon: Newspaper, permission: "viewBlog", group: "content" },
-  { href: "/admin/media", label: "Media", icon: ImageIcon, permission: "viewMedia", group: "content" },
-  { href: "/admin/trash", label: "Trash", icon: Trash2, permission: ["deleteBlog", "deleteMedia", "publishCollections"], group: "content" },
-  { href: "/admin/leads", label: "Leads", icon: Inbox, permission: "viewLeads", group: "audience" },
-  { href: "/admin/chatbot", label: "Chatbot", icon: Bot, permission: "viewChatHistory", group: "audience" },
-  { href: "/admin/users", label: "Users", icon: Users, permission: "viewUsers", group: "access" },
-  { href: "/admin/roles", label: "Roles", icon: ShieldCheck, permission: "managePermissions", group: "access" },
-  { href: "/admin/sessions", label: "Sessions", icon: MonitorSmartphone, permission: "viewSessions", group: "access" },
-  { href: "/admin/audit", label: "Audit log", icon: ScrollText, permission: "viewAuditLogs", group: "access" },
-  { href: "/admin/settings", label: "Settings", icon: Settings, permission: "manageSettings", group: "system" },
-  { href: "/admin/webhooks", label: "Webhooks", icon: Webhook, permission: "manageSettings", group: "system" },
-  { href: "/admin/account", label: "Account", icon: UserCircle, permission: null, group: "account" },
+  { href: ADMIN_HOME, label: "Dashboard", icon: "layout-dashboard", permission: "viewDashboard", group: "overview" },
+  { href: "/admin/content", label: "Pages", icon: "file-text", permission: "editPages", group: "content" },
+  { href: "/admin/works", label: "Works", icon: "briefcase", permission: "editCollections", group: "content" },
+  { href: "/admin/blog", label: "Blog", icon: "newspaper", permission: "viewBlog", group: "content" },
+  { href: "/admin/media", label: "Media", icon: "image", permission: "viewMedia", group: "content" },
+  { href: "/admin/trash", label: "Trash", icon: "trash", permission: ["deleteBlog", "deleteMedia", "publishCollections"], group: "content" },
+  { href: "/admin/leads", label: "Leads", icon: "inbox", permission: "viewLeads", group: "audience" },
+  { href: "/admin/chatbot", label: "Chatbot", icon: "message-circle", permission: "viewChatHistory", group: "audience" },
+  { href: "/admin/users", label: "Users", icon: "users", permission: "viewUsers", group: "access" },
+  { href: "/admin/roles", label: "Roles", icon: "shield-check", permission: "managePermissions", group: "access" },
+  { href: "/admin/sessions", label: "Sessions", icon: "monitor-smartphone", permission: "viewSessions", group: "access" },
+  { href: "/admin/audit", label: "Audit log", icon: "history", permission: "viewAuditLogs", group: "access" },
+  { href: "/admin/settings", label: "Settings", icon: "settings", permission: "manageSettings", group: "system" },
+  { href: "/admin/webhooks", label: "Webhooks", icon: "plug", permission: "manageSettings", group: "system" },
+  { href: "/admin/account", label: "Account", icon: "user", permission: null, group: "account" },
 ];
 
 export interface AdminNavSection extends AdminNavGroup {

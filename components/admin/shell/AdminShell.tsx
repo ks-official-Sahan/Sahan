@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 
+import Icon from "@/components/icons/Icon";
 import Toaster from "@/components/admin/ui/Toaster";
 import { navFor } from "@/lib/admin/nav";
 import type { Permission } from "@/lib/auth/permissions";
@@ -11,15 +12,15 @@ import Topbar from "./Topbar";
 import type { UserMenuUser } from "./UserMenu";
 
 // Icons cross the server to client boundary as rendered elements, so the client
-// nav never imports the icon set or the full nav config.
+// nav never imports the full nav config.
 function toView(permissions: readonly Permission[]): NavSectionView[] {
   return navFor(permissions).map((section) => ({
     id: section.id,
     label: section.label,
-    items: section.items.map(({ href, label, icon: Icon }) => ({
+    items: section.items.map(({ href, label, icon }) => ({
       href,
       label,
-      icon: <Icon aria-hidden="true" className="size-4 shrink-0" />,
+      icon: <Icon name={icon} />,
     })),
   }));
 }

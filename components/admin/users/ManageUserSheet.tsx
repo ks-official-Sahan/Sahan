@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, KeyRound, LogOut, ShieldCheck, UserCog } from "lucide-react";
+import { ArrowRight, KeyRound, ShieldCheck, UserCog } from "lucide-react";
 import type { ReactNode } from "react";
 
+import Icon from "@/components/icons/Icon";
 import ActionForm, { ConfirmSubmitButton, Field, SubmitButton } from "@/components/admin/ui/ActionForm";
 import Sheet from "@/components/admin/ui/Sheet";
 import { badgeClass } from "@/components/admin/ui/styles";
@@ -182,7 +183,7 @@ export default function ManageUserSheet({
                     pendingLabel="Signing out..."
                     confirmMessage={`Sign ${row.email} out of ${row.activeSessions} ${row.activeSessions === 1 ? "session" : "sessions"}? They are told by email.`}
                   >
-                    <LogOut aria-hidden className="size-4" />
+                    <Icon name="log-out" />
                     Sign out everywhere
                   </ConfirmSubmitButton>
                 </ActionForm>

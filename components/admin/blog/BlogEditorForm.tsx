@@ -3,8 +3,9 @@
 import Link from "next/link";
 import { type ReactNode, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useFormStatus } from "react-dom";
-import { ArrowLeft, Eye } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 
+import Icon from "@/components/icons/Icon";
 import ActionForm, { Field, SubmitButton } from "@/components/admin/ui/ActionForm";
 import type { ActionState } from "@/lib/actions/state";
 import { buttonVariants, cardClass } from "@/components/admin/ui/styles";
@@ -460,7 +461,7 @@ export default function BlogEditorForm({
             className={cn(buttonVariants.secondary, "gap-1.5")}
             title="Preview (Ctrl/Cmd+Shift+P)"
           >
-            <Eye size={15} aria-hidden />
+            <Icon name="eye" className="size-[15px]" />
             Preview
           </button>
 

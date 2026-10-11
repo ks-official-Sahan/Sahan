@@ -1,6 +1,6 @@
 "use client";
 
-import { CircleAlert, CircleCheck, Info, X } from "lucide-react";
+import { CircleAlert, CircleCheck, Info } from "lucide-react";
 import { useSyncExternalStore } from "react";
 
 import {
@@ -10,6 +10,7 @@ import {
   subscribeToasts,
   type ToastKind,
 } from "@/lib/admin/toast";
+import Icon from "@/components/icons/Icon";
 import { cn } from "@/lib/utils";
 
 const kinds: Record<ToastKind, { Icon: typeof Info; icon: string }> = {
@@ -44,7 +45,7 @@ export default function Toaster() {
               onClick={() => dismissToast(item.id)}
               className="-m-1 inline-flex size-6 shrink-0 items-center justify-center rounded text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
-              <X aria-hidden="true" className="size-4" />
+              <Icon name="x" />
             </button>
           </div>
         );
