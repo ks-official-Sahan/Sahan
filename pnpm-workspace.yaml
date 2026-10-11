@@ -14,8 +14,3 @@ allowBuilds:
   prisma: true
   sharp: true
   unrs-resolver: true
-
-# Security floors for transitive packages (Trivy findings, 2026-10).
-overrides:
-  source-map-js: ">=1.2.2"
-  sharp: ">=0.35.5"
