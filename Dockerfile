@@ -17,7 +17,7 @@ ARG NODE_VERSION=24
 ARG PNPM_VERSION=12.5.1
 
 # ─── deps: the pnpm store, keyed on the lockfile alone ──────────────────────
-FROM node:${NODE_VERSION}-bookworm-slim AS deps
+FROM node:${NODE_VERSION}-trixie-slim AS deps
 ARG PNPM_VERSION
 ENV PNPM_HOME=/pnpm \
     PATH=/pnpm:$PATH \
@@ -50,7 +50,7 @@ RUN --mount=type=cache,id=next-cache,target=/app/.next/cache \
     cp -r .next/static .next/standalone/.next/static
 
 # ─── runner: distroless, non-root, no shell, no package manager ─────────────
-FROM gcr.io/distroless/nodejs${NODE_VERSION}-debian12:nonroot AS runner
+FROM gcr.io/distroless/nodejs${NODE_VERSION}-debian13:nonroot AS runner
 ARG NEXT_DEPLOYMENT_ID=
 LABEL org.opencontainers.image.title="sahan-web" \
       org.opencontainers.image.description="Sahan Sachintha portfolio and CMS (Next.js 16, standalone)" \

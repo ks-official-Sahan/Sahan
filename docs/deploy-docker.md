@@ -10,9 +10,9 @@ one VPS.
 
 | Stage | Base | What it does |
 | --- | --- | --- |
-| `deps` | `node:24-bookworm-slim` | `pnpm fetch` from the lockfile only, so the store is reused until the lockfile changes |
+| `deps` | `node:24-trixie-slim` | `pnpm fetch` from the lockfile only, so the store is reused until the lockfile changes |
 | `builder` | `deps` | offline `pnpm install` (runs `prisma generate`), `next build` with `NEXT_OUTPUT=standalone` |
-| `runner` | `gcr.io/distroless/nodejs24-debian12:nonroot` | the traced `server.js`, `.next/static` and `public` only |
+| `runner` | `gcr.io/distroless/nodejs24-debian13:nonroot` | the traced `server.js`, `.next/static` and `public` only |
 
 - No shell, no package manager, uid 65532, no secrets inside. Configuration
   is read when the server starts, so one image moves between environments.
