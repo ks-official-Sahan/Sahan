@@ -54,6 +54,8 @@ jobs:
         include: ${{ fromJSON(github.event_name == 'pull_request' && '[{"platform":"linux/amd64","runner":"ubuntu-24.04"}]' || '[{"platform":"linux/amd64","runner":"ubuntu-24.04"},{"platform":"linux/arm64","runner":"ubuntu-24.04-arm"}]') }}
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - name: Platform slug
         run: echo "SLUG=${PLATFORM//\//-}" >> "$GITHUB_ENV"
@@ -275,6 +277,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
+          persist-credentials: false
           sparse-checkout: |
             compose.yaml
             scripts/deploy

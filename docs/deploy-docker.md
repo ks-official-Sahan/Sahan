@@ -76,7 +76,11 @@ cosign verify ghcr.io/ks-official-sahan/sahan@sha256:<digest> \
    - `DEPLOY_HOST`
    - `DEPLOY_USER`
    - `DEPLOY_SSH_KEY`: a key used only for deploys.
-   - `DEPLOY_KNOWN_HOSTS`: the output of `ssh-keyscan -H <host>`.
+   - `DEPLOY_KNOWN_HOSTS`: the output of `ssh-keyscan -H <host>`. Before
+     saving it, compare its fingerprint (`ssh-keygen -lf <file>`) with the
+     one the VPS prints on its own console (`ssh-keygen -lf
+     /etc/ssh/ssh_host_ed25519_key.pub`). A scan over the network alone
+     trusts whatever answered.
 4. Under **Variables**, add `DEPLOY_ENABLED=true`. Two more are optional:
    - `DEPLOY_DIR`: default `/opt/sahan`.
    - `DEPLOY_PROFILES`: default `proxy,cron`.

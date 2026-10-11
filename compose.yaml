@@ -99,8 +99,9 @@ services:
     env_file:
       - path: .env.production
         required: false
-    # The same schedule as vercel.json. The crontab is written into the
-    # container's tmpfs at start; CRON_SECRET never touches the host disk again.
+    # The same schedule as vercel.json. The secret goes into a 0600 file on
+    # the container's tmpfs, read by a small call script, so it never appears
+    # in the crontab, in crond's environment or on the host disk.
     tmpfs:
       - /var/spool/cron/crontabs
       - /tmp
@@ -110,11 +111,14 @@ services:
       - |
         set -eu
         : "$${CRON_SECRET:?CRON_SECRET is required}"
-        call='wget -q -O /dev/null -T 300 --header "Authorization: Bearer '"$$CRON_SECRET"'" http://app:3000/api/cron'
+        umask 077
+        printf '%s' "$$CRON_SECRET" > /tmp/cron-secret
+        unset CRON_SECRET
+        echo 'exec wget -q -O /dev/null -T 300 --header "Authorization: Bearer $$(cat /tmp/cron-secret)" "http://app:3000/api/cron/$$1"' > /tmp/cron-call
         {
-          echo "0 2 * * * $$call/blog-publish"
-          echo "5 2 * * * $$call/session-cleanup"
-          echo "10 2 * * * $$call/audit-prune"
+          echo "0 2 * * * sh /tmp/cron-call blog-publish"
+          echo "5 2 * * * sh /tmp/cron-call session-cleanup"
+          echo "10 2 * * * sh /tmp/cron-call audit-prune"
         } > /var/spool/cron/crontabs/root
         exec crond -f -d 8 -c /var/spool/cron/crontabs
 
