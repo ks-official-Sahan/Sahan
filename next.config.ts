@@ -6,6 +6,12 @@ import { buildPublicCsp } from "./lib/security/public-csp";
 const dev = process.env.NODE_ENV !== "production";
 
 const nextConfig: NextConfig = {
+  // The Docker image sets NEXT_OUTPUT=standalone: a self-contained server.js
+  // with only the traced node_modules. Vercel builds leave it unset.
+  ...(process.env.NEXT_OUTPUT === "standalone" ? { output: "standalone" as const } : {}),
+  // Version-skew protection for rolling container deploys (assets carry
+  // ?dpl=<id>). Vercel sets its own when skew protection is on.
+  ...(process.env.NEXT_DEPLOYMENT_ID ? { deploymentId: process.env.NEXT_DEPLOYMENT_ID } : {}),
   poweredByHeader: false,
   // Gzip in `next start` only. In dev it buys nothing on localhost, and its
   // per-response gzip stream is what raises MaxListenersExceededWarning [Gzip]

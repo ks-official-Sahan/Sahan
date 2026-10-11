@@ -1,0 +1,18 @@
+# TLS termination and HTTP/3 in front of the app (compose profile "proxy").
+# Caddy obtains and renews certificates for {$DOMAIN} and www.{$DOMAIN}.
+
+{$DOMAIN}, www.{$DOMAIN} {
+	encode zstd gzip
+
+	reverse_proxy app:3000 {
+		# Stream RSC and Suspense chunks as they are produced.
+		flush_interval -1
+		health_uri /api/health
+		health_interval 15s
+	}
+
+	log {
+		output stdout
+		format json
+	}
+}
