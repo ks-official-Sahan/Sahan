@@ -3,6 +3,8 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import { unstable_cache } from "next/cache";
 
+import { noteCache } from "@/lib/observability/timing";
+
 import { kv } from "./redis";
 
 // The only file that wraps Next's data cache. `unstable_cache` is documented as
@@ -86,13 +88,19 @@ export function cached<Args extends unknown[], Result>(
       const dataKey = redisTtl ? await redisDataKeyFor(keyParts, options.tags) : null;
       if (dataKey) {
         const hit = await kv.get<Result>(dataKey).catch(() => null);
-        if (hit !== null) return hit;
+        if (hit !== null) {
+          noteCache("redisHit");
+          return hit;
+        }
 
+        noteCache("redisMiss");
+        noteCache("load");
         const result = await fn(...args);
         await kv.set(dataKey, result, { ttlSeconds: redisTtl }).catch(() => {});
         return result;
       }
 
+      noteCache("load");
       return fn(...args);
     },
     cacheKey(...keyParts),

@@ -4,10 +4,12 @@ import { test } from "node:test";
 import { FakeAdapter } from "../test-support/fake-adapter";
 import { createMfa } from "./mfa";
 import { MFA_MAX_ATTEMPTS } from "./rules";
+import { totpAt } from "./totp";
 
 const AUTH_SECRET = "test-auth-secret-0123456789-abcdefghijklmnop";
 
-function harness(options: { limited?: boolean; resetSeconds?: number; sendFails?: boolean } = {}) {
+function harness(options: { limited?: boolean; resetSeconds?: number; sendFails?: boolean; setupLimited?: boolean } = {}) {
+  const claimed = new Set<string>();
   const adapter = new FakeAdapter();
   const user = adapter.addUser({ email: "owner@example.com", passwordHash: "x", role: "DEVELOPER", name: "Owner" });
   const sent: Array<{ to: string; subject: string; text: string }> = [];
@@ -27,6 +29,9 @@ function harness(options: { limited?: boolean; resetSeconds?: number; sendFails?
     },
     audit: async (event) => void audits.push(event),
     renderMfaCode: ({ code }) => ({ subject: "Your code", html: code, text: `Your code is ${code}` }),
+    factorSecret: "factor-key-0123456789-abcdefghijklmnop",
+    claimOnce: async (key) => (claimed.has(key) ? false : (claimed.add(key), true)),
+    setupLimit: async () => ({ ok: !options.setupLimited }),
   });
 
   return { adapter, user, mfa, sent, audits, code: () => sentCode };
@@ -168,4 +173,154 @@ test("a resend inherits the previous challenge's attempt count instead of resett
   assert.ok(second.ok);
   const result = await mfa.verifyChallenge({ challengeId: second.challengeId, userId: user.id, email: user.email, purpose: "SIGN_IN", code: "111111" });
   assert.deepEqual(result, { ok: false, reason: "locked" }, "the new challenge starts already at the inherited attempt count");
+});
+
+async function withTotp(h: ReturnType<typeof harness>) {
+  const setup = await h.mfa.beginTotpSetup(h.user);
+  assert.ok(setup.ok);
+  const confirmed = await h.mfa.confirmTotpSetup(h.user, totpAt(setup.secret, Date.now()));
+  assert.ok(confirmed.ok);
+  return { secret: setup.secret, recoveryCodes: confirmed.recoveryCodes ?? [] };
+}
+
+test("a ticket emails nothing and cannot be verified with an emailed-style code", async () => {
+  const h = harness();
+  const ticket = await h.mfa.openTicket({ userId: h.user.id, purpose: "SIGN_IN" });
+  assert.ok(ticket.ok);
+  assert.equal(h.sent.length, 0);
+  const result = await h.mfa.verifyChallenge({ challengeId: ticket.challengeId, userId: h.user.id, email: h.user.email, purpose: "SIGN_IN", code: "123456" });
+  assert.deepEqual(result, { ok: false, reason: "invalid" });
+});
+
+test("TOTP setup: a wrong code is refused, the right one confirms and issues recovery codes once", async () => {
+  const h = harness();
+  const setup = await h.mfa.beginTotpSetup(h.user);
+  assert.ok(setup.ok);
+  assert.deepEqual(await h.mfa.confirmTotpSetup(h.user, "000000"), { ok: false, reason: "invalid" });
+  const confirmed = await h.mfa.confirmTotpSetup(h.user, totpAt(setup.secret, Date.now()));
+  assert.ok(confirmed.ok);
+  assert.equal(confirmed.recoveryCodes?.length, 10);
+  assert.deepEqual(await h.mfa.beginTotpSetup(h.user), { ok: false, reason: "already_enabled" });
+  assert.deepEqual(await h.mfa.factorsOf(h.user.id), { emailOtp: false, totp: true, passkeys: 0, recoveryCodesLeft: 10 });
+  assert.ok(h.audits.some((event) => event.action === "auth.mfa.totp_enabled"));
+});
+
+test("TOTP setup respects the setup limit and needs a started setup", async () => {
+  assert.deepEqual(await harness({ setupLimited: true }).mfa.confirmTotpSetup({ id: "x", email: "x" }, "123456"), { ok: false, reason: "limited" });
+  const h = harness();
+  assert.deepEqual(await h.mfa.confirmTotpSetup(h.user, "123456"), { ok: false, reason: "not_started" });
+});
+
+test("verifyTotp accepts a current code once; the same code cannot verify a second ticket", async () => {
+  const h = harness();
+  const { secret } = await withTotp(h);
+  const code = totpAt(secret, Date.now() + 30_000);
+  const first = await h.mfa.openTicket({ userId: h.user.id, purpose: "SIGN_IN" });
+  assert.ok(first.ok);
+  assert.deepEqual(await h.mfa.verifyTotp({ challengeId: first.challengeId, userId: h.user.id, email: h.user.email, purpose: "SIGN_IN", code }), { ok: true });
+  const second = await h.mfa.openTicket({ userId: h.user.id, purpose: "SIGN_IN" });
+  assert.ok(second.ok);
+  assert.deepEqual(await h.mfa.verifyTotp({ challengeId: second.challengeId, userId: h.user.id, email: h.user.email, purpose: "SIGN_IN", code }), { ok: false, reason: "invalid" });
+});
+
+test("a recovery code verifies one ticket and is then spent", async () => {
+  const h = harness();
+  const { recoveryCodes } = await withTotp(h);
+  const ticket = await h.mfa.openTicket({ userId: h.user.id, purpose: "SIGN_IN" });
+  assert.ok(ticket.ok);
+  const input = { challengeId: ticket.challengeId, userId: h.user.id, email: h.user.email, purpose: "SIGN_IN" as const, code: recoveryCodes[0].toUpperCase() };
+  assert.deepEqual(await h.mfa.verifyRecoveryCode(input), { ok: true });
+  assert.equal((await h.mfa.factorsOf(h.user.id))?.recoveryCodesLeft, 9);
+  const again = await h.mfa.openTicket({ userId: h.user.id, purpose: "SIGN_IN" });
+  assert.ok(again.ok);
+  assert.deepEqual(await h.mfa.verifyRecoveryCode({ ...input, challengeId: again.challengeId }), { ok: false, reason: "invalid" });
+});
+
+test("removing the only strong factor removes the recovery codes too", async () => {
+  const h = harness();
+  await withTotp(h);
+  await h.mfa.removeTotp(h.user);
+  assert.deepEqual(await h.mfa.factorsOf(h.user.id), { emailOtp: false, totp: false, passkeys: 0, recoveryCodesLeft: 0 });
+});
+
+test("openVerifiedTicket opens a ticket that is already verified, for one sign-in", async () => {
+  const h = harness();
+  const ticket = await h.mfa.openVerifiedTicket({ userId: h.user.id, email: h.user.email, method: "passkey" });
+  assert.ok(ticket.ok);
+  assert.equal(h.sent.length, 0);
+  assert.ok(await h.mfa.consumeChallenge({ challengeId: ticket.challengeId, userId: h.user.id, purpose: "SIGN_IN" }));
+  assert.equal(await h.mfa.consumeChallenge({ challengeId: ticket.challengeId, userId: h.user.id, purpose: "SIGN_IN" }), false);
+  assert.ok(h.audits.some((event) => event.action === "auth.mfa.verified" && event.meta?.passwordless === true));
+});
+
+test("removeFactors: an administrator removes another user's app and passkeys; the recovery codes go with the last strong factor", async () => {
+  const h = harness();
+  const admin = h.adapter.addUser({ email: "admin@example.com", passwordHash: "x", role: "DEVELOPER" });
+  await h.adapter.setTotpSecret(h.user.id, "sealed", new Date());
+  await h.adapter.createPasskey({ id: "a", userId: h.user.id, publicKey: "AQID", counter: 0, transports: [], deviceType: "multiDevice", backedUp: true, name: "A" });
+  await h.adapter.createPasskey({ id: "b", userId: h.user.id, publicKey: "AQID", counter: 0, transports: [], deviceType: "multiDevice", backedUp: true, name: "B" });
+  await h.mfa.issueRecoveryCodes({ id: h.user.id, email: h.user.email });
+
+  // One passkey: the app and the other passkey remain, so the codes stay.
+  assert.deepEqual(await h.mfa.removeFactors({ id: admin.id, email: admin.email }, { userId: h.user.id, passkeyId: "a" }), { totp: false, passkeys: 1, recoveryCodes: false });
+  assert.equal((await h.adapter.findMfaFactors(h.user.id))?.recoveryCodesLeft, 10);
+
+  // Everything strong: the codes go too.
+  assert.deepEqual(await h.mfa.removeFactors({ id: admin.id, email: admin.email }, { userId: h.user.id, totp: true, allPasskeys: true }), { totp: true, passkeys: 1, recoveryCodes: true });
+  const left = await h.adapter.findMfaFactors(h.user.id);
+  assert.equal(left?.totpEnabledAt, null);
+  assert.equal(left?.passkeys, 0);
+  assert.equal(left?.recoveryCodesLeft, 0);
+  assert.ok(h.audits.some((event) => event.action === "auth.mfa.factors_removed"));
+});
+
+test("removeFactors reports nothing and audits nothing when the factors are already gone", async () => {
+  const h = harness();
+  const admin = h.adapter.addUser({ email: "admin@example.com", passwordHash: "x", role: "DEVELOPER" });
+  const before = h.audits.length;
+  assert.deepEqual(
+    await h.mfa.removeFactors({ id: admin.id, email: admin.email }, { userId: h.user.id, totp: true, allPasskeys: true, recoveryCodes: true }),
+    { totp: false, passkeys: 0, recoveryCodes: false }
+  );
+  assert.deepEqual(await h.mfa.removeFactors({ id: admin.id, email: admin.email }, { userId: "missing", totp: true }), { totp: false, passkeys: 0, recoveryCodes: false });
+  assert.equal(h.audits.length, before);
+});
+
+test("a failed audit write rolls the factor change back", async () => {
+  const adapter = new FakeAdapter();
+  const user = adapter.addUser({ email: "owner@example.com", passwordHash: "x", role: "DEVELOPER" });
+  await adapter.setTotpSecret(user.id, "sealed", new Date());
+  const failing = createMfa({
+    adapter,
+    authSecret: AUTH_SECRET,
+    limit: async () => ({ ok: true }),
+    sendEmail: async () => ({ ok: true }),
+    audit: async () => {
+      throw new Error("audit down");
+    },
+    renderMfaCode: ({ code }) => ({ subject: "c", html: code, text: code }),
+    claimOnce: async () => true,
+  });
+  await assert.rejects(failing.removeTotp(user), /audit down/);
+  assert.notEqual((await adapter.findMfaFactors(user.id))?.totpEnabledAt, null);
+});
+
+test("TOTP setup: a code checked against a replaced secret does not confirm the new one", async () => {
+  const h = harness();
+  const first = await h.mfa.beginTotpSetup(h.user);
+  assert.ok(first.ok);
+  const code = totpAt(first.secret, Date.now());
+  // A second tab restarts setup after the first read its secret.
+  const realFind = h.adapter.findMfaFactors.bind(h.adapter);
+  let restarted = false;
+  h.adapter.findMfaFactors = async (userId: string) => {
+    const row = await realFind(userId);
+    if (!restarted) {
+      restarted = true;
+      await h.mfa.beginTotpSetup(h.user);
+    }
+    return row;
+  };
+  assert.equal((await h.mfa.confirmTotpSetup(h.user, code)).ok, false);
+  assert.equal((await realFind(h.user.id))?.totpEnabledAt, null);
 });

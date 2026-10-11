@@ -22,6 +22,11 @@ export interface SessionState {
   mustChangePassword: boolean;
   mfaEnabled: boolean;
   mfaVerified: boolean;
+  /**
+   * Has a confirmed authenticator app or a passkey. Absent in a state cached
+   * before this field existed: unknown, so it is never treated as missing.
+   */
+  strongMfa?: boolean;
 }
 
 export type SessionDenial =

@@ -11,6 +11,8 @@ export interface PostRow {
   contentHtml: string;
   /** Plain text for search and read time. */
   contentText: string;
+  /** The start of contentText, for lists (lib/blog/excerpt.ts). */
+  autoExcerpt: string;
   topic: string;
   tags: string[];
   status: PostStatus;
@@ -31,6 +33,7 @@ export interface PostRow {
 
 type OptionalColumn =
   | "excerpt"
+  | "autoExcerpt"
   | "coverMediaId"
   | "coverAlt"
   | "seoTitle"
@@ -51,8 +54,8 @@ export interface PublishedPostSummaryRow {
   slug: string;
   title: string;
   excerpt: string | null;
-  /** Only read to derive a missing excerpt. */
-  contentText: string;
+  /** Shown when there is no hand-written excerpt. */
+  autoExcerpt: string;
   topic: string;
   tags: string[];
   /** Scheduled publication time; used as the effective publish date before cron promotion. */
@@ -119,6 +122,16 @@ export interface PostRepo {
   listPublicSlugs(visibleAt?: Date): Promise<Array<{ slug: string; publishAt: Date | null }>>;
   /** One post visible to the public at `visibleAt` (default now), with its body. */
   findPublished(slug: string, visibleAt?: Date): Promise<PublishedPostRow | null>;
+  /** Old slugs that redirect, each with the current slug of its post. */
+  listSlugRedirects(): Promise<Array<{ slug: string; targetSlug: string }>>;
+  /**
+   * After a rename from `oldSlug` to `newSlug`: `oldSlug` redirects to the
+   * post, and any redirect that used `newSlug` is dropped (the slug is a real
+   * post again). A no-op when the slug did not change.
+   */
+  recordRename(postId: string, oldSlug: string, newSlug: string): Promise<void>;
+  /** Drops a redirect that used `slug`, for a new post that takes it. */
+  releaseSlug(slug: string): Promise<void>;
   find(id: string): Promise<PostRow | null>;
   findWithCoverUrl(id: string): Promise<(PostRow & { coverMedia: { url: string } | null }) | null>;
   findMany(ids: string[]): Promise<PostRow[]>;

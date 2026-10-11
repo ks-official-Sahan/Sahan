@@ -20,6 +20,8 @@ export interface StoredUser {
   passwordHash: string;
   disabledAt: Date | null;
   mfaEnabled: boolean;
+  /** Has a confirmed authenticator app or a passkey. */
+  strongMfa?: boolean;
 }
 
 export interface CredentialDeps {

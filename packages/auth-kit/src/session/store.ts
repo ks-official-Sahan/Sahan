@@ -76,6 +76,7 @@ export function createSessionStore(deps: { adapter: AuthDbAdapter; kv: Kv; authS
       mustChangePassword: row.user.mustChangePassword,
       mfaEnabled: row.user.mfaEnabled,
       mfaVerified: row.mfaVerified,
+      strongMfa: row.user.strongMfa,
     };
   }
 

@@ -251,6 +251,7 @@ export async function deleteProjectAction(
 
     await withTx(async (tx) => {
       await tx.media.clearUsage("Project", id);
+      await tx.trash.put([{ entityType: "Project", entityId: id, label: before.title, data: { row: before }, deletedById: auth.user.id }]);
       await tx.projects.delete(id);
       await audit({
         action: "collection.projects.deleted",
@@ -266,7 +267,7 @@ export async function deleteProjectAction(
 
     await invalidate(forCollection("projects"));
     revalidatePath("/admin/works/projects");
-    return done("Project deleted.");
+    return done("Project moved to the trash.");
   } catch (error) {
     log.error("delete project failed", { error: error instanceof Error ? error.message : String(error) });
     return fail("Something went wrong. Please try again.");
@@ -540,6 +541,7 @@ export async function deleteExperienceAction(
     if (!before) return fail("Experience entry not found.");
 
     await withTx(async (tx) => {
+      await tx.trash.put([{ entityType: "Experience", entityId: id, label: `${before.role} at ${before.company}`, data: { row: before }, deletedById: auth.user.id }]);
       await tx.experiences.delete(id);
       await audit({
         action: "collection.experience.deleted",
@@ -555,7 +557,7 @@ export async function deleteExperienceAction(
 
     await invalidate(forCollection("experience"));
     revalidatePath("/admin/works/experience");
-    return done("Experience entry deleted.");
+    return done("Experience entry moved to the trash.");
   } catch (error) {
     log.error("delete experience failed", { error: error instanceof Error ? error.message : String(error) });
     return fail("Something went wrong. Please try again.");
@@ -878,6 +880,7 @@ export async function deleteServiceAction(_previous: ActionState, formData: Form
     if (!before) return fail("Service not found.");
 
     await withTx(async (tx) => {
+      await tx.trash.put([{ entityType: "Service", entityId: id, label: before.name, data: { row: before }, deletedById: auth.user.id }]);
       await tx.services.delete(id);
       await audit({
         action: "collection.services.deleted",
@@ -894,7 +897,7 @@ export async function deleteServiceAction(_previous: ActionState, formData: Form
     await invalidate(forCollection("services"));
     revalidatePath("/admin/works/services");
     revalidatePath(`/admin/works/services/${before.groupId}`);
-    return done("Service deleted.");
+    return done("Service moved to the trash.");
   } catch (error) {
     log.error("delete service failed", { error: error instanceof Error ? error.message : String(error) });
     return fail("Something went wrong. Please try again.");
@@ -1221,6 +1224,7 @@ export async function deleteSkillAction(_previous: ActionState, formData: FormDa
     if (!before) return fail("Skill not found.");
 
     await withTx(async (tx) => {
+      await tx.trash.put([{ entityType: "Skill", entityId: id, label: before.name, data: { row: before }, deletedById: auth.user.id }]);
       await tx.skills.delete(id);
       await audit({
         action: "collection.skills.deleted",
@@ -1237,7 +1241,7 @@ export async function deleteSkillAction(_previous: ActionState, formData: FormDa
     await invalidate(forCollection("skills"));
     revalidatePath("/admin/works/skills");
     revalidatePath(`/admin/works/skills/${before.groupId}`);
-    return done("Skill deleted.");
+    return done("Skill moved to the trash.");
   } catch (error) {
     log.error("delete skill failed", { error: error instanceof Error ? error.message : String(error) });
     return fail("Something went wrong. Please try again.");
