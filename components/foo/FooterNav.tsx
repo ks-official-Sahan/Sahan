@@ -128,7 +128,7 @@ const FooterNav = ({ className }: { className?: string }) => {
         onClick={() => handleNavigation("contact")}
         aria-label="Contact"
         aria-current={currentPath === "contact" ? "page" : undefined}
-        className={`min-w-[50px] w-[50px] h-[100px] rounded-r-[12px] bg-transparent rounded-l-none
+        className={`flex items-center justify-center min-w-[50px] w-[50px] h-[100px] rounded-r-[12px] bg-transparent rounded-l-none
             ${
               currentPath === "contact"
                 ? "bg-[#f7f7f7] dark:bg-[#00000032] text-[#19cf31] dark:text-[#91FF00]"
@@ -136,7 +136,7 @@ const FooterNav = ({ className }: { className?: string }) => {
             }
             `}
       >
-        <div className="-rotate-90 w-[84px] h-[34px] px-[13px] rounded-full border flex items-center gap-[4px]">
+        <div className="-rotate-90 w-[84px] h-[34px] shrink-0 px-[13px] rounded-full border flex items-center gap-[4px]">
           <Icon name="hand-heart" className="size-3" />{" "}
           <span className="text-[10px] font-semibold ">Contact</span>
         </div>
