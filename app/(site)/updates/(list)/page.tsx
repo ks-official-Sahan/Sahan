@@ -17,7 +17,7 @@ const Updates = async () => {
   ]);
 
   const finalCta = (
-    <FinalCta content={home.finalCta} channels={home.channels} />
+    <FinalCta key="final-cta" content={home.finalCta} channels={home.channels} />
   );
 
   const listPosts = postPage.items.map((post) => ({
