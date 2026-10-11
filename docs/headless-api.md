@@ -46,3 +46,42 @@ Successful responses use `s-maxage=60` with `stale-while-revalidate=300` and car
 Only documented query parameters are accepted (`limit` and `cursor` on `/posts`, none elsewhere). Any other parameter returns `400`, so cache-busting suffixes cannot bypass the CDN. Malformed input returns `400`; missing content returns `404` (never cached); deep cursor pages are rate-limited per IP (`429` with `Retry-After`); a data-store failure returns `503` with `Retry-After`.
 
 Clients should treat `apiVersion` as the response schema version and keep cursors opaque. A breaking response change gets a new URL version.
+
+## Webhooks
+
+An admin with `manageSettings` adds endpoints at `/admin/webhooks`. Each endpoint gets a signing secret (`whsec_...`), shown once. The site stores it encrypted, and "Rotate secret" replaces it.
+
+**Events.** `content.changed` is sent after every publish, edit or delete that refreshes the public site. Its `data` lists the cache `tags` and public `paths` that were refreshed, so a consumer can refresh the same things. `webhook.ping` is sent only by the "Send test" button.
+
+```json
+{ "id": "6f1c...", "type": "content.changed", "createdAt": "2026-10-10T12:00:00.000Z",
+  "data": { "tags": ["blog:list", "blog:post:hello"], "paths": ["/updates", "/updates/hello"] } }
+```
+
+**Headers.**
+
+- `X-Sahan-Signature: t=<unix seconds>,v1=<hex>`, where `v1` is HMAC-SHA256 of `` `${t}.${rawBody}` `` with the endpoint secret.
+- `Idempotency-Key`: the same value on every retry of one delivery. Store it and drop repeats.
+- `X-Sahan-Event` and `X-Sahan-Delivery`.
+
+**Checking a request (Node).** Use the raw body, before any JSON parsing:
+
+```ts
+import { createHmac, timingSafeEqual } from "node:crypto";
+
+export function verify(secret: string, rawBody: string, header: string | null, toleranceS = 300): boolean {
+  const parts = Object.fromEntries((header ?? "").split(",").map((p) => p.trim().split("=", 2)));
+  const t = Number(parts.t);
+  if (!Number.isInteger(t) || !parts.v1 || Math.abs(Date.now() / 1000 - t) > toleranceS) return false;
+  const expected = createHmac("sha256", secret).update(`${t}.${rawBody}`).digest();
+  const given = Buffer.from(parts.v1, "hex");
+  return given.length === expected.length && timingSafeEqual(given, expected);
+}
+```
+
+**Delivery.**
+
+- Answer with any 2xx within 5 seconds. The response body is ignored.
+- Redirects are not followed, and a 3xx counts as a failure.
+- A failed delivery is retried once a few seconds later. Further retries happen in the daily housekeeping cron, up to 6 attempts. An admin can retry any delivery from the page.
+- URLs must be https, and the host must resolve to public addresses only. This is checked again before every send.

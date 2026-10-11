@@ -78,8 +78,13 @@ copy marked "Copy:", with every link left out: an invite or reset link lets
 whoever holds it take the account, so only its recipient gets it. The copy
 is sent after the original is delivered and never delays the action.
 Invitation, new-account and reset emails also carry a sign-in link, so the
-recipient can find the login page later; "Create user" can email one (the
-password is never emailed).
+recipient can find the login page later.
+
+**Creating a user.** "Create user" emails the single-use invitation link by
+default, so the person sets their own password. The other choice, "Show me a
+one-time password", generates a password, shows it to you once (copy it then)
+and never emails it; the person must change it at first sign-in. Nobody types
+a password for someone else.
 
 **Which domain links use.** Every emailed or copied link (invites, resets,
 sign-in links, the new-inquiry button) uses the first domain in `SITE_URLS`
@@ -93,6 +98,56 @@ never used.
 
 If you're locked out of both (secret lost, cookie expired, no browser
 access), see "Break-glass" below.
+
+### Second factors
+
+**Account → Authenticator app, passkeys and recovery codes** sets up the
+strong factors. With one of them, signing in asks for it after the password:
+
+- **Authenticator app:** a 6-digit code (TOTP). Scan the QR code, then
+  confirm with a code. Each code works once.
+- **Passkey:** fingerprint, face, device PIN or a security key. Passkeys work
+  on `https://sahansachintha.com` (and `www.`) in production and on
+  `http://localhost:3000`/`3001` in development, not on the `*.vercel.app`
+  domains.
+- **Recovery codes:** ten single-use codes, shown once when the first strong
+  factor is added. Make new ones from the same section; the old ones stop
+  working.
+
+At sign-in, the second step shows a tab for each method the account set up
+(passkey, authenticator app, emailed code); the browser remembers the last
+one picked. The emailed code is sent only when chosen. Recovery codes sit
+behind **Can't use these?**, and are offered on their own after two wrong
+tries.
+
+**Passkey sign-in** (Settings → Passkey sign-in, `DEVELOPER` only, off by
+default) adds **Sign in with a passkey** to the sign-in page. The browser lists
+the passkeys saved on the device for this site and each person picks their own,
+so a shared device works. The passkey must check a fingerprint, face or device
+PIN, so it replaces both the password and the second step, and counts as strong
+MFA. The unlock cookie, a per-address limit (`passkey-sign-in:ip`), the
+disabled-account check, the new-device email and the audit log still apply.
+Passkeys added before this change may not be discoverable; add them again if
+the browser does not offer them.
+
+Removing a factor or making new recovery codes asks for the password again.
+
+A `DEVELOPER` can reset someone else's second factors from **Users → (user) →
+Second factors**: the authenticator app, one passkey, the recovery codes, or
+everything. It asks for the developer's own password, signs the person out
+everywhere when an app or passkey goes, and emails them. A `DEVELOPER` or
+`SUPER_ADMIN` left without an app or passkey must set one up again before using
+the admin. **Sign out everywhere** in the same sheet ends sessions without
+touching the factors.
+Adding the first strong factor signs out every other session.
+
+`DEVELOPER` and `SUPER_ADMIN` must have an authenticator app or a passkey
+(`strongMfaRoles` in `lib/auth/kit-config.ts`):
+
+- Until they add one, the account page is the only page they can open, and
+  actions and admin API routes refuse them.
+- Everyone, these roles included, may still choose the emailed code at
+  sign-in while "Two-factor sign-in" is on in the account page.
 
 ## Auth engine
 

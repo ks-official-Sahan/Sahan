@@ -32,7 +32,9 @@ class NotFound extends Error {
   }
 }
 
-function harness(options: { session?: { sid?: string; user?: { id?: string }; pwf?: string } | null; state?: SessionState | null; permissions?: string[] } = {}) {
+function harness(
+  options: { session?: { sid?: string; user?: { id?: string }; pwf?: string } | null; state?: SessionState | null; permissions?: string[]; extra?: Partial<AuthDalDeps> } = {}
+) {
   const touched: string[] = [];
   const deps: AuthDalDeps = {
     auth: async () => (options.session === undefined ? { sid: "s1", user: { id: "u1" }, pwf: live.pwf } : options.session),
@@ -48,6 +50,7 @@ function harness(options: { session?: { sid?: string; user?: { id?: string }; pw
     after: (fn) => fn(),
     expirePath: EXPIRE_PATH,
     accountPasswordChangePath: ACCOUNT_PASSWORD_PATH,
+    ...options.extra,
   };
   return { dal: createAuthDal(deps), touched };
 }
@@ -136,4 +139,25 @@ test("requirePermission calls notFound() when the user does not hold the permiss
 test("a user for another subject than the token claims is treated as no valid session", async () => {
   const { dal } = harness({ session: { sid: "s1", user: { id: "someone-else" }, pwf: live.pwf } });
   await assert.rejects(dal.requireUser(), (error: unknown) => error instanceof Redirected && error.path === EXPIRE_PATH);
+});
+
+test("a required role without a strong factor reaches only the setup page", async () => {
+  const extra = { strongMfaRoles: ["DEVELOPER"], mfaSetupPath: "/admin/account/security" };
+  const { dal } = harness({ state: { ...live, strongMfa: false }, extra });
+  await assert.rejects(dal.requireUser(), (error: unknown) => error instanceof Redirected && error.path === "/admin/account/security");
+  assert.equal((await dal.requireUser({ allowMfaSetup: true })).mfaSetupRequired, true);
+
+  assert.equal((await harness({ state: { ...live, strongMfa: true }, extra }).dal.requireUser()).mfaSetupRequired, false);
+  // A state cached before the field existed is unknown, never treated as missing.
+  assert.equal((await harness({ state: live, extra }).dal.requireUser()).mfaSetupRequired, false);
+  // Another role is not affected.
+  assert.equal((await harness({ state: { ...live, role: "EDITOR", strongMfa: false }, extra }).dal.requireUser()).mfaSetupRequired, false);
+  // The password page comes first.
+  const both = harness({ state: { ...live, strongMfa: false, mustChangePassword: true }, extra });
+  await assert.rejects(both.dal.requireUser(), (error: unknown) => error instanceof Redirected && error.path === ACCOUNT_PASSWORD_PATH);
+  assert.equal((await both.dal.requireUser({ allowPasswordChange: true })).id, "u1");
+});
+
+test("strongMfaRoles without a setup path is a configuration error", () => {
+  assert.throws(() => harness({ extra: { strongMfaRoles: ["DEVELOPER"] } }), /mfaSetupPath/);
 });

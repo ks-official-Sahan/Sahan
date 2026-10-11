@@ -17,6 +17,7 @@ import { settingRepo } from "./settings";
 import { trashRepo } from "./trash";
 import { userSessionRepo } from "./user-sessions";
 import { userRepo } from "./users";
+import { webhookRepo } from "./webhooks";
 
 export { authAdapter } from "./auth-adapter";
 export { isDbUnavailable } from "./errors";
@@ -46,11 +47,15 @@ export function createRepos(client: DbClient): Repos {
     skills: skillRepo(client),
     trash: trashRepo(client),
     users: userRepo(client),
+    webhooks: webhookRepo(client),
   };
 }
 
 /** Repositories on the shared client. `db` is a lazy proxy, so this does not connect. */
 export const repos: Repos = createRepos(db);
+
+/** Repositories on a transaction client that auth-kit's adapter handed over. */
+export const reposFor = (tx: unknown): Repos => createRepos(tx as DbClient);
 
 /** Runs `fn` in one transaction; every repository it receives writes inside it. */
 export function withTx<T>(fn: (tx: Repos) => Promise<T>, options?: TxOptions): Promise<T> {

@@ -3,6 +3,7 @@ import "server-only";
 import { revalidatePath, revalidateTag } from "next/cache";
 
 import { log } from "@/lib/log";
+import { notifyContentChanged } from "@/lib/webhooks/dispatch";
 
 import { purgeRedisTag } from "./cached";
 import type { InvalidationPlan } from "./plan";
@@ -40,4 +41,7 @@ export async function invalidate(plan: InvalidationPlan): Promise<void> {
     if (typeof entry === "string") revalidatePath(entry);
     else revalidatePath(entry.path, entry.type);
   }
+  // Headless consumers get the same refresh as a signed "content.changed"
+  // webhook, sent after the response (lib/webhooks/dispatch.ts).
+  notifyContentChanged(plan);
 }

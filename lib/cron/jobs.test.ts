@@ -4,7 +4,8 @@ import { strict as assert } from "node:assert";
 import type { AuditRow } from "@/lib/data/audit";
 import type { MaintenanceRepo } from "@/lib/data/maintenance";
 
-import { AUDIT_PRUNE_BATCH, auditPruneJob, blogPublishJob, revisionPruneJob, sessionCleanupJob, trashPurgeJob, CLEANUP_GRACE_MS } from "./jobs";
+import { AUDIT_PRUNE_BATCH, auditPruneJob, blogPublishJob, revisionPruneJob, sessionCleanupJob, trashPurgeJob, webhookRetryJob, CLEANUP_GRACE_MS } from "./jobs";
+import type { WebhookRepo } from "@/lib/data/webhooks";
 import type { TrashItem, TrashRepo } from "@/lib/data/trash";
 
 // In-memory maintenance repositories. Each keeps the repository contract
@@ -288,5 +289,26 @@ describe("trashPurgeJob", () => {
     assert.equal(result.deleted, 0);
     assert.equal(removed.length, 0);
     assert.equal(created.length, 0);
+  });
+});
+
+describe("webhookRetryJob", () => {
+  test("delivers due deliveries and prunes old history", async () => {
+    const now = Date.parse("2026-11-30T00:00:00.000Z");
+    let prunedBefore: Date | null = null;
+    const webhooks = {
+      async dueIds() {
+        return ["a", "b"];
+      },
+      async pruneDeliveries(before: Date) {
+        prunedBefore = before;
+        return 3;
+      },
+    } as unknown as WebhookRepo;
+    const sent: string[][] = [];
+    const result = await webhookRetryJob({ webhooks }, async (ids) => sent.push(ids), now);
+    assert.deepEqual(result, { retried: 2, deleted: 3 });
+    assert.deepEqual(sent, [["a", "b"]]);
+    assert.ok(prunedBefore && (prunedBefore as Date).getTime() < now);
   });
 });
