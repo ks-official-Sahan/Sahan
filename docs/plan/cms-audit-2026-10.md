@@ -91,27 +91,27 @@ Browser -> Vercel CDN -> proxy.ts (every non-static path)
 
 ### Low
 - **Media delivery and upload:**
-  - `/media/[...slug]` is uncached and appears unused. Delete it or add cache headers.
-  - `registerUpload` swallows errors and leaves an orphan Cloudinary asset on failure.
-  - Tags are unvalidated and not searchable.
+  - `/media/[...slug]` is uncached and appears unused. Delete it or add cache headers. (Cache headers in #19.)
+  - `registerUpload` swallows errors and leaves an orphan Cloudinary asset on failure. (Fixed in #19.)
+  - Tags are unvalidated and not searchable. (Fixed in #19.)
 - **Data growth and indexes:**
   - Superseded ContentBlock versions are never pruned.
   - Each section load reads every version's data.
   - `listPublicSlugs` is unbounded.
   - Missing composite or partial indexes for the keyset queries and media `(createdAt, id)`. (Fixed in #23.)
 - **Validation:**
-  - `canonicalUrl` accepts relative, anchor and mailto values.
-  - The project slug has no format check.
-  - `generatedByAI` is trusted from the form.
+  - `canonicalUrl` accepts relative, anchor and mailto values. (Fixed in #19.)
+  - The project slug has no format check. (Fixed in #19.)
+  - `generatedByAI` is trusted from the form. (Accepted: a self-declared disclosure label on create; every AI call is audited and rate limited.)
 - **Cache clear and maintenance page:**
   - "Clear cache" omits the `settings` tags (fixed in #16).
-  - The maintenance page ignores the saved reason and end time.
+  - The maintenance page ignores the saved reason and end time. (Fixed in #19, along with the bypass query, which the page answered before it could set the cookie.)
 - **Behaviour:**
-  - The AI rate-limit buckets fail open.
-  - Section publish is 2 transactions.
-  - The audit-prune log uses action `audit.exported`.
-  - The log redaction regex hides `statusCode` and `cacheKey`.
-  - The bypass cookie has no nonce.
+  - The AI rate-limit buckets fail open. (Fixed in #19.)
+  - Section publish is 2 transactions. (Fixed in #19.)
+  - The audit-prune log uses action `audit.exported`. (Fixed in #19: `audit.pruned`.)
+  - The log redaction regex hides `statusCode` and `cacheKey`. (Fixed in #19.)
+  - The bypass cookie has no nonce. (Fixed in #19, and future-dated cookies are refused.)
 
 ## 4. Gaps against production CMS platforms
 

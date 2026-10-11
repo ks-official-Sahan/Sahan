@@ -179,7 +179,7 @@ describe("auditPruneJob", () => {
     assert.equal(result.deleted, 1);
     assert.equal(rows.length, 1);
     assert.equal(created.length, 1);
-    assert.equal(created[0].action, "audit.exported");
+    assert.equal(created[0].action, "audit.pruned");
   });
 
   test("deletes a backlog larger than one batch", async () => {
