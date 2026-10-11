@@ -81,11 +81,11 @@ Browser -> Vercel CDN -> proxy.ts (every non-static path)
 | M4 (ETag/304 in #16; CDN tags open) | `lib/api/content.ts:10`; `lib/cache/plan.ts` | `revalidatePath('/api/content/v1/...')` does not purge the CDN for dynamic handlers (inferred). API consumers see up to 6 min of stale data. No ETag. | Add CDN cache tags with tag purge on publish. Add a content-hash ETag with 304 support. |
 | M5 (Fixed in #16) | `app/api/content/v1/posts/route.ts` | Only cursor requests are rate limited. A random `?x=` busts the CDN key on every call, and `clientIp` ignores `authKit.trustProxy`. | Reject unknown query params. Pass `trustProxy`. Add a WAF rule on `/api/content/*`. |
 | M6 | `lib/cache/cached.ts` | The Redis layer duplicates Vercel's persistent data cache, adds up to 3 round trips per miss, and is the source of H3 and M1. No single-flight on cold keys. | Remove Redis from `cached()` on Vercel. Plan a move to `use cache` / `cacheTag` / `cacheLife` (`unstable_cache` is superseded in Next 16). |
-| M7 | `lib/data/prisma/posts.ts:6-27` | List summaries select full `contentText` to cut a 200-char excerpt. Large pages risk the 2 MB cache item limit (then a silent miss on every request). | Store `excerpt` at write time and drop `contentText` from `SUMMARY_SELECT`. |
+| M7 (Fixed in #23) | `lib/data/prisma/posts.ts:6-27` | List summaries select full `contentText` to cut a 200-char excerpt. Large pages risk the 2 MB cache item limit (then a silent miss on every request). | Store `excerpt` at write time and drop `contentText` from `SUMMARY_SELECT`. |
 | M8 (Fixed in #15) | `lib/actions/works.ts:114-115,183-184` | `organization: x \|\| undefined` makes Prisma skip the field, so a project's organization and URL can never be cleared. | Map `""` to `null`. Check the other collections for the same pattern. |
 | M9 (Fixed in #17) | `lib/actions/works.ts` (collections) | Edits to published rows go live immediately with no `updatedAt` guard (last write wins). | Add `updateIfUnchanged`. Optionally add a draft layer. |
 | M10 (guard in #16; revision open) | `lib/actions/blog.ts:430-449` | Status changes are unconditional and write no revision. | Guard on `updatedAt` and record a revision. |
-| M11 | `lib/actions/blog.ts` (slug edit) | A changed slug leaves the old URL as a 404 (no slug history or redirects). | Add a `PostSlugHistory` table with a 308 redirect in the post route. |
+| M11 (Fixed in #23) | `lib/actions/blog.ts` (slug edit) | A changed slug leaves the old URL as a 404 (no slug history or redirects). | Add a `PostSlugHistory` table with a 308 redirect in the post route. |
 | M12 | `prisma/schema.prisma`; `package.json` | `db push` only, no migration history. The "one DRAFT + one PUBLISHED per block" rule is enforced in code only. | Adopt `prisma migrate` with a CI diff check, and add a partial unique index. |
 | M13 (Fixed in #16) | `lib/admin/audit.ts`; `lib/actions/blog.ts` | The audit row stores full post bodies before and after (up to about 200 KB each) on top of revisions. | Omit body fields from the audit row (revisions hold them) or audit a diff. |
 
@@ -98,7 +98,7 @@ Browser -> Vercel CDN -> proxy.ts (every non-static path)
   - Superseded ContentBlock versions are never pruned.
   - Each section load reads every version's data.
   - `listPublicSlugs` is unbounded.
-  - Missing composite or partial indexes for the keyset queries and media `(createdAt, id)`.
+  - Missing composite or partial indexes for the keyset queries and media `(createdAt, id)`. (Fixed in #23.)
 - **Validation:**
   - `canonicalUrl` accepts relative, anchor and mailto values.
   - The project slug has no format check.
@@ -152,14 +152,14 @@ Browser -> Vercel CDN -> proxy.ts (every non-static path)
 - M2: KV last-known-good value plus a degraded alert.
 - M3: 5-minute publish cron or `publishAt`-aware revalidate.
 - M4 and M5: CDN tags, ETag/304, query-param allowlist, `trustProxy`.
-- M7: stored excerpt.
+- M7: stored excerpt. (Done in #23.)
 - M9 and M10: concurrency guards on collections and status changes.
 - M13: audit without body fields.
 - Settings tags in "Clear cache".
 
 **P2, platform gaps worth building:**
-- M11: slug history and redirects.
-- Soft delete with a trash view.
+- M11: slug history and redirects. (Done in #23.)
+- Soft delete with a trash view. (Done in #24.)
 - `draftMode` preview for posts and collections, with signed share links.
 - Revision diff view.
 - Signed outgoing webhooks (HMAC, retries, idempotency key) for headless consumers.

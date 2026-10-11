@@ -6,6 +6,8 @@ import { forPostList } from "@/lib/cache/plan";
 import { audit } from "@/lib/admin/audit";
 import { REVISIONS_KEPT } from "@sahan-sac/blog-kit/revisions";
 import { log } from "@/lib/log";
+import { deleteTrashedFile, trashedPublicId } from "@/lib/trash/media-file";
+import { trashCutoff } from "@/lib/trash/policy";
 
 // Shared cron job logic, called by both the /api/cron/* routes (automatic,
 // CRON_SECRET) and the manual "run now" action on the settings screen
@@ -153,14 +155,59 @@ export async function auditPruneJob(
 /** The daily audit-prune schedule: old audit rows and surplus post revisions, pruned together. */
 export async function housekeepingPruneJob(
   options: { retentionDays?: number } = {}
-): Promise<{ deleted: number; auditRows: number; revisions: number; error?: string }> {
-  const [auditResult, revisionResult] = await Promise.all([auditPruneJob(options), revisionPruneJob()]);
+): Promise<{ deleted: number; auditRows: number; revisions: number; trash: number; error?: string }> {
+  const [auditResult, revisionResult, trashResult] = await Promise.all([auditPruneJob(options), revisionPruneJob(), trashPurgeJob()]);
+  const error = auditResult.error ?? revisionResult.error ?? trashResult.error;
   return {
-    deleted: auditResult.deleted + revisionResult.deleted,
+    deleted: auditResult.deleted + revisionResult.deleted + trashResult.deleted,
     auditRows: auditResult.deleted,
     revisions: revisionResult.deleted,
-    ...(auditResult.error || revisionResult.error ? { error: auditResult.error ?? revisionResult.error } : {}),
+    trash: trashResult.deleted,
+    ...(error ? { error } : {}),
   };
+}
+
+export type TrashPurgeDb = Pick<Repos, "trash" | "audit">;
+
+/** Most items one run purges; the next daily run continues. */
+export const TRASH_PURGE_BATCH = 200;
+
+/**
+ * Deletes trash items past TRASH_DAYS for good, with the Cloudinary file of
+ * each purged media asset. A file Cloudinary refuses keeps its snapshot, so
+ * the next run retries it rather than orphaning the file.
+ */
+export async function trashPurgeJob(
+  client: TrashPurgeDb = repos,
+  deleteFile: (publicId: string) => Promise<void> = deleteTrashedFile,
+  now = Date.now()
+): Promise<{ deleted: number; error?: string }> {
+  try {
+    const expired = await client.trash.expired(trashCutoff(now), TRASH_PURGE_BATCH);
+    if (expired.length === 0) return { deleted: 0 };
+
+    const files = await Promise.allSettled(
+      expired.map(async (item) => {
+        const publicId = item.entityType === "MediaAsset" ? trashedPublicId(item.data) : null;
+        if (publicId) await deleteFile(publicId);
+        return item.id;
+      })
+    );
+    const purgeable = files.flatMap((result) => (result.status === "fulfilled" ? [result.value] : []));
+    const kept = files.length - purgeable.length;
+    if (kept > 0) log.warn("trash purge cron: media files kept for retry", { count: kept });
+
+    const deleted = await client.trash.remove(purgeable);
+    if (deleted > 0) {
+      await audit({ action: "trash.purged", entityType: "TrashItem", meta: { op: "expired", count: deleted } }, client);
+      log.info("trash purge cron: purged expired trash", { count: deleted });
+    }
+    return { deleted };
+  } catch (err) {
+    const error = String(err);
+    log.error("trash purge cron failed", { error });
+    return { deleted: 0, error };
+  }
 }
 
 /**

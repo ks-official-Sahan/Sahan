@@ -9,6 +9,7 @@ import {
   Newspaper,
   ScrollText,
   Settings,
+  Trash2,
   ShieldCheck,
   UserCircle,
   Users,
@@ -51,8 +52,8 @@ export interface AdminNavItem {
   href: string;
   label: string;
   icon: LucideIcon;
-  /** Permission that shows the link. `null` means every signed-in user. */
-  permission: Permission | null;
+  /** Permission that shows the link (any one of a list). `null` means every signed-in user. */
+  permission: Permission | readonly Permission[] | null;
   group: AdminNavGroupId;
 }
 
@@ -63,6 +64,7 @@ export const ADMIN_NAV: readonly AdminNavItem[] = [
   { href: "/admin/works", label: "Works", icon: Briefcase, permission: "editCollections", group: "content" },
   { href: "/admin/blog", label: "Blog", icon: Newspaper, permission: "viewBlog", group: "content" },
   { href: "/admin/media", label: "Media", icon: ImageIcon, permission: "viewMedia", group: "content" },
+  { href: "/admin/trash", label: "Trash", icon: Trash2, permission: ["deleteBlog", "deleteMedia", "publishCollections"], group: "content" },
   { href: "/admin/leads", label: "Leads", icon: Inbox, permission: "viewLeads", group: "audience" },
   { href: "/admin/chatbot", label: "Chatbot", icon: Bot, permission: "viewChatHistory", group: "audience" },
   { href: "/admin/users", label: "Users", icon: Users, permission: "viewUsers", group: "access" },
@@ -85,7 +87,8 @@ export function navFor(granted: Iterable<Permission>): AdminNavSection[] {
     items: ADMIN_NAV.filter(
       (item) =>
         item.group === group.id &&
-        (item.permission === null || allowed.has(item.permission))
+        (item.permission === null ||
+          (typeof item.permission === "string" ? allowed.has(item.permission) : item.permission.some((permission) => allowed.has(permission))))
     ),
   })).filter((section) => section.items.length > 0);
 }

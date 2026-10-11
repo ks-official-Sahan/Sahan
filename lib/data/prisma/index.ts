@@ -14,6 +14,7 @@ import { postRepo, postRevisionRepo } from "./posts";
 import { rolePermissionRepo } from "./role-permissions";
 import { roleRepo } from "./roles";
 import { settingRepo } from "./settings";
+import { trashRepo } from "./trash";
 import { userSessionRepo } from "./user-sessions";
 import { userRepo } from "./users";
 
@@ -43,6 +44,7 @@ export function createRepos(client: DbClient): Repos {
     settings: settingRepo(client),
     skillGroups: skillGroupRepo(client),
     skills: skillRepo(client),
+    trash: trashRepo(client),
     users: userRepo(client),
   };
 }

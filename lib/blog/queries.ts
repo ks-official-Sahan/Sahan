@@ -6,6 +6,7 @@ import { isValidPostSlug, TAGS } from "@/lib/cache/tags";
 import { repos } from "@/lib/data";
 import { extractText, sanitizeRich } from "@/lib/cms/rich-text";
 import { log } from "@/lib/log";
+import { EXCERPT_CHARS } from "@/lib/blog/excerpt";
 import { isDue, visibleAhead } from "@/lib/blog/visibility";
 import { UpdatesContent } from "@/contents/updates";
 
@@ -61,7 +62,6 @@ export interface BlogPostView extends BlogPostSummary {
   contentText: string;
 }
 
-const EXCERPT_CHARS = 200;
 
 const escapeHtml = (value: string): string =>
   value
@@ -103,7 +103,7 @@ interface PostRow {
   slug: string;
   title: string;
   excerpt: string | null;
-  contentText: string;
+  autoExcerpt: string;
   topic: string;
   tags: string[];
   publishAt: Date | string | null;
@@ -133,7 +133,7 @@ function toSummary(row: PostRow): BlogPostSummary {
     id: row.id,
     slug: row.slug,
     title: row.title,
-    excerpt: row.excerpt || row.contentText.slice(0, EXCERPT_CHARS),
+    excerpt: row.excerpt || row.autoExcerpt,
     topic: row.topic,
     tags: row.tags,
     date: publishedAt ? formatDate(publishedAt) : "",
@@ -157,7 +157,7 @@ function toView(row: FullPostRow): BlogPostView {
     ...toSummary(row),
     // Re-sanitized: never trust a stored value, even one this loader wrote itself.
     contentHtml: sanitizeRich(row.contentHtml),
-    contentText: row.contentText || extractText(row.contentHtml),
+    contentText: extractText(row.contentHtml),
   };
 }
 
@@ -413,6 +413,28 @@ export async function getPostBySlug(slug: string, defaults?: BlogPostView[]): Pr
     onError: (error) => log.warn("blog post read failed", { slug, error: String(error) }),
   });
   return row && isDue(row) ? toView(row) : null;
+}
+
+// Old slugs left by renames (post_slug_redirects), with their posts' current
+// slugs. One small cached read, invalidated with blog:list like every list.
+const cachedSlugRedirects = cached(() => repos.posts.listSlugRedirects(), ["blog", "slug-redirects", "v1"], {
+  tags: [TAGS.blogList],
+  revalidate: 300,
+});
+
+/**
+ * The current slug for an old one, when that post is public now; else null.
+ * The post page and the content API answer an old slug with a permanent
+ * redirect instead of a 404, so links and search results keep working.
+ */
+export async function getPostRedirect(slug: string): Promise<string | null> {
+  if (!isValidPostSlug(slug)) return null;
+  const redirects = await loadOrNull(cachedSlugRedirects, {
+    onError: (error) => log.warn("blog slug redirect read failed", { error: String(error) }),
+  });
+  const target = redirects?.find((entry) => entry.slug === slug)?.targetSlug;
+  if (!target || target === slug) return null;
+  return (await getPostBySlug(target)) ? target : null;
 }
 
 /** Up to `limit` other posts sharing the most tags/topic with `post`, newest first on ties. */

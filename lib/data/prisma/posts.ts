@@ -9,7 +9,7 @@ const SUMMARY_SELECT = {
   slug: true,
   title: true,
   excerpt: true,
-  contentText: true,
+  autoExcerpt: true,
   topic: true,
   tags: true,
   publishAt: true,
@@ -138,6 +138,18 @@ export function postRepo(client: DbClient): PostRepo {
     },
     find(id) {
       return client.post.findUnique({ where: { id } });
+    },
+    async listSlugRedirects() {
+      const rows = await client.postSlugRedirect.findMany({ select: { slug: true, post: { select: { slug: true } } } });
+      return rows.map((row) => ({ slug: row.slug, targetSlug: row.post.slug }));
+    },
+    async recordRename(postId, oldSlug, newSlug) {
+      if (oldSlug === newSlug) return;
+      await client.postSlugRedirect.deleteMany({ where: { slug: newSlug } });
+      await client.postSlugRedirect.upsert({ where: { slug: oldSlug }, create: { slug: oldSlug, postId }, update: { postId } });
+    },
+    async releaseSlug(slug) {
+      await client.postSlugRedirect.deleteMany({ where: { slug } });
     },
     findWithCoverUrl(id) {
       return client.post.findUnique({ where: { id }, include: { coverMedia: { select: { url: true } } } });
