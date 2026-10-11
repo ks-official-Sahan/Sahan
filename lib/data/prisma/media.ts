@@ -2,6 +2,7 @@ import type { Prisma } from "@prisma/client";
 
 import type { MediaRepo } from "../media";
 import type { DbClient } from "./client";
+import { table } from "./raw";
 import { normalizeTags } from "@/lib/media/tags";
 
 export function mediaRepo(client: DbClient): MediaRepo {
@@ -46,7 +47,7 @@ export function mediaRepo(client: DbClient): MediaRepo {
       return { ...asset, usages: [...usages.values()] };
     },
     async lockForUpdate(id) {
-      await client.$queryRaw`SELECT id FROM media_assets WHERE id = ${id} FOR UPDATE`;
+      await client.$queryRaw`SELECT id FROM ${table("media_assets")} WHERE id = ${id} FOR UPDATE`;
     },
     listPage({ query, kind, after, take }) {
       // Substring match, so "logo" finds "company logo". Unindexed ILIKE is fine

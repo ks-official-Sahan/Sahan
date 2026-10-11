@@ -36,6 +36,7 @@
     "./rbac/roles": "./src/rbac/roles.ts",
     "./rbac/mask": "./src/rbac/mask.ts",
     "./mfa": "./src/mfa/index.ts",
+    "./webauthn": "./src/webauthn/index.ts",
     "./security": "./src/security/index.ts",
     "./cache": "./src/cache/index.ts",
     "./credentials": "./src/credentials.ts",
@@ -88,17 +89,19 @@
   "peerDependencies": {
     "better-auth": "^1.7.6",
     "drizzle-orm": ">=0.44.0 <1",
+    "hono": "^4.6.0",
     "next": "^16.3.5",
     "next-auth": "5.0.0-beta.32",
+    "pg": "^8.11.0",
     "react": "^19.0.0",
-    "hono": "^4.6.0",
-    "pg": "^8.11.0"
+    "@simplewebauthn/server": "^13.0.0"
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.8",
     "@electric-sql/pglite-socket": "^0.2.11",
     "@prisma/adapter-pg": "7.10.0",
     "@prisma/client": "7.10.0",
+    "@simplewebauthn/server": "^13.3.3",
     "@types/node": "^22",
     "@types/pg": "^8.23.1",
     "@types/ua-parser-js": "^0.7.39",
@@ -236,6 +239,11 @@
         "types": "./dist/mfa/index.d.ts",
         "import": "./dist/mfa/index.js",
         "default": "./dist/mfa/index.js"
+      },
+      "./webauthn": {
+        "types": "./dist/webauthn/index.d.ts",
+        "import": "./dist/webauthn/index.js",
+        "default": "./dist/webauthn/index.js"
       },
       "./security": {
         "types": "./dist/security/index.d.ts",
@@ -402,6 +410,9 @@
       "optional": true
     },
     "pg": {
+      "optional": true
+    },
+    "@simplewebauthn/server": {
       "optional": true
     }
   }

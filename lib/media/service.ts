@@ -298,11 +298,12 @@ export async function updateMediaMetadata(
 // Delete media asset only if it's not in use.
 // For CLOUDINARY assets, delete from Cloudinary first (before DB delete in case of error).
 // For LOCAL assets, no external cleanup needed.
-export async function deleteMedia(
-  mediaId: string,
-  actor: { id: string; email: string },
-  cloudinaryClient?: CloudinaryClient
-): Promise<DeleteMediaResult> {
+/**
+ * Moves an unused asset to the trash: its row goes, a snapshot stays for
+ * TRASH_DAYS, and its Cloudinary file is kept until the trash is purged
+ * (lib/cron/jobs.ts), so a restore brings back a working asset.
+ */
+export async function deleteMedia(mediaId: string, actor: { id: string; email: string }): Promise<DeleteMediaResult> {
   const outcome = await withTx(async (tx) => {
     // Lock, check and delete in one transaction. The row lock comes before
     // the usage read: a content save that already inserted its MediaUsage
@@ -321,6 +322,8 @@ export async function deleteMedia(
       };
     }
 
+    const { usages: _usages, ...row } = asset;
+    await tx.trash.put([{ entityType: "MediaAsset", entityId: mediaId, label: row.title || row.alt || row.publicId || row.url, data: { asset: row }, deletedById: actor.id }]);
     await tx.media.delete(mediaId);
 
     await audit(
@@ -338,41 +341,13 @@ export async function deleteMedia(
       },
       tx
     );
-    return { kind: "deleted" as const, asset };
+    return { kind: "deleted" as const };
   });
 
   if (outcome.kind === "missing") return { ok: false, error: "Media not found" };
   if (outcome.kind === "in_use") {
     return { ok: false, error: "This media is used elsewhere and cannot be deleted", usages: outcome.usages };
   }
-
-  // The database row is gone before external cleanup, so no new CMS save can
-  // commit a reference to an asset that Cloudinary has already deleted.
-  if (outcome.asset.provider === "CLOUDINARY") {
-    if (!outcome.asset.publicId) {
-      log.error("Cloudinary media row had no public ID during cleanup", { mediaId });
-      return { ok: true, warning: "The media was removed from the library, but its Cloudinary public ID was missing." };
-    }
-    if (!cloudinaryClient) {
-      log.warn("Cloudinary media cleanup skipped because the client is not configured", { mediaId });
-      return {
-        ok: true,
-        warning: "The media was removed from the library, but Cloudinary is not configured for external cleanup.",
-      };
-    }
-    try {
-      const deleted = await cloudinaryClient.deleteAsset(outcome.asset.publicId);
-      if (!deleted) throw new Error("Cloudinary did not confirm asset deletion");
-    } catch (error) {
-      log.error("Cloudinary media cleanup failed after library deletion", {
-        mediaId,
-        publicId: outcome.asset.publicId,
-        error: error instanceof Error ? error.message : String(error),
-      });
-      return { ok: true, warning: "The media was removed from the library, but its Cloudinary copy could not be deleted. Check the server log and remove it from Cloudinary." };
-    }
-  }
-
   return { ok: true };
 }
 

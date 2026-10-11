@@ -4,6 +4,8 @@ import { test } from "node:test";
 import { createAuthorize, type AuthorizeDeps } from "./authorize";
 import { MemoryKv } from "./cache/memory";
 import { createMfa } from "./mfa/mfa";
+import { openFactorSecret } from "./mfa/sealed";
+import { totpAt } from "./mfa/totp";
 import { hashPassword } from "./password";
 import { createSessionStore } from "./session/store";
 import { FakeAdapter } from "./test-support/fake-adapter";
@@ -26,6 +28,7 @@ async function harness(options: { acctLimited?: boolean } = {}) {
       return { ok: true };
     },
     audit: async () => undefined,
+    claimOnce: async () => true,
     renderMfaCode: ({ code }) => ({ subject: "code", html: code, text: `code ${code}` }),
   });
 
@@ -138,4 +141,33 @@ test("a first sign-in from a new device emails the owner; a second from the same
   await authorize({ email: user.email, password: "right-password" }, request("Mozilla/5.0 (Macintosh)"));
   await new Promise((resolve) => setTimeout(resolve, 0));
   assert.deepEqual(knownDeviceEmails, [user.email], "no second email for a known device");
+});
+
+test("an authenticator app or a passkey alone also requires the second step", async () => {
+  const { authorize, adapter, user } = await harness();
+  await adapter.setTotpSecret(user.id, "sealed", new Date());
+  assert.deepEqual(await authorize({ email: user.email, password: "right-password" }, request()), { kind: "mfa_required" });
+  await adapter.setTotpSecret(user.id, null, null);
+  await adapter.createPasskey({ id: "cred", userId: user.id, publicKey: "pk", counter: 0, transports: [], deviceType: "singleDevice", backedUp: false, name: "Key" });
+  assert.deepEqual(await authorize({ email: user.email, password: "right-password" }, request()), { kind: "mfa_required" });
+});
+
+test("a ticket verified with an authenticator-app code signs in once", async () => {
+  const { authorize, adapter, user, mfa } = await harness();
+  const setup = await mfa.beginTotpSetup(user);
+  assert.ok(setup.ok);
+  const confirmed = await mfa.confirmTotpSetup(user, totpAt(setup.secret, Date.now()));
+  assert.ok(confirmed.ok && confirmed.recoveryCodes?.length === 10);
+  // The sealed secret opens with the auth secret (the default factor key).
+  assert.equal(openFactorSecret((await adapter.findMfaFactors(user.id))!.totpSecretCipher!, AUTH_SECRET), setup.secret);
+
+  const ticket = await mfa.openTicket({ userId: user.id, purpose: "SIGN_IN" });
+  assert.ok(ticket.ok);
+  // Without a claimOnce store a code may repeat within its window; this sign-in uses the next step's code.
+  const code = totpAt(setup.secret, Date.now() + 30_000);
+  assert.deepEqual(await mfa.verifyTotp({ challengeId: ticket.challengeId, userId: user.id, email: user.email, purpose: "SIGN_IN", code }), { ok: true });
+  const result = await authorize({ challengeId: ticket.challengeId }, request());
+  assert.equal(result.kind, "signed_in");
+  if (result.kind === "signed_in") assert.equal(result.session.mfa, true);
+  assert.deepEqual(await authorize({ challengeId: ticket.challengeId }, request()), { kind: "invalid" });
 });
