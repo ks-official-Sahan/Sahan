@@ -1,0 +1,322 @@
+name: Docker
+
+# Container CI/CD for the web app.
+#
+#   pull_request   build linux/amd64, smoke-test the hardened container, scan it
+#   push master    build amd64 + arm64 on native runners, push by digest to GHCR,
+#   tags v*        merge one multi-arch manifest, sign it (cosign keyless),
+#                  attach SBOM + provenance, scan it, then deploy when enabled
+#
+# Deploy runs only when the repository variable DEPLOY_ENABLED is "true" and
+# the "production" environment has DEPLOY_HOST, DEPLOY_USER, DEPLOY_SSH_KEY and
+# DEPLOY_KNOWN_HOSTS (docs/deploy-docker.md).
+
+on:
+  push:
+    branches: [master]
+    tags: ["v*"]
+    paths-ignore: ["**/*.md", "docs/**", ".changeset/**"]
+  pull_request:
+    branches: [master]
+    paths-ignore: ["**/*.md", "docs/**", ".changeset/**"]
+  workflow_dispatch:
+    inputs:
+      deploy:
+        description: Deploy after the build (needs DEPLOY_ENABLED)
+        type: boolean
+        default: false
+
+concurrency:
+  group: docker-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+env:
+  REGISTRY: ghcr.io
+  # GHCR names must be lowercase.
+  IMAGE: ghcr.io/ks-official-sahan/sahan
+  NEXT_PUBLIC_BASE_URL: https://sahansachintha.com
+
+jobs:
+  build:
+    name: Build (${{ matrix.platform }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 40
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: true
+      matrix:
+        # Pull requests build amd64 only; releases add native arm64 (no QEMU).
+        include: ${{ fromJSON(github.event_name == 'pull_request' && '[{"platform":"linux/amd64","runner":"ubuntu-24.04"}]' || '[{"platform":"linux/amd64","runner":"ubuntu-24.04"},{"platform":"linux/arm64","runner":"ubuntu-24.04-arm"}]') }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Platform slug
+        run: echo "SLUG=${PLATFORM//\//-}" >> "$GITHUB_ENV"
+        env:
+          PLATFORM: ${{ matrix.platform }}
+
+      - uses: docker/setup-buildx-action@v4
+        id: buildx
+
+      # The pnpm store and the Next build cache are BuildKit cache mounts; the
+      # layer cache (type=gha) cannot carry them, so they ride actions/cache.
+      - name: Restore cache mounts
+        uses: actions/cache@v6
+        id: mounts
+        with:
+          path: cache-mounts
+          key: mounts-${{ env.SLUG }}-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.sha }}
+          restore-keys: |
+            mounts-${{ env.SLUG }}-${{ hashFiles('pnpm-lock.yaml') }}-
+            mounts-${{ env.SLUG }}-
+
+      - name: Inject cache mounts into BuildKit
+        uses: reproducible-containers/buildkit-cache-dance@v3.4.0
+        with:
+          builder: ${{ steps.buildx.outputs.name }}
+          dockerfile: Dockerfile
+          cache-dir: cache-mounts
+          skip-extraction: ${{ steps.mounts.outputs.cache-hit }}
+
+      - name: Log in to GHCR
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Labels
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ env.IMAGE }}
+
+      - name: Build for test
+        if: github.event_name == 'pull_request'
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          platforms: ${{ matrix.platform }}
+          load: true
+          tags: sahan-web:test
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            NEXT_PUBLIC_BASE_URL=${{ env.NEXT_PUBLIC_BASE_URL }}
+            NEXT_DEPLOYMENT_ID=${{ github.sha }}
+          cache-from: type=gha,scope=${{ env.SLUG }}
+          cache-to: type=gha,scope=${{ env.SLUG }},mode=max
+
+      - name: Build and push by digest
+        if: github.event_name != 'pull_request'
+        id: push
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          platforms: ${{ matrix.platform }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            NEXT_PUBLIC_BASE_URL=${{ env.NEXT_PUBLIC_BASE_URL }}
+            NEXT_DEPLOYMENT_ID=${{ github.sha }}
+          outputs: type=image,name=${{ env.IMAGE }},push-by-digest=true,name-canonical=true,push=true
+          provenance: mode=max
+          sbom: true
+          cache-from: type=gha,scope=${{ env.SLUG }}
+          cache-to: type=gha,scope=${{ env.SLUG }},mode=max
+
+      # The container runs exactly as compose.yaml runs it: read-only root,
+      # no capabilities, no new privileges, tmpfs for the caches.
+      - name: Smoke test
+        if: github.event_name == 'pull_request'
+        run: |
+          docker run -d --name smoke -p 3000:3000 --read-only \
+            --tmpfs /app/.next/cache:uid=65532,gid=65532 --tmpfs /tmp:uid=65532,gid=65532 \
+            --cap-drop ALL --security-opt no-new-privileges sahan-web:test
+          for i in $(seq 1 30); do
+            status="$(docker inspect -f '{{.State.Health.Status}}' smoke)"
+            case "$status" in healthy|unhealthy) break ;; esac
+            sleep 2
+          done
+          docker logs smoke 2>&1 | tail -n 40
+          test "$(docker inspect -f '{{.State.Health.Status}}' smoke)" = healthy
+          curl -fsS http://127.0.0.1:3000/api/health
+          curl -fsS -o /dev/null -w 'robots.txt %{http_code}\n' http://127.0.0.1:3000/robots.txt
+          docker image ls sahan-web:test --format 'Image size: {{.Size}}' | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Scan
+        if: github.event_name == 'pull_request'
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: sahan-web:test
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: "1"
+
+      - name: Export digest
+        if: github.event_name != 'pull_request'
+        run: |
+          mkdir -p "$RUNNER_TEMP/digests"
+          touch "$RUNNER_TEMP/digests/${DIGEST#sha256:}"
+        env:
+          DIGEST: ${{ steps.push.outputs.digest }}
+
+      - name: Upload digest
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-artifact@v7
+        with:
+          name: digests-${{ env.SLUG }}
+          path: ${{ runner.temp }}/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  merge:
+    name: Manifest, sign, scan
+    if: github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      security-events: write
+    outputs:
+      digest: ${{ steps.inspect.outputs.digest }}
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          path: ${{ runner.temp }}/digests
+          pattern: digests-*
+          merge-multiple: true
+
+      - uses: docker/setup-buildx-action@v4
+
+      - uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Tags
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ env.IMAGE }}
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha,format=long
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+
+      - name: Create the multi-arch manifest
+        working-directory: ${{ runner.temp }}/digests
+        # Word splitting is intended: one -t per tag, one ref per digest file.
+        run: |
+          # shellcheck disable=SC2046
+          docker buildx imagetools create \
+            $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
+            $(printf "$IMAGE@sha256:%s " *)
+
+      - name: Digest
+        id: inspect
+        run: |
+          digest="$(docker buildx imagetools inspect "$IMAGE:sha-$GITHUB_SHA" --format '{{json .Manifest}}' | jq -r .digest)"
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+          echo "Image: \`$IMAGE@$digest\`" >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: sigstore/cosign-installer@v4
+
+      - name: Sign (keyless, GitHub OIDC)
+        run: cosign sign --yes "$IMAGE@$DIGEST"
+        env:
+          DIGEST: ${{ steps.inspect.outputs.digest }}
+
+      - name: Scan
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ${{ env.IMAGE }}@${{ steps.inspect.outputs.digest }}
+          format: sarif
+          output: trivy.sarif
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+
+      - name: Upload scan results
+        if: always() && hashFiles('trivy.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: trivy.sarif
+          category: trivy-image
+
+  deploy:
+    name: Deploy (VPS)
+    needs: merge
+    if: >-
+      vars.DEPLOY_ENABLED == 'true' &&
+      (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v')) &&
+      (github.event_name == 'push' || inputs.deploy)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment:
+      name: production
+      url: https://sahansachintha.com
+    # Never two rollouts at once, and never cancel one halfway.
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            compose.yaml
+            scripts/deploy
+          sparse-checkout-cone-mode: false
+
+      - name: SSH key
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy && chmod 600 ~/.ssh/deploy
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+
+      - name: Ship compose files and roll out
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DIR: ${{ vars.DEPLOY_DIR || '/opt/sahan' }}
+          PROFILES: ${{ vars.DEPLOY_PROFILES || 'proxy,cron' }}
+          IMAGE_REF: ${{ env.IMAGE }}@${{ needs.merge.outputs.digest }}
+          GHCR_USER: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ssh_opts="-i $HOME/.ssh/deploy -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes"
+          target="$DEPLOY_USER@$HOST"
+          ssh $ssh_opts "$target" "mkdir -p '$DIR/scripts/deploy'"
+          scp $ssh_opts compose.yaml "$target:$DIR/compose.yaml"
+          scp $ssh_opts scripts/deploy/* "$target:$DIR/scripts/deploy/"
+          # The GHCR token lives only as long as this job and goes over stdin.
+          printf '%s' "$GHCR_TOKEN" | ssh $ssh_opts "$target" \
+            "docker login ghcr.io -u '$GHCR_USER' --password-stdin >/dev/null && \
+             COMPOSE_PROFILES='$PROFILES' DEPLOY_DIR='$DIR' sh '$DIR/scripts/deploy/deploy.sh' '$IMAGE_REF'; \
+             status=\$?; docker logout ghcr.io >/dev/null; exit \$status"
+
+      - name: Verify from outside
+        run: |
+          for i in $(seq 1 10); do
+            curl -fsS --max-time 10 https://sahansachintha.com/api/health && exit 0
+            sleep 6
+          done
+          exit 1

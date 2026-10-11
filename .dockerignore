@@ -1,0 +1,51 @@
+# Build context for the Dockerfile. Keep it small: everything listed here is
+# never sent to the builder, which keeps uploads fast and cache keys stable.
+
+# VCS, editors and agent tooling
+.git
+.github
+.gitignore
+.changeset
+.claude
+.cursor
+.gemini
+.vscode
+.idea
+.mcp.json
+.ignore
+graft
+nl
+opencode.json
+AGENTS.md
+CLAUDE.md
+GEMINI.md
+
+# Dependencies and build output (rebuilt inside the image)
+**/node_modules
+**/.next
+**/dist
+**/coverage
+**/.turbo
+**/.prisma-test
+*.tsbuildinfo
+next-env.d.ts
+
+# Local env files and secrets never enter the image
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Docs and container files themselves
+docs
+README.md
+Dockerfile
+.dockerignore
+compose*.yaml
+docker-compose*.yml
+
+# OS noise and logs
+.DS_Store
+Thumbs.db
+*.log
