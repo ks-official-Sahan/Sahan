@@ -93,6 +93,10 @@ services:
     <<: *hardening
     profiles: [cron]
     image: busybox:1.37
+    # crond sets the job's groups (initgroups) before running it, which needs
+    # SETGID even as root. Every other capability stays dropped.
+    cap_add:
+      - SETGID
     depends_on:
       app:
         condition: service_healthy

@@ -65,7 +65,9 @@ cosign verify ghcr.io/ks-official-sahan/sahan@sha256:<digest> \
 
 1. On the VPS:
    - Install Docker Engine and the Compose plugin.
-   - Create a `deploy` user in the `docker` group.
+   - Create a `deploy` user in the `docker` group. With rootful Docker
+     Engine, the `docker` group is equivalent to root on the VPS, so treat
+     `DEPLOY_SSH_KEY` as a host-admin credential (or run rootless Docker).
    - Create `/opt/sahan` owned by that user.
    - Put the runtime configuration in `/opt/sahan/.env.production`, using
      the same keys as Vercel (`.env.example`), with `chmod 600`.
@@ -110,8 +112,10 @@ them one at a time.
     `no-new-privileges`.
   - tmpfs mounts for `.next/cache` and `/tmp`.
   - CPU and memory limits, and rotated JSON logs.
-  - The app port listens on `127.0.0.1` only. `TRUSTED_PROXY_HOPS=1` makes
-    rate limits use the address Caddy (or your own proxy) saw.
+  - Inside the container the app listens on `0.0.0.0:3000`. The port
+    published on the host binds `127.0.0.1` only, and Caddy reaches the app
+    as `app:3000` over the Compose network. `TRUSTED_PROXY_HOPS=1` makes rate
+    limits use the address Caddy (or your own proxy) saw.
 - **`caddy`** (profile `proxy`):
   - HTTPS with automatic certificates, HTTP/3 and zstd/gzip.
   - `flush_interval -1`, so streamed RSC and Suspense chunks reach the
