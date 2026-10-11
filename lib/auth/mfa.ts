@@ -2,7 +2,7 @@ import "server-only";
 
 import { createMfa, mfaMethodsFor, type MfaMethods } from "@sahan-sac/auth-kit/mfa";
 
-import { auditSafe } from "@/lib/admin/audit";
+import { audit, auditSafe } from "@/lib/admin/audit";
 import { limit } from "@/lib/cache/ratelimit";
 import { kv } from "@/lib/cache/redis";
 import { sendEmail } from "@/lib/email";
@@ -10,7 +10,7 @@ import { mfaCode } from "@/lib/email/templates";
 
 import { AUTH_SECRET } from "./kit";
 import { authKit } from "./kit-config";
-import { authAdapter } from "@/lib/data";
+import { authAdapter, reposFor } from "@/lib/data";
 
 // The second sign-in step and the factors behind it: emailed codes, an
 // authenticator app (TOTP), recovery codes, and passkeys (./passkeys.ts).
@@ -32,7 +32,7 @@ export const mfa = createMfa({
   authSecret: AUTH_SECRET,
   limit: limitAdapter,
   sendEmail: sendEmailAdapter,
-  audit: auditSafe,
+  audit: (event, tx) => (tx ? audit(event, reposFor(tx)) : auditSafe(event)),
   // Passkey challenges are never emailed; only the code purposes reach the template.
   renderMfaCode: (input) => mfaCode({ ...input, purpose: input.purpose === "PASSKEY_REGISTER" || input.purpose === "PASSKEY_SIGN_IN" ? undefined : input.purpose }),
   // One authenticator-app code works once, across every instance (Redis SET NX).
@@ -59,9 +59,8 @@ export const {
 
 /** The second-step methods this user may use, or null when the user is gone. */
 export async function signInMethods(userId: string): Promise<MfaMethods | null> {
-  const [user, factors] = await Promise.all([authAdapter.findUserById(userId), factorsOf(userId)]);
-  if (!user || !factors) return null;
-  return mfaMethodsFor(user.role, factors, authKit.strongMfaRoles);
+  const factors = await factorsOf(userId);
+  return factors ? mfaMethodsFor(factors) : null;
 }
 
 export type { IssueResult, MfaMethods, MfaPurpose, VerifyResult } from "@sahan-sac/auth-kit/mfa";

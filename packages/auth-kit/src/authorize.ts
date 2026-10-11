@@ -208,9 +208,7 @@ export function createAuthorize(deps: AuthorizeDeps) {
     }
     // A right password is not enough for an account with a second factor: the
     // sign-in action opens the second step, and the session only starts after it.
-    if (result.user.mfaEnabled) return { kind: "mfa_required" };
-    const factors = await adapter.findMfaFactors(result.user.id);
-    if (factors && (factors.totpEnabledAt !== null || factors.passkeys > 0)) return { kind: "mfa_required" };
+    if (result.user.mfaEnabled || result.user.strongMfa) return { kind: "mfa_required" };
 
     return { kind: "signed_in", session: await finishSignIn(result.user, { ip: knownIp, ua, mfa: false }, createSession) };
   };

@@ -71,10 +71,10 @@ test("method policy: every method the user set up is offered; required roles mus
   const strong = ["SUPER_ADMIN", "DEVELOPER"];
   const emailOnly = { emailOtp: true, totp: false, passkeys: 0, recoveryCodesLeft: 0 };
   const withTotp = { emailOtp: true, totp: true, passkeys: 0, recoveryCodesLeft: 10 };
-  assert.deepEqual(mfaMethodsFor("DEVELOPER", emailOnly, strong), { email: true, totp: false, passkey: false, recovery: false });
-  assert.deepEqual(mfaMethodsFor("DEVELOPER", withTotp, strong), { email: true, totp: true, passkey: false, recovery: true });
-  assert.deepEqual(mfaMethodsFor("DEVELOPER", { ...withTotp, emailOtp: false }, strong), { email: false, totp: true, passkey: false, recovery: true });
-  assert.deepEqual(mfaMethodsFor("EDITOR", withTotp, strong), { email: true, totp: true, passkey: false, recovery: true });
+  assert.deepEqual(mfaMethodsFor(emailOnly), { email: true, totp: false, passkey: false, recovery: false });
+  assert.deepEqual(mfaMethodsFor(withTotp), { email: true, totp: true, passkey: false, recovery: true });
+  assert.deepEqual(mfaMethodsFor({ ...withTotp, emailOtp: false }), { email: false, totp: true, passkey: false, recovery: true });
+  assert.deepEqual(mfaMethodsFor(withTotp), { email: true, totp: true, passkey: false, recovery: true });
   assert.equal(mustSetUpStrongMfa("DEVELOPER", emailOnly, strong), true);
   assert.equal(mustSetUpStrongMfa("DEVELOPER", { totp: false, passkeys: 1 }, strong), false);
   assert.equal(mustSetUpStrongMfa("EDITOR", emailOnly, strong), false);

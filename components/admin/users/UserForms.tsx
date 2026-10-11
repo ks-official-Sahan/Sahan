@@ -113,7 +113,7 @@ export function CreateUserForm({ roles }: { roles: readonly RoleName[] }) {
 function CreatedAccess() {
   const { ok, secret, link } = useActionResult();
   if (!ok) return null;
-  if (secret) return <CopyField label="Temporary password" value={secret} hint="Shown once. It is not stored anywhere you can read it again." autoCopy />;
+  if (secret) return <CopyField label="Temporary password" value={secret} hint="Shown once. It is not stored anywhere you can read it again." />;
   return link ? <CopyField label="Invitation link" value={link} hint="Works once. Copy it if the email does not arrive." /> : null;
 }
 

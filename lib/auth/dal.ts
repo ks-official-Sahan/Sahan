@@ -45,7 +45,7 @@ export const getSessionStatus = dal.getSessionStatus;
  * permission until they do: this is what keeps the admin API routes and
  * per-item checks closed to them, as requireUser keeps the pages closed.
  */
-export const hasPermission = (user: Pick<AuthUser, "permissions"> & Partial<Pick<AuthUser, "mfaSetupRequired">>, permission: Permission): boolean =>
+export const hasPermission = (user: Pick<AuthUser, "permissions" | "mfaSetupRequired">, permission: Permission): boolean =>
   !user.mfaSetupRequired && dal.hasPermission(user, permission);
 export const requirePermission = dal.requirePermission as (
   permission: Permission,

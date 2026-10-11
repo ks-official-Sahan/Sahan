@@ -443,8 +443,8 @@ once:
 
 1. `authorize` answers `mfa_required` for a user with emailed codes on
    (`users.mfaEnabled`), a confirmed authenticator app, or a passkey.
-2. Your sign-in action looks at `factorsOf(userId)` and `mfaMethodsFor(role,
-   factors, strongMfaRoles)`:
+2. Your sign-in action looks at `factorsOf(userId)` and
+   `mfaMethodsFor(factors)` (the same offer for every role):
    - an authenticator app or passkey: `openTicket` (nothing is emailed yet);
    - otherwise: `issueChallenge` emails a 6-digit code.
    The user may pick any method in `MfaMethods` (`email`, `totp`, `passkey`),
@@ -456,10 +456,18 @@ once:
 4. On `{ ok: true }`, sign in with `{ challengeId }` and no password. That
    reaches the MFA second-step branch, which calls `consumeChallenge` for you.
 
-Optional deps:
+Required deps worth a note:
 
 - `claimOnce(key, ttlSeconds)` (a Redis `SET NX`) makes each authenticator
   code work only once.
+- `audit(event, tx?)`: factor changes (setting up or removing an app or a
+  passkey, issuing or dropping recovery codes) run in one transaction and
+  pass `tx`. Write the row inside it and let a failure throw, so the change
+  and its row commit or roll back together. Without `tx`, a best-effort
+  write is fine.
+
+Optional deps:
+
 - `setupLimit(userId)` bounds wrong codes while confirming a new app.
 - `factorSecret` seals the TOTP secrets (AES-256-GCM). It defaults to
   `authSecret`; changing it means users set their app up again.

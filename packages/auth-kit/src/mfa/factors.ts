@@ -37,11 +37,10 @@ export function needsSecondStep(factors: UserFactors): boolean {
 }
 
 /**
- * The methods the second sign-in step offers this user. `role` and
- * `strongMfaRoles` are kept for callers that pass them; the offer no longer
- * depends on the role.
+ * The methods the second sign-in step offers this user, the same for every
+ * role: the emailed code stays available beside a stronger factor.
  */
-export function mfaMethodsFor(_role: string, factors: UserFactors, _strongMfaRoles: readonly string[] = []): MfaMethods {
+export function mfaMethodsFor(factors: UserFactors): MfaMethods {
   return {
     email: factors.emailOtp,
     totp: factors.totp,

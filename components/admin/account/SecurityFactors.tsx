@@ -100,12 +100,15 @@ function RecoveryCodes({ codes, onDone }: { codes: string[]; onDone: () => void 
         <button
           type="button"
           className={buttonVariants.small}
-          onClick={() =>
-            navigator.clipboard.writeText(text).then(
-              () => toast.success("Recovery codes copied."),
-              () => toast.error("Copy failed. Select the codes and copy them by hand.")
-            )
-          }
+          onClick={async () => {
+            try {
+              if (!navigator.clipboard) throw new Error("no clipboard");
+              await navigator.clipboard.writeText(text);
+              toast.success("Recovery codes copied.");
+            } catch {
+              toast.error("Copy failed. Select the codes and copy them by hand.");
+            }
+          }}
         >
           Copy
         </button>

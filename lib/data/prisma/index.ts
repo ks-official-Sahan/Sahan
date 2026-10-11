@@ -54,6 +54,9 @@ export function createRepos(client: DbClient): Repos {
 /** Repositories on the shared client. `db` is a lazy proxy, so this does not connect. */
 export const repos: Repos = createRepos(db);
 
+/** Repositories on a transaction client that auth-kit's adapter handed over. */
+export const reposFor = (tx: unknown): Repos => createRepos(tx as DbClient);
+
 /** Runs `fn` in one transaction; every repository it receives writes inside it. */
 export function withTx<T>(fn: (tx: Repos) => Promise<T>, options?: TxOptions): Promise<T> {
   return db.$transaction((tx) => fn(createRepos(tx)), options);

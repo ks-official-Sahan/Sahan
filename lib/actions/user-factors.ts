@@ -52,6 +52,7 @@ export async function userFactorsAction(userId: string): Promise<UserFactorsResu
   if (!allowed.ok) return allowed;
   const [factors, passkeys] = await Promise.all([authAdapter.findMfaFactors(allowed.target.id), authAdapter.listPasskeys(allowed.target.id)]);
   if (!factors) return { ok: false, error: "That user does not exist." };
+  await auditSafe({ action: "auth.mfa.inventory_viewed", actor: allowed.actor, entityType: "User", entityId: allowed.target.id });
   return {
     ok: true,
     factors: {
@@ -82,7 +83,7 @@ export async function removeUserFactorAction(_previous: ActionState, formData: F
   const [head, ...rest] = choice.split(":");
   const factor = FACTORS.find((value) => value === head) as Factor | undefined;
   const passkeyId = rest.join(":");
-  if (!factor || (factor === "passkey") !== passkeyId.length > 0) return fail("Choose what to remove.");
+  if (!factor || (factor === "passkey") !== (passkeyId.length > 0)) return fail("Choose what to remove.");
 
   const confirmed = await confirmPassword(actor, formData.get("password"));
   if (!confirmed.ok) return fail(confirmed.error, { password: confirmed.error });
@@ -94,6 +95,11 @@ export async function removeUserFactorAction(_previous: ActionState, formData: F
     allPasskeys: factor === "all",
     recoveryCodes: factor === "recovery" || factor === "all",
   });
+  // A stale sheet: nothing was there to remove, so nobody is signed out or emailed.
+  if (!removed.totp && removed.passkeys === 0 && !removed.recoveryCodes) {
+    revalidatePath(USERS_PATH);
+    return done(`Nothing to remove: ${target.email} no longer has that sign-in method.`);
+  }
 
   let signedOut = 0;
   if (removed.totp || removed.passkeys > 0) {
@@ -124,9 +130,7 @@ export async function removeUserFactorAction(_previous: ActionState, formData: F
       : factor === "totp"
         ? "The authenticator app was removed"
         : factor === "passkey"
-          ? removed.passkeys > 0
-            ? "The passkey was removed"
-            : "That passkey was already gone"
+          ? "The passkey was removed"
           : "The recovery codes were removed";
   return done(`${what} for ${target.email}.${signedOut > 0 ? ` They were signed out of ${signedOut} ${signedOut === 1 ? "session" : "sessions"}.` : ""}`);
 }

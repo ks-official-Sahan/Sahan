@@ -62,10 +62,23 @@ export function createPrismaAuthAdapter<TTx extends PrismaAuthModels = PrismaAut
 
     // -- users --
     async findUserForAuth(email) {
-      return db.user.findUnique({
+      const row = await db.user.findUnique({
         where: { email },
-        select: { id: true, email: true, name: true, role: true, passwordHash: true, disabledAt: true, mfaEnabled: true },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          role: true,
+          passwordHash: true,
+          disabledAt: true,
+          mfaEnabled: true,
+          totpEnabledAt: true,
+          _count: { select: { passkeys: true } },
+        },
       });
+      if (!row) return null;
+      const { totpEnabledAt, _count, ...user } = row;
+      return { ...user, strongMfa: totpEnabledAt !== null || _count.passkeys > 0 };
     },
     async findUserById(id) {
       return db.user.findUnique({
@@ -266,21 +279,30 @@ export function createPrismaAuthAdapter<TTx extends PrismaAuthModels = PrismaAut
     },
 
     // -- factors --
-    async findMfaFactors(userId) {
-      const row = await db.user.findUnique({
+    async findMfaFactors(userId, tx) {
+      const models = client(tx);
+      const row = await models.user.findUnique({
         where: { id: userId },
         select: { mfaEnabled: true, totpSecretCipher: true, totpEnabledAt: true, _count: { select: { passkeys: true } } },
       });
       if (!row) return null;
-      const recoveryCodesLeft = await db.mfaRecoveryCode.count({ where: { userId, usedAt: null } });
+      const recoveryCodesLeft = await models.mfaRecoveryCode.count({ where: { userId, usedAt: null } });
       return { mfaEnabled: row.mfaEnabled, totpSecretCipher: row.totpSecretCipher, totpEnabledAt: row.totpEnabledAt, passkeys: row._count.passkeys, recoveryCodesLeft };
     },
     async setTotpSecret(userId, cipher, enabledAt, tx) {
       await client(tx).user.updateMany({ where: { id: userId }, data: { totpSecretCipher: cipher, totpEnabledAt: enabledAt } });
     },
-    async confirmTotpSecret(userId, when) {
-      const { count } = await db.user.updateMany({
-        where: { id: userId, totpSecretCipher: { not: null }, totpEnabledAt: null },
+    async lockUser(userId, tx) {
+      // An UPDATE takes the row lock (Prisma has no SELECT ... FOR UPDATE).
+      await client(tx).user.updateMany({ where: { id: userId }, data: { updatedAt: new Date() } });
+    },
+    async beginTotpSecret(userId, cipher) {
+      const { count } = await db.user.updateMany({ where: { id: userId, totpEnabledAt: null }, data: { totpSecretCipher: cipher } });
+      return { count };
+    },
+    async confirmTotpSecret(userId, cipher, when, tx) {
+      const { count } = await client(tx).user.updateMany({
+        where: { id: userId, totpSecretCipher: cipher, totpEnabledAt: null },
         data: { totpEnabledAt: when },
       });
       return { count };
@@ -310,6 +332,10 @@ export function createPrismaAuthAdapter<TTx extends PrismaAuthModels = PrismaAut
     },
     async deletePasskey(userId, id, tx) {
       const { count } = await client(tx).webAuthnCredential.deleteMany({ where: { id, userId } });
+      return { count };
+    },
+    async deletePasskeys(userId, tx) {
+      const { count } = await client(tx).webAuthnCredential.deleteMany({ where: { userId } });
       return { count };
     },
   };

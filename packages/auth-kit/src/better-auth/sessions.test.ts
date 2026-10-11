@@ -107,7 +107,8 @@ function suite(kind: string, open: () => Promise<Db>) {
           codes.push(/\d{6}/.exec(message.text)![0]);
           return { ok: true };
         },
-        renderMfaCode: ({ code }) => ({ subject: "Your code", html: code, text: `Your code is ${code}` }),
+        claimOnce: async () => true,
+      renderMfaCode: ({ code }) => ({ subject: "Your code", html: code, text: `Your code is ${code}` }),
       });
       const authorize = createAuthorize({
         adapter: db.adapter,

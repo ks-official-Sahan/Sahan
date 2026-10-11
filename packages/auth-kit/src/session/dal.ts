@@ -64,6 +64,8 @@ export function createAuthDal(deps: AuthDalDeps) {
   const { auth, getSessionState, touchSession, getRolePermissions, notFound, redirect, after, expirePath, accountPasswordChangePath } = deps;
   const strongMfaRoles = deps.strongMfaRoles ?? [];
   if (strongMfaRoles.length > 0 && !deps.mfaSetupPath) throw new Error("createAuthDal: strongMfaRoles needs mfaSetupPath.");
+  // Only read when a role needs setup, which the check above guarantees has a path.
+  const mfaSetupPath = deps.mfaSetupPath ?? "/";
 
   // One lookup per request, however many components ask.
   const resolve = cache(async (): Promise<Resolved> => {
@@ -125,7 +127,7 @@ export function createAuthDal(deps: AuthDalDeps) {
     if (result.user.mustChangePassword && !options.allowPasswordChange) redirect(accountPasswordChangePath);
     // A role that must have an authenticator app or passkey reaches nothing but
     // the setup page until it has one. The password page comes first.
-    if (result.user.mfaSetupRequired && !options.allowMfaSetup && !result.user.mustChangePassword) redirect(deps.mfaSetupPath!);
+    if (result.user.mfaSetupRequired && !options.allowMfaSetup && !result.user.mustChangePassword) redirect(mfaSetupPath);
     return result.user;
   }
 

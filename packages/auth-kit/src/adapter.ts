@@ -25,6 +25,8 @@ export interface AdapterAuthUser {
   passwordHash: string;
   disabledAt: Date | null;
   mfaEnabled: boolean;
+  /** Has a confirmed authenticator app or a passkey. */
+  strongMfa: boolean;
 }
 
 export interface AdapterBasicUser {
@@ -174,11 +176,18 @@ export interface AuthDbAdapter<TTx = unknown> {
   ): Promise<{ userId: string; user: { id: string; email: string; name: string | null; disabledAt: Date | null } } | null>;
 
   // -- factors: authenticator app, recovery codes, passkeys --
-  findMfaFactors(userId: string): Promise<AdapterMfaFactors | null>;
+  findMfaFactors(userId: string, tx?: TTx): Promise<AdapterMfaFactors | null>;
+  /**
+   * Serializes factor changes for one user inside `tx` (a row lock on the
+   * user, held until the transaction ends).
+   */
+  lockUser(userId: string, tx: TTx): Promise<void>;
   /** Replaces the TOTP secret (null removes it); `enabledAt` null leaves it unconfirmed. */
   setTotpSecret(userId: string, cipher: string | null, enabledAt: Date | null, tx?: TTx): Promise<void>;
-  /** Confirms a pending secret; count 0 when there is none or it is already confirmed. */
-  confirmTotpSecret(userId: string, when: Date): Promise<{ count: number }>;
+  /** Stores a new unconfirmed secret; count 0 when the user has a confirmed one. */
+  beginTotpSecret(userId: string, cipher: string): Promise<{ count: number }>;
+  /** Confirms this pending secret; count 0 when it was replaced, removed or already confirmed. */
+  confirmTotpSecret(userId: string, cipher: string, when: Date, tx?: TTx): Promise<{ count: number }>;
   replaceRecoveryCodes(userId: string, codeHashes: string[], tx?: TTx): Promise<void>;
   /** Spends one unused code; count 0 when it does not exist or was used. */
   consumeRecoveryCode(userId: string, codeHash: string, when: Date): Promise<{ count: number }>;
@@ -188,4 +197,6 @@ export interface AuthDbAdapter<TTx = unknown> {
   /** Records a sign-in with the passkey: its new counter and when. */
   updatePasskeyUse(id: string, counter: number, when: Date): Promise<void>;
   deletePasskey(userId: string, id: string, tx?: TTx): Promise<{ count: number }>;
+  /** Deletes every passkey the user has, in one statement. */
+  deletePasskeys(userId: string, tx?: TTx): Promise<{ count: number }>;
 }

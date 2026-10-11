@@ -2,7 +2,7 @@
 
 import { startAuthentication } from "@simplewebauthn/browser";
 import Link from "next/link";
-import { useActionState, useState, useTransition } from "react";
+import { useActionState, useState, useSyncExternalStore, useTransition } from "react";
 
 import { PasswordInput } from "@/components/admin/ui/PasswordField";
 import {
@@ -52,6 +52,8 @@ function rememberedMethod(): Method | null {
     return null;
   }
 }
+
+const noSubscription = () => () => {};
 
 function rememberMethod(method: Method) {
   try {
@@ -119,6 +121,7 @@ export default function LoginForm({ callbackUrl, notice, passkeySignIn }: { call
   const [passkey, setPasskey] = useState<SignInState>(initial);
   const [passkeyPending, startPasskey] = useTransition();
   const [chosen, setChosen] = useState<Choice | null>(null);
+  const remembered = useSyncExternalStore(noSubscription, rememberedMethod, () => null);
 
   const state = newest(first, emailed, factor, resent, passkey);
   const { challengeId, methods } = state;
@@ -161,7 +164,7 @@ export default function LoginForm({ callbackUrl, notice, passkeySignIn }: { call
   // The method on screen: the one picked now, then email once a code was sent,
   // then the one used last time on this browser, then the strongest offered.
   const offered = methods ? METHODS.filter((method) => methods[method]) : [];
-  const fallback = offered.find((method) => method === rememberedMethod()) ?? offered[0];
+  const fallback = offered.find((method) => method === remembered) ?? offered[0];
   const active: Choice | undefined =
     chosen === "recovery" && methods?.recovery
       ? "recovery"

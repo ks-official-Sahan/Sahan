@@ -27,7 +27,7 @@ import { safeCallbackUrl } from "@/lib/auth/safe-callback-url";
 import { revokeSession } from "@/lib/auth/session-store";
 import { limit } from "@/lib/cache/ratelimit";
 import { repos } from "@/lib/data";
-import { clientIp, UNKNOWN_IP } from "@/lib/security/ip";
+import { clientIp } from "@/lib/security/ip";
 import type { AuthenticationResponseJSON } from "@sahan-sac/auth-kit/webauthn";
 
 // Sign-in and sign-out as Server Functions. They stay POST requests to the
@@ -212,6 +212,7 @@ export async function completePasskeySignIn(input: {
   response: AuthenticationResponseJSON;
   callbackUrl: string;
 }): Promise<SignInState> {
+  if (!input || typeof input.challengeId !== "string") return stamp({ error: GENERIC });
   if (!(await hasValidUnlock())) return stamp({ error: GENERIC });
   const open = await ticket(input.challengeId);
   if (!open) return stamp({ error: EXPIRED });
@@ -238,8 +239,8 @@ export async function completePasskeySignIn(input: {
 async function passwordlessAllowed(): Promise<string | null> {
   if (!(await hasValidUnlock())) return GENERIC;
   if (!(await passkeySignInEnabled())) return PASSWORDLESS_OFF;
-  const ip = clientIp(await headers());
-  if (ip !== UNKNOWN_IP && !(await limit("passkey-sign-in:ip", ip)).ok) return MESSAGES.limited;
+  // Clients with no readable address share one bucket (the UNKNOWN_IP key) rather than going unlimited.
+  if (!(await limit("passkey-sign-in:ip", clientIp(await headers()))).ok) return MESSAGES.limited;
   return null;
 }
 

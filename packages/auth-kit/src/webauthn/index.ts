@@ -14,20 +14,9 @@ import { hasStrongFactor } from "../mfa/factors";
 import type { createMfa, VerifyResult } from "../mfa/mfa";
 import { challengeStatus, MFA_MAX_ATTEMPTS, MFA_TTL_MINUTES, newChallengeId } from "../mfa/rules";
 
-// Passkeys (WebAuthn): registering one from the account page, using one to
-// verify the sign-in ticket (../mfa/mfa.ts), and, where the app allows it,
-// signing in with a passkey alone. The WebAuthn work is
-// @simplewebauthn/server's, an optional peer dependency that only projects
-// importing this subpath install. A second-step ceremony's challenge lives in
-// mfa_challenges (PASSKEY_REGISTER / PASSKEY_SIGN_IN) as a keyed hash, single
-// use, with the same attempt cap as a code. A passwordless ceremony has no
-// user yet, so its challenge lives in `challengeStore` (a Redis key, taken
-// once).
-//
-// Passwordless sign-in uses discoverable passkeys: the browser or OS shows
-// its own account picker with every passkey saved for this site on the
-// device, so two people sharing a device each pick their own. The chosen
-// credential id (and its user handle, checked too) names the account.
+// Passkeys (WebAuthn). Second-step challenges live in mfa_challenges; a
+// passwordless one has no user yet, so it lives in `challengeStore`.
+// Passkeys are discoverable, so the browser's account picker names the user.
 
 export type { AuthenticationResponseJSON, RegistrationResponseJSON };
 
@@ -41,9 +30,10 @@ type WebAuthnLib = Pick<typeof simple, "generateRegistrationOptions" | "verifyRe
 
 export interface PasskeysDeps {
   adapter: AuthDbAdapter;
-  mfa: Pick<ReturnType<typeof createMfa>, "verifyFactor" | "issueRecoveryCodes">;
+  mfa: Pick<ReturnType<typeof createMfa>, "verifyFactor" | "changeFactors" | "writeRecoveryCodes" | "dropOrphanedRecoveryCodes">;
   authSecret: string;
-  audit: (event: AuditEvent) => Promise<void>;
+  /** As in createMfa: factor changes pass `tx`, and the row is written inside it. */
+  audit: (event: AuditEvent, tx?: unknown) => Promise<void>;
   /** Shown by the browser when creating a passkey, for example the site name. */
   rpName: string;
   /** The site's registrable domain, for example "example.com". */
@@ -130,7 +120,8 @@ export function createPasskeys(deps: PasskeysDeps) {
 
   /**
    * Verifies the browser's response and saves the passkey. The first strong
-   * factor also issues recovery codes, returned once.
+   * factor (no authenticator app or passkey before) also issues recovery
+   * codes, returned once.
    */
   async function verifyRegistration(
     actor: Actor,
@@ -147,20 +138,26 @@ export function createPasskeys(deps: PasskeysDeps) {
     if (!verification.verified || !verification.registrationInfo) return { ok: false, reason: "invalid" };
     if (!(await finishChallenge(input.challengeId, actor.id, "PASSKEY_REGISTER"))) return { ok: false, reason: "expired" };
 
-    const before = await adapter.findMfaFactors(actor.id);
     const { credential, credentialDeviceType, credentialBackedUp } = verification.registrationInfo;
-    await adapter.createPasskey({
-      id: credential.id,
-      userId: actor.id,
-      publicKey: Buffer.from(credential.publicKey).toString("base64url"),
-      counter: credential.counter,
-      transports: credential.transports ?? input.response.response.transports ?? [],
-      deviceType: credentialDeviceType,
-      backedUp: credentialBackedUp,
-      name: input.name.trim().slice(0, 60) || "Passkey",
+    return mfa.changeFactors(actor.id, async (tx) => {
+      const before = await adapter.findMfaFactors(actor.id, tx);
+      await adapter.createPasskey(
+        {
+          id: credential.id,
+          userId: actor.id,
+          publicKey: Buffer.from(credential.publicKey).toString("base64url"),
+          counter: credential.counter,
+          transports: credential.transports ?? input.response.response.transports ?? [],
+          deviceType: credentialDeviceType,
+          backedUp: credentialBackedUp,
+          name: input.name.trim().slice(0, 60) || "Passkey",
+        },
+        tx
+      );
+      await audit({ action: "auth.mfa.passkey_added", actor, entityType: "User", entityId: actor.id, meta: { deviceType: credentialDeviceType, backedUp: credentialBackedUp } }, tx);
+      const first = before !== null && !hasStrongFactor({ totp: before.totpEnabledAt !== null, passkeys: before.passkeys });
+      return { ok: true as const, recoveryCodes: first ? await mfa.writeRecoveryCodes(actor, tx) : null };
     });
-    await audit({ action: "auth.mfa.passkey_added", actor, entityType: "User", entityId: actor.id, meta: { deviceType: credentialDeviceType, backedUp: credentialBackedUp } });
-    return { ok: true, recoveryCodes: before && before.recoveryCodesLeft === 0 ? await mfa.issueRecoveryCodes(actor) : null };
   }
 
   /** Options for navigator.credentials.get() during the sign-in step, limited to the user's passkeys. */
@@ -262,13 +259,13 @@ export function createPasskeys(deps: PasskeysDeps) {
   }
 
   /** Removes one of the user's passkeys. With no strong factor left, recovery codes go too. */
-  async function removePasskey(actor: Actor, id: string): Promise<boolean> {
-    const removed = await adapter.deletePasskey(actor.id, id);
-    if (removed.count !== 1) return false;
-    const left = await adapter.findMfaFactors(actor.id);
-    if (left && !hasStrongFactor({ totp: left.totpEnabledAt !== null, passkeys: left.passkeys })) await adapter.replaceRecoveryCodes(actor.id, []);
-    await audit({ action: "auth.mfa.passkey_removed", actor, entityType: "User", entityId: actor.id });
-    return true;
+  function removePasskey(actor: Actor, id: string): Promise<boolean> {
+    return mfa.changeFactors(actor.id, async (tx) => {
+      if ((await adapter.deletePasskey(actor.id, id, tx)).count !== 1) return false;
+      await mfa.dropOrphanedRecoveryCodes(actor.id, tx);
+      await audit({ action: "auth.mfa.passkey_removed", actor, entityType: "User", entityId: actor.id }, tx);
+      return true;
+    });
   }
 
   return { registrationOptions, verifyRegistration, authenticationOptions, verifyAuthentication, passwordlessOptions, verifyPasswordless, removePasskey };

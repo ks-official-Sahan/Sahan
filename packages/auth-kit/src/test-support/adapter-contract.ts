@@ -70,6 +70,7 @@ export function runAdapterContract(name: string, open: () => Promise<ContractHar
         passwordHash: "hash",
         disabledAt: null,
         mfaEnabled: true,
+        strongMfa: false,
       });
       assert.equal(await h.adapter.findUserForAuth("nobody@example.com"), null);
       assert.deepEqual(await h.adapter.findUserById(user.id), { id: user.id, email: user.email, name: auth?.name, role: "MANAGER", passwordHash: "hash" });
@@ -264,13 +265,21 @@ export function runAdapterContract(name: string, open: () => Promise<ContractHar
       assert.equal((await h.adapter.findSessionWithUser(sid))?.user.strongMfa, false, "an unconfirmed secret is not a factor");
 
       const when = new Date("2026-03-04T05:06:07.000Z");
-      assert.deepEqual(await h.adapter.confirmTotpSecret(user.id, when), { count: 1 });
-      assert.deepEqual(await h.adapter.confirmTotpSecret(user.id, when), { count: 0 });
+      assert.deepEqual(await h.adapter.confirmTotpSecret(user.id, "other", when), { count: 0 }, "a replaced secret is not confirmed");
+      assert.deepEqual(await h.adapter.confirmTotpSecret(user.id, "sealed", when), { count: 1 });
+      assert.deepEqual(await h.adapter.confirmTotpSecret(user.id, "sealed", when), { count: 0 });
+      assert.deepEqual(await h.adapter.beginTotpSecret(user.id, "next"), { count: 0 }, "a confirmed secret is kept");
       assert.equal((await h.adapter.findMfaFactors(user.id))?.totpEnabledAt?.getTime(), when.getTime());
       assert.equal((await h.adapter.findSessionWithUser(sid))?.user.strongMfa, true);
 
       await h.adapter.withTransaction((tx) => h.adapter.setTotpSecret(user.id, null, null, tx));
-      assert.deepEqual(await h.adapter.confirmTotpSecret(user.id, when), { count: 0 }, "nothing pending to confirm");
+      assert.deepEqual(await h.adapter.confirmTotpSecret(user.id, "sealed", when), { count: 0 }, "nothing pending to confirm");
+      assert.deepEqual(await h.adapter.beginTotpSecret(user.id, "fresh"), { count: 1 });
+      assert.equal((await h.adapter.findMfaFactors(user.id))?.totpSecretCipher, "fresh");
+      await h.adapter.withTransaction(async (tx) => {
+        await h.adapter.lockUser(user.id, tx);
+        assert.equal((await h.adapter.findMfaFactors(user.id, tx))?.totpSecretCipher, "fresh");
+      });
       assert.equal((await h.adapter.findSessionWithUser(sid))?.user.strongMfa, false);
     });
 
@@ -314,6 +323,11 @@ export function runAdapterContract(name: string, open: () => Promise<ContractHar
 
       assert.deepEqual(await h.adapter.deletePasskey(other.id, id), { count: 0 });
       assert.deepEqual(await h.adapter.withTransaction((tx) => h.adapter.deletePasskey(user.id, id, tx)), { count: 1 });
+      await h.adapter.createPasskey({ id: `${id}-a`, userId: user.id, publicKey: "pk", counter: 0, transports: [], deviceType: "singleDevice", backedUp: false, name: "A" });
+      await h.adapter.createPasskey({ id: `${id}-b`, userId: user.id, publicKey: "pk", counter: 0, transports: [], deviceType: "singleDevice", backedUp: false, name: "B" });
+      assert.deepEqual(await h.adapter.deletePasskeys(other.id), { count: 0 });
+      assert.deepEqual(await h.adapter.withTransaction((tx) => h.adapter.deletePasskeys(user.id, tx)), { count: 2 });
+      assert.equal((await h.adapter.findMfaFactors(user.id))?.passkeys, 0);
       assert.deepEqual(await h.adapter.listPasskeys(user.id), []);
     });
 

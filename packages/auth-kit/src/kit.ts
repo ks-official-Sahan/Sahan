@@ -109,7 +109,7 @@ export interface AuthKitConfig<TRole extends string, TPermission extends string>
   limits: Record<string, LimitRule>;
   /**
    * Roles that must set up an authenticator app or a passkey before using the
-   * admin, and that lose the emailed code once they have one (./mfa/factors).
+   * admin (./mfa/factors). The emailed code stays available to them as well.
    * Default: none.
    */
   strongMfaRoles?: readonly TRole[];

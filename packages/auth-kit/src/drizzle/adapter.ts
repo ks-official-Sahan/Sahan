@@ -1,5 +1,5 @@
 import { and, asc, desc, eq, gt, gte, inArray, isNotNull, isNull, lt, ne, or, sql, type SQL } from "drizzle-orm";
-import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
+import type { AnyPgColumn, PgDatabase, PgQueryResultHKT, PgTable } from "drizzle-orm/pg-core";
 
 import type { AdapterSessionRow, AuthDbAdapter, MfaPurpose } from "../adapter";
 import type { AuthSchema } from "./schema";
@@ -26,6 +26,12 @@ export function createDrizzleAuthAdapter<TRole extends string>(
   const { users, userSessions, rolePermissions, mfaChallenges, mfaRecoveryCodes, webauthnCredentials } = schema as unknown as AuthSchema;
   const client = (tx?: DrizzlePgDatabase) => tx ?? db;
   const first = <T>(rows: T[]): T | null => rows[0] ?? null;
+  // A column always qualified by its table (and schema). Drizzle leaves columns
+  // bare in a single-table select, which a correlated subquery would misread.
+  const col = (table: PgTable, column: AnyPgColumn) => sql`${table}.${sql.identifier(column.name)}`;
+  const passkeyCount = sql<number>`(SELECT count(*)::int FROM ${webauthnCredentials} WHERE ${col(webauthnCredentials, webauthnCredentials.userId)} = ${col(users, users.id)})`;
+  // A confirmed authenticator app or any passkey.
+  const STRONG_MFA = sql<boolean>`(${col(users, users.totpEnabledAt)} IS NOT NULL OR ${passkeyCount} > 0)`.mapWith(Boolean);
 
   return {
     withTransaction(fn) {
@@ -44,6 +50,7 @@ export function createDrizzleAuthAdapter<TRole extends string>(
             passwordHash: users.passwordHash,
             disabledAt: users.disabledAt,
             mfaEnabled: users.mfaEnabled,
+            strongMfa: STRONG_MFA,
           })
           .from(users)
           .where(eq(users.email, email))
@@ -104,7 +111,7 @@ export function createDrizzleAuthAdapter<TRole extends string>(
               passwordHash: users.passwordHash,
               mustChangePassword: users.mustChangePassword,
               mfaEnabled: users.mfaEnabled,
-              strongMfa: sql<boolean>`("users"."totpEnabledAt" IS NOT NULL OR EXISTS (SELECT 1 FROM "webauthn_credentials" w WHERE w."userId" = "users"."id"))`.mapWith(Boolean),
+              strongMfa: STRONG_MFA,
             },
           })
           .from(userSessions)
@@ -327,15 +334,15 @@ export function createDrizzleAuthAdapter<TRole extends string>(
     },
 
     // -- factors --
-    async findMfaFactors(userId) {
+    async findMfaFactors(userId, tx) {
       return first(
-        await db
+        await client(tx)
           .select({
             mfaEnabled: users.mfaEnabled,
             totpSecretCipher: users.totpSecretCipher,
             totpEnabledAt: users.totpEnabledAt,
-            passkeys: sql<number>`(SELECT count(*)::int FROM "webauthn_credentials" w WHERE w."userId" = "users"."id")`.mapWith(Number),
-            recoveryCodesLeft: sql<number>`(SELECT count(*)::int FROM "mfa_recovery_codes" r WHERE r."userId" = "users"."id" AND r."usedAt" IS NULL)`.mapWith(Number),
+            passkeys: passkeyCount.mapWith(Number),
+            recoveryCodesLeft: sql<number>`(SELECT count(*)::int FROM ${mfaRecoveryCodes} WHERE ${col(mfaRecoveryCodes, mfaRecoveryCodes.userId)} = ${col(users, users.id)} AND ${col(mfaRecoveryCodes, mfaRecoveryCodes.usedAt)} IS NULL)`.mapWith(Number),
           })
           .from(users)
           .where(eq(users.id, userId))
@@ -345,11 +352,22 @@ export function createDrizzleAuthAdapter<TRole extends string>(
     async setTotpSecret(userId, cipher, enabledAt, tx) {
       await client(tx).update(users).set({ totpSecretCipher: cipher, totpEnabledAt: enabledAt }).where(eq(users.id, userId));
     },
-    async confirmTotpSecret(userId, when) {
+    async lockUser(userId, tx) {
+      await client(tx).select({ id: users.id }).from(users).where(eq(users.id, userId)).for("update");
+    },
+    async beginTotpSecret(userId, cipher) {
       const rows = await db
         .update(users)
+        .set({ totpSecretCipher: cipher })
+        .where(and(eq(users.id, userId), isNull(users.totpEnabledAt)))
+        .returning({ id: users.id });
+      return { count: rows.length };
+    },
+    async confirmTotpSecret(userId, cipher, when, tx) {
+      const rows = await client(tx)
+        .update(users)
         .set({ totpEnabledAt: when })
-        .where(and(eq(users.id, userId), isNotNull(users.totpSecretCipher), isNull(users.totpEnabledAt)))
+        .where(and(eq(users.id, userId), eq(users.totpSecretCipher, cipher), isNull(users.totpEnabledAt)))
         .returning({ id: users.id });
       return { count: rows.length };
     },
@@ -385,6 +403,10 @@ export function createDrizzleAuthAdapter<TRole extends string>(
         .delete(webauthnCredentials)
         .where(and(eq(webauthnCredentials.id, id), eq(webauthnCredentials.userId, userId)))
         .returning({ id: webauthnCredentials.id });
+      return { count: rows.length };
+    },
+    async deletePasskeys(userId, tx) {
+      const rows = await client(tx).delete(webauthnCredentials).where(eq(webauthnCredentials.userId, userId)).returning({ id: webauthnCredentials.id });
       return { count: rows.length };
     },
   };

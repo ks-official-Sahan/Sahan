@@ -28,6 +28,7 @@ async function harness(options: { acctLimited?: boolean } = {}) {
       return { ok: true };
     },
     audit: async () => undefined,
+    claimOnce: async () => true,
     renderMfaCode: ({ code }) => ({ subject: "code", html: code, text: `code ${code}` }),
   });
 

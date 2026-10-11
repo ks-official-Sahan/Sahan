@@ -22,6 +22,7 @@ function harness() {
     limit: async () => ({ ok: true }),
     sendEmail: async () => ({ ok: true }),
     audit: async (event) => void audits.push(event.action),
+    claimOnce: async () => true,
     renderMfaCode: ({ code }) => ({ subject: "c", html: code, text: code }),
   });
   let issued = "";

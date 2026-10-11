@@ -57,17 +57,20 @@ export function createMfa(deps: {
     message: { to: string; subject: string; html: string; text: string; category: string },
     context: { actor: { id: string; email: string } }
   ) => Promise<{ ok: boolean }>;
-  audit: (event: AuditEvent) => Promise<void>;
+  /**
+   * Writes an audit row. Factor changes pass `tx`: write the row inside it and
+   * throw on failure, so a change and its row commit or roll back together.
+   */
+  audit: (event: AuditEvent, tx?: unknown) => Promise<void>;
   /** `purpose` says what the code is for, so the email can name it. */
   renderMfaCode: (input: { name: string | null; code: string; minutes: number; purpose: MfaPurpose }) => RenderedEmail;
   /** Seals authenticator-app secrets (./sealed.ts). Defaults to `authSecret`. */
   factorSecret?: string;
   /**
    * Records `key` once for `ttlSeconds`; false when it was already recorded
-   * (a Redis `SET NX`). Used so one authenticator-app code works only once.
-   * Without it a code can be replayed within its 90-second window.
+   * (a Redis `SET NX`). One authenticator-app code works only once.
    */
-  claimOnce?: (key: string, ttlSeconds: number) => Promise<boolean>;
+  claimOnce: (key: string, ttlSeconds: number) => Promise<boolean>;
   /** Bounds wrong codes while confirming an authenticator app. Without it there is no limit. */
   setupLimit?: (userId: string) => Promise<{ ok: boolean }>;
 }) {
@@ -285,15 +288,44 @@ export function createMfa(deps: {
     return { emailOtp: row.mfaEnabled, totp: row.totpEnabledAt !== null, passkeys: row.passkeys, recoveryCodesLeft: row.recoveryCodesLeft };
   }
 
-  /** New recovery codes replace any old ones; returns them for one-time display. */
-  async function issueRecoveryCodes(actor: Actor): Promise<string[]> {
+  /**
+   * Runs one user's factor change in a transaction, serialized per user. `fn`
+   * writes its audit row on `tx`, so the change and the row land together.
+   */
+  function changeFactors<T>(userId: string, fn: (tx: unknown) => Promise<T>): Promise<T> {
+    return adapter.withTransaction(async (tx) => {
+      await adapter.lockUser(userId, tx);
+      return fn(tx);
+    });
+  }
+
+  /** Whether these factors include an authenticator app or a passkey. */
+  const strong = (factors: { totpEnabledAt: Date | null; passkeys: number } | null) =>
+    factors !== null && hasStrongFactor({ totp: factors.totpEnabledAt !== null, passkeys: factors.passkeys });
+
+  /** Inside `tx`: new recovery codes replace any old ones; returns them for one-time display. */
+  async function writeRecoveryCodes(actor: Actor, tx: unknown): Promise<string[]> {
     const codes = generateRecoveryCodes();
     await adapter.replaceRecoveryCodes(
       actor.id,
-      codes.map((code) => hashRecoveryCode(normalizeRecoveryCode(code)!, actor.id, authSecret))
+      codes.map((code) => hashRecoveryCode(normalizeRecoveryCode(code)!, actor.id, authSecret)),
+      tx
     );
-    await audit({ action: "auth.mfa.recovery_codes_issued", actor, entityType: "User", entityId: actor.id, meta: { count: codes.length } });
+    await audit({ action: "auth.mfa.recovery_codes_issued", actor, entityType: "User", entityId: actor.id, meta: { count: codes.length } }, tx);
     return codes;
+  }
+
+  /** Inside `tx`: drops the recovery codes when no strong factor is left. True when it did. */
+  async function dropOrphanedRecoveryCodes(userId: string, tx: unknown): Promise<boolean> {
+    const left = await adapter.findMfaFactors(userId, tx);
+    if (!left || strong(left) || left.recoveryCodesLeft === 0) return false;
+    await adapter.replaceRecoveryCodes(userId, [], tx);
+    return true;
+  }
+
+  /** New recovery codes replace any old ones; returns them for one-time display. */
+  function issueRecoveryCodes(actor: Actor): Promise<string[]> {
+    return changeFactors(actor.id, (tx) => writeRecoveryCodes(actor, tx));
   }
 
   /**
@@ -302,11 +334,10 @@ export function createMfa(deps: {
    * must be removed first; starting again replaces an unconfirmed secret.
    */
   async function beginTotpSetup(actor: Actor): Promise<{ ok: true; secret: string } | { ok: false; reason: "already_enabled" }> {
-    const factors = await adapter.findMfaFactors(actor.id);
-    if (factors?.totpEnabledAt) return { ok: false, reason: "already_enabled" };
     const secret = newTotpSecret();
-    await adapter.setTotpSecret(actor.id, sealFactorSecret(secret, factorSecret), null);
-    return { ok: true, secret };
+    // Conditional on no confirmed app, so a confirm that lands first is never overwritten.
+    const { count } = await adapter.beginTotpSecret(actor.id, sealFactorSecret(secret, factorSecret));
+    return count === 1 ? { ok: true, secret } : { ok: false, reason: "already_enabled" };
   }
 
   /**
@@ -316,19 +347,25 @@ export function createMfa(deps: {
   async function confirmTotpSetup(actor: Actor, code: string): Promise<TotpSetupResult> {
     if (setupLimit && !(await setupLimit(actor.id)).ok) return { ok: false, reason: "limited" };
     const factors = await adapter.findMfaFactors(actor.id);
-    if (!factors?.totpSecretCipher || factors.totpEnabledAt) return { ok: false, reason: "not_started" };
+    const cipher = factors?.totpSecretCipher;
+    if (!cipher || factors.totpEnabledAt) return { ok: false, reason: "not_started" };
     if (!(await totpMatches(actor.id, code, false))) return { ok: false, reason: "invalid" };
-    if ((await adapter.confirmTotpSecret(actor.id, new Date())).count !== 1) return { ok: false, reason: "not_started" };
-    await audit({ action: "auth.mfa.totp_enabled", actor, entityType: "User", entityId: actor.id });
-    return { ok: true, recoveryCodes: factors.recoveryCodesLeft === 0 ? await issueRecoveryCodes(actor) : null };
+    return changeFactors(actor.id, async (tx): Promise<TotpSetupResult> => {
+      const before = await adapter.findMfaFactors(actor.id, tx);
+      // Only the secret the code was checked against; a restarted setup is not confirmed by an old code.
+      if ((await adapter.confirmTotpSecret(actor.id, cipher, new Date(), tx)).count !== 1) return { ok: false, reason: "not_started" };
+      await audit({ action: "auth.mfa.totp_enabled", actor, entityType: "User", entityId: actor.id }, tx);
+      return { ok: true, recoveryCodes: strong(before) ? null : await writeRecoveryCodes(actor, tx) };
+    });
   }
 
   /** Removes the authenticator app. With no strong factor left, recovery codes go too. */
   async function removeTotp(actor: Actor): Promise<void> {
-    await adapter.setTotpSecret(actor.id, null, null);
-    const left = await adapter.findMfaFactors(actor.id);
-    if (left && !hasStrongFactor({ totp: false, passkeys: left.passkeys })) await adapter.replaceRecoveryCodes(actor.id, []);
-    await audit({ action: "auth.mfa.totp_removed", actor, entityType: "User", entityId: actor.id });
+    await changeFactors(actor.id, async (tx) => {
+      await adapter.setTotpSecret(actor.id, null, null, tx);
+      await dropOrphanedRecoveryCodes(actor.id, tx);
+      await audit({ action: "auth.mfa.totp_removed", actor, entityType: "User", entityId: actor.id }, tx);
+    });
   }
 
   /**
@@ -336,27 +373,40 @@ export function createMfa(deps: {
    * helping a person who lost a device): the authenticator app, one or every
    * passkey, and/or the recovery codes. With no strong factor left the
    * recovery codes go too. The caller authorizes the actor; this records who
-   * did it, against the user whose factors changed.
+   * did it, against the user whose factors changed. The result says what was
+   * actually removed, all false and 0 when nothing was there to remove.
    */
-  async function removeFactors(
+  function removeFactors(
     actor: Actor,
     input: { userId: string; totp?: boolean; passkeyId?: string; allPasskeys?: boolean; recoveryCodes?: boolean }
   ): Promise<{ totp: boolean; passkeys: number; recoveryCodes: boolean }> {
     const { userId } = input;
-    const totp = Boolean(input.totp);
-    if (totp) await adapter.setTotpSecret(userId, null, null);
-    const ids = input.allPasskeys ? (await adapter.listPasskeys(userId)).map((passkey) => passkey.id) : input.passkeyId ? [input.passkeyId] : [];
-    const deleted = await Promise.all(ids.map((id) => adapter.deletePasskey(userId, id)));
-    const passkeys = deleted.reduce((sum, result) => sum + result.count, 0);
-    const left = await adapter.findMfaFactors(userId);
-    const recoveryCodes =
-      Boolean(input.recoveryCodes) || (left !== null && !hasStrongFactor({ totp: left.totpEnabledAt !== null, passkeys: left.passkeys }));
-    if (recoveryCodes) await adapter.replaceRecoveryCodes(userId, []);
-    await audit({ action: "auth.mfa.factors_removed", actor, entityType: "User", entityId: userId, meta: { totp, passkeys, recoveryCodes } });
-    return { totp, passkeys, recoveryCodes };
+    return changeFactors(userId, async (tx) => {
+      const before = await adapter.findMfaFactors(userId, tx);
+      if (!before) return { totp: false, passkeys: 0, recoveryCodes: false };
+      const totp = Boolean(input.totp) && before.totpSecretCipher !== null;
+      if (totp) await adapter.setTotpSecret(userId, null, null, tx);
+      let passkeys = 0;
+      if (input.allPasskeys) passkeys = (await adapter.deletePasskeys(userId, tx)).count;
+      else if (input.passkeyId) passkeys = (await adapter.deletePasskey(userId, input.passkeyId, tx)).count;
+      let recoveryCodes = false;
+      if (input.recoveryCodes && before.recoveryCodesLeft > 0) {
+        await adapter.replaceRecoveryCodes(userId, [], tx);
+        recoveryCodes = true;
+      } else {
+        recoveryCodes = await dropOrphanedRecoveryCodes(userId, tx);
+      }
+      if (totp || passkeys > 0 || recoveryCodes) {
+        await audit({ action: "auth.mfa.factors_removed", actor, entityType: "User", entityId: userId, meta: { totp, passkeys, recoveryCodes } }, tx);
+      }
+      return { totp, passkeys, recoveryCodes };
+    });
   }
 
   return {
+    changeFactors,
+    writeRecoveryCodes,
+    dropOrphanedRecoveryCodes,
     removeFactors,
     issueChallenge,
     openTicket,

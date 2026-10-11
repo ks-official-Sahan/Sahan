@@ -244,10 +244,10 @@ export async function createUser(previous: ActionState, formData: FormData): Pro
   if (!allowed.ok) return fail(allowed.error);
 
   // Generated until it passes the policy (it always does at this length; the loop is a guard).
+  const passes = (candidate: string) => checkPassword(candidate, { email: parsed.data.email, name: parsed.data.name }).ok;
   let password = generatePassword();
-  for (let tries = 0; !checkPassword(password, { email: parsed.data.email, name: parsed.data.name }).ok && tries < 5; tries++) {
-    password = generatePassword();
-  }
+  for (let tries = 0; !passes(password) && tries < 5; tries++) password = generatePassword();
+  if (!passes(password)) return fail("Could not generate a temporary password. Try again, or send an invitation instead.");
 
   if (await repos.users.existsByEmail(parsed.data.email)) {
     return fail("An account with that email already exists.", { email: "Already has an account." });

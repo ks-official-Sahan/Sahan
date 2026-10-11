@@ -3,9 +3,9 @@ import "server-only";
 import { createPasskeys } from "@sahan-sac/auth-kit/webauthn";
 
 import { SiteMetadata } from "@/config/site";
-import { auditSafe } from "@/lib/admin/audit";
+import { audit, auditSafe } from "@/lib/admin/audit";
 import { kv } from "@/lib/cache/redis";
-import { authAdapter } from "@/lib/data";
+import { authAdapter, reposFor } from "@/lib/data";
 import { getSetting } from "@/lib/settings/service";
 
 import { AUTH_SECRET } from "./kit";
@@ -20,15 +20,17 @@ import { mfa } from "./mfa";
 
 const site = new URL(SiteMetadata.siteUrl);
 const production = process.env.NODE_ENV === "production";
+// The apex and its www twin both serve the site; the relying party is the apex.
+const apex = site.hostname.replace(/^www\./, "");
 
 export const passkeys = createPasskeys({
   adapter: authAdapter,
   mfa,
   authSecret: AUTH_SECRET,
-  audit: auditSafe,
+  audit: (event, tx) => (tx ? audit(event, reposFor(tx)) : auditSafe(event)),
   rpName: SiteMetadata.title,
-  rpID: production ? site.hostname : "localhost",
-  origin: production ? [site.origin, `https://www.${site.hostname}`] : ["http://localhost:3000", "http://localhost:3001"],
+  rpID: production ? apex : "localhost",
+  origin: production ? [`https://${apex}`, `https://www.${apex}`] : ["http://localhost:3000", "http://localhost:3001"],
   // Passwordless challenges: one Redis key each, taken once (DEL count).
   challengeStore: {
     put: async (key, ttlSeconds) => void (await kv.set(`${authKit.keyPrefix}${key}`, 1, { ttlSeconds })),

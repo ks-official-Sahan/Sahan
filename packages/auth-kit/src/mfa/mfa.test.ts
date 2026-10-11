@@ -273,3 +273,54 @@ test("removeFactors: an administrator removes another user's app and passkeys; t
   assert.equal(left?.recoveryCodesLeft, 0);
   assert.ok(h.audits.some((event) => event.action === "auth.mfa.factors_removed"));
 });
+
+test("removeFactors reports nothing and audits nothing when the factors are already gone", async () => {
+  const h = harness();
+  const admin = h.adapter.addUser({ email: "admin@example.com", passwordHash: "x", role: "DEVELOPER" });
+  const before = h.audits.length;
+  assert.deepEqual(
+    await h.mfa.removeFactors({ id: admin.id, email: admin.email }, { userId: h.user.id, totp: true, allPasskeys: true, recoveryCodes: true }),
+    { totp: false, passkeys: 0, recoveryCodes: false }
+  );
+  assert.deepEqual(await h.mfa.removeFactors({ id: admin.id, email: admin.email }, { userId: "missing", totp: true }), { totp: false, passkeys: 0, recoveryCodes: false });
+  assert.equal(h.audits.length, before);
+});
+
+test("a failed audit write rolls the factor change back", async () => {
+  const adapter = new FakeAdapter();
+  const user = adapter.addUser({ email: "owner@example.com", passwordHash: "x", role: "DEVELOPER" });
+  await adapter.setTotpSecret(user.id, "sealed", new Date());
+  const failing = createMfa({
+    adapter,
+    authSecret: AUTH_SECRET,
+    limit: async () => ({ ok: true }),
+    sendEmail: async () => ({ ok: true }),
+    audit: async () => {
+      throw new Error("audit down");
+    },
+    renderMfaCode: ({ code }) => ({ subject: "c", html: code, text: code }),
+    claimOnce: async () => true,
+  });
+  await assert.rejects(failing.removeTotp(user), /audit down/);
+  assert.notEqual((await adapter.findMfaFactors(user.id))?.totpEnabledAt, null);
+});
+
+test("TOTP setup: a code checked against a replaced secret does not confirm the new one", async () => {
+  const h = harness();
+  const first = await h.mfa.beginTotpSetup(h.user);
+  assert.ok(first.ok);
+  const code = totpAt(first.secret, Date.now());
+  // A second tab restarts setup after the first read its secret.
+  const realFind = h.adapter.findMfaFactors.bind(h.adapter);
+  let restarted = false;
+  h.adapter.findMfaFactors = async (userId: string) => {
+    const row = await realFind(userId);
+    if (!restarted) {
+      restarted = true;
+      await h.mfa.beginTotpSetup(h.user);
+    }
+    return row;
+  };
+  assert.equal((await h.mfa.confirmTotpSetup(h.user, code)).ok, false);
+  assert.equal((await realFind(h.user.id))?.totpEnabledAt, null);
+});

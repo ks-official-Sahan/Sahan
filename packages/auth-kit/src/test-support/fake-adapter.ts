@@ -141,7 +141,16 @@ export class FakeAdapter implements AuthDbAdapter<undefined> {
   async findUserForAuth(email: string): Promise<AdapterAuthUser | null> {
     const user = [...this.state.users.values()].find((candidate) => candidate.email === email);
     return user
-      ? { id: user.id, email: user.email, name: user.name, role: user.role, passwordHash: user.passwordHash, disabledAt: user.disabledAt, mfaEnabled: user.mfaEnabled }
+      ? {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          role: user.role,
+          passwordHash: user.passwordHash,
+          disabledAt: user.disabledAt,
+          mfaEnabled: user.mfaEnabled,
+          strongMfa: user.totpEnabledAt !== null || [...this.state.passkeys.values()].some((passkey) => passkey.userId === user.id),
+        }
       : null;
   }
 
@@ -398,9 +407,20 @@ export class FakeAdapter implements AuthDbAdapter<undefined> {
     if (user) Object.assign(user, { totpSecretCipher: cipher, totpEnabledAt: enabledAt });
   }
 
-  async confirmTotpSecret(userId: string, when: Date): Promise<{ count: number }> {
+  async lockUser(): Promise<void> {
+    // One process, no interleaving inside withTransaction: nothing to lock.
+  }
+
+  async beginTotpSecret(userId: string, cipher: string): Promise<{ count: number }> {
     const user = this.state.users.get(userId);
-    if (!user || !user.totpSecretCipher || user.totpEnabledAt) return { count: 0 };
+    if (!user || user.totpEnabledAt) return { count: 0 };
+    user.totpSecretCipher = cipher;
+    return { count: 1 };
+  }
+
+  async confirmTotpSecret(userId: string, cipher: string, when: Date): Promise<{ count: number }> {
+    const user = this.state.users.get(userId);
+    if (!user || user.totpSecretCipher !== cipher || user.totpEnabledAt) return { count: 0 };
     user.totpEnabledAt = when;
     return { count: 1 };
   }
@@ -440,5 +460,11 @@ export class FakeAdapter implements AuthDbAdapter<undefined> {
     if (!passkey || passkey.userId !== userId) return { count: 0 };
     this.state.passkeys.delete(id);
     return { count: 1 };
+  }
+
+  async deletePasskeys(userId: string): Promise<{ count: number }> {
+    const ids = [...this.state.passkeys.values()].filter((passkey) => passkey.userId === userId).map((passkey) => passkey.id);
+    for (const id of ids) this.state.passkeys.delete(id);
+    return { count: ids.length };
   }
 }
