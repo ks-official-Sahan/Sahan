@@ -285,7 +285,8 @@ export default function UsersTable({
                     onClick={() => setOpenId(row.id)}
                     className="inline-flex h-8 items-center gap-1.5 rounded-md border border-input bg-background px-3 text-xs font-medium transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
-                    <Icon name="sliders-horizontal" className="size-3.5" />
+                    {/* Static: one per row, so no animation runtime per row. */}
+                    <Icon lucideIconName="SlidersHorizontal" className="size-3.5" />
                     {row.self ? "View" : "Manage"}
                     <span className="sr-only"> {row.name ?? row.email}</span>
                   </button>

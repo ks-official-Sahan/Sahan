@@ -52,8 +52,10 @@ export default function Icon({ name, lucideIconName, className, label, strokeWid
     const target = own.parentElement?.closest<HTMLElement>(TRIGGER) ?? own;
     const start = () => handle.current?.startAnimation();
     const stop = () => handle.current?.stopAnimation();
-    const focusIn = () => {
-      if (target.matches(":focus-visible")) start();
+    // The focused element, not the trigger: focus may land on a child
+    // (an input inside a label).
+    const focusIn = (event: FocusEvent) => {
+      if (event.target instanceof Element && event.target.matches(":focus-visible")) start();
     };
     target.addEventListener("pointerenter", start);
     target.addEventListener("pointerleave", stop);

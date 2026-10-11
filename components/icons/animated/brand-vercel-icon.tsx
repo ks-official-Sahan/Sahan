@@ -22,7 +22,7 @@ const BrandVercelIcon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
     const stop = async () => {
       await animate(
         ".triangle",
-        { rotateY: -180 },
+        { rotateY: 0 },
         { duration: 0.6, ease: "easeInOut" },
       );
     };

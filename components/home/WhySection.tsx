@@ -1,4 +1,4 @@
-import Icon, { type IconSpec } from "@/components/icons/Icon";
+import Icon from "@/components/icons/Icon";
 import HomeSection from "@/components/home/HomeSection";
 import SectionHeading from "@/components/home/SectionHeading";
 import type { PageContent } from "@/lib/cms/registry";
@@ -33,7 +33,8 @@ const WhySection = ({ content: why }: WhySectionProps) => {
 
         <ul className="divide-y divide-bBORDERFADE border-y border-bBORDERFADE">
           {why.points.map((point) => {
-            const icon: IconSpec = icons[point.icon as keyof typeof icons];
+            // An unknown CMS value falls back to a neutral icon, never an empty one.
+            const icon = icons[point.icon as keyof typeof icons] ?? icons.layers;
 
             return (
               <li

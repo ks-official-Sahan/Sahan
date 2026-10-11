@@ -1,6 +1,5 @@
 // Adapted from itshover (https://github.com/itshover/itshover), Apache-2.0.
 // Hover is driven by the parent control (../Icon.tsx), not the SVG itself.
-"use strict";
 
 import { forwardRef, useImperativeHandle, useCallback } from "react";
 import type { AnimatedIconHandle, AnimatedIconProps } from "./types";

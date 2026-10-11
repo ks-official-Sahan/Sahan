@@ -57,14 +57,14 @@ const ClockIcon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
         strokeWidth={strokeWidth}
         strokeLinecap="round"
         strokeLinejoin="round"
-        className={`${className} cursor-pointer`}
+        className={className}
       >
         <m.path stroke="none" d="M0 0h24v24H0z" fill="none" />
         <m.path
           d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0"
           className="clock-body"
         />
-        <m.path d="M12 7v5l3 3" className="clock-hands" />
+        <m.path d="M12 7v5l3 3" className="clock-hands" style={{ transformBox: "view-box", transformOrigin: "12px 12px" }} />
       </m.svg>
     );
   },

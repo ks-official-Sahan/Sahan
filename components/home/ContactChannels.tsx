@@ -21,21 +21,21 @@ const ContactChannels = ({ content: channels, variant, className }: ContactChann
       ...channels.whatsApp,
       href: Site.whatsAppUrl,
       external: true,
-      icon: { name: "whatsapp" } as IconSpec,
+      icon: { name: "whatsapp" } satisfies IconSpec,
     },
     {
       id: "telegram",
       ...channels.telegram,
       href: Site.telegramUrl,
       external: true,
-      icon: { name: "brand-telegram" } as IconSpec,
+      icon: { name: "brand-telegram" } satisfies IconSpec,
     },
     {
       id: "email",
       ...channels.email,
       href: `mailto:${Site.email}`,
       external: false,
-      icon: { name: "mail-filled" } as IconSpec,
+      icon: { name: "mail-filled" } satisfies IconSpec,
     },
   ];
 

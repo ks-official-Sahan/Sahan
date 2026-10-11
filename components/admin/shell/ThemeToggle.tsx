@@ -3,7 +3,7 @@
 import { useTheme } from "next-themes";
 import { useSyncExternalStore } from "react";
 
-import Icon, { type IconSpec } from "@/components/icons/Icon";
+import Icon from "@/components/icons/Icon";
 import { cn } from "@/lib/utils";
 
 const options = [
@@ -43,7 +43,7 @@ export default function ThemeToggle() {
                 : "text-muted-foreground hover:text-foreground"
             )}
           >
-            <Icon {...(icon as IconSpec)} />
+            <Icon {...icon} />
           </button>
         );
       })}
