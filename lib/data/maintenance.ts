@@ -15,6 +15,8 @@ export interface MaintenanceRepo {
   deleteAuditRows(ids: string[]): Promise<number>;
   /** Keeps each post's newest `keep` revisions, in one statement; returns rows deleted. */
   pruneRevisions(keep: number): Promise<number>;
+  /** Keeps each section's newest `keep` superseded versions (drafts and published rows always stay); returns rows deleted. */
+  pruneSupersededBlocks(keep: number): Promise<number>;
   /** Throws when the database cannot answer. */
   ping(): Promise<void>;
 }
