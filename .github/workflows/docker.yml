@@ -232,7 +232,7 @@ jobs:
           echo "digest=$digest" >> "$GITHUB_OUTPUT"
           echo "Image: \`$IMAGE@$digest\`" >> "$GITHUB_STEP_SUMMARY"
 
-      - uses: sigstore/cosign-installer@v4
+      - uses: sigstore/cosign-installer@v4.1.2
 
       - name: Sign (keyless, GitHub OIDC)
         run: cosign sign --yes "$IMAGE@$DIGEST"
