@@ -43,6 +43,8 @@ row IDs remain available where consumers need stable record identity.
 
 Successful responses use `s-maxage=60` with `stale-while-revalidate=300` and carry a strong `ETag`. Send it back as `If-None-Match` to get a bodiless `304` when nothing changed. CMS publish actions invalidate the related data tags.
 
+Every response also carries `Server-Timing: app;dur=<ms>, cache;desc="redis-hit=N redis-miss=N load=N"`, the handler's time and the cache events of that request (`load` counts reads that reached the database; all zeros means the data cache answered). A response served from the CDN shows the timing of the request that filled it.
+
 Only documented query parameters are accepted (`limit` and `cursor` on `/posts`, none elsewhere). Any other parameter returns `400`, so cache-busting suffixes cannot bypass the CDN. Malformed input returns `400`; missing content returns `404` (never cached); deep cursor pages are rate-limited per IP (`429` with `Retry-After`); a data-store failure returns `503` with `Retry-After`.
 
 Clients should treat `apiVersion` as the response schema version and keep cursors opaque. A breaking response change gets a new URL version.

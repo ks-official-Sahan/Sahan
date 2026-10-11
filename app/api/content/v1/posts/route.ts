@@ -13,10 +13,11 @@ import {
 import { authKit } from "@/lib/auth/kit-config";
 import { limit } from "@/lib/cache/ratelimit";
 import { clientIp, UNKNOWN_IP } from "@/lib/security/ip";
+import { timed } from "@/lib/observability/timing";
 
 const MAX_LIMIT = 50;
 
-export async function GET(request: NextRequest) {
+export const GET = timed(async function GET(request: NextRequest) {
   const rejected = rejectUnknownParams(request, ["limit", "cursor"]);
   if (rejected) return rejected;
 
@@ -52,7 +53,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     return contentUnavailable("blog", error);
   }
-}
+});
 
 export function OPTIONS() {
   return new NextResponse(null, { status: 204, headers: CONTENT_CORS_HEADERS });

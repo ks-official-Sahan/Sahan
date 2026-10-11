@@ -3,8 +3,9 @@ import { NextResponse } from "next/server";
 import { Projects } from "@/contents/projects";
 import { getProjects } from "@/lib/collections";
 import { CONTENT_CORS_HEADERS, contentResponse, contentUnavailable, rejectUnknownParams } from "@/lib/api/content";
+import { timed } from "@/lib/observability/timing";
 
-export async function GET(request: Request) {
+export const GET = timed(async function GET(request: Request) {
   const rejected = rejectUnknownParams(request);
   if (rejected) return rejected;
   try {
@@ -12,7 +13,7 @@ export async function GET(request: Request) {
   } catch (error) {
     return contentUnavailable("projects", error);
   }
-}
+});
 
 export function OPTIONS() {
   return new NextResponse(null, { status: 204, headers: CONTENT_CORS_HEADERS });

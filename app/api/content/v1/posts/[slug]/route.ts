@@ -2,8 +2,9 @@ import { NextResponse } from "next/server";
 
 import { getPostBySlug, getPostRedirect } from "@/lib/blog/queries";
 import { CONTENT_CORS_HEADERS, contentNotFound, contentResponse, contentUnavailable, rejectUnknownParams } from "@/lib/api/content";
+import { timed } from "@/lib/observability/timing";
 
-export async function GET(request: Request, { params }: { params: Promise<{ slug: string }> }) {
+export const GET = timed(async function GET(request: Request, { params }: { params: Promise<{ slug: string }> }) {
   const rejected = rejectUnknownParams(request);
   if (rejected) return rejected;
   const { slug } = await params;
@@ -20,7 +21,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
   } catch (error) {
     return contentUnavailable("blog detail", error, { slug });
   }
-}
+});
 
 export function OPTIONS() {
   return new NextResponse(null, { status: 204, headers: CONTENT_CORS_HEADERS });
