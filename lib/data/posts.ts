@@ -100,13 +100,28 @@ export interface PostRepo {
   /**
    * Bounded keyset page of public posts without bodies, newest first by
    * effective publish time. A scheduled post becomes visible at publishAt
-   * even if the promotion cron is delayed.
+   * even if the promotion cron is delayed. `visibleAt` (default now) is the
+   * instant visibility is judged at; a later one also returns posts that
+   * become due before it, for a cache that filters them when served.
    */
-  listPublishedPage(take: number, after?: { publishedAt: Date; id: string }, indexableOnly?: boolean): Promise<PublishedPostSummaryRow[]>;
+  listPublishedPage(
+    take: number,
+    after?: { publishedAt: Date; id: string },
+    indexableOnly?: boolean,
+    visibleAt?: Date
+  ): Promise<PublishedPostSummaryRow[]>;
   /** The same keyset page of indexable posts as listPublishedPage, with reference fields only. */
   listIndexableRefs(take: number, after?: { publishedAt: Date; id: string }): Promise<PublishedPostRefRow[]>;
-  /** Slugs of every post visible to the public right now (same rule as findPublished). */
-  listPublicSlugs(): Promise<string[]>;
+  /**
+   * Posts that become public after `from` and by `to` (a scheduled or
+   * published post whose publishAt falls in that window), soonest first:
+   * what a cached first page adds so a post appears at its publishAt.
+   */
+  listUpcoming(from: Date, to: Date, take: number, indexableOnly?: boolean): Promise<PublishedPostSummaryRow[]>;
+  /** Every post visible to the public at `visibleAt` (default now; same rule as findPublished), with its publishAt. */
+  listPublicSlugs(visibleAt?: Date): Promise<Array<{ slug: string; publishAt: Date | null }>>;
+  /** One post visible to the public at `visibleAt` (default now), with its body. */
+  findPublished(slug: string, visibleAt?: Date): Promise<PublishedPostRow | null>;
   /** Old slugs that redirect, each with the current slug of its post. */
   listSlugRedirects(): Promise<Array<{ slug: string; targetSlug: string }>>;
   /**
@@ -117,8 +132,6 @@ export interface PostRepo {
   recordRename(postId: string, oldSlug: string, newSlug: string): Promise<void>;
   /** Drops a redirect that used `slug`, for a new post that takes it. */
   releaseSlug(slug: string): Promise<void>;
-  /** One public post with its body. */
-  findPublished(slug: string): Promise<PublishedPostRow | null>;
   find(id: string): Promise<PostRow | null>;
   findWithCoverUrl(id: string): Promise<(PostRow & { coverMedia: { url: string } | null }) | null>;
   findMany(ids: string[]): Promise<PostRow[]>;

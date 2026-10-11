@@ -6,7 +6,7 @@ Use SEO skills.
 Use ponytail to kill over-engineering, but ensure best architecture and best efficient results.
 Avoid N+1 queries, algorithms, and fix and optimize them if identified.
 Always use context7 MCP for official documentations, best practices, design patterns, and other references.
-Avoid using token burning agents, use token efficient sub-agents using token-efficiency and caveman skills, and use haiku 4.5 or sonnet 4.5 or sonnet 4.6 for the agents with these skills, and ensure to give detailed instructions need to ensure best results. Do not use token-heavy models like sonnet 5 or opus models for agents, if must have to use them, keep it to minimum and handover the heavy work to multiple subagents with token-efficient models.
+Avoid using token burning agents, use token efficient sub-agents using token-efficiency and caveman skills, and use haiku 5.5 for the agents with these skills, and ensure to give detailed instructions need to ensure best results. Do not use token-heavy models like sonnet 5.5 or opus 5.5 models for agents, if must have to use them, keep it to minimum and handover the heavy work to multiple subagents with token-efficient models.
 Ensure production-ready, scalable results with best practices, design patterns, best data structures, best algorithms, best performance, best security and best ability to withstand huge traffic and ability to isolate modules (modularity), atomicity, reusability, and scalability.
 
 <!-- END:claude rules -->
