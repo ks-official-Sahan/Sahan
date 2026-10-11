@@ -25,7 +25,8 @@ const Cloud1Icon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
     }, [animate, scope]);
 
     const stop = useCallback(() => {
-      animate(scope.current, { y: 0 }, { duration: 0.3 });
+      scope.animations.forEach((animation) => animation.stop());
+      animate(scope.current, { scale: 1 }, { duration: 0.3 });
     }, [animate, scope]);
 
     useImperativeHandle(ref, () => ({

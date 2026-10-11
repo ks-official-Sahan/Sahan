@@ -4,23 +4,9 @@ import { forwardRef, useImperativeHandle, useCallback } from "react";
 import type { AnimatedIconHandle, AnimatedIconProps } from "./types";
 import { m, useAnimate } from "motion/react";
 
-export interface TrashIconProps extends AnimatedIconProps {
-  shakeOnClick?: boolean;
-  dangerHover?: boolean;
-  keepOpenOnDelete?: boolean;
-}
-
-const TrashIcon = forwardRef<AnimatedIconHandle, TrashIconProps>(
+const TrashIcon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
   (
-    {
-      shakeOnClick = false,
-      dangerHover = false,
-      keepOpenOnDelete = false,
-      size = 24,
-      color = "currentColor",
-      strokeWidth = 2,
-      className = "",
-    },
+    { size = 24, color = "currentColor", strokeWidth = 2, className = "" },
     ref,
   ) => {
     const [scope, animate] = useAnimate();
@@ -55,50 +41,6 @@ const TrashIcon = forwardRef<AnimatedIconHandle, TrashIconProps>(
       ]);
     }, [animate]);
 
-    const dangerHoverAnimation = useCallback(async () => {
-      if (!dangerHover) return;
-
-      await animate(
-        ".trash-icon",
-        { stroke: "#ef4444" },
-        { duration: 0.2, delay: 0.1, ease: "easeInOut" },
-      );
-    }, [animate, dangerHover]);
-
-    const resetColor = useCallback(async () => {
-      if (!dangerHover) return;
-
-      await animate(
-        ".trash-icon",
-        { stroke: "currentColor" },
-        { duration: 0.2, ease: "easeInOut" },
-      );
-    }, [animate, dangerHover]);
-
-    const hoverAnimation = useCallback(async () => {
-      await openLid();
-      await dangerHoverAnimation();
-    }, [openLid, dangerHoverAnimation]);
-
-    const hoverEndAnimation = useCallback(async () => {
-      resetColor();
-      closeLid();
-    }, [resetColor, closeLid]);
-
-    const clickAnimation = useCallback(async () => {
-      if (shakeOnClick) {
-        await animate(
-          ".trash-icon",
-          { x: [0, -2, 2, -1, 0] },
-          { duration: 0.25, ease: "easeInOut" },
-        );
-      }
-
-      if (keepOpenOnDelete) {
-        await openLid();
-      }
-    }, [shakeOnClick, keepOpenOnDelete, animate, openLid]);
-
     useImperativeHandle(ref, () => ({
       startAnimation: openLid,
       stopAnimation: closeLid,
@@ -108,7 +50,6 @@ const TrashIcon = forwardRef<AnimatedIconHandle, TrashIconProps>(
       <m.svg
         ref={scope}
         className={`${className} trash-icon`}
-        onTap={clickAnimation}
         xmlns="http://www.w3.org/2000/svg"
         width={size}
         height={size}

@@ -3,7 +3,7 @@
 import { useTheme } from "next-themes";
 import React, { useSyncExternalStore } from "react";
 
-import UiIcon, { type IconSpec } from "@/components/icons/Icon";
+import Icon, { type IconSpec } from "@/components/icons/Icon";
 
 const subscribeNever = () => () => {};
 
@@ -39,7 +39,7 @@ const ThemeSwitch = () => {
             theme === value ? "bg-[#f7f7f7] dark:bg-[#1A1A1A80]" : ""
           } `}
         >
-          <UiIcon {...(icon as IconSpec)} />
+          <Icon {...(icon as IconSpec)} />
         </button>
       ))}
     </div>

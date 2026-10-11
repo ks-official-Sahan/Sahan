@@ -38,19 +38,8 @@ const PaintIcon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
     }, [animate]);
 
     const stop = useCallback(async () => {
-      animate(
-        ".roller-symbol, .paint-stroke",
-        {
-          y: 0,
-          rotate: 0,
-          scaleX: 1,
-          opacity: 1,
-        },
-        {
-          duration: 0.3,
-          ease: "easeInOut",
-        },
-      );
+      animate(".roller-symbol", { y: 0, rotate: 0 }, { duration: 0.3, ease: "easeInOut" });
+      animate(".paint-stroke", { scaleX: 0, opacity: 0 }, { duration: 0.3, ease: "easeInOut" });
     }, [animate]);
 
     useImperativeHandle(ref, () => ({

@@ -1,4 +1,4 @@
-import UiIcon, { type IconSpec } from "@/components/icons/Icon";
+import Icon, { type IconSpec } from "@/components/icons/Icon";
 import { cn } from "@/lib/utils";
 import type {
   Project,
@@ -16,9 +16,12 @@ export const platformLabels: Record<ProjectPlatform, string> = {
   "web-admin": "Web Admin",
 };
 
+// One shared spec, so the Set below shows a single phone for android + ios.
+const smartphone: IconSpec = { lucideIconName: "Smartphone" };
+
 const platformIcons = {
-  android: { lucideIconName: "Smartphone" },
-  ios: { lucideIconName: "Smartphone" },
+  android: smartphone,
+  ios: smartphone,
   web: { name: "globe" },
   "web-admin": { name: "layout-dashboard" },
 } as const;
@@ -90,7 +93,7 @@ export const StatusBadge = ({
       )}
     >
       {statusIcon ? (
-        <UiIcon {...statusIcon} size={12} />
+        <Icon {...statusIcon} size={12} />
       ) : (
         <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-bICON" />
       )}
@@ -173,7 +176,7 @@ const ProjectPreview = ({
                   aria-hidden="true"
                   className="flex h-8 w-8 items-center justify-center rounded-full border border-bBORDERFADE bg-bFCARD"
                 >
-                  <UiIcon {...icon} size={15} />
+                  <Icon {...icon} size={15} />
                 </span>
               )
             )}

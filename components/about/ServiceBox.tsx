@@ -60,7 +60,7 @@ const ServiceBox = ({ content, serviceGroups }: ServiceBoxProps) => {
           className="press arrow-nudge inline-flex min-h-12 items-center gap-2 rounded-full bg-bCHIPSELECTED px-7 text-[15px] font-semibold text-white dark:text-black"
         >
           {content.services.ctaLabel}
-          <Icon name="arrow-up-right" className="size-[18px] arrow-nudge-icon" />
+          <Icon name="arrow-up-right" className="size-[18px]" />
         </Link>
       </div>
     </div>

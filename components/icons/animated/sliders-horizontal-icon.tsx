@@ -65,6 +65,7 @@ const SlidersHorizontalIcon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
     }, [animate]);
 
     const stop = useCallback(() => {
+      scope.animations.forEach((animation) => animation.stop());
       animate(".slider-1, .slider-2, .slider-3", { x: 0 }, { duration: 0.3 });
       // Reset paths manually to their original coordinates
       animate(".path-1-left", { x2: 10 }, { duration: 0.3 });
@@ -73,7 +74,7 @@ const SlidersHorizontalIcon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
       animate(".path-2-right", { x1: 12 }, { duration: 0.3 });
       animate(".path-3-left", { x2: 12 }, { duration: 0.3 });
       animate(".path-3-right", { x1: 16 }, { duration: 0.3 });
-    }, [animate]);
+    }, [animate, scope]);
 
     useImperativeHandle(ref, () => ({
       startAnimation: start,

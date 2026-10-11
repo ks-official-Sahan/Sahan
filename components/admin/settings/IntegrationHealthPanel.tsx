@@ -1,5 +1,5 @@
 
-import UiIcon from "@/components/icons/Icon";
+import Icon from "@/components/icons/Icon";
 import AiCheckButton from "@/components/admin/settings/AiCheckButton";
 import type { IntegrationGroup, IntegrationStatus } from "@/lib/admin/integrations";
 import { cn } from "@/lib/utils";
@@ -53,7 +53,7 @@ export default function IntegrationHealthPanel({ statuses }: { statuses: Integra
                 <li key={status.name} className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2.5 text-sm">
                   <span className="min-w-0 flex-1 font-medium">{status.name}</span>
                   <span className={cn("flex items-center gap-1.5 text-xs", tone)}>
-                    <UiIcon lucideIconName={icon} />
+                    <Icon lucideIconName={icon} />
                     {label}
                   </span>
                   {status.check && status.configured ? <AiCheckButton id={status.check} name={status.name} /> : null}
@@ -64,7 +64,7 @@ export default function IntegrationHealthPanel({ statuses }: { statuses: Integra
                     aria-label={`About the ${status.name} check`}
                     title={status.hint}
                   >
-                    <UiIcon name="info-circle" className="size-4" />
+                    <Icon name="info-circle" className="size-4" />
                   </button>
                   <div
                     id={popoverId}
@@ -73,7 +73,7 @@ export default function IntegrationHealthPanel({ statuses }: { statuses: Integra
                   >
                     <p className="font-semibold">{status.name}</p>
                     <p className={cn("mt-1 flex items-center gap-1.5 text-xs", tone)}>
-                      <UiIcon lucideIconName={icon} />
+                      <Icon lucideIconName={icon} />
                       {label}
                     </p>
                     <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{status.hint}</p>

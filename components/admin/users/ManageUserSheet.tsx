@@ -3,7 +3,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 
-import UiIcon from "@/components/icons/Icon";
 import Icon from "@/components/icons/Icon";
 import ActionForm, { ConfirmSubmitButton, Field, SubmitButton } from "@/components/admin/ui/ActionForm";
 import Sheet from "@/components/admin/ui/Sheet";
@@ -124,7 +123,7 @@ export default function ManageUserSheet({
                     className="inline-flex items-center gap-1 text-sm font-medium text-primary underline-offset-4 hover:underline"
                   >
                     View sessions
-                    <UiIcon name="arrow-narrow-right" className="size-3.5" />
+                    <Icon name="arrow-narrow-right" className="size-3.5" />
                   </Link>
                 ) : null}
               </dd>
@@ -144,7 +143,7 @@ export default function ManageUserSheet({
           ) : null}
 
           {row.can.roles.length > 0 ? (
-            <Section icon={<UiIcon name="user-check" className="size-4 text-muted-foreground" />} title="Role">
+            <Section icon={<Icon name="user-check" className="size-4 text-muted-foreground" />} title="Role">
               {/* Keyed to the role, so the select shows the saved value after a change. */}
               <ActionForm key={row.role} action={changeRole} className="flex flex-wrap items-end gap-2">
                 <input type="hidden" name="userId" value={row.id} />
@@ -162,7 +161,7 @@ export default function ManageUserSheet({
           ) : null}
 
           {row.can.reset || (row.can.signOut && row.activeSessions > 0) ? (
-            <Section icon={<UiIcon name="lock" className="size-4 text-muted-foreground" />} title="Sign-in">
+            <Section icon={<Icon name="lock" className="size-4 text-muted-foreground" />} title="Sign-in">
               {row.can.reset ? (
                 row.disabled ? (
                   <p className="text-sm text-muted-foreground">Enable the account before sending a reset link.</p>
@@ -192,13 +191,13 @@ export default function ManageUserSheet({
           ) : null}
 
           {row.can.factors ? (
-            <Section icon={<UiIcon name="lock" className="size-4 text-muted-foreground" />} title="Second factors">
+            <Section icon={<Icon name="lock" className="size-4 text-muted-foreground" />} title="Second factors">
               <UserFactorsSection key={row.id} userId={row.id} email={row.email} />
             </Section>
           ) : null}
 
           {row.can.disable ? (
-            <Section icon={<UiIcon name="shield-check" className="size-4 text-muted-foreground" />} title="Access">
+            <Section icon={<Icon name="shield-check" className="size-4 text-muted-foreground" />} title="Access">
               <p className="text-sm text-muted-foreground">
                 {row.disabled
                   ? "This account cannot sign in. Enabling it lets them sign in again with their password."

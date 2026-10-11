@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useState } from "react";
 
 import Icon from "@/components/icons/Icon";
-import UiIcon from "@/components/icons/Icon";
 import ActionForm, { ConfirmSubmitButton, SubmitButton } from "@/components/admin/ui/ActionForm";
 import { badgeClass, fieldClass, tableClass, tdClass, thClass } from "@/components/admin/ui/styles";
 import { bulkUsers } from "@/lib/actions/users";
@@ -286,7 +285,7 @@ export default function UsersTable({
                     onClick={() => setOpenId(row.id)}
                     className="inline-flex h-8 items-center gap-1.5 rounded-md border border-input bg-background px-3 text-xs font-medium transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
-                    <UiIcon name="sliders-horizontal" className="size-3.5" />
+                    <Icon name="sliders-horizontal" className="size-3.5" />
                     {row.self ? "View" : "Manage"}
                     <span className="sr-only"> {row.name ?? row.email}</span>
                   </button>

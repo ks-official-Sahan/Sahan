@@ -79,7 +79,7 @@ const ContactDetailsCard = ({
           )}
         >
           {body}
-          <Icon name="arrow-up-right" className="size-4 arrow-nudge-icon shrink-0 opacity-60" />
+          <Icon name="arrow-up-right" className="size-4 shrink-0 opacity-60" />
           {external && <span className="sr-only"> (opens in a new tab)</span>}
         </a>
       ) : (

@@ -10,25 +10,22 @@ const MapPinIcon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
     ref,
   ) => {
     const [scope, animate] = useAnimate();
-    const isAnimatingRef = useRef(false);
+    // One repeating animation, never an await loop: useAnimate stops it on
+    // unmount, and a second start cannot stack another loop.
+    const pulse = useRef<ReturnType<typeof animate> | null>(null);
 
-    const start = useCallback(async () => {
-      if (isAnimatingRef.current) return;
-      isAnimatingRef.current = true;
-
-      while (isAnimatingRef.current) {
-        // High-Intensity Beacon Pulse (Opacity ONLY, NO Scale, NO Motion)
-        await animate(
-          ".pin-dot",
-          { opacity: [1, 0.4, 1] },
-          { duration: 0.6, ease: "easeInOut" },
-        );
-        if (!isAnimatingRef.current) break;
-      }
+    const start = useCallback(() => {
+      pulse.current?.stop();
+      pulse.current = animate(
+        ".pin-dot",
+        { opacity: [1, 0.4, 1] },
+        { duration: 0.6, ease: "easeInOut", repeat: Infinity },
+      );
     }, [animate]);
 
     const stop = useCallback(() => {
-      isAnimatingRef.current = false;
+      pulse.current?.stop();
+      pulse.current = null;
       animate(".pin-dot", { opacity: 1 }, { duration: 0.3 });
     }, [animate]);
 

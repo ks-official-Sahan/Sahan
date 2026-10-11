@@ -51,6 +51,7 @@ const BrainCircuitIcon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
     }, [animate]);
 
     const stopAnimation = useCallback(() => {
+      scope.animations.forEach((animation) => animation.stop());
       animate(".brain-outline", { opacity: 1 }, { duration: 0.3 });
       animate(
         ".circuit-line",
@@ -58,7 +59,7 @@ const BrainCircuitIcon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
         { duration: 0.3 },
       );
       animate(".terminal", { scale: 1, opacity: 1 }, { duration: 0.3 });
-    }, [animate]);
+    }, [animate, scope]);
 
     useImperativeHandle(ref, () => ({
       startAnimation,

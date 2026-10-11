@@ -30,7 +30,7 @@ const ServiceOverviewSection = ({ content: home, serviceGroups }: ServiceOvervie
             className="press arrow-nudge inline-flex min-h-11 items-center gap-2 rounded-full border border-bBORDERFADE bg-bCARD px-5 text-sm font-semibold"
           >
             View all services
-            <Icon name="arrow-up-right" className="size-4 arrow-nudge-icon" />
+            <Icon name="arrow-up-right" className="size-4" />
           </Link>
         }
       />

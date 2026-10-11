@@ -1,6 +1,6 @@
 // Adapted from itshover (https://github.com/itshover/itshover), Apache-2.0.
 // Hover is driven by the parent control (../Icon.tsx), not the SVG itself.
-import { forwardRef, useImperativeHandle, useCallback, useRef } from "react";
+import { forwardRef, useImperativeHandle, useCallback, useEffect, useRef } from "react";
 import type { AnimatedIconHandle, AnimatedIconProps } from "./types";
 import { m, useAnimate } from "motion/react";
 
@@ -10,13 +10,21 @@ const UploadIcon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
     ref,
   ) => {
     const [scope, animate] = useAnimate();
-    const isAnimatingRef = useRef(false);
+    // Each start owns a generation; stop and unmount bump it, so an older
+    // loop ends at its next step and two loops never drive the arrow.
+    const run = useRef(0);
+    const running = useRef(false);
+    useEffect(() => () => {
+      run.current += 1;
+    }, []);
 
     const start = useCallback(async () => {
-      if (isAnimatingRef.current) return;
-      isAnimatingRef.current = true;
+      if (running.current) return;
+      running.current = true;
+      const id = ++run.current;
+      const live = () => run.current === id;
 
-      while (isAnimatingRef.current) {
+      while (live()) {
         // 1. Fly Up and Fade Out
         await animate(
           ".arrow-group",
@@ -24,7 +32,7 @@ const UploadIcon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
           { duration: 0.4, ease: "easeIn" },
         );
 
-        if (!isAnimatingRef.current) break;
+        if (!live()) break;
 
         // 2. Instant Reset to Bottom
         await animate(".arrow-group", { y: 12, opacity: 0 }, { duration: 0 });
@@ -36,15 +44,17 @@ const UploadIcon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
           { duration: 0.4, ease: "easeOut" },
         );
 
-        if (!isAnimatingRef.current) break;
+        if (!live()) break;
 
         // Small pause at center for "intention"
         await new Promise((resolve) => setTimeout(resolve, 200));
       }
+      if (run.current === id) running.current = false;
     }, [animate]);
 
     const stop = useCallback(() => {
-      isAnimatingRef.current = false;
+      run.current += 1;
+      running.current = false;
       animate(
         ".arrow-group",
         { y: 0, opacity: 1 },

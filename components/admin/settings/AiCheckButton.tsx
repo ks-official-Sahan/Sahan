@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 
-import UiIcon from "@/components/icons/Icon";
+import Icon from "@/components/icons/Icon";
 import { checkAiProviderAction, type AiCheckState } from "@/lib/actions/integrations";
 import { Button } from "@/components/admin/ui/button";
 import { cn } from "@/lib/utils";
@@ -27,7 +27,7 @@ export default function AiCheckButton({ id, name }: { id: string; name: string }
   return (
     <>
       <Button type="button" variant="outline" size="sm" onClick={run} disabled={pending} aria-label={`Check ${name} now`}>
-        {pending ? <UiIcon lucideIconName="Loader2" className="size-3.5 animate-spin" /> : null}
+        {pending ? <Icon lucideIconName="Loader2" className="size-3.5 animate-spin" /> : null}
         {pending ? "Checking…" : "Check"}
       </Button>
       <p
@@ -41,7 +41,7 @@ export default function AiCheckButton({ id, name }: { id: string; name: string }
       >
         {result ? (
           <>
-            <UiIcon lucideIconName={result.reachable ? "CheckCircle2" : "XCircle"} className="mt-px size-3.5" />
+            <Icon lucideIconName={result.reachable ? "CheckCircle2" : "XCircle"} className="mt-px size-3.5" />
             <span>{result.message}</span>
           </>
         ) : null}

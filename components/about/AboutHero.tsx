@@ -66,7 +66,7 @@ const AboutHero = ({ content, channels }: AboutHeroProps) => {
                   Now at {Site.org}
                   <span className="sr-only"> (opens in a new tab)</span>
                 </span>
-                <Icon name="arrow-up-right" className="size-3.5 arrow-nudge-icon" />
+                <Icon name="arrow-up-right" className="size-3.5" />
               </a>
             </div>
 
@@ -146,14 +146,14 @@ const AboutHero = ({ content, channels }: AboutHeroProps) => {
               className="press arrow-nudge inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-bCHIPSELECTED px-7 text-[15px] font-semibold text-white dark:text-black"
             >
               {hero.primaryLabel}
-              <Icon name="arrow-up-right" className="size-[18px] arrow-nudge-icon" />
+              <Icon name="arrow-up-right" className="size-[18px]" />
             </Link>
             <Link
               href="/works"
               className="press arrow-nudge inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-bBORDERFADE bg-bCARD px-7 text-[15px] font-semibold"
             >
               {hero.secondaryLabel}
-              <Icon name="arrow-up-right" className="size-[18px] arrow-nudge-icon" />
+              <Icon name="arrow-up-right" className="size-[18px]" />
             </Link>
           </div>
 

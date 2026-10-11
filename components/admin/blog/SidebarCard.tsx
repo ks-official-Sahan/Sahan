@@ -37,7 +37,7 @@ export default function SidebarCard({
           onClick={() => setOpen((value) => !value)}
           className="flex flex-1 items-center gap-1.5 text-left text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-          <Icon name="down-chevron" className={`size-3.5 ${cn("shrink-0 text-muted-foreground transition-transform", !open && "-rotate-90")}`} />
+          <Icon name="down-chevron" className={cn("size-3.5 shrink-0 text-muted-foreground transition-transform", !open && "-rotate-90")} />
           {title}
         </button>
         {actions}

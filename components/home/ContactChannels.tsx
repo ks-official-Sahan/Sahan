@@ -1,4 +1,4 @@
-import UiIcon, { type IconSpec } from "@/components/icons/Icon";
+import Icon, { type IconSpec } from "@/components/icons/Icon";
 import type { PageContent } from "@/lib/cms/registry";
 import { Site } from "@/config/site";
 import { cn } from "@/lib/utils";
@@ -67,7 +67,7 @@ const ContactChannels = ({ content: channels, variant, className }: ContactChann
               variant === "tiles" ? "h-9 w-9" : "h-11 w-11"
             )}
           >
-            <UiIcon {...icon} size={variant === "tiles" ? 20 : 22} />
+            <Icon {...icon} size={variant === "tiles" ? 20 : 22} />
           </span>
 
           {variant === "tiles" ? (
@@ -88,7 +88,7 @@ const ContactChannels = ({ content: channels, variant, className }: ContactChann
                 </span>
                 <span className="truncate text-sm opacity-70">{detail}</span>
               </span>
-              <UiIcon name="arrow-up-right" className="size-[18px] arrow-nudge-icon shrink-0 opacity-60" />
+              <Icon name="arrow-up-right" className="size-[18px] shrink-0 opacity-60" />
             </>
           )}
         </a>

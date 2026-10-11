@@ -45,7 +45,7 @@ const SocialMedia = ({ content }: SocialMediaProps) => (
               {item.label}
               <span className="sr-only"> (opens in a new tab)</span>
             </span>
-            <Icon name="arrow-up-right" className="size-[18px] arrow-nudge-icon opacity-60" />
+            <Icon name="arrow-up-right" className="size-[18px] opacity-60" />
           </a>
         </li>
       ))}

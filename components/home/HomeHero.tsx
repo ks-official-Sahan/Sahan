@@ -72,7 +72,7 @@ const HomeHero = ({ content: hero, channels }: HomeHeroProps) => {
                     className="press arrow-nudge inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-bBORDERFADE bg-bCARD px-7 text-[15px] font-semibold outline-offset-4"
                   >
                     {hero.secondary.label}
-                    <Icon name="arrow-up-right" className="size-[18px] arrow-nudge-icon" />
+                    <Icon name="arrow-up-right" className="size-[18px]" />
                   </Link>
                 </div>
               </div>
@@ -111,7 +111,7 @@ const HomeHero = ({ content: hero, channels }: HomeHeroProps) => {
                         <span className="sr-only"> {channels.newTab}</span>
                       </span>
                     </span>
-                    <Icon name="arrow-up-right" className="size-4 arrow-nudge-icon shrink-0" />
+                    <Icon name="arrow-up-right" className="size-4 shrink-0" />
                   </a>
                 </div>
 

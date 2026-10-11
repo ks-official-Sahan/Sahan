@@ -110,7 +110,7 @@ const FinalCta = ({ content: finalCta, channels }: FinalCtaProps) => {
                 className="press arrow-nudge inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-bCHIPSELECTED px-7 text-[15px] font-semibold text-white dark:text-black"
               >
                 {finalCta.primary.label}
-                <Icon name="arrow-up-right" className="size-[18px] arrow-nudge-icon" />
+                <Icon name="arrow-up-right" className="size-[18px]" />
               </Link>
 
               <button

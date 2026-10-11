@@ -30,9 +30,5 @@ const serviceIcons: Record<string, IconSpec | undefined> = Object.assign(Object.
 } satisfies Record<string, IconSpec>);
 
 export default function ServiceGlyph({ service, size = 16, className }: { service: Service; size?: number; className?: string }) {
-  if (service.icon) {
-    const Legacy = service.icon;
-    return <Legacy size={size} className={className} aria-hidden="true" />;
-  }
   return <Icon {...(serviceIcons[service.iconKey ?? ""] ?? { name: "question-mark" })} size={size} className={className} />;
 }

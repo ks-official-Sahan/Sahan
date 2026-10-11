@@ -1,5 +1,3 @@
-import type { LucideIcon } from "lucide-react";
-
 export interface ServiceDoneItem {
   name: string;
   count: number;
@@ -14,8 +12,7 @@ export interface ServiceDone {
 
 export interface Service {
   id: string;
-  icon?: LucideIcon;
-  /** Named Lucide icon for CMS-managed rows. */
+  /** Icon name (a lucide name, mapped to an animated icon in ServiceGlyph). */
   iconKey?: string;
   name: string;
   description: string;
