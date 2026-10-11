@@ -26,6 +26,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          # changesets/action v2 pushes through the GitHub API with github-token.
+          persist-credentials: false
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
@@ -55,8 +58,8 @@ jobs:
         # "Allow GitHub Actions to create and approve pull requests".
         uses: changesets/action@v2
         with:
-          version: pnpm changeset version
-          publish: pnpm changeset publish
-          title: "chore: version packages"
-          commit: "chore: version packages"
+          version-script: pnpm changeset version
+          publish-script: pnpm changeset publish
+          pr-title: "chore: version packages"
+          commit-message: "chore: version packages"
           github-token: ${{ secrets.GITHUB_TOKEN }}
