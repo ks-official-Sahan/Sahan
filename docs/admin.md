@@ -211,6 +211,28 @@ After deploying this release run the database upgrade and then
 `pnpm db:seed`, which adds the SUPER_ADMIN row and gives
 `manageChatbotTraining` to every role that held `manageChatbot`.
 
+## Dashboard and site analytics
+
+The dashboard is planned per viewer (`lib/admin/dashboard-plan.ts`).
+Permissions decide which widgets exist: a widget whose data the viewer cannot
+read is never rendered or queried. The role decides the order: DEVELOPER
+opens on system health and access, SUPER_ADMIN on traffic and inquiries,
+MANAGER on growth, EDITOR on quick actions and the blog pipeline. A custom
+role gets the focus its permissions suggest (sessions or system status:
+operations; analytics or leads: growth; otherwise content).
+
+Site analytics are first-party and need Redis. Every public page sends one
+beacon per route change to `POST /api/collect`, which counts the view after
+answering 204. The beacon sets no cookie and stores no IP address or user
+agent. A visitor is a daily hash of the IP and user agent under a random salt
+that expires after two days, so visitors cannot be linked across days.
+Browsers that send Do Not Track or Global Privacy Control, and bots, are not
+counted. Ninety days are kept. The country comes from `x-vercel-ip-country`
+(or Cloudflare's `cf-ipcountry`), so it reads "Unknown" in local
+development. Reading analytics needs `viewAnalytics`: DEVELOPER and
+SUPER_ADMIN hold it in code, and `pnpm db:seed` (seed version 3) gives it to
+MANAGER.
+
 ## Add a user
 
 `/admin/users` → "Invite user" (needs `inviteUser`; an `EDITOR` account, if

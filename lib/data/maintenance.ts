@@ -53,4 +53,31 @@ export interface DashboardRepo {
   /** DRAFT and SCHEDULED posts. */
   countUnpublishedPosts(): Promise<number>;
   countNewInquiries(): Promise<number>;
+  /** Posts per status, in one grouped statement (every status present, zero when none). */
+  postStatusCounts(): Promise<Record<DashboardPostStatus, number>>;
+  /** Scheduled posts (soonest first), then drafts (last edited first). */
+  upcomingPosts(limit: number): Promise<DashboardPost[]>;
+  /** Newest inquiries still marked NEW. */
+  newInquiries(limit: number): Promise<DashboardInquiry[]>;
+  /** Live (unrevoked, unexpired) sessions and failed sign-ins or MFA checks since `since`. */
+  securityCounts(now: Date, since: Date): Promise<{ activeSessions: number; activeUsers: number; failedSignIns: number }>;
+  /** Chat conversations started since `since`. */
+  countChatSessionsSince(since: Date): Promise<number>;
+}
+
+export type DashboardPostStatus = "DRAFT" | "SCHEDULED" | "PUBLISHED" | "ARCHIVED";
+
+export interface DashboardPost {
+  id: string;
+  title: string;
+  status: DashboardPostStatus;
+  publishAt: Date | null;
+  updatedAt: Date;
+}
+
+export interface DashboardInquiry {
+  id: string;
+  name: string;
+  topic: string | null;
+  createdAt: Date;
 }
