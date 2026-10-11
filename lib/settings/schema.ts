@@ -105,6 +105,13 @@ export const developerMaskSchema = z.object({
 });
 export type DeveloperMaskSetting = z.infer<typeof developerMaskSchema>;
 
+// Passwordless sign-in with a passkey alone (lib/actions/auth.ts). Off until a
+// DEVELOPER switches it on; never public.
+export const passkeySignInSchema = z.object({
+  enabled: z.boolean().default(false),
+});
+export type PasskeySignInSetting = z.infer<typeof passkeySignInSchema>;
+
 // Union of all setting keys and their schemas
 export const SETTING_SCHEMAS = {
   "features": featuresSchema,
@@ -116,6 +123,7 @@ export const SETTING_SCHEMAS = {
   "rbac.seedVersion": rbacSeedVersionSchema,
   "seo.llmsTxt": llmsTxtSchema,
   "security.mask": developerMaskSchema,
+  "security.passkeySignIn": passkeySignInSchema,
 } as const;
 
 export type SettingKey = keyof typeof SETTING_SCHEMAS;
@@ -148,6 +156,7 @@ export const DEFAULT_SETTINGS: Record<SettingKey, unknown> = {
   "rbac.seedVersion": getSettingDefault("rbac.seedVersion"),
   "seo.llmsTxt": getSettingDefault("seo.llmsTxt"),
   "security.mask": getSettingDefault("security.mask"),
+  "security.passkeySignIn": getSettingDefault("security.passkeySignIn"),
 };
 
 // Public settings: subset safe to expose to client-side or caching layers

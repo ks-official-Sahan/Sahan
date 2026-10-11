@@ -65,7 +65,7 @@ export async function deleteMedia(mediaId: string): Promise<DeleteMediaResult> {
   const auth = await authorizeAction("deleteMedia");
   if (!auth.ok) return { ok: false, error: auth.error };
 
-  const result = await deleteMediaService(mediaId, auth.user, cloudinary);
+  const result = await deleteMediaService(mediaId, auth.user);
   if (result.ok) {
     revalidatePath("/admin/media");
     revalidatePath(`/admin/media/${mediaId}`);

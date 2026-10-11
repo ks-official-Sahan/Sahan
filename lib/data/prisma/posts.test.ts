@@ -75,13 +75,13 @@ test("a PUBLISHED row with a future publishAt is not visible by slug", async () 
   assert.deepEqual(visibleStatuses?.[1], { status: "SCHEDULED", publishAt: { lte: (visibleStatuses?.[1]?.publishAt as { lte: Date }).lte } });
 });
 
-test("listPublicSlugs reads only slugs, under the same visibility rule as findPublished", async () => {
+test("listPublicSlugs reads only slugs and publishAt, under the same visibility rule as findPublished", async () => {
   const calls: Array<{ where: Record<string, unknown>; select?: Record<string, unknown> }> = [];
   const client = {
     post: {
       findMany: async (args: { where: Record<string, unknown>; select: Record<string, unknown> }) => {
         calls.push(args);
-        return [{ slug: "a" }, { slug: "b" }];
+        return [{ slug: "a", publishAt: null }, { slug: "b", publishAt: null }];
       },
       findFirst: async (args: { where: Record<string, unknown> }) => {
         calls.push(args);
@@ -90,8 +90,8 @@ test("listPublicSlugs reads only slugs, under the same visibility rule as findPu
     },
   };
   const repo = postRepo(client as never);
-  assert.deepEqual(await repo.listPublicSlugs(), ["a", "b"]);
-  assert.deepEqual(calls[0]?.select, { slug: true });
+  assert.deepEqual(await repo.listPublicSlugs(), [{ slug: "a", publishAt: null }, { slug: "b", publishAt: null }]);
+  assert.deepEqual(calls[0]?.select, { slug: true, publishAt: true });
   await repo.findPublished("a");
   const { slug, ...rule } = calls[1]?.where ?? {};
   assert.equal(slug, "a");
@@ -106,4 +106,56 @@ test("updateIfUnchanged answers null when the row changed since it was read", as
 test("updateIfUnchanged turns a taken slug into UniqueViolation", async () => {
   const client = { post: { update: async () => Promise.reject(Object.assign(new Error("unique"), { code: "P2002" })) } };
   await assert.rejects(postRepo(client as never).updateIfUnchanged("p1", new Date(), { slug: "taken" }), UniqueViolation);
+});
+
+test("recordRename points the old slug at the post and frees the new slug; a same-slug save does nothing", async () => {
+  const calls: Array<[string, unknown]> = [];
+  const client = {
+    postSlugRedirect: {
+      deleteMany: async (args: unknown) => (calls.push(["deleteMany", args]), { count: 0 }),
+      upsert: async (args: unknown) => (calls.push(["upsert", args]), {}),
+    },
+  };
+  const repo = postRepo(client as never);
+  await repo.recordRename("p1", "same", "same");
+  assert.equal(calls.length, 0);
+  await repo.recordRename("p1", "old-slug", "new-slug");
+  assert.deepEqual(calls, [
+    ["deleteMany", { where: { slug: "new-slug" } }],
+    ["upsert", { where: { slug: "old-slug" }, create: { slug: "old-slug", postId: "p1" }, update: { postId: "p1" } }],
+  ]);
+});
+
+test("listSlugRedirects returns each old slug with its post's current slug", async () => {
+  const client = { postSlugRedirect: { findMany: async () => [{ slug: "old", post: { slug: "current" } }] } };
+  assert.deepEqual(await postRepo(client as never).listSlugRedirects(), [{ slug: "old", targetSlug: "current" }]);
+});
+
+test("visibleAt moves the instant visibility is judged at, for every public read", async () => {
+  const at = new Date("2026-10-10T10:20:00.000Z");
+  const lte: unknown[] = [];
+  const collect = (where: unknown) => JSON.stringify(where, (k, v) => (k === "lte" ? (lte.push(v), v) : v));
+  const client = {
+    post: {
+      findMany: async (args: { where: unknown }) => (collect(args.where), []),
+      findFirst: async (args: { where: unknown }) => (collect(args.where), null),
+    },
+  };
+  const repo = postRepo(client as never);
+  await repo.listPublishedPage(5, undefined, false, at);
+  await repo.listPublicSlugs(at);
+  await repo.findPublished("a", at);
+  assert.ok(lte.length >= 4);
+  for (const value of lte) assert.equal(value, at.toISOString());
+});
+
+test("listUpcoming reads posts due inside the window, soonest first, bounded", async () => {
+  let args: Record<string, unknown> | undefined;
+  const client = { post: { findMany: async (a: Record<string, unknown>) => ((args = a), []) } };
+  const from = new Date("2026-10-10T10:00:00.000Z");
+  const to = new Date("2026-10-10T10:20:00.000Z");
+  await postRepo(client as never).listUpcoming(from, to, 21, true);
+  assert.deepEqual(args?.where, { status: { in: ["PUBLISHED", "SCHEDULED"] }, publishAt: { gt: from, lte: to }, noindex: false });
+  assert.deepEqual(args?.orderBy, [{ publishAt: "asc" }, { id: "asc" }]);
+  assert.equal(args?.take, 21);
 });

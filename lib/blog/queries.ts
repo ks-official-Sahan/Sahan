@@ -6,6 +6,8 @@ import { isValidPostSlug, TAGS } from "@/lib/cache/tags";
 import { repos } from "@/lib/data";
 import { extractText, sanitizeRich } from "@/lib/cms/rich-text";
 import { log } from "@/lib/log";
+import { EXCERPT_CHARS } from "@/lib/blog/excerpt";
+import { isDue, visibleAhead } from "@/lib/blog/visibility";
 import { UpdatesContent } from "@/contents/updates";
 
 import { computeReadMinutes } from "@sahan-sac/blog-kit/readtime";
@@ -60,7 +62,6 @@ export interface BlogPostView extends BlogPostSummary {
   contentText: string;
 }
 
-const EXCERPT_CHARS = 200;
 
 const escapeHtml = (value: string): string =>
   value
@@ -102,7 +103,7 @@ interface PostRow {
   slug: string;
   title: string;
   excerpt: string | null;
-  contentText: string;
+  autoExcerpt: string;
   topic: string;
   tags: string[];
   publishAt: Date | string | null;
@@ -132,7 +133,7 @@ function toSummary(row: PostRow): BlogPostSummary {
     id: row.id,
     slug: row.slug,
     title: row.title,
-    excerpt: row.excerpt || row.contentText.slice(0, EXCERPT_CHARS),
+    excerpt: row.excerpt || row.autoExcerpt,
     topic: row.topic,
     tags: row.tags,
     date: publishedAt ? formatDate(publishedAt) : "",
@@ -156,12 +157,15 @@ function toView(row: FullPostRow): BlogPostView {
     ...toSummary(row),
     // Re-sanitized: never trust a stored value, even one this loader wrote itself.
     contentHtml: sanitizeRich(row.contentHtml),
-    contentText: row.contentText || extractText(row.contentHtml),
+    contentText: extractText(row.contentHtml),
   };
 }
 
+// The cached reads below look VISIBLE_AHEAD_MS ahead and drop rows not yet
+// due when served (lib/blog/visibility.ts), so a scheduled post appears at
+// its publishAt instead of when the cache next refills.
 function cachedPost(slug: string) {
-  return cached((): Promise<FullPostRow | null> => repos.posts.findPublished(slug), ["blog", "post", slug], {
+  return cached((): Promise<FullPostRow | null> => repos.posts.findPublished(slug, visibleAhead()), ["blog", "post", slug, "v2"], {
     tags: [TAGS.blogPost(slug)],
     revalidate: 300,
   });
@@ -171,7 +175,7 @@ function cachedPost(slug: string) {
 // slug is answered from it, so crawlers probing random /updates/<slug> or
 // /api/content/v1/posts/<slug> URLs never reach the database or create a
 // cache entry per guess.
-const cachedPublicSlugs = cached(() => repos.posts.listPublicSlugs(), ["blog", "public-slugs", "v1"], {
+const cachedPublicSlugs = cached(() => repos.posts.listPublicSlugs(visibleAhead()), ["blog", "public-slugs", "v2"], {
   tags: [TAGS.blogList],
   revalidate: 300,
 });
@@ -254,16 +258,30 @@ async function getPostPage(
 ): Promise<PublicPostPage> {
   const safeLimit = Math.max(1, Math.min(maxLimit, Math.trunc(limit)));
   const cursor = dbCursor(after);
-  const readRows = () => repos.posts.listPublishedPage(safeLimit + 1, cursor, indexableOnly);
   const read = cursor
-    ? readRows
-    : cached(readRows, ["blog", "page", indexableOnly ? "indexable" : "all", String(safeLimit)], {
-        tags: [TAGS.blogList],
-        revalidate: 300,
-      });
-  const rows = await loadOrNull(read, {
-    onError: (error) => log.warn("blog page read failed during build, using defaults", { error: String(error) }),
-  });
+    ? () => repos.posts.listPublishedPage(safeLimit + 1, cursor, indexableOnly)
+    : cached(
+        // Two reads at one instant: the page as it is now, and the posts that
+        // become due within VISIBLE_AHEAD_MS (soonest first, so a crowd of
+        // them never pushes due posts off the page). Disjoint by
+        // construction; reversed, the upcoming ones are newest first and
+        // newer than every due row, so they lead the page once due.
+        async () => {
+          const now = new Date();
+          const [due, upcoming] = await Promise.all([
+            repos.posts.listPublishedPage(safeLimit + 1, undefined, indexableOnly, now),
+            repos.posts.listUpcoming(now, visibleAhead(now.getTime()), safeLimit + 1, indexableOnly),
+          ]);
+          return [...upcoming.reverse(), ...due];
+        },
+        ["blog", "page", indexableOnly ? "indexable" : "all", String(safeLimit), "v2"],
+        { tags: [TAGS.blogList], revalidate: 300 }
+      );
+  const rows = (
+    await loadOrNull(read, {
+      onError: (error) => log.warn("blog page read failed during build, using defaults", { error: String(error) }),
+    })
+  )?.filter((row) => isDue(row));
   if (rows && rows.length === 0 && !cursor && (await storedPostsExist())) return { items: [], nextCursor: null };
   if (!rows || rows.length === 0) {
     return { items: cursor ? [] : defaultSummaries(safeLimit), nextCursor: null };
@@ -389,12 +407,34 @@ export async function getPostBySlug(slug: string, defaults?: BlogPostView[]): Pr
   if (!slugs || (slugs.length === 0 && !(await storedPostsExist()))) {
     return (defaults ?? defaultPosts()).find((post) => post.slug === slug) ?? null;
   }
-  if (!slugs.includes(slug)) return null;
+  if (!slugs.some((entry) => entry.slug === slug && isDue(entry))) return null;
 
   const row = await loadOrNull(cachedPost(slug), {
     onError: (error) => log.warn("blog post read failed", { slug, error: String(error) }),
   });
-  return row ? toView(row) : null;
+  return row && isDue(row) ? toView(row) : null;
+}
+
+// Old slugs left by renames (post_slug_redirects), with their posts' current
+// slugs. One small cached read, invalidated with blog:list like every list.
+const cachedSlugRedirects = cached(() => repos.posts.listSlugRedirects(), ["blog", "slug-redirects", "v1"], {
+  tags: [TAGS.blogList],
+  revalidate: 300,
+});
+
+/**
+ * The current slug for an old one, when that post is public now; else null.
+ * The post page and the content API answer an old slug with a permanent
+ * redirect instead of a 404, so links and search results keep working.
+ */
+export async function getPostRedirect(slug: string): Promise<string | null> {
+  if (!isValidPostSlug(slug)) return null;
+  const redirects = await loadOrNull(cachedSlugRedirects, {
+    onError: (error) => log.warn("blog slug redirect read failed", { error: String(error) }),
+  });
+  const target = redirects?.find((entry) => entry.slug === slug)?.targetSlug;
+  if (!target || target === slug) return null;
+  return (await getPostBySlug(target)) ? target : null;
 }
 
 /**

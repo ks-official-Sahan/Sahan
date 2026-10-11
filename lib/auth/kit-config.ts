@@ -225,6 +225,10 @@ export const LIMITS = {
   // Wrong tries carry over between codes, so a few more sends do not help guessing;
   // this only caps email volume, and a flaky mail send still uses one.
   "mfa:send:user": { windowSeconds: 600, max: 5, failMode: "closed" },
+  // Wrong codes while confirming a new authenticator app.
+  "mfa:setup:user": { windowSeconds: 600, max: 10, failMode: "closed" },
+  // Passwordless passkey sign-ins started from one address.
+  "passkey-sign-in:ip": { windowSeconds: 600, max: 20, failMode: "closed" },
   "invite:actor": { windowSeconds: 3600, max: 20, failMode: "closed" },
   "reset:ip": { windowSeconds: 3600, max: 8, failMode: "closed" },
   "reset:email": { windowSeconds: 3600, max: 3, failMode: "closed" },
@@ -232,9 +236,10 @@ export const LIMITS = {
   "upload:sign:user": { windowSeconds: 600, max: 30, failMode: "closed" },
   // Admin AI, split by cost so cheap text helpers (SEO, draft, cover prompt)
   // never use up the budget for full posts, which run text + up to 4 images.
-  "ai:post:user": { windowSeconds: 3600, max: 20, failMode: "open" },
-  "ai:image:user": { windowSeconds: 3600, max: 40, failMode: "open" },
-  "ai:text:user": { windowSeconds: 3600, max: 120, failMode: "open" },
+  // Closed: every call is paid, so a Redis outage must not lift the cap.
+  "ai:post:user": { windowSeconds: 3600, max: 20, failMode: "closed" },
+  "ai:image:user": { windowSeconds: 3600, max: 40, failMode: "closed" },
+  "ai:text:user": { windowSeconds: 3600, max: 120, failMode: "closed" },
   "contact:ip": { windowSeconds: 3600, max: 5, failMode: "open" },
   "contact:global": { windowSeconds: 3600, max: 100, failMode: "open" },
   "chat:ip": { windowSeconds: 600, max: 20, failMode: "closed" },
@@ -258,6 +263,7 @@ export const authKit = defineAuthKit<RoleName, Permission>({
     // /admin/set-password, /admin/confirm-email, /admin); only this one
     // carries an app-specific query string.
     accountPasswordChange: "/admin/account?reason=change-password",
+    mfaSetup: "/admin/account?reason=set-up-mfa#security",
   },
   keyPrefix: "sahan:",
   roles: ROLES,
@@ -267,6 +273,9 @@ export const authKit = defineAuthKit<RoleName, Permission>({
   fixedGrants: FIXED_GRANTS,
   defaultGrants: DEFAULT_GRANTS,
   limits: LIMITS,
+  // The two roles that can change everything must set up an authenticator app
+  // or a passkey before they can use the admin.
+  strongMfaRoles: [SUPER_ROLE, MASK_ROLE],
   csp: { imgHosts: ["https://res.cloudinary.com"], connectHosts: ["https://api.cloudinary.com"] },
   trustProxy: { hops: trustedProxyHops() },
   onEvent: (event) => log.warn(`auth-kit: ${event.type}`, event),

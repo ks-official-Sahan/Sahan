@@ -3,6 +3,8 @@ import { randomUUID } from "node:crypto";
 import type {
   AdapterAuthUser,
   AdapterMfaChallenge,
+  AdapterMfaFactors,
+  AdapterPasskey,
   AdapterSessionRow,
   AdapterSessionWithUser,
   AuthDbAdapter,
@@ -31,6 +33,14 @@ export interface FakeUser {
   mfaEnabled: boolean;
   mustChangePassword: boolean;
   lastLoginAt: Date | null;
+  totpSecretCipher: string | null;
+  totpEnabledAt: Date | null;
+}
+
+export interface FakeRecoveryCode {
+  userId: string;
+  codeHash: string;
+  usedAt: Date | null;
 }
 
 export interface FakeSession {
@@ -66,6 +76,8 @@ interface State {
   sessions: Map<string, FakeSession>;
   rolePermissions: PermissionRow[];
   mfaChallenges: Map<string, FakeMfaChallenge>;
+  recoveryCodes: FakeRecoveryCode[];
+  passkeys: Map<string, AdapterPasskey>;
 }
 
 function cloneState(state: State): State {
@@ -74,11 +86,13 @@ function cloneState(state: State): State {
     sessions: new Map([...state.sessions].map(([id, session]) => [id, { ...session }])),
     rolePermissions: state.rolePermissions.map((row) => ({ ...row })),
     mfaChallenges: new Map([...state.mfaChallenges].map(([id, challenge]) => [id, { ...challenge }])),
+    recoveryCodes: state.recoveryCodes.map((row) => ({ ...row })),
+    passkeys: new Map([...state.passkeys].map(([id, passkey]) => [id, { ...passkey, transports: [...passkey.transports] }])),
   };
 }
 
 export class FakeAdapter implements AuthDbAdapter<undefined> {
-  private state: State = { users: new Map(), sessions: new Map(), rolePermissions: [], mfaChallenges: new Map() };
+  private state: State = { users: new Map(), sessions: new Map(), rolePermissions: [], mfaChallenges: new Map(), recoveryCodes: [], passkeys: new Map() };
 
   // -- test setup helpers (not part of AuthDbAdapter) --
 
@@ -93,6 +107,8 @@ export class FakeAdapter implements AuthDbAdapter<undefined> {
       mfaEnabled: user.mfaEnabled ?? false,
       mustChangePassword: user.mustChangePassword ?? false,
       lastLoginAt: user.lastLoginAt ?? null,
+      totpSecretCipher: user.totpSecretCipher ?? null,
+      totpEnabledAt: user.totpEnabledAt ?? null,
     };
     this.state.users.set(full.id, full);
     return full;
@@ -125,7 +141,16 @@ export class FakeAdapter implements AuthDbAdapter<undefined> {
   async findUserForAuth(email: string): Promise<AdapterAuthUser | null> {
     const user = [...this.state.users.values()].find((candidate) => candidate.email === email);
     return user
-      ? { id: user.id, email: user.email, name: user.name, role: user.role, passwordHash: user.passwordHash, disabledAt: user.disabledAt, mfaEnabled: user.mfaEnabled }
+      ? {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          role: user.role,
+          passwordHash: user.passwordHash,
+          disabledAt: user.disabledAt,
+          mfaEnabled: user.mfaEnabled,
+          strongMfa: user.totpEnabledAt !== null || [...this.state.passkeys.values()].some((passkey) => passkey.userId === user.id),
+        }
       : null;
   }
 
@@ -198,6 +223,7 @@ export class FakeAdapter implements AuthDbAdapter<undefined> {
         disabledAt: user.disabledAt,
         passwordHash: user.passwordHash,
         mustChangePassword: user.mustChangePassword,
+        strongMfa: user.totpEnabledAt !== null || [...this.state.passkeys.values()].some((passkey) => passkey.userId === user.id),
         mfaEnabled: user.mfaEnabled,
       },
     };
@@ -360,5 +386,85 @@ export class FakeAdapter implements AuthDbAdapter<undefined> {
     const user = this.state.users.get(challenge.userId);
     if (!user) return null;
     return { userId: user.id, user: { id: user.id, email: user.email, name: user.name, disabledAt: user.disabledAt } };
+  }
+
+  // -- factors --
+
+  async findMfaFactors(userId: string): Promise<AdapterMfaFactors | null> {
+    const user = this.state.users.get(userId);
+    if (!user) return null;
+    return {
+      mfaEnabled: user.mfaEnabled,
+      totpSecretCipher: user.totpSecretCipher,
+      totpEnabledAt: user.totpEnabledAt,
+      passkeys: [...this.state.passkeys.values()].filter((passkey) => passkey.userId === userId).length,
+      recoveryCodesLeft: this.state.recoveryCodes.filter((row) => row.userId === userId && !row.usedAt).length,
+    };
+  }
+
+  async setTotpSecret(userId: string, cipher: string | null, enabledAt: Date | null): Promise<void> {
+    const user = this.state.users.get(userId);
+    if (user) Object.assign(user, { totpSecretCipher: cipher, totpEnabledAt: enabledAt });
+  }
+
+  async lockUser(): Promise<void> {
+    // One process, no interleaving inside withTransaction: nothing to lock.
+  }
+
+  async beginTotpSecret(userId: string, cipher: string): Promise<{ count: number }> {
+    const user = this.state.users.get(userId);
+    if (!user || user.totpEnabledAt) return { count: 0 };
+    user.totpSecretCipher = cipher;
+    return { count: 1 };
+  }
+
+  async confirmTotpSecret(userId: string, cipher: string, when: Date): Promise<{ count: number }> {
+    const user = this.state.users.get(userId);
+    if (!user || user.totpSecretCipher !== cipher || user.totpEnabledAt) return { count: 0 };
+    user.totpEnabledAt = when;
+    return { count: 1 };
+  }
+
+  async replaceRecoveryCodes(userId: string, codeHashes: string[]): Promise<void> {
+    this.state.recoveryCodes = [...this.state.recoveryCodes.filter((row) => row.userId !== userId), ...codeHashes.map((codeHash) => ({ userId, codeHash, usedAt: null }))];
+  }
+
+  async consumeRecoveryCode(userId: string, codeHash: string, when: Date): Promise<{ count: number }> {
+    const row = this.state.recoveryCodes.find((code) => code.userId === userId && code.codeHash === codeHash && !code.usedAt);
+    if (!row) return { count: 0 };
+    row.usedAt = when;
+    return { count: 1 };
+  }
+
+  async listPasskeys(userId: string): Promise<AdapterPasskey[]> {
+    return [...this.state.passkeys.values()].filter((passkey) => passkey.userId === userId).map((passkey) => ({ ...passkey }));
+  }
+
+  async findPasskey(id: string): Promise<AdapterPasskey | null> {
+    const passkey = this.state.passkeys.get(id);
+    return passkey ? { ...passkey } : null;
+  }
+
+  async createPasskey(input: Omit<AdapterPasskey, "createdAt" | "lastUsedAt">): Promise<void> {
+    if (this.state.passkeys.has(input.id)) throw new Error("duplicate passkey");
+    this.state.passkeys.set(input.id, { ...input, createdAt: new Date(), lastUsedAt: null });
+  }
+
+  async updatePasskeyUse(id: string, counter: number, when: Date): Promise<void> {
+    const passkey = this.state.passkeys.get(id);
+    if (passkey) Object.assign(passkey, { counter, lastUsedAt: when });
+  }
+
+  async deletePasskey(userId: string, id: string): Promise<{ count: number }> {
+    const passkey = this.state.passkeys.get(id);
+    if (!passkey || passkey.userId !== userId) return { count: 0 };
+    this.state.passkeys.delete(id);
+    return { count: 1 };
+  }
+
+  async deletePasskeys(userId: string): Promise<{ count: number }> {
+    const ids = [...this.state.passkeys.values()].filter((passkey) => passkey.userId === userId).map((passkey) => passkey.id);
+    for (const id of ids) this.state.passkeys.delete(id);
+    return { count: ids.length };
   }
 }

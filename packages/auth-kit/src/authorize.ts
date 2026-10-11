@@ -207,8 +207,8 @@ export function createAuthorize(deps: AuthorizeDeps) {
       return result.reason === "limited" ? { kind: "limited" } : { kind: "invalid" };
     }
     // A right password is not enough for an account with a second factor: the
-    // sign-in action sends the code, and the session only starts after it.
-    if (result.user.mfaEnabled) return { kind: "mfa_required" };
+    // sign-in action opens the second step, and the session only starts after it.
+    if (result.user.mfaEnabled || result.user.strongMfa) return { kind: "mfa_required" };
 
     return { kind: "signed_in", session: await finishSignIn(result.user, { ip: knownIp, ua, mfa: false }, createSession) };
   };

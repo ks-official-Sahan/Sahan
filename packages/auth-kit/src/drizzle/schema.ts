@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+  bigint,
   boolean,
   foreignKey,
   index,
@@ -52,7 +53,7 @@ export function createAuthSchema<TRole extends string = string>(options: AuthSch
     },
     (t) => [index("roles_rank_idx").on(t.rank)]
   );
-  const mfaPurposeEnum = pgEnum("MfaPurpose", ["SIGN_IN", "ENABLE", "DISABLE", "STEP_UP"]);
+  const mfaPurposeEnum = pgEnum("MfaPurpose", ["SIGN_IN", "ENABLE", "DISABLE", "STEP_UP", "PASSKEY_REGISTER", "PASSKEY_SIGN_IN"]);
   const tokenPurposeEnum = pgEnum("TokenPurpose", ["INVITE", "PASSWORD_RESET", "EMAIL_CHANGE"]);
 
   const users = pgTable(
@@ -69,6 +70,9 @@ export function createAuthSchema<TRole extends string = string>(options: AuthSch
       image: text("image"),
       bio: text("bio"),
       mfaEnabled: boolean("mfaEnabled").notNull().default(false),
+      // Authenticator-app (TOTP) secret, sealed with AES-256-GCM by the app; null until set up.
+      totpSecretCipher: text("totpSecretCipher"),
+      totpEnabledAt: at("totpEnabledAt"),
       mustChangePassword: boolean("mustChangePassword").notNull().default(false),
       // Shown to non-super-role viewers as another role (see ../rbac/mask). Presentation only.
       masked: boolean("masked").notNull().default(false),
@@ -199,6 +203,48 @@ export function createAuthSchema<TRole extends string = string>(options: AuthSch
     ]
   );
 
+  // Single-use recovery codes; only a hash is stored, `usedAt` is set atomically when spent.
+  const mfaRecoveryCodes = pgTable(
+    "mfa_recovery_codes",
+    {
+      id: text("id").primaryKey().$defaultFn(newId),
+      userId: text("userId").notNull(),
+      codeHash: text("codeHash").notNull(),
+      usedAt: at("usedAt"),
+      createdAt: at("createdAt").notNull().default(now),
+    },
+    (t) => [
+      foreignKey({ name: "mfa_recovery_codes_userId_fkey", columns: [t.userId], foreignColumns: [users.id] })
+        .onDelete("cascade")
+        .onUpdate("cascade"),
+      uniqueIndex("mfa_recovery_codes_userId_codeHash_key").on(t.userId, t.codeHash),
+    ]
+  );
+
+  // Passkeys (WebAuthn credentials): id is the credential id, publicKey the COSE key (both base64url).
+  const webauthnCredentials = pgTable(
+    "webauthn_credentials",
+    {
+      id: text("id").primaryKey(),
+      userId: text("userId").notNull(),
+      publicKey: text("publicKey").notNull(),
+      // The authenticator's signature counter: an unsigned 32-bit value.
+      counter: bigint("counter", { mode: "number" }).notNull().default(0),
+      transports: text("transports").array().default(sql`ARRAY[]::text[]`),
+      deviceType: text("deviceType").notNull(),
+      backedUp: boolean("backedUp").notNull().default(false),
+      name: text("name").notNull().default("Passkey"),
+      createdAt: at("createdAt").notNull().default(now),
+      lastUsedAt: at("lastUsedAt"),
+    },
+    (t) => [
+      foreignKey({ name: "webauthn_credentials_userId_fkey", columns: [t.userId], foreignColumns: [users.id] })
+        .onDelete("cascade")
+        .onUpdate("cascade"),
+      index("webauthn_credentials_userId_idx").on(t.userId),
+    ]
+  );
+
   const auditLogs = pgTable(
     "audit_logs",
     {
@@ -228,7 +274,7 @@ export function createAuthSchema<TRole extends string = string>(options: AuthSch
     ]
   );
 
-  return { roles, mfaPurposeEnum, tokenPurposeEnum, users, rolePermissions, userSessions, authTokens, mfaChallenges, auditLogs };
+  return { roles, mfaPurposeEnum, tokenPurposeEnum, users, rolePermissions, userSessions, authTokens, mfaChallenges, mfaRecoveryCodes, webauthnCredentials, auditLogs };
 }
 
 export type AuthSchema<TRole extends string = string> = ReturnType<typeof createAuthSchema<TRole>>;

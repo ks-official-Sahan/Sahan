@@ -28,7 +28,23 @@ export interface DashboardActivity {
   entityId: string | null;
 }
 
+/** One UTC day of dashboard counts; `day` is YYYY-MM-DD. */
+export interface DailyCounts {
+  day: string;
+  inquiries: number;
+  /** Posts that went public that day. */
+  posts: number;
+  /** Audit rows written that day (the viewer's hidden role left out). */
+  activity: number;
+}
+
 export interface DashboardRepo {
+  /**
+   * The last `days` UTC days, oldest first and zero-filled, in one grouped
+   * statement (each source table is read once through its createdAt /
+   * publishedAt index, never once per day).
+   */
+  activitySeries(days: number, hideActorRole?: string): Promise<DailyCounts[]>;
   /** Newest audit rows, leaving out those written by `hideActorRole`. */
   recentActivity(limit: number, hideActorRole?: string): Promise<DashboardActivity[]>;
   countDraftBlocks(): Promise<number>;

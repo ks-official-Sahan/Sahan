@@ -437,13 +437,95 @@ the three role columns into text with foreign keys and drops the enum.
 ### 7. MFA flows
 
 `createMfa({ adapter, authSecret, limit, sendEmail, audit, renderMfaCode })`
-gives you `issueChallenge`, `verifyChallenge`, `consumeChallenge`,
-`challengeOwner`. Sign-in's second step is: `issueChallenge` (from the
-`authorize` callback's `mfa_required` result, or from a "resend code"
-action) → your UI collects the 6-digit code → `verifyChallenge` → if
-`{ ok: true }`, call Auth.js's `signIn("credentials", { challengeId })` (no
-password), which reaches `createAuthConfig`'s MFA-second-step branch and
-calls `consumeChallenge` for you.
+gives you the second sign-in step. It is a challenge row (the "ticket") that
+the password step opens and one factor verifies; the sign-in then consumes it
+once:
+
+1. `authorize` answers `mfa_required` for a user with emailed codes on
+   (`users.mfaEnabled`), a confirmed authenticator app, or a passkey.
+2. Your sign-in action looks at `factorsOf(userId)` and
+   `mfaMethodsFor(factors)` (the same offer for every role):
+   - an authenticator app or passkey: `openTicket` (nothing is emailed yet);
+   - otherwise: `issueChallenge` emails a 6-digit code.
+   The user may pick any method in `MfaMethods` (`email`, `totp`, `passkey`),
+   with `recovery` as the last resort. Asking for an emailed code later issues
+   a new challenge that every method can still verify.
+3. The UI collects the factor and calls `verifyChallenge` (emailed code),
+   `verifyTotp`, `verifyRecoveryCode`, or `createPasskeys(...).verifyAuthentication`
+   (`./webauthn`).
+4. On `{ ok: true }`, sign in with `{ challengeId }` and no password. That
+   reaches the MFA second-step branch, which calls `consumeChallenge` for you.
+
+Required deps worth a note:
+
+- `claimOnce(key, ttlSeconds)` (a Redis `SET NX`) makes each authenticator
+  code work only once.
+- `audit(event, tx?)`: factor changes (setting up or removing an app or a
+  passkey, issuing or dropping recovery codes) run in one transaction and
+  pass `tx`. Write the row inside it and let a failure throw, so the change
+  and its row commit or roll back together. Without `tx`, a best-effort
+  write is fine.
+
+Optional deps:
+
+- `setupLimit(userId)` bounds wrong codes while confirming a new app.
+- `factorSecret` seals the TOTP secrets (AES-256-GCM). It defaults to
+  `authSecret`; changing it means users set their app up again.
+
+Setting up factors:
+
+- `beginTotpSetup` stores an unconfirmed secret and returns it for the QR
+  code (`otpauthUri`).
+- `confirmTotpSetup` confirms it with a current code. The first strong factor
+  also returns ten single-use recovery codes, stored only as user-bound HMACs.
+- `issueRecoveryCodes` replaces them. `removeTotp` removes the app, and the
+  codes go too when no strong factor is left.
+
+**Strong-MFA roles.** `defineAuthKit({ strongMfaRoles: ["OWNER"], paths: { mfaSetup } })`:
+
+- Users in those roles reach only `paths.mfaSetup` until they have an
+  authenticator app or a passkey. `createAuthDal` takes `strongMfaRoles` and
+  `mfaSetupPath`; open the setup page with `requireUser({ allowMfaSetup: true })`.
+- `AuthUser.mfaSetupRequired` tells actions and route handlers to refuse.
+- They may still choose the emailed code at sign-in, like everyone else, when
+  `users.mfaEnabled` is on.
+
+**Passkeys** (`./webauthn`) need the optional peer `@simplewebauthn/server`:
+
+```ts
+import { createPasskeys } from "@sahan-sac/auth-kit/webauthn";
+
+const passkeys = createPasskeys({ adapter, mfa, authSecret, audit, rpName: "My site", rpID: "example.com", origin: "https://example.com" });
+// Account page: passkeys.registrationOptions(user) -> browser startRegistration -> passkeys.verifyRegistration(user, { challengeId, response, name })
+// Sign-in step: passkeys.authenticationOptions(userId) -> browser startAuthentication -> passkeys.verifyAuthentication({ ticketId, challengeId, userId, email, response })
+```
+
+Ceremony challenges are stored hashed in `mfa_challenges`, single use. A
+passkey must belong to the signing-in user, and its signature counter is
+recorded on every use. Registration asks for a discoverable passkey
+(`residentKey: "required"`), so it can also sign in on its own.
+
+**Passwordless sign-in** (optional; keep it behind a setting). Pass
+`challengeStore` (single-use keys, for example Redis `SET` with a TTL and
+`DEL`), then:
+
+```ts
+// passkeys.passwordlessOptions() -> browser startAuthentication -> passkeys.verifyPasswordless(response)
+const result = await passkeys.verifyPasswordless(response);
+if (result.ok) {
+  const ticket = await mfa.openVerifiedTicket({ userId: result.userId, email, method: "passkey" });
+  // sign in with { challengeId: ticket.challengeId }, as after any second step
+}
+```
+
+- No account is named up front. The browser lists every passkey saved for the
+  site on that device, so two people sharing a device each pick their own; the
+  chosen credential id and its user handle name the account, and both must
+  agree.
+- User verification (biometrics or device PIN) is required, so the passkey
+  proves both steps and satisfies strong-MFA roles.
+- Keep your unlock gate, rate limit and disabled-account check in front of it;
+  the sign-in itself still runs `authorize` (known-device email, audit).
 
 ### 8. Session management UI hooks
 
@@ -622,6 +704,7 @@ allowed, so a protected route cannot be told from a missing one.
 | `./security` | Mixed — `request-device` needs `next/headers` | `clientIp`, allowlist functions, `isAllowedOrigin`/`parseOriginList`, `buildCsp`/`generateNonce`, `SECURITY_HEADERS`, `isScannerPath`, `checkOrigin`, `requestDetails` |
 | `./cache` | Server (any runtime) | `MemoryKv`, `createRateLimit`/`MemoryLimiter`/`UpstashLimiter`, `RedisKv`/`getRedis`/`getKv`/`kv` |
 | `./unlock-request` | `next/headers` | `hasValidUnlock` |
+| `./webauthn` | Server; optional peer `@simplewebauthn/server` | `createPasskeys` (register a passkey, verify one against the sign-in ticket) |
 | `./rbac`, `./mfa`, `./adapter`, `./credentials`, `./password`, `./password-policy`, `./invite-token`, `./login-unlock`, `./safe-callback-url`, `./constants`, `./bootstrap`, `./audit-event` | Pure | As above / self-explanatory from the source |
 | Fine-grained `./security/*`, `./cache/*` | — | Every module above is also reachable individually, for a bundler that wants the smallest possible import |
 

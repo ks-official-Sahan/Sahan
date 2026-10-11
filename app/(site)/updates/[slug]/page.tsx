@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 
 import FinalCta from "@/components/home/FinalCta";
 import PostArticle from "@/components/updates/PostArticle";
 import { SiteMetadata } from "@/config/site";
 import { getPageContent } from "@/lib/cms/loaders";
-import { getRecentPosts, getPostBySlug, relatedPosts, type BlogPostView } from "@/lib/blog/queries";
+import { getRecentPosts, getPostBySlug, getPostRedirect, relatedPosts, type BlogPostView } from "@/lib/blog/queries";
 import { RSS_ALTERNATES } from "@/lib/metadata";
 import { jsonLdHtml } from "@/lib/seo/json-ld";
 
@@ -123,7 +123,12 @@ function postJsonLd(post: BlogPostView) {
 export default async function UpdatePostPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const [post, posts, home] = await Promise.all([getPostBySlug(slug), getRecentPosts(50), getPageContent("home")]);
-  if (!post) notFound();
+  if (!post) {
+    // A renamed post's old slug answers with a 308 to its current one.
+    const target = await getPostRedirect(slug);
+    if (target) permanentRedirect(`/updates/${target}`);
+    notFound();
+  }
 
   // Candidates are the 50 newest public posts (one cached read, also used by
   // generateMetadata), so recommendations lean toward fresh content and an

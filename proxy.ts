@@ -30,6 +30,7 @@ import { authKit } from "@/lib/auth/kit-config";
 import { hasSessionCookie } from "@/lib/auth/session-cookie";
 import { limit } from "@/lib/cache/ratelimit";
 import { log } from "@/lib/log";
+import { maintenancePageHtml, retryAfterSeconds, type MaintenanceNotice } from "@/lib/admin/maintenance-page";
 import { readKvSetting } from "@/lib/settings/kv";
 import { enforcedIpAllowlist } from "@/lib/settings/schema";
 
@@ -61,9 +62,10 @@ function ip(request: NextRequest): string {
   return clientIp(request.headers, authKit.trustProxy);
 }
 
-/** Maintenance flag from the KV mirror; not set or unreadable reads as off. */
-async function isMaintenanceActive(): Promise<boolean> {
-  return Boolean((await readKvSetting("maintenance"))?.enabled);
+/** The maintenance setting from the KV mirror while it is on; null when off, not set or unreadable. */
+async function activeMaintenance(): Promise<MaintenanceNotice | null> {
+  const setting = await readKvSetting("maintenance");
+  return setting?.enabled ? setting : null;
 }
 
 /** Enforced IP allowlist from the KV mirror: empty when switched off, not set or unreadable (fail-open, see step 5). */
@@ -71,36 +73,17 @@ async function getIpAllowlist(): Promise<string[]> {
   return enforcedIpAllowlist(await readKvSetting("security.ipAllowlist"));
 }
 
-/**
- * Serve a maintenance page (503 Service Unavailable).
- * Public response indicates the service is temporarily down.
- */
-function maintenancePage(): NextResponse {
-  return new NextResponse(
-    `<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="robots" content="noindex, nofollow">
-  <title>Maintenance</title>
-  <style>body{font-family:sans-serif;text-align:center;padding:2rem}h1{font-size:2rem}p{color:#666}</style>
-</head>
-<body>
-  <h1>Maintenance in Progress</h1>
-  <p>The site is temporarily unavailable. Please try again later.</p>
-</body>
-</html>`,
-    {
-      status: 503,
-      headers: {
-        "Content-Type": "text/html; charset=utf-8",
-        "Retry-After": "3600",
-        "X-Robots-Tag": "noindex, nofollow, nocache",
-        "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
-      },
-    }
-  );
+/** The maintenance page (503), with the saved reason and expected end time. */
+function maintenancePage(notice: MaintenanceNotice | null, now: number): NextResponse {
+  return new NextResponse(maintenancePageHtml(notice, now), {
+    status: 503,
+    headers: {
+      "Content-Type": "text/html; charset=utf-8",
+      "Retry-After": String(retryAfterSeconds(notice, now)),
+      "X-Robots-Tag": "noindex, nofollow, nocache",
+      "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+    },
+  });
 }
 
 /** Nonce CSP for one admin request; Next reads the nonce from the request header. */
@@ -195,13 +178,12 @@ export async function proxy(request: NextRequest) {
   // bypass cookie. Called here with hasBypassCookie=false, it reduces to the
   // path-only check that decides whether to enter this block at all.
   if (!isMaintenanceExempt(pathname, false)) {
-    const maintenance = await isMaintenanceActive();
-    if (maintenance && !isMaintenanceExempt(pathname, hasBypassCookie)) {
-      return maintenancePage();
-    }
+    const maintenance = await activeMaintenance();
 
-    // 2a. Bypass query for maintenance: ?bypass-secret=...
-    if (maintenance && searchParams.has(BYPASS_QUERY) && bypassKeys) {
+    // 2a. Bypass query for maintenance: ?bypass-secret=... Checked before the
+    // page below, which would otherwise answer every request without the
+    // cookie, so the query that sets the cookie could never be reached.
+    if (maintenance && !hasBypassCookie && searchParams.has(BYPASS_QUERY) && bypassKeys) {
       const callerIp = ip(request);
       // Same R22 rule as the unlock query below: an unknown IP is shared by
       // every caller, so limiting it would let one caller lock the owner out.
@@ -209,7 +191,7 @@ export async function proxy(request: NextRequest) {
       const accepted = !limited && isValidBypassSecret(searchParams.get(BYPASS_QUERY), bypassKeys);
       if (!accepted) {
         log.warn("maintenance bypass refused", { ip: callerIp, limited });
-        return maintenancePage();
+        return maintenancePage(maintenance, now);
       }
       const clean = request.nextUrl.clone();
       clean.searchParams.delete(BYPASS_QUERY);
@@ -221,6 +203,10 @@ export async function proxy(request: NextRequest) {
       );
       response.headers.set("Cache-Control", "no-store");
       return response;
+    }
+
+    if (maintenance && !isMaintenanceExempt(pathname, hasBypassCookie)) {
+      return maintenancePage(maintenance, now);
     }
 
     // Public pages continue normally

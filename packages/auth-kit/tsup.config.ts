@@ -30,6 +30,7 @@ export default defineConfig({
     "src/rbac/roles.ts",
     "src/rbac/mask.ts",
     "src/mfa/index.ts",
+    "src/webauthn/index.ts",
     "src/security/index.ts",
     "src/cache/index.ts",
     "src/credentials.ts",
@@ -71,6 +72,6 @@ export default defineConfig({
   clean: true,
   target: "es2022",
   platform: "node",
-  external: ["next", "next-auth", "next-auth/providers/credentials", "next/server", "next/headers", "next/navigation", "react", "react-server-dom-webpack", "better-auth", "better-auth/api", "better-auth/next-js", "better-auth/adapters/prisma", "better-auth/db/adapter", "next-auth/jwt"],
+  external: ["next", "next-auth", "next-auth/providers/credentials", "next/server", "next/headers", "next/navigation", "react", "react-server-dom-webpack", "better-auth", "better-auth/api", "better-auth/next-js", "better-auth/adapters/prisma", "better-auth/db/adapter", "next-auth/jwt", "@simplewebauthn/server"],
   skipNodeModulesBundle: true,
 });
