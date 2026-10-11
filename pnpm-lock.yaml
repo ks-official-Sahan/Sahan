@@ -4,10 +4,6 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
-overrides:
-  source-map-js: '>=1.2.2'
-  sharp: '>=0.35.5'
-
 importers:
 
   .:
@@ -145,7 +141,7 @@ importers:
         specifier: ^0.0.1
         version: 0.0.1
       sharp:
-        specifier: '>=0.35.5'
+        specifier: ^0.35.5
         version: 0.35.5(@types/node@22.20.4)
       tailwind-merge:
         specifier: ^2.5.4
