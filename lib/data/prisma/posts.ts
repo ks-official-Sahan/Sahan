@@ -151,6 +151,9 @@ export function postRepo(client: DbClient): PostRepo {
     async releaseSlug(slug) {
       await client.postSlugRedirect.deleteMany({ where: { slug } });
     },
+    findForPreview(id) {
+      return client.post.findUnique({ where: { id }, select: { ...SUMMARY_SELECT, contentHtml: true } });
+    },
     findWithCoverUrl(id) {
       return client.post.findUnique({ where: { id }, include: { coverMedia: { select: { url: true } } } });
     },
