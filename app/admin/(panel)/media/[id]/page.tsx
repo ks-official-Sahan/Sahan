@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Alert, Badge, Button, Card, CardSection, Container, Grid, GridCol, Group, List, ListItem, Stack, Text } from "@mantine/core";
-import { AlertTriangle, ArrowLeft } from "lucide-react";
 
+import Icon from "@/components/icons/Icon";
 import MediaDetailsForm from "@/components/admin/media/MediaDetailsForm";
 import { getOptionalUser, hasPermission } from "@/lib/auth/dal";
 import { repos } from "@/lib/data";
@@ -27,7 +27,7 @@ export default async function MediaDetailPage({ params }: { params: Promise<{ id
   return (
     <Container>
       <Group mb="lg">
-        <Button component={Link} href="/admin/media" leftSection={<ArrowLeft size={16} />} variant="light">
+        <Button component={Link} href="/admin/media" leftSection={<Icon name="arrow-narrow-left" className="size-4" />} variant="light">
           Back
         </Button>
         <Text size="lg" fw={700}>{asset.title || asset.publicId || "Media"}</Text>
@@ -62,7 +62,7 @@ export default async function MediaDetailPage({ params }: { params: Promise<{ id
         <GridCol span={{ base: 12, md: 4 }}>
           <Stack gap="lg">
             {asset.usages.length > 0 ? (
-              <Alert icon={<AlertTriangle size={16} />} color="yellow" title="In use">
+              <Alert icon={<Icon name="triangle-alert" className="size-4" />} color="yellow" title="In use">
                 This media is referenced in {asset.usages.length} place{asset.usages.length === 1 ? "" : "s"}; remove those references before deleting it.
                 <List size="sm" mt="xs">
                   {asset.usages.slice(0, 5).map((usage) => (

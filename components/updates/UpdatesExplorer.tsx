@@ -1,10 +1,10 @@
 "use client";
 
+import Icon from "@/components/icons/Icon";
 import { HomeContainer } from "@/components/home/HomeSection";
 import UpdatesCard from "@/components/updates/UpdatesCard";
 import type { PageContent } from "@/lib/cms/registry";
 import { cn } from "@/lib/utils";
-import { Search, X } from "lucide-react";
 import React, { useMemo, useState } from "react";
 
 const chip =
@@ -107,11 +107,7 @@ const UpdatesExplorer = ({ content, posts: initialPosts, nextCursor: initialCurs
                 Search updates
               </label>
               <div className="relative">
-                <Search
-                  size={16}
-                  aria-hidden="true"
-                  className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 opacity-60"
-                />
+                <Icon name="magnifier" className="size-4 pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 opacity-60" />
                 <input
                   id="updates-search"
                   type="search"
@@ -179,7 +175,7 @@ const UpdatesExplorer = ({ content, posts: initialPosts, nextCursor: initialCurs
                 onClick={clear}
                 className="press inline-flex min-h-11 w-fit items-center gap-2 rounded-full px-2 text-sm font-medium opacity-80 hover:opacity-100"
               >
-                <X size={16} aria-hidden="true" />
+                <Icon name="x" className="size-4" />
                 Clear filters
               </button>
             )}

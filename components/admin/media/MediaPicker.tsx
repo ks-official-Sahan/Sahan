@@ -2,11 +2,11 @@
 
 import { useCallback, useRef, useState } from "react";
 import { Alert, Button, Group, Image, Modal, SimpleGrid, Stack, Text, TextInput } from "@mantine/core";
-import { AlertCircle, FileText, Search, Upload } from "lucide-react";
 
 import { MEDIA_CONFIG } from "@sahan-sac/media-kit/config";
 import { uploadToMediaLibrary } from "@sahan-sac/media-kit/upload-client";
 
+import Icon from "@/components/icons/Icon";
 import { useMediaPages } from "@/components/admin/media/use-media-pages";
 import { registerUpload } from "@/lib/actions/media";
 
@@ -115,7 +115,7 @@ export function MediaPicker({ onSelect, kind = "IMAGE", required = false, upload
 
   return (
     <>
-      <Button type="button" onClick={() => setOpened(true)} variant="light" leftSection={<Upload size={16} />}>
+      <Button type="button" onClick={() => setOpened(true)} variant="light" leftSection={<Icon name="upload" />}>
         {uploadOnly ? "Upload" : "Choose"} {kind.toLowerCase()}
       </Button>
 
@@ -127,7 +127,7 @@ export function MediaPicker({ onSelect, kind = "IMAGE", required = false, upload
         centered
       >
         <Stack gap="md">
-          {error ? <Alert color="red" icon={<AlertCircle size={18} />} role="alert">{error}</Alert> : null}
+          {error ? <Alert color="red" icon={<Icon lucideIconName="AlertCircle" className="size-[18px]" />} role="alert">{error}</Alert> : null}
 
           {uploadOnly ? null : (
             <Group>
@@ -159,7 +159,7 @@ export function MediaPicker({ onSelect, kind = "IMAGE", required = false, upload
               <TextInput
                 label="Search library"
                 placeholder="Search by title, ID, alt text or folder"
-                leftSection={<Search size={16} />}
+                leftSection={<Icon name="magnifier" className="size-4" />}
                 value={search}
                 onChange={(event) => {
                   // A new search is a new result set: drop the old selection and its alt text.
@@ -187,7 +187,7 @@ export function MediaPicker({ onSelect, kind = "IMAGE", required = false, upload
                       <Image src={item.src} alt="" h={92} fit="cover" radius="sm" />
                     ) : (
                       <span className="flex h-[92px] items-center justify-center rounded bg-muted/50">
-                        <FileText size={28} aria-hidden="true" />
+                        <Icon name="file-description" className="size-7" />
                       </span>
                     )}
                     <Text size="xs" fw={500} mt="xs" lineClamp={1}>{item.title || item.mediaId}</Text>

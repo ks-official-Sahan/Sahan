@@ -1,10 +1,10 @@
+import Icon from "@/components/icons/Icon";
 import ContactChannels from "@/components/home/ContactChannels";
 import HeroBackdrop from "@/components/home/HeroBackdrop";
 import { HomeContainer, stagger } from "@/components/home/HomeSection";
 import { BorderBeam } from "@/components/ui/border-beam";
 import { Site } from "@/config/site";
 import type { PageContent } from "@/lib/cms/registry";
-import { ArrowDown, ArrowUpRight } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import React from "react";
@@ -65,18 +65,14 @@ const HomeHero = ({ content: hero, channels }: HomeHeroProps) => {
                     className="press arrow-nudge inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-bCHIPSELECTED px-7 text-[15px] font-semibold text-white outline-offset-4 dark:text-black"
                   >
                     {hero.primary.label}
-                    <ArrowDown size={18} aria-hidden="true" />
+                    <Icon name="arrow-narrow-down" className="size-[18px]" />
                   </Link>
                   <Link
                     href={hero.secondary.href}
                     className="press arrow-nudge inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-bBORDERFADE bg-bCARD px-7 text-[15px] font-semibold outline-offset-4"
                   >
                     {hero.secondary.label}
-                    <ArrowUpRight
-                      size={18}
-                      aria-hidden="true"
-                      className="arrow-nudge-icon"
-                    />
+                    <Icon name="arrow-up-right" className="size-[18px]" />
                   </Link>
                 </div>
               </div>
@@ -115,11 +111,7 @@ const HomeHero = ({ content: hero, channels }: HomeHeroProps) => {
                         <span className="sr-only"> {channels.newTab}</span>
                       </span>
                     </span>
-                    <ArrowUpRight
-                      size={16}
-                      aria-hidden="true"
-                      className="arrow-nudge-icon shrink-0"
-                    />
+                    <Icon name="arrow-up-right" className="size-4 shrink-0" />
                   </a>
                 </div>
 

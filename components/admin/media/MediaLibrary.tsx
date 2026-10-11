@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { useState } from "react";
 import { Alert, Badge, Button, Card, Group, Image, Select, SimpleGrid, Stack, Text, TextInput } from "@mantine/core";
-import { Search } from "lucide-react";
 
+import Icon from "@/components/icons/Icon";
 import { MediaPicker } from "@/components/admin/media/MediaPicker";
 import { useMediaPages } from "@/components/admin/media/use-media-pages";
 
@@ -38,7 +38,7 @@ export default function MediaLibrary({ canUpload }: { canUpload: boolean }) {
           <TextInput
             label="Search media"
             placeholder="Title, ID, alt text or folder"
-            leftSection={<Search size={16} />}
+            leftSection={<Icon name="magnifier" className="size-4" />}
             value={query}
             onChange={(event) => setQuery(event.currentTarget.value)}
             className="min-w-64"

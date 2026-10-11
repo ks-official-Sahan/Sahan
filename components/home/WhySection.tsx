@@ -1,14 +1,14 @@
+import Icon from "@/components/icons/Icon";
 import HomeSection from "@/components/home/HomeSection";
 import SectionHeading from "@/components/home/SectionHeading";
 import type { PageContent } from "@/lib/cms/registry";
-import { Globe, Layers, ShieldCheck, Smartphone } from "lucide-react";
 import React from "react";
 
 const icons = {
-  layers: Layers,
-  smartphone: Smartphone,
-  shield: ShieldCheck,
-  globe: Globe,
+  layers: { name: "layers" },
+  smartphone: { lucideIconName: "Smartphone" },
+  shield: { name: "shield-check" },
+  globe: { name: "globe" },
 } as const;
 
 // Benefits before features, and a list rather than a card grid: the heading
@@ -33,7 +33,8 @@ const WhySection = ({ content: why }: WhySectionProps) => {
 
         <ul className="divide-y divide-bBORDERFADE border-y border-bBORDERFADE">
           {why.points.map((point) => {
-            const Icon = icons[point.icon as keyof typeof icons];
+            // An unknown CMS value falls back to a neutral icon, never an empty one.
+            const icon = icons[point.icon as keyof typeof icons] ?? icons.layers;
 
             return (
               <li
@@ -44,7 +45,7 @@ const WhySection = ({ content: why }: WhySectionProps) => {
                   aria-hidden="true"
                   className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-bICON_FADE text-bICON"
                 >
-                  <Icon size={20} />
+                  <Icon {...icon} size={20} />
                 </span>
                 <div>
                   <h3 className="text-lg font-semibold leading-snug s768:text-xl">

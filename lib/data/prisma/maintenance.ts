@@ -1,4 +1,4 @@
-import type { DashboardRepo, MaintenanceRepo } from "../maintenance";
+import type { DashboardPostStatus, DashboardRepo, MaintenanceRepo } from "../maintenance";
 import type { DbClient } from "./client";
 import { table } from "./raw";
 
@@ -120,6 +120,41 @@ export function dashboardRepo(client: DbClient): DashboardRepo {
     },
     countNewInquiries() {
       return client.inquiry.count({ where: { status: "NEW" } });
+    },
+    async postStatusCounts() {
+      const rows = await client.post.groupBy({ by: ["status"], _count: { _all: true } });
+      const counts: Record<DashboardPostStatus, number> = { DRAFT: 0, SCHEDULED: 0, PUBLISHED: 0, ARCHIVED: 0 };
+      for (const row of rows) counts[row.status] = row._count._all;
+      return counts;
+    },
+    upcomingPosts(limit) {
+      return client.post.findMany({
+        where: { status: { in: ["SCHEDULED", "DRAFT"] } },
+        // The enum sorts in declaration order, so descending puts SCHEDULED first.
+        orderBy: [{ status: "desc" }, { publishAt: { sort: "asc", nulls: "last" } }, { updatedAt: "desc" }],
+        take: limit,
+        select: { id: true, title: true, status: true, publishAt: true, updatedAt: true },
+      });
+    },
+    newInquiries(limit) {
+      return client.inquiry.findMany({
+        where: { status: "NEW" },
+        orderBy: { createdAt: "desc" },
+        take: limit,
+        select: { id: true, name: true, topic: true, createdAt: true },
+      });
+    },
+    async securityCounts(now, since) {
+      const live = { revokedAt: null, expiresAt: { gt: now } };
+      const [activeSessions, users, failedSignIns] = await Promise.all([
+        client.userSession.count({ where: live }),
+        client.userSession.groupBy({ by: ["userId"], where: live }),
+        client.auditLog.count({ where: { action: { in: ["auth.login.failure", "auth.mfa.failed"] }, createdAt: { gte: since } } }),
+      ]);
+      return { activeSessions, activeUsers: users.length, failedSignIns };
+    },
+    countChatSessionsSince(since) {
+      return client.chatSession.count({ where: { createdAt: { gte: since } } });
     },
   };
 }

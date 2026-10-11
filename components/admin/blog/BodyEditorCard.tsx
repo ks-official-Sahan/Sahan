@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Columns2 } from "lucide-react";
 
+import Icon from "@/components/icons/Icon";
 import { cardClass } from "@/components/admin/ui/styles";
 import { htmlToMarkdown, markdownToHtml } from "@sahan-sac/blog-kit/markdown";
 import { cn } from "@/lib/utils";
@@ -82,7 +82,7 @@ export default function BodyEditorCard({ content, onChange }: { content: string;
               split ? "border-primary bg-primary/10 text-foreground" : "border-input text-muted-foreground hover:text-foreground"
             )}
           >
-            <Columns2 size={14} aria-hidden />
+            <Icon name="layout-sidebar-right" className="size-3.5" />
             Live preview
           </button>
         </div>

@@ -62,14 +62,6 @@ export async function seedExperience(tx: Pick<Repos, "experiences">, defaults: E
   await tx.experiences.createMany(items);
 }
 
-const SERVICE_ICON_KEYS: Record<string, string> = {
-  WEB: "Globe", BCK: "Server", API: "Plug", APP: "Smartphone", PWA: "Layers",
-  DSH: "LayoutDashboard", DSK: "Monitor", CLD: "Container", CCH: "Cloud",
-  DAT: "Database", SEC: "ShieldCheck", UXD: "Palette", BRD: "PenTool",
-  MCK: "Boxes", PPD: "Presentation", PVE: "Video", DWF: "FileText",
-  CCI: "Lightbulb", CNS: "Compass", CRO: "SearchCode", PPS: "Code2", MNT: "GraduationCap",
-};
-
 export async function seedServices(tx: Pick<Repos, "serviceGroups" | "services">, defaults: ServiceCategory[]): Promise<void> {
   if (await tx.serviceGroups.count() > 0) return;
 
@@ -78,7 +70,7 @@ export async function seedServices(tx: Pick<Repos, "serviceGroups" | "services">
     await tx.services.createMany(category.services.map((service, serviceIndex) => ({
       key: service.id,
       groupId: group.id,
-      iconKey: SERVICE_ICON_KEYS[service.id] ?? "CircleHelp",
+      iconKey: service.iconKey ?? "CircleHelp",
       name: service.name,
       description: service.description,
       done: service.done ?? null,

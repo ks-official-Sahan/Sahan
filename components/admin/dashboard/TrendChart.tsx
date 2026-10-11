@@ -2,25 +2,23 @@
 
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
-// The 30-day chart. Loaded on its own (TrendChartLazy) so Recharts never sits
-// in the shared admin bundle. Colors come from the theme's chart tokens, so
-// light and dark both work; the table under the chart carries the same data
-// for screen readers.
+// The dashboard's daily charts (admin activity, site traffic). Loaded on its
+// own (TrendChartLazy) so Recharts never sits in the shared admin bundle.
+// Colors come from the theme's chart tokens, so light and dark both work; each
+// caller renders a table with the same data for screen readers.
 
-const SERIES = [
-  { key: "inquiries", label: "Inquiries", color: "hsl(var(--chart-1))" },
-  { key: "posts", label: "Posts published", color: "hsl(var(--chart-2))" },
-  { key: "activity", label: "Admin activity", color: "hsl(var(--chart-4))" },
-] as const;
+export interface TrendSeries {
+  key: string;
+  label: string;
+  color: string;
+}
 
 const dayLabel = new Intl.DateTimeFormat("en", { month: "short", day: "numeric", timeZone: "UTC" });
 const label = (day: string) => dayLabel.format(new Date(`${day}T00:00:00Z`));
 
-type SeriesKey = (typeof SERIES)[number]["key"];
-type Row = { day: string } & Partial<Record<SeriesKey, number>>;
+type Row = { day: string } & Record<string, number | string | undefined>;
 
-export default function TrendChart({ days, keys }: { days: Row[]; keys: SeriesKey[] }) {
-  const shown = SERIES.filter((series) => keys.includes(series.key));
+export default function TrendChart({ days, series: shown }: { days: Row[]; series: TrendSeries[] }) {
   return (
     <div className="h-64 w-full">
       <ResponsiveContainer width="100%" height="100%">
