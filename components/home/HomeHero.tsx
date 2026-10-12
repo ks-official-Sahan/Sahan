@@ -1,6 +1,7 @@
 import Icon from "@/components/icons/Icon";
 import ContactChannels from "@/components/home/ContactChannels";
 import HeroBackdrop from "@/components/home/HeroBackdrop";
+import HeroMascot from "@/components/home/HeroMascot";
 import { HomeContainer, stagger } from "@/components/home/HomeSection";
 import { BorderBeam } from "@/components/ui/border-beam";
 import { Site } from "@/config/site";
@@ -30,16 +31,22 @@ const HomeHero = ({ content: hero, channels }: HomeHeroProps) => {
             <div className="grid grid-cols-1 gap-12 lg:grid-cols-12 lg:items-center lg:gap-10 xl:gap-16">
               {/* COPY */}
               <div className="flex flex-col items-start gap-6 lg:col-span-7">
-                <p
-                  style={stagger(0)}
-                  className="hero-rise inline-flex items-center gap-3 rounded-full border border-bBORDERFADE bg-bCHIP py-2 pl-3 pr-4 text-sm font-medium"
-                >
-                  <span
-                    aria-hidden="true"
-                    className="status-ping relative h-2.5 w-2.5 rounded-full bg-bICON text-bICON"
+                <div style={stagger(0)} className="hero-rise flex w-full items-end justify-between gap-4">
+                  <p className="inline-flex items-center gap-3 rounded-full border border-bBORDERFADE bg-bCHIP py-2 pl-3 pr-4 text-sm font-medium">
+                    <span
+                      aria-hidden="true"
+                      className="status-ping relative h-2.5 w-2.5 rounded-full bg-bICON text-bICON"
+                    />
+                    {hero.status}
+                  </p>
+                  {/* A monitor that watches the cursor; the box is fixed, so nothing shifts while it loads. */}
+                  <HeroMascot
+                    directions="/mascots/crt-directions.webp"
+                    reactions="/mascots/crt-reactions.webp"
+                    label="monitor mascot"
+                    className="-my-3 size-16 s640:size-20 lg:size-24"
                   />
-                  {hero.status}
-                </p>
+                </div>
 
                 <h1
                   id="hero-title"
