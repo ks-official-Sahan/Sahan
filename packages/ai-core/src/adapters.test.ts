@@ -150,3 +150,36 @@ test("checkChain: runs the real chain and reports who answered after whom", asyn
 
   assert.deepEqual(await checkChain(env({}), "blog"), { id: "chain:blog", ok: false, errorClass: "no_provider", ms: 0, attempts: [] });
 });
+
+test("free tiers: Groq after Gemini; Mistral only in the blog chain unless chat's order lists it; Cloudflare needs both variables", () => {
+  const keys = { GEMINI_API_KEY: FAKE, GROQ_API_KEY: FAKE, NVIDIA_API_KEY: FAKE, MISTRAL_API_KEY: FAKE, CLOUDFLARE_ACCOUNT_ID: "acc", CLOUDFLARE_AI_API_TOKEN: FAKE };
+  assert.deepEqual(names(realProviders(env(keys), "blog")), ["gemini", "groq", "nvidia", "mistral", "cloudflare"]);
+  assert.deepEqual(names(realProviders(env(keys), "chat")), ["gemini", "groq", "nvidia", "cloudflare"]);
+  assert.equal(providerStatuses(env(keys), "chat").find((status) => status.id === "mistral")?.state, "not_in_order");
+  assert.deepEqual(names(realProviders(env({ ...keys, AI_PROVIDER_ORDER_CHAT: "mistral,groq" }), "chat")), ["mistral", "groq"]);
+  assert.deepEqual(providerStatuses(env({ CLOUDFLARE_ACCOUNT_ID: "acc" }), "chat").find((status) => status.id === "cloudflare")?.missing, ["CLOUDFLARE_AI_API_TOKEN"]);
+  // None of them is paid: no AI_ALLOW_PAID needed, and none is a last resort.
+  assert.ok(realProviders(env(keys), "blog").every((provider) => !provider.lastResort));
+});
+
+test("free tiers call their own endpoints with a model per purpose", async () => {
+  const calls: Array<{ url: string; model: unknown }> = [];
+  const fakeFetch: typeof fetch = async (input, init) => {
+    calls.push({ url: String(input), model: JSON.parse(String(init?.body)).model });
+    return new Response(
+      JSON.stringify({ id: "x", object: "chat.completion", created: 0, model: "m", choices: [{ index: 0, message: { role: "assistant", content: "OK" }, finish_reason: "stop" }], usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 } }),
+      { status: 200, headers: { "content-type": "application/json" } }
+    );
+  };
+  const source = { GROQ_API_KEY: FAKE, MISTRAL_API_KEY: FAKE, CLOUDFLARE_ACCOUNT_ID: "acc 1", CLOUDFLARE_AI_API_TOKEN: FAKE, CHAT_GROQ_MODEL: "my-chat-model", AI_PROVIDER_ORDER: "groq,mistral,cloudflare" };
+  for (const provider of realProviders(env(source), "chat", fakeFetch)) assert.deepEqual(await provider.generate(PROMPT), { ok: true, text: "OK" });
+  for (const provider of realProviders(env(source), "blog", fakeFetch)) await provider.generate(PROMPT);
+  assert.deepEqual(calls, [
+    { url: "https://api.groq.com/openai/v1/chat/completions", model: "my-chat-model" },
+    { url: "https://api.mistral.ai/v1/chat/completions", model: "mistral-small-latest" },
+    { url: "https://api.cloudflare.com/client/v4/accounts/acc%201/ai/v1/chat/completions", model: "@cf/openai/gpt-oss-20b" },
+    { url: "https://api.groq.com/openai/v1/chat/completions", model: "openai/gpt-oss-120b" },
+    { url: "https://api.mistral.ai/v1/chat/completions", model: "mistral-medium-latest" },
+    { url: "https://api.cloudflare.com/client/v4/accounts/acc%201/ai/v1/chat/completions", model: "@cf/openai/gpt-oss-120b" },
+  ]);
+});
