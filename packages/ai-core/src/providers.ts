@@ -118,10 +118,16 @@ export const createAiHealth = (): AiHealth => ({ cooldownUntil: new Map(), laten
 /** One per server instance, for request handlers; tests and scripts get a fresh one by default. */
 export const sharedAiHealth: AiHealth = ((globalThis as unknown as { sahanAiHealth?: AiHealth }).sahanAiHealth ??= createAiHealth());
 
-/** Quota and slowness pass quickly; a wrong key or a retired model needs an operator, so it cools longer. */
-function cooldownFor(outcome: AiOutcome): number {
+/**
+ * Quota and slowness pass quickly; a wrong key or a retired model needs an
+ * operator, so it cools longer; an empty prepaid wallet (402) needs someone to
+ * add funds, so it cools longest and costs one probe per half hour instead of
+ * a failed round trip on every request.
+ */
+export function cooldownFor(outcome: AiOutcome): number {
   if (outcome.ok) return 0;
   if (outcome.errorClass === "timeout" || outcome.status === 429) return AI_COOLDOWN_MS;
+  if (outcome.status === 402) return AI_COOLDOWN_MS * 30;
   if (outcome.status === 401 || outcome.status === 403 || outcome.status === 404) return AI_COOLDOWN_MS * 10;
   return 0;
 }
