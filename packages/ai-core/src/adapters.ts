@@ -32,6 +32,11 @@ export interface ProviderAdapter {
   /** Lowercase id used in AI_PROVIDER_ORDER. */
   readonly id: string;
   readonly label: string;
+  /**
+   * Purposes it joins under the default order; unset means all. An explicit
+   * AI_PROVIDER_ORDER(_BLOG|_CHAT) still adds it anywhere it is listed.
+   */
+  readonly defaultPurposes?: readonly TextPurpose[];
   /** Costs money: runs only with AI_ALLOW_PAID. */
   paid(env: AiEnv): boolean;
   /** Env variable names still missing; empty means configured. Never values. */
@@ -46,6 +51,16 @@ function modelFor(env: AiEnv, provider: string, purpose: TextPurpose, fallback: 
 }
 
 const need = (env: AiEnv, ...names: Array<keyof AiEnv>): string[] => names.filter((name) => !env[name]) as string[];
+
+/**
+ * Defaults for the free-tier adapters that take an id per purpose. The blog
+ * writes long JSON, so it gets the larger model; chat gets the faster one.
+ */
+export const FREE_TEXT_MODELS = {
+  groq: { blog: "openai/gpt-oss-120b", chat: "openai/gpt-oss-20b" },
+  mistral: { blog: "mistral-medium-latest", chat: "mistral-small-latest" },
+  cloudflare: { blog: "@cf/openai/gpt-oss-120b", chat: "@cf/openai/gpt-oss-20b" },
+} as const satisfies Record<string, Record<TextPurpose, string>>;
 
 /**
  * Defaults for the paid adapters. Model names change often: set the
@@ -109,6 +124,20 @@ export const BUILTIN_ADAPTERS: readonly ProviderAdapter[] = [
     missing: (env) => need(env, "GEMINI_API_KEY"),
     create: ({ env, purpose, fetch }) => geminiProvider({ apiKey: env.GEMINI_API_KEY!, model: textModels(env, purpose).gemini, fetchImpl: fetch }),
   },
+  {
+    id: "groq",
+    label: "Groq",
+    paid: () => false,
+    missing: (env) => need(env, "GROQ_API_KEY"),
+    create: ({ env, purpose, fetch }) =>
+      openAiCompatibleProvider({
+        name: "groq",
+        apiKey: env.GROQ_API_KEY!,
+        baseUrl: "https://api.groq.com/openai/v1",
+        model: modelFor(env, "GROQ", purpose, FREE_TEXT_MODELS.groq),
+        fetch,
+      }),
+  },
   openRouterAdapter("openrouter", "OPENROUTER_API_KEY"),
   openRouterAdapter("openrouter-2", "OPENROUTER_API_KEY_2"),
   {
@@ -122,6 +151,37 @@ export const BUILTIN_ADAPTERS: readonly ProviderAdapter[] = [
         apiKey: env.NVIDIA_API_KEY!,
         baseUrl: "https://integrate.api.nvidia.com/v1",
         model: textModels(env, purpose).nvidia,
+        fetch,
+      }),
+  },
+  {
+    id: "mistral",
+    label: "Mistral",
+    paid: () => false,
+    // The free plan may train on prompts: keep visitors' chat text out unless
+    // the operator lists it in AI_PROVIDER_ORDER_CHAT.
+    defaultPurposes: ["blog"],
+    missing: (env) => need(env, "MISTRAL_API_KEY"),
+    create: ({ env, purpose, fetch }) =>
+      openAiCompatibleProvider({
+        name: "mistral",
+        apiKey: env.MISTRAL_API_KEY!,
+        baseUrl: "https://api.mistral.ai/v1",
+        model: modelFor(env, "MISTRAL", purpose, FREE_TEXT_MODELS.mistral),
+        fetch,
+      }),
+  },
+  {
+    id: "cloudflare",
+    label: "Cloudflare Workers AI",
+    paid: () => false,
+    missing: (env) => need(env, "CLOUDFLARE_ACCOUNT_ID", "CLOUDFLARE_AI_API_TOKEN"),
+    create: ({ env, purpose, fetch }) =>
+      openAiCompatibleProvider({
+        name: "cloudflare",
+        apiKey: env.CLOUDFLARE_AI_API_TOKEN!,
+        baseUrl: `https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(env.CLOUDFLARE_ACCOUNT_ID!)}/ai/v1`,
+        model: modelFor(env, "CLOUDFLARE_AI", purpose, FREE_TEXT_MODELS.cloudflare),
         fetch,
       }),
   },
@@ -201,7 +261,7 @@ export interface AdapterStatus {
 /** Every adapter's place for a purpose: in the chain or why not. Pure, no network; for health screens. */
 export function providerStatuses(env: AiEnv, purpose: TextPurpose, adapters: readonly ProviderAdapter[] = BUILTIN_ADAPTERS): AdapterStatus[] {
   const order = configuredOrder(env, purpose);
-  const ids = order ?? adapters.map((adapter) => adapter.id);
+  const ids = order ?? adapters.filter((adapter) => !adapter.defaultPurposes || adapter.defaultPurposes.includes(purpose)).map((adapter) => adapter.id);
   const byId = new Map(adapters.map((adapter) => [adapter.id, adapter]));
   let position = 0;
   const statuses: AdapterStatus[] = [];
