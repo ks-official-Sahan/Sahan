@@ -10,6 +10,7 @@ import {
   contentUnavailable,
   rejectUnknownParams,
 } from "@/lib/api/content";
+import { TAGS } from "@/lib/cache/tags";
 import { authKit } from "@/lib/auth/kit-config";
 import { limit } from "@/lib/cache/ratelimit";
 import { clientIp, UNKNOWN_IP } from "@/lib/security/ip";
@@ -49,7 +50,7 @@ export const GET = timed(async function GET(request: NextRequest) {
 
   try {
     const page = await getPublicPostPage(rawLimit, cursor);
-    return contentResponse(request, { ...page, nextCursor: page.nextCursor ? encodePublicPostCursor(page.nextCursor) : null });
+    return contentResponse(request, { ...page, nextCursor: page.nextCursor ? encodePublicPostCursor(page.nextCursor) : null }, [TAGS.blogList]);
   } catch (error) {
     return contentUnavailable("blog", error);
   }

@@ -3,13 +3,14 @@ import { NextResponse } from "next/server";
 import { Projects } from "@/contents/projects";
 import { getProjects } from "@/lib/collections";
 import { CONTENT_CORS_HEADERS, contentResponse, contentUnavailable, rejectUnknownParams } from "@/lib/api/content";
+import { TAGS } from "@/lib/cache/tags";
 import { timed } from "@/lib/observability/timing";
 
 export const GET = timed(async function GET(request: Request) {
   const rejected = rejectUnknownParams(request);
   if (rejected) return rejected;
   try {
-    return contentResponse(request, await getProjects(Projects));
+    return contentResponse(request, await getProjects(Projects), [TAGS.collection("projects")]);
   } catch (error) {
     return contentUnavailable("projects", error);
   }

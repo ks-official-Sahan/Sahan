@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { getPostBySlug, getPostRedirect } from "@/lib/blog/queries";
 import { CONTENT_CORS_HEADERS, contentNotFound, contentResponse, contentUnavailable, rejectUnknownParams } from "@/lib/api/content";
+import { TAGS } from "@/lib/cache/tags";
 import { timed } from "@/lib/observability/timing";
 
 export const GET = timed(async function GET(request: Request, { params }: { params: Promise<{ slug: string }> }) {
@@ -17,7 +18,7 @@ export const GET = timed(async function GET(request: Request, { params }: { para
       // A miss is never cached: the post may be published a moment later.
       return contentNotFound("Post not found.");
     }
-    return contentResponse(request, data);
+    return contentResponse(request, data, [TAGS.blogPost(slug)]);
   } catch (error) {
     return contentUnavailable("blog detail", error, { slug });
   }

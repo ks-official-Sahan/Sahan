@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { getPageContent } from "@/lib/cms/loaders";
 import { isCmsPage } from "@/lib/cms/registry";
 import { CONTENT_CORS_HEADERS, contentNotFound, contentResponse, contentUnavailable, rejectUnknownParams } from "@/lib/api/content";
+import { TAGS } from "@/lib/cache/tags";
 import { timed } from "@/lib/observability/timing";
 
 export const GET = timed(async function GET(request: Request, { params }: { params: Promise<{ page: string }> }) {
@@ -12,7 +13,7 @@ export const GET = timed(async function GET(request: Request, { params }: { para
   if (!isCmsPage(page)) return contentNotFound("Page not found.");
 
   try {
-    return contentResponse(request, await getPageContent(page));
+    return contentResponse(request, await getPageContent(page), [TAGS.cms, TAGS.page(page)]);
   } catch (error) {
     return contentUnavailable("CMS page", error, { page });
   }
