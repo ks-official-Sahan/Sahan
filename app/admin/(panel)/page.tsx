@@ -8,8 +8,7 @@ import RefreshButton from "@/components/admin/dashboard/RefreshButton";
 import { RevealGroup, RevealItem } from "@/components/admin/dashboard/Reveal";
 import StatTile from "@/components/admin/dashboard/StatTile";
 import TrendChartLazy from "@/components/admin/dashboard/TrendChartLazy";
-import { ANALYTICS_RANGES, parseRange, type AnalyticsRange } from "@/lib/analytics/classify";
-import type { Ranked, SiteAnalytics } from "@/lib/analytics/store";
+import { ANALYTICS_RANGES, parseRange, type AnalyticsRange, type Ranked, type SiteAnalytics } from "@sahan-sac/analytics-kit";
 import {
   getActivitySeries,
   getContentCounts,

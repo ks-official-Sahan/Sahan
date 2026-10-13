@@ -1,0 +1,90 @@
+{
+  "name": "@sahan-sac/analytics-kit",
+  "version": "0.0.0",
+  "description": "First-party, cookie-free page analytics on Upstash Redis: a Web-standard collect handler (Request => Response) with bot, Do Not Track and Global Privacy Control filtering, daily-salted anonymous visitor ids (no IP or user agent stored), one-round-trip reads for views, unique visitors, top pages, referrers, devices, browsers, systems and countries, and a framework-free browser beacon.",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ks-official-Sahan/Sahan.git",
+    "directory": "packages/analytics-kit"
+  },
+  "keywords": [
+    "analytics",
+    "privacy",
+    "cookieless",
+    "redis",
+    "upstash",
+    "page-views"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "engines": {
+    "node": ">=20"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./classify": "./src/classify.ts",
+    "./store": "./src/store.ts",
+    "./collect": "./src/collect.ts",
+    "./client": "./src/client.ts",
+    "./package.json": "./package.json"
+  },
+  "types": "./src/index.ts",
+  "main": "./src/index.ts",
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.build.json",
+    "test": "node ../../scripts/test-package.mjs",
+    "prepack": "npm run build && npm run test"
+  },
+  "peerDependencies": {
+    "@upstash/redis": "^1.34.0"
+  },
+  "peerDependenciesMeta": {
+    "@upstash/redis": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@upstash/redis": "^1.38.4",
+    "@types/node": "^22",
+    "tsup": "^8.3.5",
+    "tsx": "^4.23.15",
+    "typescript": "^5.6.3"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/",
+    "types": "./dist/index.d.ts",
+    "main": "./dist/index.js",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "import": "./dist/index.js"
+      },
+      "./classify": {
+        "types": "./dist/classify.d.ts",
+        "import": "./dist/classify.js"
+      },
+      "./store": {
+        "types": "./dist/store.d.ts",
+        "import": "./dist/store.js"
+      },
+      "./collect": {
+        "types": "./dist/collect.d.ts",
+        "import": "./dist/collect.js"
+      },
+      "./client": {
+        "types": "./dist/client.d.ts",
+        "import": "./dist/client.js"
+      },
+      "./package.json": "./package.json"
+    }
+  }
+}
