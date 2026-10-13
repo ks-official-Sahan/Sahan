@@ -366,25 +366,6 @@ async function sdkGenerate(model: Parameters<typeof generateText>[0]["model"], p
 }
 
 /**
- * A fetch that merges `extra` into every JSON request body, for gateway
- * fields the AI SDK has no option for (Cheaper Inference's `zdr`). A body
- * that is not a JSON object passes through untouched.
- */
-export function withJsonBody(extra: Record<string, unknown>, base: typeof fetch = fetch): typeof fetch {
-  return (input, init) => {
-    if (typeof init?.body !== "string") return base(input, init);
-    let body: unknown;
-    try {
-      body = JSON.parse(init.body);
-    } catch {
-      return base(input, init);
-    }
-    if (!body || typeof body !== "object" || Array.isArray(body)) return base(input, init);
-    return base(input, { ...init, body: JSON.stringify({ ...body, ...extra }) });
-  };
-}
-
-/**
  * Any OpenAI-compatible chat completions API: OpenAI itself, DeepSeek, xAI
  * (Grok), Perplexity, a self-hosted gateway (vLLM, Ollama, LiteLLM).
  */

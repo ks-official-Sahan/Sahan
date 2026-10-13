@@ -7,7 +7,6 @@ import {
   openAiCompatibleProvider,
   openRouterProvider,
   vertexProvider,
-  withJsonBody,
   type AiProvider,
 } from "./providers";
 
@@ -48,9 +47,6 @@ function modelFor(env: AiEnv, provider: string, purpose: TextPurpose, fallback: 
 
 const need = (env: AiEnv, ...names: Array<keyof AiEnv>): string[] => names.filter((name) => !env[name]) as string[];
 
-/** CHEAPER_INFERENCE_API_KEY, or its alias OMNIROUTE_API_KEY. */
-const cheaperInferenceKey = (env: AiEnv): string | undefined => env.CHEAPER_INFERENCE_API_KEY ?? env.OMNIROUTE_API_KEY;
-
 /**
  * Defaults for the paid adapters. Model names change often: set the
  * provider's *_MODEL variable rather than relying on these.
@@ -61,9 +57,6 @@ export const PAID_TEXT_MODELS = {
   deepseek: { blog: "deepseek-chat", chat: "deepseek-chat" },
   xai: { blog: "grok-3-mini", chat: "grok-3-mini" },
   perplexity: { blog: "sonar", chat: "sonar" },
-  // Long JSON posts need a strong model with a big window; chat wants a fast,
-  // non-reasoning one. Both are among the cheapest in the catalogue.
-  cheaperinference: { blog: "deepseek-v4.1-flash", chat: "gpt-oss-120b" },
 } as const satisfies Record<string, Record<TextPurpose, string>>;
 
 /** An OpenAI-compatible paid API with a key, a fixed base URL and a model per purpose. */
@@ -130,24 +123,6 @@ export const BUILTIN_ADAPTERS: readonly ProviderAdapter[] = [
         baseUrl: "https://integrate.api.nvidia.com/v1",
         model: textModels(env, purpose).nvidia,
         fetch,
-      }),
-  },
-  {
-    // Paid but the cheapest per token, so the first paid provider tried.
-    id: "cheaperinference",
-    label: "Cheaper Inference",
-    paid: () => true,
-    missing: (env) => (cheaperInferenceKey(env) ? [] : ["CHEAPER_INFERENCE_API_KEY"]),
-    create: ({ env, purpose, fetch }) =>
-      openAiCompatibleProvider({
-        name: "cheaperinference",
-        apiKey: cheaperInferenceKey(env)!,
-        baseUrl: env.CHEAPER_INFERENCE_BASE_URL || "https://api.cheaperinference.com/v1",
-        model: modelFor(env, "CHEAPER_INFERENCE", purpose, PAID_TEXT_MODELS.cheaperinference),
-        // Chat carries what anonymous visitors type: route it only to
-        // zero-data-retention sellers. With no such capacity the gateway
-        // answers 503 and the chain moves on.
-        fetch: purpose === "chat" ? withJsonBody({ zdr: true }, fetch) : fetch,
       }),
   },
   compatibleAdapter({ id: "openai", label: "OpenAI", envPrefix: "OPENAI", keyVar: "OPENAI_API_KEY", baseUrl: "https://api.openai.com/v1", baseUrlVar: "OPENAI_BASE_URL" }),

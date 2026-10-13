@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { cooldownFor, createAiHealth, createAiService, geminiOutcome, geminiProvider, realProviders, withJsonBody, type AiOutcome, type AiProvider } from "./providers";
+import { cooldownFor, createAiHealth, createAiService, geminiOutcome, geminiProvider, realProviders, type AiOutcome, type AiProvider } from "./providers";
 import type { AiEnv } from "./env";
 import { DEFAULT_TEXT_MODELS } from "./models";
 import type { ModelPrompt } from "./guard";
@@ -280,18 +280,4 @@ test("an empty prepaid wallet (402) cools for half an hour; quota and timeouts p
   assert.equal(cooldownFor({ ok: false, errorClass: "http_402", retryable: true, status: 402 }), 30 * 60_000);
   assert.equal(cooldownFor({ ok: false, errorClass: "http_429", retryable: true, status: 429 }), 60_000);
   assert.equal(cooldownFor({ ok: true, text: "x" }), 0);
-});
-
-test("withJsonBody merges fields into JSON object bodies and leaves anything else alone", async () => {
-  const seen: Array<string | undefined> = [];
-  const base: typeof fetch = async (_input, init) => {
-    seen.push(typeof init?.body === "string" ? init.body : undefined);
-    return new Response(null, { status: 204 });
-  };
-  const wrapped = withJsonBody({ zdr: true }, base);
-  await wrapped("https://x", { method: "POST", body: JSON.stringify({ model: "m" }) });
-  await wrapped("https://x", { method: "POST", body: "not json" });
-  await wrapped("https://x", { method: "POST", body: "[1]" });
-  await wrapped("https://x", { method: "GET" });
-  assert.deepEqual(seen, ['{"model":"m","zdr":true}', "not json", "[1]", undefined]);
 });
