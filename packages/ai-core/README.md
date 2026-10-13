@@ -58,6 +58,7 @@ const schema = z.object({ ...aiEnvSchema.shape, DATABASE_URL: z.string() });
 | `OPENAI_API_KEY`, `OPENAI_BASE_URL` | unset, OpenAI API | OpenAI (paid); the base URL also points it at any OpenAI-compatible gateway |
 | `ANTHROPIC_API_KEY`, `ANTHROPIC_BASE_URL` | unset, Anthropic API | Anthropic Messages API over REST (paid) |
 | `DEEPSEEK_API_KEY`, `XAI_API_KEY`, `PERPLEXITY_API_KEY` | unset | Paid OpenAI-compatible providers |
+| `CHEAPER_INFERENCE_API_KEY` (alias `OMNIROUTE_API_KEY`) | unset | [Cheaper Inference](https://cheaperinference.com), a prepaid discount gateway. Paid, and the first paid provider tried. Chat requests use zero-data-retention routes only. Models: `CHEAPER_INFERENCE_MODEL`, or `BLOG_`/`CHAT_` variants (defaults `deepseek-v4.1-flash` / `gpt-oss-120b`). An empty wallet (402) cools down for 30 minutes |
 | `AI_CUSTOM_BASE_URL`, `AI_CUSTOM_MODEL`, `AI_CUSTOM_API_KEY`, `AI_CUSTOM_NAME`, `AI_CUSTOM_FREE` | unset, `false` | One custom OpenAI-compatible endpoint. The key is optional for a local server. Paid unless `AI_CUSTOM_FREE=true` |
 | `GOOGLE_CLIENT_EMAIL`, `GOOGLE_PRIVATE_KEY`, `GOOGLE_CLOUD_PROJECT` | unset | Vertex service account (paid). Keep the key on one line with literal `\n` |
 | `GOOGLE_TOKEN_URI` | Google's token endpoint | Override only for testing |

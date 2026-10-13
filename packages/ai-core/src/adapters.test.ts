@@ -150,3 +150,36 @@ test("checkChain: runs the real chain and reports who answered after whom", asyn
 
   assert.deepEqual(await checkChain(env({}), "blog"), { id: "chain:blog", ok: false, errorClass: "no_provider", ms: 0, attempts: [] });
 });
+
+test("Cheaper Inference: paid, keyed by CHEAPER_INFERENCE_API_KEY or OMNIROUTE_API_KEY, the first paid provider", () => {
+  assert.deepEqual(names(realProviders(env({ OMNIROUTE_API_KEY: FAKE }), "chat")), []);
+  assert.deepEqual(names(realProviders(env({ OMNIROUTE_API_KEY: FAKE, OPENAI_API_KEY: FAKE, AI_ALLOW_PAID: "true" }), "chat")), ["cheaperinference", "openai"]);
+  assert.deepEqual(names(realProviders(env({ CHEAPER_INFERENCE_API_KEY: FAKE, AI_ALLOW_PAID: "true" }), "blog")), ["cheaperinference"]);
+  assert.deepEqual(providerStatuses(env({}), "chat").find((status) => status.id === "cheaperinference")?.missing, ["CHEAPER_INFERENCE_API_KEY"]);
+  // An operator can make it primary once the wallet is funded.
+  const primary = realProviders(env({ CHEAPER_INFERENCE_API_KEY: FAKE, GEMINI_API_KEY: FAKE, AI_ALLOW_PAID: "1", AI_PROVIDER_ORDER_CHAT: "cheaperinference,gemini" }), "chat");
+  assert.deepEqual(names(primary), ["cheaperinference", "gemini"]);
+});
+
+test("Cheaper Inference: chat asks for zero-data-retention routes, the blog does not; models per purpose", async () => {
+  const bodies: Array<Record<string, unknown>> = [];
+  const urls: string[] = [];
+  const fakeFetch: typeof fetch = async (input, init) => {
+    urls.push(String(input));
+    bodies.push(JSON.parse(String(init?.body)));
+    return new Response(
+      JSON.stringify({ id: "x", object: "chat.completion", created: 0, model: "m", choices: [{ index: 0, message: { role: "assistant", content: "OK" }, finish_reason: "stop" }], usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 } }),
+      { status: 200, headers: { "content-type": "application/json" } }
+    );
+  };
+  const source = { CHEAPER_INFERENCE_API_KEY: FAKE, AI_ALLOW_PAID: "true", BLOG_CHEAPER_INFERENCE_MODEL: "my-blog-model" };
+  const [chat] = realProviders(env(source), "chat", fakeFetch);
+  const [blog] = realProviders(env(source), "blog", fakeFetch);
+  assert.deepEqual(await chat.generate(PROMPT), { ok: true, text: "OK" });
+  assert.deepEqual(await blog.generate(PROMPT), { ok: true, text: "OK" });
+  assert.equal(urls[0], "https://api.cheaperinference.com/v1/chat/completions");
+  assert.equal(bodies[0].zdr, true);
+  assert.equal(bodies[0].model, "gpt-oss-120b");
+  assert.equal(bodies[1].zdr, undefined);
+  assert.equal(bodies[1].model, "my-blog-model");
+});

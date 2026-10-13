@@ -98,6 +98,16 @@ export const aiEnvSchema = z.object({
   XAI_MODEL: text,
   BLOG_XAI_MODEL: text,
   CHAT_XAI_MODEL: text,
+  // Cheaper Inference (https://cheaperinference.com): a prepaid discount
+  // gateway in front of many models, OpenAI-compatible. Paid (no model is
+  // free), so it joins a chain only with AI_ALLOW_PAID on. OMNIROUTE_API_KEY
+  // is read as an alias for CHEAPER_INFERENCE_API_KEY.
+  CHEAPER_INFERENCE_API_KEY: text,
+  OMNIROUTE_API_KEY: text,
+  CHEAPER_INFERENCE_BASE_URL: text,
+  CHEAPER_INFERENCE_MODEL: text,
+  BLOG_CHEAPER_INFERENCE_MODEL: text,
+  CHAT_CHEAPER_INFERENCE_MODEL: text,
   PERPLEXITY_API_KEY: text,
   PERPLEXITY_MODEL: text,
   BLOG_PERPLEXITY_MODEL: text,

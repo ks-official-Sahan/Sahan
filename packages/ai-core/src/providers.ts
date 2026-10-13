@@ -118,10 +118,16 @@ export const createAiHealth = (): AiHealth => ({ cooldownUntil: new Map(), laten
 /** One per server instance, for request handlers; tests and scripts get a fresh one by default. */
 export const sharedAiHealth: AiHealth = ((globalThis as unknown as { sahanAiHealth?: AiHealth }).sahanAiHealth ??= createAiHealth());
 
-/** Quota and slowness pass quickly; a wrong key or a retired model needs an operator, so it cools longer. */
-function cooldownFor(outcome: AiOutcome): number {
+/**
+ * Quota and slowness pass quickly; a wrong key or a retired model needs an
+ * operator, so it cools longer; an empty prepaid wallet (402) needs someone to
+ * add funds, so it cools longest and costs one probe per half hour instead of
+ * a failed round trip on every request.
+ */
+export function cooldownFor(outcome: AiOutcome): number {
   if (outcome.ok) return 0;
   if (outcome.errorClass === "timeout" || outcome.status === 429) return AI_COOLDOWN_MS;
+  if (outcome.status === 402) return AI_COOLDOWN_MS * 30;
   if (outcome.status === 401 || outcome.status === 403 || outcome.status === 404) return AI_COOLDOWN_MS * 10;
   return 0;
 }
@@ -357,6 +363,25 @@ async function sdkGenerate(model: Parameters<typeof generateText>[0]["model"], p
     if (status) return httpOutcome(status);
     return { ok: false, errorClass: options?.signal?.aborted ? "timeout" : "provider_error", retryable: true };
   }
+}
+
+/**
+ * A fetch that merges `extra` into every JSON request body, for gateway
+ * fields the AI SDK has no option for (Cheaper Inference's `zdr`). A body
+ * that is not a JSON object passes through untouched.
+ */
+export function withJsonBody(extra: Record<string, unknown>, base: typeof fetch = fetch): typeof fetch {
+  return (input, init) => {
+    if (typeof init?.body !== "string") return base(input, init);
+    let body: unknown;
+    try {
+      body = JSON.parse(init.body);
+    } catch {
+      return base(input, init);
+    }
+    if (!body || typeof body !== "object" || Array.isArray(body)) return base(input, init);
+    return base(input, { ...init, body: JSON.stringify({ ...body, ...extra }) });
+  };
 }
 
 /**

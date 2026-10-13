@@ -133,6 +133,7 @@ const AI_VARS: Record<string, string> = {
   openrouter: "OPENROUTER_API_KEY. Free models only, unless OPENROUTER_ALLOW_PAID_MODELS=true.",
   "openrouter-2": "OPENROUTER_API_KEY_2: a second OpenRouter key, tried after the first.",
   nvidia: "NVIDIA_API_KEY.",
+  cheaperinference: "CHEAPER_INFERENCE_API_KEY (or OMNIROUTE_API_KEY). Prepaid: a $0 wallet answers 402.",
   openai: "OPENAI_API_KEY (OPENAI_BASE_URL for a compatible gateway).",
   anthropic: "ANTHROPIC_API_KEY.",
   deepseek: "DEEPSEEK_API_KEY.",
