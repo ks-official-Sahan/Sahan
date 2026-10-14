@@ -15,7 +15,7 @@ import type { Repos } from "@/lib/data/repos";
 import { UniqueViolation } from "@/lib/data/errors";
 import { TrashRestoreError, type TrashItem } from "@/lib/data/trash";
 import { log } from "@/lib/log";
-import { deleteTrashedFile, trashedPublicId } from "@/lib/trash/media-file";
+import { deleteTrashedFile, trashedFile } from "@/lib/trash/media-file";
 import { TRASH_LABEL, TRASH_PERMISSION, type TrashEntity } from "@/lib/trash/policy";
 
 // Restore and delete-forever for /admin/trash. Each action checks the
@@ -132,10 +132,10 @@ export async function purgeTrashAction(_previous: ActionState, formData: FormDat
     const item = await itemFor(auth.user, formData);
     if (!item) return fail(GONE);
 
-    // The file goes first: if Cloudinary refuses, the snapshot stays so the
+    // The file goes first: if its account refuses, the snapshot stays so the
     // purge can be retried, instead of leaving an orphaned file behind.
-    const publicId = item.entityType === "MediaAsset" ? trashedPublicId(item.data) : null;
-    if (publicId) await deleteTrashedFile(publicId);
+    const file = item.entityType === "MediaAsset" ? trashedFile(item.data) : null;
+    if (file) await deleteTrashedFile(file);
 
     await withTx(async (tx) => {
       if ((await tx.trash.remove([item.id])) === 0) return;

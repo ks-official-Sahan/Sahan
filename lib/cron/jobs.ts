@@ -7,7 +7,7 @@ import { audit } from "@/lib/admin/audit";
 import { REVISIONS_KEPT } from "@sahan-sac/blog-kit/revisions";
 import { HISTORY_KEPT } from "@/lib/cms/versions";
 import { log } from "@/lib/log";
-import { deleteTrashedFile, trashedPublicId } from "@/lib/trash/media-file";
+import { deleteTrashedFile, trashedFile, type TrashedFile } from "@/lib/trash/media-file";
 import { trashCutoff } from "@/lib/trash/policy";
 import { deliverByIds } from "@/lib/webhooks/dispatch";
 import { DELIVERY_KEEP_DAYS } from "@/lib/webhooks/policy";
@@ -212,13 +212,13 @@ export type TrashPurgeDb = Pick<Repos, "trash" | "audit">;
 export const TRASH_PURGE_BATCH = 200;
 
 /**
- * Deletes trash items past TRASH_DAYS for good, with the Cloudinary file of
- * each purged media asset. A file Cloudinary refuses keeps its snapshot, so
+ * Deletes trash items past TRASH_DAYS for good, with the stored file of
+ * each purged media asset. A file its account refuses keeps its snapshot, so
  * the next run retries it rather than orphaning the file.
  */
 export async function trashPurgeJob(
   client: TrashPurgeDb = repos,
-  deleteFile: (publicId: string) => Promise<void> = deleteTrashedFile,
+  deleteFile: (file: TrashedFile) => Promise<void> = deleteTrashedFile,
   now = Date.now()
 ): Promise<{ deleted: number; error?: string }> {
   try {
@@ -227,8 +227,8 @@ export async function trashPurgeJob(
 
     const files = await Promise.allSettled(
       expired.map(async (item) => {
-        const publicId = item.entityType === "MediaAsset" ? trashedPublicId(item.data) : null;
-        if (publicId) await deleteFile(publicId);
+        const file = item.entityType === "MediaAsset" ? trashedFile(item.data) : null;
+        if (file) await deleteFile(file);
         return item.id;
       })
     );

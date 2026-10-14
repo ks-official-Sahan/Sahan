@@ -1,11 +1,13 @@
 export type MediaKind = "IMAGE" | "VIDEO" | "DOCUMENT";
-export type MediaProvider = "LOCAL" | "CLOUDINARY";
+export type MediaProvider = "LOCAL" | "CLOUDINARY" | "S3" | "R2";
 
 export interface MediaAssetRow {
   id: string;
   provider: MediaProvider;
+  /** Storage account holding the file (MEDIA_ACCOUNT_<n>_ID, or "cloudinary"). */
+  accountId: string;
   kind: MediaKind;
-  /** Absolute Cloudinary URL, or a /works/... path for LOCAL assets. */
+  /** Absolute delivery URL (Cloudinary or a bucket's public URL), or a /works/... path for LOCAL assets. */
   url: string;
   publicId: string | null;
   format: string;
@@ -36,6 +38,8 @@ export interface MediaPageCursor {
 
 export interface NewMediaAsset {
   provider: MediaProvider;
+  /** Defaults to the legacy "cloudinary" account. */
+  accountId?: string;
   kind: MediaKind;
   url: string;
   publicId: string | null;
@@ -65,9 +69,11 @@ export interface MediaRepo {
   /** Newest first. */
   listRecent(limit: number): Promise<MediaAssetRow[]>;
   create(input: NewMediaAsset): Promise<MediaAssetRow>;
-  /** Whether a row already owns this provider file. */
-  existsByPublicId(provider: NewMediaAsset["provider"], publicId: string): Promise<boolean>;
-  /** Creates the asset unless one with the same provider and publicId exists. */
+  /** Whether a row already owns this file on this account. */
+  existsByPublicId(provider: NewMediaAsset["provider"], accountId: string, publicId: string): Promise<boolean>;
+  /** Bytes recorded per storage account, in one grouped query. */
+  bytesByAccount(): Promise<Record<string, number>>;
+  /** Creates the asset unless one with the same provider, account and publicId exists. */
   createIfMissing(input: NewMediaAsset & { publicId: string }): Promise<void>;
   updateMetadata(id: string, input: { alt: string | null; title: string | null; tags: string[] }): Promise<MediaAssetRow>;
   delete(id: string): Promise<void>;

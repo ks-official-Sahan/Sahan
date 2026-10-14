@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
 
-import type { BucketAccount } from "./accounts";
+import { bucketApiBase, type BucketAccount } from "./accounts";
 import { presignS3Url, signS3Request } from "./sigv4";
 import { classifyFailure, StorageError } from "./storage";
 
@@ -23,13 +23,9 @@ const scope = (account: BucketAccount) => ({ region: account.region });
 /** Path segments encoded for a URL; `/` kept. */
 const encodeKey = (key: string) => key.split("/").map(encodeURIComponent).join("/");
 
-/**
- * The API URL of an object. AWS's own endpoint uses the bucket's host
- * (virtual-hosted style); R2 and custom S3-compatible endpoints use the path.
- */
+/** The API URL of an object (see bucketApiBase for the two URL styles). */
 export function objectApiUrl(account: BucketAccount, key: string): string {
-  const aws = account.provider === "s3" && account.endpoint === `https://s3.${account.region}.amazonaws.com`;
-  return aws ? `https://${account.bucket}.s3.${account.region}.amazonaws.com/${encodeKey(key)}` : `${account.endpoint}/${account.bucket}/${encodeKey(key)}`;
+  return `${bucketApiBase(account)}/${encodeKey(key)}`;
 }
 
 /** Where the object is served from. */
@@ -84,6 +80,32 @@ export function presignBucketUpload(
   });
   // The browser sets Content-Length from the body itself; it may not send it by hand.
   return { url, headers: { "content-type": input.contentType }, expiresSeconds: UPLOAD_URL_SECONDS };
+}
+
+/**
+ * What a bucket says to a one-key listing (ListObjectsV2):
+ * - ok: the bucket exists and the keys may list it;
+ * - no-list-permission: the keys are valid but may not list (a key scoped to
+ *   reading and writing objects, which is all uploads need);
+ * - missing-bucket, bad-credentials: needs fixing;
+ * - unavailable: no answer, or a server error.
+ */
+export type BucketProbe = "ok" | "no-list-permission" | "missing-bucket" | "bad-credentials" | "unavailable";
+
+export async function probeBucket(account: BucketAccount, fetchFn: FetchFn = fetch): Promise<BucketProbe> {
+  const url = `${bucketApiBase(account)}?list-type=2&max-keys=1`;
+  let response: Response;
+  try {
+    response = await call(account, url, { method: "GET", headers: signS3Request({ method: "GET", url, credentials: credentials(account), scope: scope(account) }) }, fetchFn);
+  } catch {
+    return "unavailable";
+  }
+  if (response.ok) return "ok";
+  const code = /<Code>([^<]+)<\/Code>/.exec(await response.text().catch(() => ""))?.[1] ?? "";
+  if (response.status === 404 || code === "NoSuchBucket") return "missing-bucket";
+  if (code === "AccessDenied") return "no-list-permission";
+  if (response.status === 401 || response.status === 403) return "bad-credentials";
+  return "unavailable";
 }
 
 /** Size and type of a stored object, or null when it is not there. */

@@ -1,4 +1,5 @@
 import { defineAuthKit, type Person as GenericPerson } from "@sahan-sac/auth-kit/kit";
+import { deliveryHosts, storageAccountsFromEnv, uploadOrigins } from "@sahan-sac/media-kit/accounts";
 import type { LimitRule } from "@sahan-sac/auth-kit/cache/ratelimit";
 import {
   canBeGranted as canBeGrantedGeneric,
@@ -260,6 +261,14 @@ function trustedProxyHops(): number {
   return Number.isInteger(parsed) && parsed >= 0 && parsed <= 10 ? parsed : 0;
 }
 
+function mediaCsp(): { imgHosts: string[]; connectHosts: string[] } {
+  const { accounts } = storageAccountsFromEnv(process.env);
+  return {
+    imgHosts: deliveryHosts(accounts).map((host) => `https://${host}`),
+    connectHosts: uploadOrigins(accounts),
+  };
+}
+
 export const authKit = defineAuthKit<RoleName, Permission>({
   cookies: { session: "sahan_admin_session", unlock: "sahan_admin_unlock" },
   paths: {
@@ -281,7 +290,9 @@ export const authKit = defineAuthKit<RoleName, Permission>({
   // The two roles that can change everything must set up an authenticator app
   // or a passkey before they can use the admin.
   strongMfaRoles: [SUPER_ROLE, MASK_ROLE],
-  csp: { imgHosts: ["https://res.cloudinary.com"], connectHosts: ["https://api.cloudinary.com"] },
+  // Every configured media account: where its files are served from, and
+  // where the browser sends uploads (Cloudinary's API, or each bucket).
+  csp: mediaCsp(),
   trustProxy: { hops: trustedProxyHops() },
   onEvent: (event) => log.warn(`auth-kit: ${event.type}`, event),
 });

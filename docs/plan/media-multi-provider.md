@@ -1,7 +1,8 @@
 # Media: multiple accounts across Cloudinary, S3 and R2
 
-Status: phase 1 (package) shipped in `@sahan-sac/media-kit`; phase 2 (app
-integration) needs one schema change, applied only after explicit approval.
+Status: phase 1 (package) and phase 2 (app integration) built. The schema
+change was applied to the live database on 2026-10-14, after approval, as
+the exact SQL below.
 
 ## Goal
 
@@ -44,7 +45,7 @@ parts were not carried over:
   overwrites a file.
 - `sigv4`: header signing and URL presigning, tested against AWS's examples.
 
-## Schema change (phase 2, needs approval before `db push`)
+## Schema change (phase 2, applied 2026-10-14)
 
 ```diff
  enum MediaProvider {
@@ -67,15 +68,29 @@ parts were not carried over:
 
 Additive and safe on live data: the new column has a default that matches
 every existing row, and the new unique key is wider than the old one, so no
-existing row can violate it.
+existing row can violate it. Applied as this SQL (`prisma migrate diff`,
+reviewed, then `prisma db execute`):
+
+```sql
+ALTER TYPE "MediaProvider" ADD VALUE 'S3';
+ALTER TYPE "MediaProvider" ADD VALUE 'R2';
+DROP INDEX "media_assets_provider_publicId_key";
+ALTER TABLE "media_assets" ADD COLUMN "accountId" TEXT NOT NULL DEFAULT 'cloudinary';
+CREATE INDEX "media_assets_accountId_idx" ON "media_assets"("accountId");
+CREATE UNIQUE INDEX "media_assets_provider_accountId_publicId_key" ON "media_assets"("provider", "accountId", "publicId");
+```
+
+Code deployed before this change keeps working against it: it never sets
+`accountId` (the default fills it), and its lookups by provider and public
+id are plain `WHERE` clauses. Only the media seed's upsert needs the new key.
 
 ## App integration (phase 2)
 
 1. **Sign route** picks the first of `uploadCandidates(accounts, size,
    { usedBytes, full, skip })`. Cloudinary returns signed params as today; S3
    and R2 return a presigned PUT. The response carries the account id.
-2. **Upload client** sends the file; on a quota or unavailable error it asks
-   the sign route again with `skip=<accountId>`, at most once per account.
+2. **Upload client** sends the file; on any error except a refused file it
+   asks the sign route again with `skip=<accountId,...>`, up to 5 accounts.
 3. **Register** verifies the file on the named account (Cloudinary
    `getAsset`, bucket `headObject`), and takes the real size from there,
    never from the browser.

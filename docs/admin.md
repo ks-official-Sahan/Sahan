@@ -378,7 +378,7 @@ depends on Next.js.
 | `@sahan-sac/email-kit` | Email providers with fallback, guards, env schema, health, Brevo diagnostics, the layout and redacted CC copies | `lib/email/index.ts` (env and audit wiring), templates, `lib/email/account-mail.ts` |
 | `@sahan-sac/blog-kit` | Post, SEO, draft and cover generation, `generateBlogImage` with its `ImageSink` port, Markdown, charts, slugs, revisions | Post schema, queries, rendering (`sanitizeRich`), seed, `lib/ai/image-sink.ts` |
 | `@sahan-sac/chat-kit` | `runChat`, chat prompts and output filter, knowledge builder, `ChatStore` contract, visitor cookie | `/api/chat` (origin, rate limits, cookie, storage), `lib/chatbot/{knowledge,session,site}.ts`, the widget |
-| `@sahan-sac/media-kit` | Cloudinary client, upload validation, URL signing, delivery transforms, browser upload client | `lib/media/service.ts` (DB rows and audit), `lib/media/cloudinary-client.ts` |
+| `@sahan-sac/media-kit` | Storage accounts (Cloudinary, S3, R2) and failover, upload validation, URL and SigV4 signing, delivery transforms, browser upload client | `lib/media/service.ts` (DB rows and audit), `lib/media/storage.ts` (accounts, full marks, usage), `lib/media/files.ts` |
 
 `ai-core`, `blog-kit` and `chat-kit` release together under one version;
 `auth-kit`, `email-kit` and `media-kit` are versioned on their own. `chat-kit` never
@@ -414,12 +414,44 @@ are not opened. With the chatbot off,
 the site widget is not rendered, `/api/chat` answers 503, and
 `/admin/chatbot` says why.
 
+## Media storage accounts
+
+Uploads can go to several accounts: up to 10 each of Cloudinary, AWS S3 and
+Cloudflare R2. Set them up as numbered `MEDIA_ACCOUNT_<n>_*` slots
+(`.env.example` lists every variable). The single `CLOUDINARY_*` account
+stays first, with the id `cloudinary`.
+
+- **Order.** A new upload goes to the first account, in slot order, that is
+  not read-only, not marked full, and under its soft cap
+  (`MEDIA_ACCOUNT_<n>_CAP_GB`). To change the order, renumber the slots.
+  Never change an `_ID` that already holds files.
+- **Failover.** When an account is full, rate-limited, down or refusing its
+  keys, the upload moves to the next one. Only a real "full" answer keeps an
+  account out of uploads, for `MEDIA_FULL_TTL_S` (6 hours by default). A file
+  the account itself refuses (wrong type, too big) is not retried elsewhere.
+- **Where each file lives.** Every asset records its account. Serving,
+  deleting and the trash purge go to that account only. Nothing searches
+  other accounts for a file.
+- **Retire an account** with `MEDIA_ACCOUNT_<n>_READ_ONLY=true`. Its files
+  keep working and can still be deleted, and nothing new goes there. Do not
+  remove an account that still holds files: their deletes would fail and stay
+  in the trash for a retry.
+- **Buckets** need a public read URL (`_PUBLIC_URL`, an r2.dev URL or a
+  custom domain) and a CORS rule that allows `PUT` from the site's origin
+  with the `content-type` header. Without that rule, browser uploads fail
+  and move on to the next account.
+- **Checking.** `/admin/settings` lists each account, its order, its cap and
+  whether it answers, and names any slot with a missing or invalid variable.
+
+Design and the reasons behind it: `docs/plan/media-multi-provider.md`.
+
 ## Verify everything is configured
 
 - `pnpm exec tsx scripts/check-env-example.mts` — `.env.example` matches
   `lib/env.ts`.
 - `/admin/settings` → integration health panel — reports database, Redis,
-  Resend, Brevo and Cloudinary as configured/reachable, and the AI providers
+  Resend, Brevo and each media storage account as configured/reachable (plus
+  a "Media settings" row naming any misconfigured slot), and the AI providers
   and chains as configured (press Check for reachability),
   never printing a secret or a fragment of one.
 - `/admin` dashboard → security status widget — shows MFA state and whether

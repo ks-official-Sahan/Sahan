@@ -153,3 +153,11 @@ describe("Media validation", () => {
     });
   });
 });
+
+it("content types come from the extension, never the browser's guess", async () => {
+  const { contentTypeFor } = await import("./config");
+  assert.equal(contentTypeFor("JPG"), "image/jpeg");
+  assert.equal(contentTypeFor("pdf"), "application/pdf");
+  assert.equal(contentTypeFor("svg"), null);
+  assert.equal(contentTypeFor("html"), null);
+});

@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { describeAccount, deliveryHosts, LEGACY_ACCOUNT_ID, storageAccountsFromEnv, type BucketAccount, type StorageAccount } from "./accounts";
-import { deleteObject, headObject, newObjectKey, objectApiUrl, objectPublicUrl, presignBucketUpload, putObject } from "./bucket";
+import { deliveryHosts, deliveryPatterns, describeAccount, LEGACY_ACCOUNT_ID, storageAccountsFromEnv, uploadOrigins, type BucketAccount, type StorageAccount } from "./accounts";
+import { deleteObject, headObject, newObjectKey, objectApiUrl, objectPublicUrl, presignBucketUpload, probeBucket, putObject } from "./bucket";
 import { classifyFailure, StorageError, uploadCandidates, withFailover } from "./storage";
 
 const R2_ACCOUNT_ID = "0123456789abcdef0123456789abcdef";
@@ -51,6 +51,14 @@ test("accounts come in slot order, with the legacy CLOUDINARY_* account first", 
   assert.equal(r2.capBytes, 10 * 1024 ** 3);
   assert.equal(accounts[3].readOnly, true);
   assert.deepEqual(deliveryHosts(accounts), ["res.cloudinary.com", "media.example.com", "cdn.example.com"]);
+  assert.deepEqual(deliveryPatterns(accounts), [
+    { hostname: "res.cloudinary.com", port: "", pathname: "/legacy-cloud/**" },
+    { hostname: "res.cloudinary.com", port: "", pathname: "/cloud-two/**" },
+    { hostname: "media.example.com", port: "", pathname: "/**" },
+    { hostname: "cdn.example.com", port: "", pathname: "/archive/**" },
+  ]);
+  // The read-only archive takes no uploads, so the browser never connects to it.
+  assert.deepEqual(uploadOrigins(accounts), ["https://api.cloudinary.com", `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`]);
 });
 
 test("a slot that takes the legacy id replaces the CLOUDINARY_* account, so it can be moved", () => {
@@ -192,4 +200,28 @@ test("HEAD, PUT and DELETE are signed, read sizes, and turn errors into kinds", 
     throw new TypeError("fetch failed");
   }) as typeof fetch;
   await assert.rejects(headObject(r2, "uploads/k.png", down), (error: unknown) => error instanceof StorageError && error.kind === "unavailable");
+});
+
+test("delivery patterns keep a custom port apart from the host", () => {
+  const { accounts } = storageAccountsFromEnv({ ...env, MEDIA_ACCOUNT_2_PUBLIC_URL: "https://media.example.com:8443/files" });
+  assert.deepEqual(deliveryPatterns(accounts)[2], { hostname: "media.example.com", port: "8443", pathname: "/files/**" });
+});
+
+test("a bucket probe tells a missing bucket, refused keys and a write-only key apart", async () => {
+  const answer = (status: number, code = "") => (async () => new Response(code ? `<Error><Code>${code}</Code></Error>` : null, { status })) as typeof fetch;
+  let listed = "";
+  const ok = (async (url: string | URL | Request) => {
+    listed = String(url);
+    return new Response("<ListBucketResult/>", { status: 200 });
+  }) as typeof fetch;
+  assert.equal(await probeBucket(r2, ok), "ok");
+  assert.equal(listed, `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com/media?list-type=2&max-keys=1`);
+  assert.equal(await probeBucket(r2, answer(403, "AccessDenied")), "no-list-permission");
+  assert.equal(await probeBucket(r2, answer(404, "NoSuchBucket")), "missing-bucket");
+  assert.equal(await probeBucket(r2, answer(403, "SignatureDoesNotMatch")), "bad-credentials");
+  assert.equal(await probeBucket(r2, answer(503)), "unavailable");
+  const down = (async () => {
+    throw new TypeError("fetch failed");
+  }) as typeof fetch;
+  assert.equal(await probeBucket(r2, down), "unavailable");
 });
