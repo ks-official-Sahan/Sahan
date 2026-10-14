@@ -153,20 +153,31 @@ async function unlockForm(request: NextRequest, path: string): Promise<NextRespo
   if (request.method !== "POST") return locked(request);
 
   // The form posts to itself. A cross-site post, or a body bigger than a
-  // short secret needs, is answered like any unknown page.
-  const sameOrigin = isAllowedOrigin(request.headers.get("origin"), {
-    hosts: [request.headers.get("host"), request.headers.get("x-forwarded-host")],
-    siteUrl: process.env.SITE_URL,
-    extraOrigins: extraOrigins(),
-  });
-  const declared = Number(request.headers.get("content-length"));
-  if (!sameOrigin || !(declared > 0 && declared <= UNLOCK_FORM_MAX_BYTES)) return locked(request);
+  // short secret needs, is answered like any unknown page. Sec-Fetch-Site is
+  // set by the browser itself and covers a browser that still sends
+  // `Origin: null` for a same-origin form post.
+  const origin = request.headers.get("origin");
+  const sameOrigin =
+    isAllowedOrigin(origin, {
+      hosts: [request.headers.get("host"), request.headers.get("x-forwarded-host")],
+      siteUrl: process.env.SITE_URL,
+      extraOrigins: extraOrigins(),
+    }) ||
+    ((origin === null || origin === "null") && request.headers.get("sec-fetch-site") === "same-origin");
+  // Content-Length may be absent (a proxy re-chunking the body): then the
+  // body is read and measured instead of trusted.
+  const declared = request.headers.get("content-length");
+  if (!sameOrigin || (declared !== null && !(Number(declared) <= UNLOCK_FORM_MAX_BYTES))) {
+    log.warn("admin unlock form post refused before reading", { sameOrigin, declared });
+    return locked(request);
+  }
 
   const callerIp = ip(request);
   // Same R22 rule as the ?secret= unlock below: an unknown IP is shared by
   // every caller, so limiting it would let one caller lock the owner out.
   const limited = callerIp === UNKNOWN_IP ? false : !(await limit("unlock:ip", callerIp)).ok;
-  const body = limited ? null : await request.formData().catch(() => null);
+  const raw = limited ? null : await request.text().catch(() => null);
+  const body = raw !== null && raw.length <= UNLOCK_FORM_MAX_BYTES ? new URLSearchParams(raw) : null;
   const secret = body?.get("secret");
   const accepted = typeof secret === "string" && secret.length <= 512 && isUnlockSecret(secret, keys);
   if (!accepted) {
