@@ -64,8 +64,15 @@ export async function registerUpload(
   if (!account) return { ok: false, error: "That storage account is not configured on this server." };
   const store = fileStore(account);
   const provider = providerOf(account);
+  // Refuses the registration and removes the file, but only a file in the
+  // upload folder that no row owns: the caller names the file, so it may be
+  // a live asset's file or one this app never uploaded. A failed ownership
+  // lookup counts as owned, so the file is kept.
   const discard = async (error: string) => {
-    await store.remove(publicId).catch((cleanupError: unknown) => log.warn("media register cleanup failed", { accountId: account.id, publicId, error: String(cleanupError) }));
+    const owned = await repos.media.existsByPublicId(provider, account.id, publicId).catch(() => true);
+    if (!owned) {
+      await store.remove(publicId).catch((cleanupError: unknown) => log.warn("media register cleanup failed", { accountId: account.id, publicId, error: String(cleanupError) }));
+    }
     return { ok: false as const, error };
   };
 
@@ -74,7 +81,9 @@ export async function registerUpload(
     if (!stored) return { ok: false, error: "The uploaded file was not found in the media store. The upload may have failed." };
 
     // The file must be in the upload folder, and the caller must say so too.
-    if (stored.folder !== MEDIA_UPLOAD_FOLDER) return discard(`File uploaded to wrong folder: ${stored.folder}`);
+    // A file anywhere else was not uploaded through this library: refuse it
+    // and leave it alone.
+    if (stored.folder !== MEDIA_UPLOAD_FOLDER) return { ok: false, error: `File uploaded to wrong folder: ${stored.folder}` };
     if (folder !== MEDIA_UPLOAD_FOLDER) return discard("Folder parameter does not match the stored folder");
 
     let mediaKind;

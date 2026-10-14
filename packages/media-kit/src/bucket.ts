@@ -82,6 +82,32 @@ export function presignBucketUpload(
   return { url, headers: { "content-type": input.contentType }, expiresSeconds: UPLOAD_URL_SECONDS };
 }
 
+/**
+ * What a bucket says to a one-key listing (ListObjectsV2):
+ * - ok: the bucket exists and the keys may list it;
+ * - no-list-permission: the keys are valid but may not list (a key scoped to
+ *   reading and writing objects, which is all uploads need);
+ * - missing-bucket, bad-credentials: needs fixing;
+ * - unavailable: no answer, or a server error.
+ */
+export type BucketProbe = "ok" | "no-list-permission" | "missing-bucket" | "bad-credentials" | "unavailable";
+
+export async function probeBucket(account: BucketAccount, fetchFn: FetchFn = fetch): Promise<BucketProbe> {
+  const url = `${bucketApiBase(account)}?list-type=2&max-keys=1`;
+  let response: Response;
+  try {
+    response = await call(account, url, { method: "GET", headers: signS3Request({ method: "GET", url, credentials: credentials(account), scope: scope(account) }) }, fetchFn);
+  } catch {
+    return "unavailable";
+  }
+  if (response.ok) return "ok";
+  const code = /<Code>([^<]+)<\/Code>/.exec(await response.text().catch(() => ""))?.[1] ?? "";
+  if (response.status === 404 || code === "NoSuchBucket") return "missing-bucket";
+  if (code === "AccessDenied") return "no-list-permission";
+  if (response.status === 401 || response.status === 403) return "bad-credentials";
+  return "unavailable";
+}
+
 /** Size and type of a stored object, or null when it is not there. */
 export async function headObject(account: BucketAccount, key: string, fetchFn: FetchFn = fetch): Promise<{ bytes: number; contentType: string | null } | null> {
   const url = objectApiUrl(account, key);

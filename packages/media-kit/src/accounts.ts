@@ -237,11 +237,12 @@ export function deliveryHosts(accounts: readonly StorageAccount[]): string[] {
  * each Cloudinary cloud's own path and each bucket's public base, so the
  * image optimizer never fetches from anyone else's account on a shared host.
  */
-export function deliveryPatterns(accounts: readonly StorageAccount[]): Array<{ hostname: string; pathname: string }> {
+export function deliveryPatterns(accounts: readonly StorageAccount[]): Array<{ hostname: string; port: string; pathname: string }> {
   return accounts.map((account) => {
-    if (account.provider === "cloudinary") return { hostname: "res.cloudinary.com", pathname: `/${account.cloudName}/**` };
+    if (account.provider === "cloudinary") return { hostname: "res.cloudinary.com", port: "", pathname: `/${account.cloudName}/**` };
     const base = new URL(account.publicUrl);
-    return { hostname: base.host, pathname: `${base.pathname.replace(/\/$/, "")}/**` };
+    // Next matches hostname and port separately; "" is the default https port.
+    return { hostname: base.hostname, port: base.port, pathname: `${base.pathname.replace(/\/$/, "")}/**` };
   });
 }
 

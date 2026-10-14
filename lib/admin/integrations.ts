@@ -2,7 +2,7 @@ import "server-only";
 
 import { BUILTIN_ADAPTERS, providerStatuses } from "@sahan-sac/ai-core/adapters";
 import { describeAccount, storageAccountsFromEnv, type EnvSource, type StorageAccount } from "@sahan-sac/media-kit/accounts";
-import { headObject } from "@sahan-sac/media-kit/bucket";
+import { probeBucket, type BucketProbe } from "@sahan-sac/media-kit/bucket";
 
 import { repos } from "@/lib/data";
 import { getEnv } from "@/lib/env";
@@ -117,21 +117,26 @@ export async function checkBrevo(fetchImpl: FetchLike = fetch): Promise<Integrat
   return { ...BREVO, configured, reachable };
 }
 
-async function pingMediaAccount(fetchImpl: FetchLike, account: StorageAccount): Promise<boolean> {
+const PROBE_NOTES: Record<BucketProbe, string> = {
+  ok: "",
+  "no-list-permission": " The keys may not list the bucket; uploads only need read and write, so this is fine.",
+  "missing-bucket": " Last check: the bucket was not found.",
+  "bad-credentials": " Last check: the bucket refused the access keys.",
+  unavailable: " Last check: no answer.",
+};
+
+async function pingMediaAccount(fetchImpl: FetchLike, account: StorageAccount): Promise<{ reachable: boolean; note: string }> {
   if (account.provider === "cloudinary") {
     const auth = Buffer.from(`${account.apiKey}:${account.apiSecret}`).toString("base64");
-    return pingUrl(fetchImpl, `https://api.cloudinary.com/v1_1/${account.cloudName}/resources/image?max_results=1`, {
+    const reachable = await pingUrl(fetchImpl, `https://api.cloudinary.com/v1_1/${account.cloudName}/resources/image?max_results=1`, {
       headers: { Authorization: `Basic ${auth}` },
     });
+    return { reachable, note: "" };
   }
-  // A signed HEAD of a key that never exists: 404 means the bucket answered
-  // and took the credentials; 403 or no answer means it did not.
-  const timeout = new Promise<boolean>((resolve) => setTimeout(() => resolve(false), PING_TIMEOUT_MS));
-  const probe = headObject(account, "health-check/absent", fetchImpl as typeof fetch).then(
-    () => true,
-    () => false
-  );
-  return Promise.race([probe, timeout]);
+  // A one-key listing of the bucket, raced against the ping timeout.
+  const timeout = new Promise<BucketProbe>((resolve) => setTimeout(() => resolve("unavailable"), PING_TIMEOUT_MS));
+  const probe = await Promise.race([probeBucket(account, fetchImpl as typeof fetch), timeout]);
+  return { reachable: probe === "ok" || probe === "no-list-permission", note: PROBE_NOTES[probe] };
 }
 
 /**
@@ -146,12 +151,13 @@ export async function checkMediaAccounts(fetchImpl: FetchLike = fetch, env: EnvS
       const shown = describeAccount(account);
       const cap = shown.capBytes ? `, soft cap ${Math.round(shown.capBytes / 1024 ** 3)} GB` : "";
       const role = shown.readOnly ? "read-only (serves and deletes, takes no uploads)" : `upload priority ${accounts.indexOf(account) + 1}`;
+      const ping = await pingMediaAccount(fetchImpl, account).catch(() => ({ reachable: false, note: "" }));
       return {
         name: `Media: ${shown.id}`,
         group: "Media",
-        hint: `${shown.provider === "cloudinary" ? "Cloudinary cloud" : shown.provider.toUpperCase() + " bucket"} ${shown.where}, ${role}${cap}.`,
+        hint: `${shown.provider === "cloudinary" ? "Cloudinary cloud" : shown.provider.toUpperCase() + " bucket"} ${shown.where}, ${role}${cap}.${ping.note}`,
         configured: true,
-        reachable: await pingMediaAccount(fetchImpl, account).catch(() => false),
+        reachable: ping.reachable,
       };
     })
   );

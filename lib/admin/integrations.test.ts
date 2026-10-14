@@ -113,7 +113,8 @@ describe("integration health checks", () => {
     const seen: string[] = [];
     const fetchSpy = async (url: string) => {
       seen.push(url);
-      return url.includes("cloudflarestorage") ? new Response(null, { status: 404 }) : okFetch();
+      // A write-only R2 key: valid, but may not list the bucket.
+      return url.includes("cloudflarestorage") ? new Response("<Error><Code>AccessDenied</Code></Error>", { status: 403 }) : okFetch();
     };
     const rows = await checkMediaAccounts(fetchSpy, {
       CLOUDINARY_CLOUD_NAME: "demo",
@@ -139,6 +140,7 @@ describe("integration health checks", () => {
       ]
     );
     assert.equal(seen.length, 2);
+    assert.match(rows[1].hint, /may not list the bucket/);
     assert.ok(rows.every((row) => !row.hint.includes("secret") && !row.hint.includes("never-shown")));
   });
 });

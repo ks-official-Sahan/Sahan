@@ -74,7 +74,6 @@ const nextConfig: NextConfig = {
       // fetch from anyone's account on a shared host.
       ...deliveryPatterns(storageAccountsFromEnv(process.env).accounts).map((pattern) => ({
         protocol: "https" as const,
-        port: "",
         ...pattern,
       })),
     ],
