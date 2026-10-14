@@ -313,13 +313,13 @@ importers:
     devDependencies:
       '@types/node':
         specifier: ^22
-        version: 22.20.4
+        version: 22.20.5
       '@upstash/redis':
         specifier: ^1.38.4
         version: 1.39.0
       tsup:
         specifier: ^8.3.5
-        version: 8.5.1(jiti@2.7.0)(postcss@8.5.28)(supports-color@7.2.0)(tsx@4.23.15)(typescript@5.9.3)(yaml@2.9.1)
+        version: 8.5.1(jiti@2.7.0)(postcss@8.5.29)(supports-color@7.2.0)(tsx@4.23.15)(typescript@5.9.3)(yaml@2.9.1)
       tsx:
         specifier: ^4.23.15
         version: 4.23.15
