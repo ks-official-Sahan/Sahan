@@ -190,7 +190,7 @@ function AuthenticatorApp({ enabled, onCodes }: { enabled: boolean; onCodes: (co
 type RegistrationOptions = Extract<Awaited<ReturnType<typeof passkeyRegistrationOptionsAction>>, { ok: true }>;
 const UNREACHABLE = "Could not reach the server. Check your connection and try again.";
 
-function Passkeys({ list, onCodes, rpId }: { list: PasskeyView[]; onCodes: (codes: string[]) => void; rpId: string }) {
+function Passkeys({ list, onCodes, rpId, rpIds }: { list: PasskeyView[]; onCodes: (codes: string[]) => void; rpId: string; rpIds: readonly string[] }) {
   const [name, setName] = useState("");
   const [result, setResult] = useState<SecurityState>(idle);
   const [pending, start] = useTransition();
@@ -239,6 +239,12 @@ function Passkeys({ list, onCodes, rpId }: { list: PasskeyView[]; onCodes: (code
   return (
     <Row title="Passkeys" status={list.length === 0 ? "None" : `${list.length} added`}>
       <p className="text-sm text-muted-foreground">Sign in with your fingerprint, face or device PIN, or a security key.</p>
+      {rpIds.length > 1 ? (
+        <p className="text-sm text-muted-foreground">
+          A passkey works only on the address where you add it. One added here works at {rpId}. Add one at{" "}
+          {rpIds.filter((id) => id !== rpId).join(", ")} too, so you can still sign in if this address is down.
+        </p>
+      ) : null}
       {list.length > 0 ? (
         <ul className="divide-y divide-border rounded-md border border-border">
           {list.map((passkey) => (
@@ -277,12 +283,15 @@ export default function SecurityFactors({
   passkeys,
   recoveryCodesLeft,
   rpId,
+  rpIds = [rpId],
 }: {
   totp: boolean;
   passkeys: PasskeyView[];
   recoveryCodesLeft: number;
-  /** The passkey relying party (lib/auth/passkeys.ts). */
+  /** The passkey relying party for this address (lib/auth/passkeys.ts). */
   rpId: string;
+  /** Every configured relying party, primary first. */
+  rpIds?: readonly string[];
 }) {
   const [codes, setCodes] = useState<string[] | null>(null);
   const strong = totp || passkeys.length > 0;
@@ -290,7 +299,7 @@ export default function SecurityFactors({
     <div className="space-y-4">
       {codes ? <RecoveryCodes codes={codes} onDone={() => setCodes(null)} /> : null}
       <AuthenticatorApp enabled={totp} onCodes={setCodes} />
-      <Passkeys list={passkeys} onCodes={setCodes} rpId={rpId} />
+      <Passkeys list={passkeys} onCodes={setCodes} rpId={rpId} rpIds={rpIds} />
       {strong ? (
         <Row title="Recovery codes" status={`${recoveryCodesLeft} left`}>
           <p className="text-sm text-muted-foreground">

@@ -16,7 +16,7 @@ import { formatDateTime, relativeTime } from "@/lib/admin/format";
 import { ROLE_LABEL } from "@/lib/admin/roles";
 import { requireUser } from "@/lib/auth/dal";
 import { maskingEnabled } from "@/lib/auth/mask";
-import { PASSKEY_RP_ID } from "@/lib/auth/passkeys";
+import { PASSKEY_RP_IDS, requestRelyingParty } from "@/lib/auth/passkeys";
 import { factorsOf } from "@/lib/auth/mfa";
 import { MASK_ROLE, SUPER_ROLE } from "@/lib/auth/permissions";
 import { listSessions } from "@/lib/auth/session-store";
@@ -116,7 +116,7 @@ export default async function AccountPage() {
         <p className="mb-4 mt-1 text-sm text-muted-foreground">
           Stronger than an emailed code. With one of these set up, signing in asks for it after your password.
         </p>
-        <SecurityFactors totp={factors?.totp ?? false} passkeys={passkeyViews} recoveryCodesLeft={factors?.recoveryCodesLeft ?? 0} rpId={PASSKEY_RP_ID} />
+        <SecurityFactors totp={factors?.totp ?? false} passkeys={passkeyViews} recoveryCodesLeft={factors?.recoveryCodesLeft ?? 0} rpId={await requestRelyingParty()} rpIds={PASSKEY_RP_IDS} />
       </section>
 
       <section className={cardClass} aria-labelledby="mfa-heading">

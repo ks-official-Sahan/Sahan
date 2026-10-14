@@ -116,18 +116,22 @@ strong factors. With one of them, signing in asks for it after the password:
 - **Authenticator app:** a 6-digit code (TOTP). Scan the QR code, then
   confirm with a code. Each code works once.
 - **Passkey:** fingerprint, face, device PIN or a security key. Passkeys work
-  on `https://sahansachintha.com` (and `www.`) in production and on
-  `http://localhost:3000`/`3001` in development, not on the `*.vercel.app`
-  domains.
+  on every site domain in `SITE_URLS` (else `SITE_URL` and the defaults:
+  `sahansachintha.com`, with `www.`, and `sahansachintha.vercel.app`), and on
+  `http://localhost:3000`/`3001` in development. Never on Vercel preview
+  domains. A passkey works only on the domain where it was added, so add one
+  on each domain: then, when the primary domain is down, you sign in with a
+  passkey on a backup domain. Account → Passkeys names the other domains.
 - **Recovery codes:** ten single-use codes, shown once when the first strong
   factor is added. Make new ones from the same section; the old ones stop
   working.
 
-At sign-in, the second step shows a tab for each method the account set up
-(passkey, authenticator app, emailed code); the browser remembers the last
-one picked. The emailed code is sent only when chosen. Recovery codes sit
-behind **Can't use these?**, and are offered on their own after two wrong
-tries.
+At sign-in, the second step shows one method: the one used last on this
+browser, else the strongest that works here (passkey, authenticator app,
+emailed code). **Try another way** lists the others. The emailed code is sent
+only when chosen. Recovery codes are never the method shown first: they join
+**Try another way** after two failed tries, or straight away when no other
+method works on this device.
 
 **Passkey sign-in** (Settings → Passkey sign-in, `DEVELOPER` only, off by
 default) adds **Sign in with a passkey** to the sign-in page. The browser lists
