@@ -15,6 +15,7 @@ import { buildCsp, clientIp, generateNonce, isAllowedOrigin, isScannerPath, pars
 import { NextResponse, type NextRequest } from "next/server";
 
 import { UNLOCK_COOKIE } from "@/lib/admin/login-unlock";
+import { UNLOCK_FORM_HEADERS, UNLOCK_FORM_MAX_BYTES, unlockFormHtml, unlockFormPath } from "@/lib/admin/unlock-form";
 import {
   bypassKeysFromEnv,
   BYPASS_COOKIE,
@@ -137,6 +138,48 @@ async function shortLink(request: NextRequest, link: ShortLink, now: number): Pr
   return response;
 }
 
+/**
+ * The break-glass unlock form at ADMIN_UNLOCK_PATH (lib/admin/unlock-form.ts).
+ * GET shows it; POST checks the secret with the same per-IP limit and
+ * constant-time comparison the old ?secret= query used, sets the unlock
+ * cookie and goes to the login page. The secret travels in a POST body only,
+ * never in a URL. With the gate off there is nothing to unlock: a 404.
+ */
+async function unlockForm(request: NextRequest, path: string): Promise<NextResponse> {
+  const keys = unlockKeysFromEnv();
+  if (!loginUnlockEnabled() || !keys) return locked(request);
+  const page = (failed: boolean) => new NextResponse(unlockFormHtml({ action: path, failed }), { status: failed ? 401 : 200, headers: UNLOCK_FORM_HEADERS });
+  if (request.method === "GET" || request.method === "HEAD") return page(false);
+  if (request.method !== "POST") return locked(request);
+
+  // The form posts to itself. A cross-site post, or a body bigger than a
+  // short secret needs, is answered like any unknown page.
+  const sameOrigin = isAllowedOrigin(request.headers.get("origin"), {
+    hosts: [request.headers.get("host"), request.headers.get("x-forwarded-host")],
+    siteUrl: process.env.SITE_URL,
+    extraOrigins: extraOrigins(),
+  });
+  const declared = Number(request.headers.get("content-length"));
+  if (!sameOrigin || !(declared > 0 && declared <= UNLOCK_FORM_MAX_BYTES)) return locked(request);
+
+  const callerIp = ip(request);
+  // Same R22 rule as the ?secret= unlock below: an unknown IP is shared by
+  // every caller, so limiting it would let one caller lock the owner out.
+  const limited = callerIp === UNKNOWN_IP ? false : !(await limit("unlock:ip", callerIp)).ok;
+  const body = limited ? null : await request.formData().catch(() => null);
+  const secret = body?.get("secret");
+  const accepted = typeof secret === "string" && secret.length <= 512 && isUnlockSecret(secret, keys);
+  if (!accepted) {
+    log.warn("admin unlock form refused", { ip: callerIp, limited });
+    return page(true);
+  }
+  const response = NextResponse.redirect(new URL(LOGIN_PATH, request.url), 303);
+  response.cookies.set(UNLOCK_COOKIE, signUnlockCookie(Date.now(), keys), unlockCookieOptions(PRODUCTION));
+  response.headers.set("Cache-Control", "no-store");
+  response.headers.set("Referrer-Policy", "no-referrer");
+  return response;
+}
+
 export async function proxy(request: NextRequest) {
   const { pathname, searchParams } = request.nextUrl;
 
@@ -146,6 +189,10 @@ export async function proxy(request: NextRequest) {
   // 1a. Short links, before maintenance mode: an emailed link works during it too.
   const short = request.method === "GET" || request.method === "HEAD" ? parseShortLink(pathname, request.nextUrl.search) : null;
   if (short) return shortLink(request, short, Date.now());
+
+  // 1b. The break-glass unlock form, when ADMIN_UNLOCK_PATH is set.
+  const unlockPath = unlockFormPath(process.env.ADMIN_UNLOCK_PATH);
+  if (unlockPath && pathname === unlockPath) return unlockForm(request, unlockPath);
 
   const adminPage = isAdminPage(pathname);
   const adminApi = isAdminApi(pathname);
@@ -241,8 +288,11 @@ export async function proxy(request: NextRequest) {
   const unlockGate = loginUnlockEnabled();
   const keys = unlockKeysFromEnv();
 
-  // 4a. Unlock query: /admin or /admin/login with ?secret=...
-  if (unlockGate && adminPage && searchParams.has(UNLOCK_QUERY) && (pathname === "/admin" || pathname === LOGIN_PATH)) {
+  // 4a. Legacy unlock query: /admin or /admin/login with ?secret=... It puts
+  // the secret in the URL (history, address-bar suggestions, request logs),
+  // so it only works until ADMIN_UNLOCK_PATH is set; after that the
+  // break-glass form (1b) and emailed sign-in links are the only ways in.
+  if (unlockGate && !unlockPath && adminPage && searchParams.has(UNLOCK_QUERY) && (pathname === "/admin" || pathname === LOGIN_PATH)) {
     const callerIp = ip(request);
     // Same R22 fail-open rule as the IP allowlist above: without
     // TRUSTED_PROXY_HOPS (or off Vercel), every caller shares UNKNOWN_IP, so
@@ -256,6 +306,7 @@ export async function proxy(request: NextRequest) {
       log.warn("admin unlock refused", { ip: callerIp, limited, configured: keys !== null });
       return locked(request);
     }
+    log.warn("admin unlocked with the legacy ?secret= link; set ADMIN_UNLOCK_PATH and rotate ADMIN_LOGIN_UNLOCK_SECRET");
     const clean = request.nextUrl.clone();
     clean.searchParams.delete(UNLOCK_QUERY);
     const response = NextResponse.redirect(clean, 307);

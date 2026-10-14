@@ -35,6 +35,8 @@ const schema = z.object({
   INTERNAL_SIGNING_SECRET: text,
   MAINTENANCE_BYPASS_SECRET: text,
   ADMIN_LOGIN_UNLOCK_SECRET: text,
+  // Break-glass unlock form path (lib/admin/unlock-form.ts); proxy.ts reads it from process.env.
+  ADMIN_UNLOCK_PATH: text,
   // Days a sign-in link (/s/...) stays valid: 1..90, default 14 (lib/auth/links.ts).
   ADMIN_SIGN_IN_LINK_DAYS: text,
   CRON_SECRET: text,
