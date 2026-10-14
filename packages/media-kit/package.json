@@ -1,7 +1,7 @@
 {
   "name": "@sahan-sac/media-kit",
   "version": "0.2.1",
-  "description": "Headless Cloudinary media layer: config, upload/format validation, HMAC URL and upload signing, delivery URL transforms, a browser upload client, and a typed CloudinaryClient. Framework-agnostic; the DB-backed service and audit trail stay in the app.",
+  "description": "Headless media layer for Cloudinary, AWS S3 and Cloudflare R2: multi-account registry with ordered failover, upload/format validation, HMAC and SigV4 signing, delivery URL transforms, a browser upload client, and a typed CloudinaryClient. Framework-agnostic; the DB-backed service and audit trail stay in the app.",
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
@@ -12,7 +12,9 @@
     "media",
     "cloudinary",
     "upload",
-    "images"
+    "images",
+    "s3",
+    "r2"
   ],
   "type": "module",
   "sideEffects": false,
@@ -28,6 +30,10 @@
     "./cloudinary": "./src/cloudinary.ts",
     "./upload-client": "./src/upload-client.ts",
     "./env": "./src/env.ts",
+    "./accounts": "./src/accounts.ts",
+    "./storage": "./src/storage.ts",
+    "./bucket": "./src/bucket.ts",
+    "./sigv4": "./src/sigv4.ts",
     "./package.json": "./package.json"
   },
   "types": "./src/index.ts",
@@ -91,6 +97,22 @@
       "./env": {
         "types": "./dist/env.d.ts",
         "import": "./dist/env.js"
+      },
+      "./accounts": {
+        "types": "./dist/accounts.d.ts",
+        "import": "./dist/accounts.js"
+      },
+      "./storage": {
+        "types": "./dist/storage.d.ts",
+        "import": "./dist/storage.js"
+      },
+      "./bucket": {
+        "types": "./dist/bucket.d.ts",
+        "import": "./dist/bucket.js"
+      },
+      "./sigv4": {
+        "types": "./dist/sigv4.d.ts",
+        "import": "./dist/sigv4.js"
       },
       "./package.json": "./package.json"
     }
