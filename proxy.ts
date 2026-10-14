@@ -31,6 +31,7 @@ import { authKit } from "@/lib/auth/kit-config";
 import { hasSessionCookie } from "@/lib/auth/session-cookie";
 import { limit } from "@/lib/cache/ratelimit";
 import { log } from "@/lib/log";
+import { readBodyText } from "@/lib/security/read-body";
 import { maintenancePageHtml, retryAfterSeconds, type MaintenanceNotice } from "@/lib/admin/maintenance-page";
 import { readKvSetting } from "@/lib/settings/kv";
 import { enforcedIpAllowlist } from "@/lib/settings/schema";
@@ -176,8 +177,8 @@ async function unlockForm(request: NextRequest, path: string): Promise<NextRespo
   // Same R22 rule as the ?secret= unlock below: an unknown IP is shared by
   // every caller, so limiting it would let one caller lock the owner out.
   const limited = callerIp === UNKNOWN_IP ? false : !(await limit("unlock:ip", callerIp)).ok;
-  const raw = limited ? null : await request.text().catch(() => null);
-  const body = raw !== null && raw.length <= UNLOCK_FORM_MAX_BYTES ? new URLSearchParams(raw) : null;
+  const raw = limited ? null : await readBodyText(request, UNLOCK_FORM_MAX_BYTES).catch(() => null);
+  const body = raw !== null ? new URLSearchParams(raw) : null;
   const secret = body?.get("secret");
   const accepted = typeof secret === "string" && secret.length <= 512 && isUnlockSecret(secret, keys);
   if (!accepted) {
