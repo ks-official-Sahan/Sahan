@@ -295,7 +295,7 @@ async function Tiles({
   };
 
   return (
-    <RevealGroup className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <RevealGroup className="grid gap-4 s640:grid-cols-2 xl:grid-cols-4">
       {ids.map((id) => (
         <RevealItem key={id}>{build[id]()}</RevealItem>
       ))}
@@ -308,7 +308,7 @@ function QuickActions({ user }: { user: AuthUser }) {
   if (actions.length === 0) return null;
   return (
     <Panel title="Quick actions">
-      <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+      <ul className="grid gap-2 s640:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         {actions.map((action) => (
           <li key={action.href}>
             <Link
@@ -439,14 +439,14 @@ async function AnalyticsPanel({ analytics, range }: { analytics: Promise<SiteAna
       title={title}
       aside={
         <div className="flex items-center gap-3">
-          <span className="hidden text-xs text-muted-foreground sm:inline" title={formatDateTime(generated)}>
+          <span className="hidden text-xs text-muted-foreground s640:inline" title={formatDateTime(generated)}>
             Updated {relativeTime(generated, clock())}
           </span>
           {tabs}
         </div>
       }
     >
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 s640:grid-cols-2 xl:grid-cols-4">
         <Kpi label="Visitors" value={compactFormat.format(totals.visitors)} hint={period} delta={change(totals.visitors, totals.previousVisitors)} />
         <Kpi label="Page views" value={compactFormat.format(totals.views)} hint={period} delta={change(totals.views, totals.previousViews)} />
         <Kpi label="Views per visitor" value={perVisitor.toFixed(1)} hint={`last ${range} days`} />
@@ -482,7 +482,7 @@ async function AnalyticsPanel({ analytics, range }: { analytics: Promise<SiteAna
             </table>
           </div>
 
-          <div className="mt-6 grid gap-6 md:grid-cols-2 xl:grid-cols-4">
+          <div className="mt-6 grid gap-6 s768:grid-cols-2 xl:grid-cols-4">
             <Breakdown title="Top pages">
               <BarList
                 items={rankedItems(site.pages, (item) => (
@@ -854,7 +854,7 @@ function Panel({ id, title, aside, children }: { id?: string; title: string; asi
 
 function TilesSkeleton({ count }: { count: number }) {
   return (
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-hidden="true">
+    <div className="grid gap-4 s640:grid-cols-2 xl:grid-cols-4" aria-hidden="true">
       {Array.from({ length: count }, (_, index) => (
         <div key={index} className="h-[132px] animate-pulse rounded-xl border border-border bg-muted/40 motion-reduce:animate-none" />
       ))}

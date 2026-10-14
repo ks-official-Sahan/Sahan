@@ -92,7 +92,7 @@ function RecoveryCodes({ codes, onDone }: { codes: string[]; onDone: () => void 
       <p className="text-sm text-muted-foreground">
         Each one signs you in once if you lose your authenticator app or passkey. Keep them somewhere safe, like a password manager.
       </p>
-      <ol className="grid grid-cols-2 gap-2 font-mono text-sm sm:grid-cols-5">
+      <ol className="grid grid-cols-2 gap-2 font-mono text-sm s640:grid-cols-5">
         {codes.map((code) => (
           <li key={code} className="rounded border border-border bg-background px-2 py-1 text-center">
             {code}
@@ -250,7 +250,7 @@ function Passkeys({ list, onCodes, rpId }: { list: PasskeyView[]; onCodes: (code
                   {passkey.lastUsed ? `, last used ${passkey.lastUsed}` : ", not used yet"}
                 </p>
               </div>
-              <div className="w-full sm:w-auto">
+              <div className="w-full s640:w-auto">
                 <ConfirmWithPassword label="Remove" action={removePasskeyAction} hidden={{ id: passkey.id }} onCodes={onCodes} />
               </div>
             </li>
