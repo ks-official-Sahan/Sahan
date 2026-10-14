@@ -228,7 +228,7 @@ async function Tiles({
         label="Visitors"
         value={site?.totals.visitors ?? 0}
         icon={<Icon name="users" className="size-4" />}
-        caption={site ? `unique, last ${range} days` : "analytics not available"}
+        caption={site ? `counted once a day, last ${range} days` : "analytics not available"}
         trend={site?.days.map((day) => day.visitors)}
         delta={site ? { value: site.totals.visitors - site.totals.previousVisitors, period: `vs previous ${range} days` } : undefined}
       />
@@ -452,6 +452,10 @@ async function AnalyticsPanel({ analytics, range }: { analytics: Promise<SiteAna
         <Kpi label="Views per visitor" value={perVisitor.toFixed(1)} hint={`last ${range} days`} />
         <Kpi label="On the site now" value={numberFormat.format(site.live)} hint="seen in the last 5 minutes" />
       </div>
+      <p className="mt-3 text-xs text-muted-foreground">
+        Visitors are counted once a day: the anonymous visitor id changes daily and no cookie is set, so someone who comes back on
+        three days counts three times. Bots, automated browsers and visitors who ask not to be tracked are not counted.
+      </p>
 
       {totals.views === 0 ? (
         <p className="mt-6 rounded-lg border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground">

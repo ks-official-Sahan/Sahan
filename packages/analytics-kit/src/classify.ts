@@ -106,9 +106,39 @@ export function utcDay(now: number, offset = 0): string {
   return new Date(now - offset * 86_400_000).toISOString().slice(0, 10);
 }
 
-/** The last `count` UTC days, oldest first, ending `skip` days before today. */
-export function lastDays(now: number, count: number, skip = 0): string[] {
-  return Array.from({ length: count }, (_, index) => utcDay(now, skip + count - 1 - index));
+const dayFormatters = new Map<string, Intl.DateTimeFormat>();
+
+/** True when `timeZone` is an IANA zone this runtime knows ("Asia/Colombo", "UTC"). */
+export function validTimeZone(timeZone: string): boolean {
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * YYYY-MM-DD of `now` on the wall calendar of `timeZone` (UTC when omitted),
+ * `offset` calendar days earlier. Days are stepped on the calendar, not by
+ * 24 hours, so a daylight-saving change never skips or repeats a day. One
+ * formatter per zone is kept: building an Intl.DateTimeFormat is the slow
+ * part, formatting is cheap.
+ */
+export function dayIn(now: number, offset = 0, timeZone?: string): string {
+  if (!timeZone || timeZone === "UTC") return utcDay(now, offset);
+  let format = dayFormatters.get(timeZone);
+  if (!format) {
+    format = new Intl.DateTimeFormat("en-US", { timeZone, year: "numeric", month: "numeric", day: "numeric" });
+    dayFormatters.set(timeZone, format);
+  }
+  const parts = Object.fromEntries(format.formatToParts(now).map((part) => [part.type, part.value]));
+  return new Date(Date.UTC(Number(parts.year), Number(parts.month) - 1, Number(parts.day) - offset)).toISOString().slice(0, 10);
+}
+
+/** The last `count` days (UTC, or `timeZone`'s calendar), oldest first, ending `skip` days before today. */
+export function lastDays(now: number, count: number, skip = 0, timeZone?: string): string[] {
+  return Array.from({ length: count }, (_, index) => dayIn(now, skip + count - 1 - index, timeZone));
 }
 
 export function parseRange(raw: unknown): AnalyticsRange {
