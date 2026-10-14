@@ -59,6 +59,7 @@ export const SYSTEM_ROLE_ROWS = ROLES.map((name) => ({
 export const PERMISSIONS = [
   // Dashboard
   "viewDashboard",
+  "viewAnalytics",
   // Pages
   "editPages",
   "publishPages",
@@ -127,6 +128,7 @@ export interface PermissionInfo {
 
 export const PERMISSION_INFO: Record<Permission, PermissionInfo> = {
   viewDashboard: { group: "Dashboard", label: "View dashboard", description: "Open the admin dashboard." },
+  viewAnalytics: { group: "Dashboard", label: "View site analytics", description: "See visitors, page views, top pages, referrers, devices and countries." },
   editPages: { group: "Pages", label: "Edit pages", description: "Save drafts of page sections." },
   publishPages: { group: "Pages", label: "Publish pages", description: "Publish and restore page sections." },
   editCollections: { group: "Works", label: "Edit works data", description: "Create and edit projects, experience, services and skills. Saved unpublished." },
@@ -199,13 +201,13 @@ export const DEFAULT_GRANTS: Record<"MANAGER" | "EDITOR", readonly Permission[]>
 };
 
 /** Bump when a release adds permissions, and record them in PERMISSION_ADDED_IN. */
-export const RBAC_SEED_VERSION = 2;
+export const RBAC_SEED_VERSION = 3;
 
 /**
  * Seed version in which a permission first existed. Permissions missing from
  * this map have existed since version 1.
  */
-export const PERMISSION_ADDED_IN: Partial<Record<Permission, number>> = { manageChatbotTraining: 2 };
+export const PERMISSION_ADDED_IN: Partial<Record<Permission, number>> = { manageChatbotTraining: 2, viewAnalytics: 3 };
 
 /**
  * A permission split out of another. On upgrade every role that held the
@@ -246,6 +248,9 @@ export const LIMITS = {
   "chat:session": { windowSeconds: 60, max: 6, failMode: "closed" },
   // Uncached deep-archive pages of the public content API (cursor requests).
   "content:ip": { windowSeconds: 60, max: 60, failMode: "open" },
+  // Page-view beacon, keyed by the daily visitor hash (never the raw IP).
+  // Open: analytics must never block or slow a page.
+  "collect:visitor": { windowSeconds: 60, max: 60, failMode: "open" },
 } as const satisfies Record<string, LimitRule>;
 
 export type LimitName = keyof typeof LIMITS;

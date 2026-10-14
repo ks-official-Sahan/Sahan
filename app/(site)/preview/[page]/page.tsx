@@ -42,7 +42,7 @@ export default async function PreviewPage({ params }: { params: Promise<{ page: 
     getServices(),
     getSkills(),
   ]);
-  const finalCta = <FinalCta content={home.finalCta} channels={home.channels} />;
+  const finalCta = <FinalCta key="final-cta" content={home.finalCta} channels={home.channels} />;
 
   let view: React.ReactNode;
   switch (page) {

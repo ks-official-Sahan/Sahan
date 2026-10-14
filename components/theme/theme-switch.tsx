@@ -1,15 +1,16 @@
 "use client";
 
-import { Monitor, Moon, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
 import React, { useSyncExternalStore } from "react";
+
+import Icon, { type IconSpec } from "@/components/icons/Icon";
 
 const subscribeNever = () => () => {};
 
 const options = [
-  { value: "light", label: "Light theme", Icon: Sun },
-  { value: "system", label: "System theme", Icon: Monitor },
-  { value: "dark", label: "Dark theme", Icon: Moon },
+  { value: "light", label: "Light theme", icon: { name: "brightness-down" } },
+  { value: "system", label: "System theme", icon: { lucideIconName: "Monitor" } },
+  { value: "dark", label: "Dark theme", icon: { name: "moon" } },
 ] as const;
 
 const ThemeSwitch = () => {
@@ -26,7 +27,7 @@ const ThemeSwitch = () => {
       aria-label="Theme"
       className="h-[41px] backdrop-blur-sm flex items-center px-[6px] py-[4px] rounded-full border border-evision_border_primary w-fit"
     >
-      {options.map(({ value, label, Icon }) => (
+      {options.map(({ value, label, icon }) => (
         <button
           key={value}
           type="button"
@@ -38,7 +39,7 @@ const ThemeSwitch = () => {
             theme === value ? "bg-[#f7f7f7] dark:bg-[#1A1A1A80]" : ""
           } `}
         >
-          <Icon size={16} />
+          <Icon {...(icon as IconSpec)} />
         </button>
       ))}
     </div>

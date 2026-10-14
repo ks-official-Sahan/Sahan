@@ -15,7 +15,8 @@ import { FailoverKv, MemoryKv, type Kv } from "./memory";
 // (docs/plan/admin-cms-adr.md, D7 and D8): it caches and limits. Every key is
 // prefixed so the instance can be shared.
 
-const PREFIX = "sahan:";
+export const REDIS_PREFIX = "sahan:";
+const PREFIX = REDIS_PREFIX;
 
 type Env = Record<string, string | undefined>;
 

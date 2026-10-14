@@ -437,6 +437,15 @@ export async function getPostRedirect(slug: string): Promise<string | null> {
   return (await getPostBySlug(target)) ? target : null;
 }
 
+/**
+ * Any post by id with its body, whatever its status, for the signed preview
+ * page. Never cached: it shows drafts, and each read is behind a token check.
+ */
+export async function getPostPreview(id: string): Promise<BlogPostView | null> {
+  const row = await repos.posts.findForPreview(id);
+  return row ? toView(row) : null;
+}
+
 /** Up to `limit` other posts sharing the most tags/topic with `post`, newest first on ties. */
 export function relatedPosts(post: BlogPostSummary, posts: BlogPostSummary[], limit = 3): BlogPostSummary[] {
   const tags = new Set(post.tags);

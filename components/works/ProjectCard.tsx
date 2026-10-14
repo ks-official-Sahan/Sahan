@@ -5,10 +5,10 @@ import ProjectPreview, {
   linkLabels,
   platformLabels,
 } from "@/components/works/ProjectPreview";
+import Icon from "@/components/icons/Icon";
 import { primaryLink } from "@/contents/projects";
 import { cn } from "@/lib/utils";
 import type { Project, ProjectLinkKind, ProjectStatus } from "@/types/project";
-import { ArrowUpRight, X } from "lucide-react";
 import Link from "next/link";
 import React, { useRef } from "react";
 
@@ -136,11 +136,7 @@ const ProjectCard = ({ project, variant = "default", priority = false }: Project
                 className="press arrow-nudge inline-flex min-h-11 items-center gap-1.5 rounded-full bg-bCHIPSELECTED px-5 text-sm font-semibold text-white dark:text-black"
               >
                 {primaryLabels[primary.kind]}
-                <ArrowUpRight
-                  size={16}
-                  aria-hidden="true"
-                  className="arrow-nudge-icon"
-                />
+                <Icon name="arrow-up-right" className="size-4" />
                 <span className="sr-only"> (opens in a new tab)</span>
               </Link>
             )}
@@ -174,7 +170,7 @@ const ProjectCard = ({ project, variant = "default", priority = false }: Project
               aria-label="Close details"
               className="press flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-bBORDERFADE bg-bFCARD"
             >
-              <X size={18} aria-hidden="true" />
+              <Icon name="x" className="size-[18px]" />
             </button>
           </div>
 
@@ -258,7 +254,7 @@ const ProjectCard = ({ project, variant = "default", priority = false }: Project
           {project.links && project.links.length > 0 && (
             <ul aria-label="Links" className="flex flex-wrap gap-3">
               {project.links.map((link, index) => {
-                const Icon = linkIcons[link.kind];
+                const linkIcon = linkIcons[link.kind];
                 return (
                   <li key={link.url}>
                     <Link
@@ -272,13 +268,9 @@ const ProjectCard = ({ project, variant = "default", priority = false }: Project
                           : "border border-bBORDERFADE bg-bFCARD"
                       )}
                     >
-                      <Icon size={17} aria-hidden="true" />
+                      <Icon {...linkIcon} size={17} />
                       {link.label ?? linkLabels[link.kind]}
-                      <ArrowUpRight
-                        size={16}
-                        aria-hidden="true"
-                        className="arrow-nudge-icon"
-                      />
+                      <Icon name="arrow-up-right" className="size-4" />
                       <span className="sr-only"> (opens in a new tab)</span>
                     </Link>
                   </li>

@@ -1,18 +1,6 @@
-import {
-  IconBrandAzure,
-  IconBrandCloudflare,
-  IconBrandDjango,
-  IconBrandDocker,
-  IconBrandFigma,
-  IconBrandFirebase,
-  IconBrandGraphql,
-  IconBrandPrisma,
-  IconBrandRedux,
-  IconBrandSupabase,
-  IconBrandVercel,
-} from "@tabler/icons-react";
-import { Code2 } from "lucide-react";
+import { IconBrandAzure, IconBrandCloudflare, IconBrandDjango, IconBrandDocker, IconBrandFigma, IconBrandFirebase, IconBrandGraphql, IconBrandPrisma, IconBrandRedux, IconBrandSupabase, IconBrandVercel } from "@tabler/icons-react";
 
+import Icon from "@/components/icons/Icon";
 import MaskIcon from "@/components/common/MaskIcon";
 import type { Skill } from "@/types/skills";
 
@@ -72,5 +60,5 @@ export default function SkillGlyph({ skill, size, className }: { skill: Skill; s
 
   const src = iconSource(skill);
   if (src) return <MaskIcon src={src} size={size} className={className} />;
-  return <Code2 size={size} aria-hidden="true" className={className} />;
+  return <Icon name="code-xml" size={size} className={className} />;
 }

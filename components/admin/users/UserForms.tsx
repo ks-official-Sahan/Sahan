@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Link2 } from "lucide-react";
 
+import Icon from "@/components/icons/Icon";
 import { createUser, inviteUser, regenerateInviteLink, revokeInvite } from "@/lib/actions/users";
 import type { ActionState } from "@/lib/actions/state";
 import ActionForm, { ConfirmSubmitButton, Field, SubmitButton, useActionResult } from "@/components/admin/ui/ActionForm";
@@ -133,7 +133,7 @@ export function InviteRowActions({ inviteId, email }: { inviteId: string; email:
             pendingLabel="Making..."
             confirmMessage={`Make a new link for ${email}? The link already sent stops working.`}
           >
-            <Link2 aria-hidden className="size-3.5" />
+            <Icon name="link" className="size-3.5" />
             New link
           </ConfirmSubmitButton>
         </ActionForm>

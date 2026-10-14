@@ -1,8 +1,8 @@
+import Icon from "@/components/icons/Icon";
 import HomeSection from "@/components/home/HomeSection";
 import SectionHeading from "@/components/home/SectionHeading";
 import type { PageContent } from "@/lib/cms/registry";
 import type { ExperienceEntry } from "@/types/experience";
-import { ExternalLink } from "lucide-react";
 import Link from "next/link";
 import React from "react";
 
@@ -54,7 +54,7 @@ const ExperienceSection = ({ content, entries }: ExperienceSectionProps) => {
                   className="inline-flex items-center gap-1 font-semibold text-bICON underline-offset-4 hover:underline"
                 >
                   {entry.company}
-                  <ExternalLink size={13} aria-hidden="true" />
+                  <Icon name="external-link" className="size-[13px]" />
                   <span className="sr-only"> (opens in a new tab)</span>
                 </Link>
               ) : (

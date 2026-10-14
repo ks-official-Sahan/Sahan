@@ -15,7 +15,7 @@ const Works = async () => {
   ]);
 
   const finalCta = (
-    <FinalCta content={home.finalCta} channels={home.channels} />
+    <FinalCta key="final-cta" content={home.finalCta} channels={home.channels} />
   );
 
   return <WorksPageView content={works} projects={projects} finalCta={finalCta} skillGroups={skillGroups} />;

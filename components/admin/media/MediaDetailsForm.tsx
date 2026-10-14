@@ -3,8 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Alert, Button, Stack, TextInput, Textarea } from "@mantine/core";
-import { Save, Trash2 } from "lucide-react";
 
+import Icon from "@/components/icons/Icon";
 import { deleteMedia, updateMedia } from "@/lib/actions/media";
 import type { MediaKind } from "@/lib/data/media";
 
@@ -97,12 +97,12 @@ export default function MediaDetailsForm({
           <TextInput label="Title" value={title} onChange={(event) => setTitle(event.currentTarget.value)} maxLength={200} readOnly={!canEdit} />
           <TextInput label="Tags" description="Comma separated" value={tags} onChange={(event) => setTags(event.currentTarget.value)} readOnly={!canEdit} />
           {canEdit ? (
-            <Button type="submit" leftSection={<Save size={16} />} loading={busy} disabled={busy}>Save details</Button>
+            <Button type="submit" leftSection={<Icon name="save" />} loading={busy} disabled={busy}>Save details</Button>
           ) : null}
         </Stack>
       </form>
       {canDelete ? (
-        <Button color="red" variant="light" leftSection={<Trash2 size={16} />} onClick={() => void remove()} loading={busy} disabled={busy}>
+        <Button color="red" variant="light" leftSection={<Icon name="trash" />} onClick={() => void remove()} loading={busy} disabled={busy}>
           Delete media
         </Button>
       ) : null}

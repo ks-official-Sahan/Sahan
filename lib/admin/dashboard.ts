@@ -1,10 +1,13 @@
 import "server-only";
 
+import type { AnalyticsRange, SiteAnalytics } from "@sahan-sac/analytics-kit";
+
+import { analytics } from "@/lib/analytics/store";
 import { hiddenAuditRole } from "@/lib/auth/mask";
 import type { RoleName } from "@/lib/auth/permissions";
 import { cached } from "@/lib/cache/cached";
 import { repos } from "@/lib/data";
-import type { DailyCounts } from "@/lib/data/maintenance";
+import type { DailyCounts, DashboardInquiry, DashboardPost, DashboardPostStatus } from "@/lib/data/maintenance";
 import { log } from "@/lib/log";
 
 // Dashboard helper: queries for the admin dashboard widgets.
@@ -143,5 +146,63 @@ export async function getUserSecurityStatus(userId: string) {
     return user ?? { mfaEnabled: false, mustChangePassword: false };
   } catch {
     return { mfaEnabled: false, mustChangePassword: false };
+  }
+}
+
+/** Posts per status plus the next scheduled posts and latest drafts, or null without a database. */
+export async function getPostPipeline(limit = 5): Promise<{ counts: Record<DashboardPostStatus, number>; upcoming: DashboardPost[] } | null> {
+  try {
+    const [counts, upcoming] = await Promise.all([repos.dashboard.postStatusCounts(), repos.dashboard.upcomingPosts(limit)]);
+    return { counts, upcoming };
+  } catch {
+    return null;
+  }
+}
+
+/** Newest unanswered inquiries. */
+export async function getNewInquiries(limit = 5): Promise<DashboardInquiry[]> {
+  try {
+    return await repos.dashboard.newInquiries(limit);
+  } catch {
+    return [];
+  }
+}
+
+/** Live sessions and failed sign-ins in the last 7 days, or null without a database. */
+export async function getSecurityCounts(now: number) {
+  try {
+    return await repos.dashboard.securityCounts(new Date(now), new Date(now - 7 * 86_400_000));
+  } catch {
+    return null;
+  }
+}
+
+/** Chat conversations started in the last 7 days, or null without a database. */
+export async function getRecentChatCount(now: number): Promise<number | null> {
+  try {
+    return await repos.dashboard.countChatSessionsSince(new Date(now - 7 * 86_400_000));
+  } catch {
+    return null;
+  }
+}
+
+const analyticsReaders = new Map<AnalyticsRange, () => Promise<SiteAnalytics | null>>();
+
+/**
+ * Site analytics for the dashboard, cached for a minute per range (one
+ * pipelined Redis read builds it). Null when Redis is not configured or does
+ * not answer.
+ */
+export async function getSiteAnalytics(range: AnalyticsRange): Promise<SiteAnalytics | null> {
+  let reader = analyticsReaders.get(range);
+  if (!reader) {
+    reader = cached(() => analytics.read(range), ["admin", "dashboard", "analytics", String(range)], { tags: ["admin-dashboard"], revalidate: 60 });
+    analyticsReaders.set(range, reader);
+  }
+  try {
+    return await reader();
+  } catch (error) {
+    log.warn("site analytics unavailable", { error: String(error) });
+    return null;
   }
 }

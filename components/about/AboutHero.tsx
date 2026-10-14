@@ -1,3 +1,4 @@
+import Icon from "@/components/icons/Icon";
 import ContactChannels from "@/components/home/ContactChannels";
 import { HomeContainer, stagger } from "@/components/home/HomeSection";
 import RunnerTrack from "@/components/about/RunnerTrack";
@@ -7,7 +8,6 @@ import { Site, SiteMetadata } from "@/config/site";
 import { righteous } from "@/lib/fonts";
 import type { PageContent } from "@/lib/cms/registry";
 import { cn } from "@/lib/utils";
-import { ArrowUpRight, Flag } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import React from "react";
@@ -61,16 +61,12 @@ const AboutHero = ({ content, channels }: AboutHeroProps) => {
                 rel="noopener noreferrer"
                 className="press arrow-nudge absolute right-4 top-4 z-10 inline-flex min-h-11 items-center gap-2 rounded-full border border-bBORDERFADE bg-bFCARD px-4 text-[13px] font-semibold shadow-md s640:bottom-6 s640:right-6 s640:top-auto"
               >
-                <Flag size={14} aria-hidden="true" className="text-bICON" />
+                <Icon lucideIconName="Flag" className="size-3.5 text-bICON" />
                 <span>
                   Now at {Site.org}
                   <span className="sr-only"> (opens in a new tab)</span>
                 </span>
-                <ArrowUpRight
-                  size={14}
-                  aria-hidden="true"
-                  className="arrow-nudge-icon"
-                />
+                <Icon name="arrow-up-right" className="size-3.5" />
               </a>
             </div>
 
@@ -150,22 +146,14 @@ const AboutHero = ({ content, channels }: AboutHeroProps) => {
               className="press arrow-nudge inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-bCHIPSELECTED px-7 text-[15px] font-semibold text-white dark:text-black"
             >
               {hero.primaryLabel}
-              <ArrowUpRight
-                size={18}
-                aria-hidden="true"
-                className="arrow-nudge-icon"
-              />
+              <Icon name="arrow-up-right" className="size-[18px]" />
             </Link>
             <Link
               href="/works"
               className="press arrow-nudge inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-bBORDERFADE bg-bCARD px-7 text-[15px] font-semibold"
             >
               {hero.secondaryLabel}
-              <ArrowUpRight
-                size={18}
-                aria-hidden="true"
-                className="arrow-nudge-icon"
-              />
+              <Icon name="arrow-up-right" className="size-[18px]" />
             </Link>
           </div>
 

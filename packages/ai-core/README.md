@@ -57,6 +57,9 @@ const schema = z.object({ ...aiEnvSchema.shape, DATABASE_URL: z.string() });
 | `OPENROUTER_BASE_URL`, `OPENROUTER_ALLOW_PAID_MODELS` | OpenRouter API, `false` | OpenRouter settings |
 | `OPENAI_API_KEY`, `OPENAI_BASE_URL` | unset, OpenAI API | OpenAI (paid); the base URL also points it at any OpenAI-compatible gateway |
 | `ANTHROPIC_API_KEY`, `ANTHROPIC_BASE_URL` | unset, Anthropic API | Anthropic Messages API over REST (paid) |
+| `GROQ_API_KEY` | unset | Groq free plan (no card). Models `openai/gpt-oss-120b` (blog) and `openai/gpt-oss-20b` (chat); override with `GROQ_MODEL` or `BLOG_`/`CHAT_` variants |
+| `MISTRAL_API_KEY` | unset | Mistral free (Experiment) plan, which may train on prompts. Blog chain only, unless `AI_PROVIDER_ORDER_CHAT` lists `mistral` |
+| `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_AI_API_TOKEN` | unset | Cloudflare Workers AI, 10,000 free neurons a day. Models `@cf/openai/gpt-oss-120b` / `-20b`; override with `CLOUDFLARE_AI_MODEL` |
 | `DEEPSEEK_API_KEY`, `XAI_API_KEY`, `PERPLEXITY_API_KEY` | unset | Paid OpenAI-compatible providers |
 | `AI_CUSTOM_BASE_URL`, `AI_CUSTOM_MODEL`, `AI_CUSTOM_API_KEY`, `AI_CUSTOM_NAME`, `AI_CUSTOM_FREE` | unset, `false` | One custom OpenAI-compatible endpoint. The key is optional for a local server. Paid unless `AI_CUSTOM_FREE=true` |
 | `GOOGLE_CLIENT_EMAIL`, `GOOGLE_PRIVATE_KEY`, `GOOGLE_CLOUD_PROJECT` | unset | Vertex service account (paid). Keep the key on one line with literal `\n` |

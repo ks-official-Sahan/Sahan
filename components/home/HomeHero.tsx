@@ -1,10 +1,11 @@
+import Icon from "@/components/icons/Icon";
 import ContactChannels from "@/components/home/ContactChannels";
 import HeroBackdrop from "@/components/home/HeroBackdrop";
+import HeroMascot from "@/components/home/HeroMascot";
 import { HomeContainer, stagger } from "@/components/home/HomeSection";
 import { BorderBeam } from "@/components/ui/border-beam";
 import { Site } from "@/config/site";
 import type { PageContent } from "@/lib/cms/registry";
-import { ArrowDown, ArrowUpRight } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import React from "react";
@@ -30,16 +31,22 @@ const HomeHero = ({ content: hero, channels }: HomeHeroProps) => {
             <div className="grid grid-cols-1 gap-12 lg:grid-cols-12 lg:items-center lg:gap-10 xl:gap-16">
               {/* COPY */}
               <div className="flex flex-col items-start gap-6 lg:col-span-7">
-                <p
-                  style={stagger(0)}
-                  className="hero-rise inline-flex items-center gap-3 rounded-full border border-bBORDERFADE bg-bCHIP py-2 pl-3 pr-4 text-sm font-medium"
-                >
-                  <span
-                    aria-hidden="true"
-                    className="status-ping relative h-2.5 w-2.5 rounded-full bg-bICON text-bICON"
+                <div style={stagger(0)} className="hero-rise flex w-full items-end justify-between gap-4">
+                  <p className="inline-flex items-center gap-3 rounded-full border border-bBORDERFADE bg-bCHIP py-2 pl-3 pr-4 text-sm font-medium">
+                    <span
+                      aria-hidden="true"
+                      className="status-ping relative h-2.5 w-2.5 rounded-full bg-bICON text-bICON"
+                    />
+                    {hero.status}
+                  </p>
+                  {/* A monitor that watches the cursor; the box is fixed, so nothing shifts while it loads. */}
+                  <HeroMascot
+                    directions="/mascots/crt-directions.webp"
+                    reactions="/mascots/crt-reactions.webp"
+                    label="monitor mascot"
+                    className="-my-3 size-16 s640:size-20 lg:size-24"
                   />
-                  {hero.status}
-                </p>
+                </div>
 
                 <h1
                   id="hero-title"
@@ -65,18 +72,14 @@ const HomeHero = ({ content: hero, channels }: HomeHeroProps) => {
                     className="press arrow-nudge inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-bCHIPSELECTED px-7 text-[15px] font-semibold text-white outline-offset-4 dark:text-black"
                   >
                     {hero.primary.label}
-                    <ArrowDown size={18} aria-hidden="true" />
+                    <Icon name="arrow-narrow-down" className="size-[18px]" />
                   </Link>
                   <Link
                     href={hero.secondary.href}
                     className="press arrow-nudge inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-bBORDERFADE bg-bCARD px-7 text-[15px] font-semibold outline-offset-4"
                   >
                     {hero.secondary.label}
-                    <ArrowUpRight
-                      size={18}
-                      aria-hidden="true"
-                      className="arrow-nudge-icon"
-                    />
+                    <Icon name="arrow-up-right" className="size-[18px]" />
                   </Link>
                 </div>
               </div>
@@ -115,11 +118,7 @@ const HomeHero = ({ content: hero, channels }: HomeHeroProps) => {
                         <span className="sr-only"> {channels.newTab}</span>
                       </span>
                     </span>
-                    <ArrowUpRight
-                      size={16}
-                      aria-hidden="true"
-                      className="arrow-nudge-icon shrink-0"
-                    />
+                    <Icon name="arrow-up-right" className="size-4 shrink-0" />
                   </a>
                 </div>
 

@@ -1,8 +1,8 @@
 "use client";
 
+import Icon from "@/components/icons/Icon";
 import type { PageContent } from "@/lib/cms/registry";
 import { GitHubStats } from "@/lib/github";
-import { Github } from "lucide-react";
 import Link from "next/link";
 import React from "react";
 
@@ -31,7 +31,7 @@ const GitHubStatsCard = ({ stats, content }: GitHubStatsCardProps) => {
       className="flex w-full flex-col items-center gap-4"
     >
       <div className="flex items-center gap-2 text-[14px] font-semibold">
-        <Github size={18} />
+        <Icon name="github" className="size-[18px]" />
         <span>{content.githubLabel}</span>
       </div>
 

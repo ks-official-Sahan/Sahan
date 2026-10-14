@@ -50,6 +50,23 @@ export const aiEnvSchema = z.object({
   OPENROUTER_ALLOW_PAID_MODELS: flag,
   GEMINI_API_KEY: text,
   NVIDIA_API_KEY: text,
+  // More free tiers (./adapters). Groq: free plan, no card. Mistral: free
+  // Experiment plan, which may train on prompts, so it joins the chat chain
+  // only when AI_PROVIDER_ORDER_CHAT lists it. Cloudflare Workers AI: 10,000
+  // free neurons a day; needs the account id and a Workers AI token.
+  GROQ_API_KEY: text,
+  GROQ_MODEL: text,
+  BLOG_GROQ_MODEL: text,
+  CHAT_GROQ_MODEL: text,
+  MISTRAL_API_KEY: text,
+  MISTRAL_MODEL: text,
+  BLOG_MISTRAL_MODEL: text,
+  CHAT_MISTRAL_MODEL: text,
+  CLOUDFLARE_ACCOUNT_ID: text,
+  CLOUDFLARE_AI_API_TOKEN: text,
+  CLOUDFLARE_AI_MODEL: text,
+  BLOG_CLOUDFLARE_AI_MODEL: text,
+  CHAT_CLOUDFLARE_AI_MODEL: text,
 
   // Model overrides, all optional (models.ts): purpose variable, then the
   // provider-wide *_MODEL, then a verified free default.

@@ -1,11 +1,11 @@
 "use client";
 
+import Icon from "@/components/icons/Icon";
 import ServiceCard from "@/components/about/ServiceCard";
 import TabChip from "@/components/about/TabChip";
 import { MyServices } from "@/contents/service";
 import type { ServiceCategory } from "@/types/service";
 import type { PageContent } from "@/lib/cms/registry";
-import { ArrowUpRight } from "lucide-react";
 import Link from "next/link";
 import React, { useState } from "react";
 
@@ -60,11 +60,7 @@ const ServiceBox = ({ content, serviceGroups }: ServiceBoxProps) => {
           className="press arrow-nudge inline-flex min-h-12 items-center gap-2 rounded-full bg-bCHIPSELECTED px-7 text-[15px] font-semibold text-white dark:text-black"
         >
           {content.services.ctaLabel}
-          <ArrowUpRight
-            size={18}
-            aria-hidden="true"
-            className="arrow-nudge-icon"
-          />
+          <Icon name="arrow-up-right" className="size-[18px]" />
         </Link>
       </div>
     </div>

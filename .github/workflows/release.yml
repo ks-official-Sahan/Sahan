@@ -17,7 +17,7 @@ concurrency:
 jobs:
   release:
     name: Version or publish
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: write
       pull-requests: write
@@ -25,15 +25,18 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
+        with:
+          # changesets/action v2 pushes through the GitHub API with github-token.
+          persist-credentials: false
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
         with:
           version: 9
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: "24"
           registry-url: "https://registry.npmjs.org"
@@ -51,11 +54,12 @@ jobs:
         run: npm run verify:packages
 
       - name: Version PR or publish
-        uses: changesets/action@v1
+        # Opening the version PR needs Settings > Actions > General >
+        # "Allow GitHub Actions to create and approve pull requests".
+        uses: changesets/action@v2
         with:
-          version: pnpm changeset version
-          publish: pnpm changeset publish
-          title: "chore: version packages"
-          commit: "chore: version packages"
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          version-script: pnpm changeset version
+          publish-script: pnpm changeset publish
+          pr-title: "chore: version packages"
+          commit-message: "chore: version packages"
+          github-token: ${{ secrets.GITHUB_TOKEN }}
