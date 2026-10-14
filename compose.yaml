@@ -70,7 +70,7 @@ services:
   caddy:
     <<: *hardening
     profiles: [proxy]
-    image: caddy:2.10-alpine
+    image: caddy:2.11-alpine
     cap_add:
       - NET_BIND_SERVICE
     depends_on:
@@ -92,7 +92,7 @@ services:
   cron:
     <<: *hardening
     profiles: [cron]
-    image: busybox:1.37
+    image: busybox:1.38
     depends_on:
       app:
         condition: service_healthy
