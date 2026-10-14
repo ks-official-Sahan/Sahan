@@ -38,11 +38,18 @@ function etagMatches(header: string | null, etag: string): boolean {
  * the body), or a bodiless 304 when the client's If-None-Match already names
  * it. Revalidating clients and the CDN then skip the payload when nothing
  * changed.
+ *
+ * `tags` are the cache tags of the data behind the response (lib/cache/tags.ts),
+ * sent as `Vercel-Cache-Tag`. invalidate() already calls revalidateTag(tag,
+ * "max") for them, which on Vercel also marks every CDN copy carrying the tag
+ * stale, including each `?limit=`/`?cursor=` variant that revalidatePath on
+ * the bare path cannot reach. Without a tag a publish waits out s-maxage.
  */
-export function contentResponse(request: Request, data: unknown): NextResponse {
+export function contentResponse(request: Request, data: unknown, tags: readonly string[]): NextResponse {
   const body = JSON.stringify({ apiVersion: 1, data });
   const etag = `"${createHash("sha256").update(body).digest("base64url").slice(0, 32)}"`;
-  const headers = { ...CONTENT_CACHE_HEADERS, ETag: etag };
+  const headers: Record<string, string> = { ...CONTENT_CACHE_HEADERS, ETag: etag };
+  if (tags.length > 0) headers["Vercel-Cache-Tag"] = [...new Set(tags)].join(",");
   if (etagMatches(request.headers.get("if-none-match"), etag)) return new NextResponse(null, { status: 304, headers });
   return new NextResponse(body, { headers: { ...headers, "Content-Type": "application/json" } });
 }

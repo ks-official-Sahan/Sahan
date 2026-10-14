@@ -2,13 +2,14 @@ import { NextResponse } from "next/server";
 
 import { getPublishedServices } from "@/lib/collections";
 import { CONTENT_CORS_HEADERS, contentResponse, contentUnavailable, rejectUnknownParams } from "@/lib/api/content";
+import { TAGS } from "@/lib/cache/tags";
 import { timed } from "@/lib/observability/timing";
 
 export const GET = timed(async function GET(request: Request) {
   const rejected = rejectUnknownParams(request);
   if (rejected) return rejected;
   try {
-    return contentResponse(request, (await getPublishedServices()) ?? []);
+    return contentResponse(request, (await getPublishedServices()) ?? [], [TAGS.collection("services")]);
   } catch (error) {
     return contentUnavailable("services", error);
   }

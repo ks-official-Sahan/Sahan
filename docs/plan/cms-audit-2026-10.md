@@ -78,7 +78,7 @@ Browser -> Vercel CDN -> proxy.ts (every non-static path)
 | M1 (Fixed in #15) | `packages/auth-kit/src/cache/redis.ts:82`; `lib/cache/cached.ts` | The tag-version key gets its TTL only on creation (`EXPIRE NX`). After it expires, the counter restarts at 1 and can match data written before the purge, served stale for up to about 4 min. | Refresh the TTL on every bump, or use `SET tagversion = Date.now()`. |
 | M2 (Fixed in #16) | `lib/settings/kv.ts`; `proxy.ts:64-71` | During a Redis outage the failover memory store is empty, so maintenance reads off and the allowlist reads empty (fail-open). | Keep the last settled value. Add an env override and alert when `kvBackend()` is degraded. |
 | M3 (Fixed in #18) | `vercel.json`; `lib/blog/queries.ts` | Scheduled posts surface through read-time `publicNow()` plus stacked TTLs (ISR 300 + data 300 + Redis 300), so up to about 15 min late. The cron is daily. | Run the cron every 5 min, or clamp revalidate to the next `publishAt`. |
-| M4 (ETag/304 in #16; CDN tags open) | `lib/api/content.ts:10`; `lib/cache/plan.ts` | `revalidatePath('/api/content/v1/...')` does not purge the CDN for dynamic handlers (inferred). API consumers see up to 6 min of stale data. No ETag. | Add CDN cache tags with tag purge on publish. Add a content-hash ETag with 304 support. |
+| M4 (Fixed: ETag/304 in #16, CDN cache tags in #42) | `lib/api/content.ts:10`; `lib/cache/plan.ts` | `revalidatePath('/api/content/v1/...')` does not purge the CDN for dynamic handlers (inferred). API consumers see up to 6 min of stale data. No ETag. | Add CDN cache tags with tag purge on publish. Add a content-hash ETag with 304 support. |
 | M5 (Fixed in #16) | `app/api/content/v1/posts/route.ts` | Only cursor requests are rate limited. A random `?x=` busts the CDN key on every call, and `clientIp` ignores `authKit.trustProxy`. | Reject unknown query params. Pass `trustProxy`. Add a WAF rule on `/api/content/*`. |
 | M6 | `lib/cache/cached.ts` | The Redis layer duplicates Vercel's persistent data cache, adds up to 3 round trips per miss, and is the source of H3 and M1. No single-flight on cold keys. | Remove Redis from `cached()` on Vercel. Plan a move to `use cache` / `cacheTag` / `cacheLife` (`unstable_cache` is superseded in Next 16). |
 | M7 (Fixed in #23) | `lib/data/prisma/posts.ts:6-27` | List summaries select full `contentText` to cut a 200-char excerpt. Large pages risk the 2 MB cache item limit (then a silent miss on every request). | Store `excerpt` at write time and drop `contentText` from `SUMMARY_SELECT`. |
@@ -151,7 +151,7 @@ Browser -> Vercel CDN -> proxy.ts (every non-static path)
 **P1, correctness and cost (one or two PRs):**
 - M2: KV last-known-good value plus a degraded alert.
 - M3: 5-minute publish cron or `publishAt`-aware revalidate.
-- M4 and M5: CDN tags, ETag/304, query-param allowlist, `trustProxy`.
+- M4 and M5: CDN tags, ETag/304, query-param allowlist, `trustProxy`. (Done in #16 and #42.)
 - M7: stored excerpt. (Done in #23.)
 - M9 and M10: concurrency guards on collections and status changes.
 - M13: audit without body fields.
