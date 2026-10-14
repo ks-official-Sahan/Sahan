@@ -1,14 +1,18 @@
 name: Release packages
 
-# Publishes packages/* to npm with Changesets. A push to master with pending
-# changesets opens (or updates) a "Version packages" pull request; merging that
-# PR bumps versions, and the next run publishes. Publishing uses npm Trusted
-# Publishing (OIDC): configure this repository and this workflow file as the
-# trusted publisher of each package on npmjs.com. No NPM_TOKEN secret.
+# Publishes packages/* to npm with Changesets. Runs only when started by hand
+# (Actions > Release packages > Run workflow), never on a push: running on
+# every push to master failed at the "Version packages" pull request and
+# filled the inbox, and each attempt pushed bot branches that Vercel built.
+# A run with pending changesets opens (or updates) a "Version packages" pull
+# request; merging it bumps versions, and the next run publishes. Publishing
+# uses npm Trusted Publishing (OIDC): configure this repository and this
+# workflow file as the trusted publisher of each package on npmjs.com. No
+# NPM_TOKEN secret. Packages can also be versioned and published locally with
+# `pnpm changeset version` and `pnpm changeset publish`.
 
 on:
-  push:
-    branches: [master]
+  workflow_dispatch:
 
 concurrency:
   group: release-${{ github.ref }}
