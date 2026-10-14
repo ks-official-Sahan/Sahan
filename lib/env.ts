@@ -55,6 +55,8 @@ const schema = z.object({
   DIRECT_DATABASE_URL: text,
   UPSTASH_REDIS_REST_URL: text,
   UPSTASH_REDIS_REST_TOKEN: text,
+  // IANA zone for analytics day buckets (lib/analytics/store.ts), e.g. Asia/Colombo. Default UTC.
+  ANALYTICS_TIME_ZONE: text,
   // Unset: use Redis when both Upstash variables are valid. false/0/off: always in-memory.
   REDIS_ENABLED: text,
 
