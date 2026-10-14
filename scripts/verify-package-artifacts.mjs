@@ -142,6 +142,8 @@ try {
 
   const serverSmoke = [
     "@sahan-sac/ai-core",
+    "@sahan-sac/analytics-kit",
+    "@sahan-sac/analytics-kit/collect",
     "@sahan-sac/auth-kit",
     "@sahan-sac/auth-kit/rbac",
     "@sahan-sac/auth-kit/rbac/react",
@@ -158,7 +160,8 @@ try {
   run(process.execPath, ["--conditions=react-server", path.join(temp, "consumer", "server-smoke.mjs")]);
   await writeFile(
     path.join(temp, "consumer", "client-smoke.mjs"),
-    `await import("@sahan-sac/auth-kit-client");\n`
+    `await import("@sahan-sac/auth-kit-client");
+await import("@sahan-sac/analytics-kit/client");\n`
   );
   // Client integrations use React's default export conditions. The
   // react-server condition intentionally exposes React's server-only build,

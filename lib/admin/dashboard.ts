@@ -1,7 +1,8 @@
 import "server-only";
 
-import type { AnalyticsRange } from "@/lib/analytics/classify";
-import { readSiteAnalytics, type SiteAnalytics } from "@/lib/analytics/store";
+import type { AnalyticsRange, SiteAnalytics } from "@sahan-sac/analytics-kit";
+
+import { analytics } from "@/lib/analytics/store";
 import { hiddenAuditRole } from "@/lib/auth/mask";
 import type { RoleName } from "@/lib/auth/permissions";
 import { cached } from "@/lib/cache/cached";
@@ -195,7 +196,7 @@ const analyticsReaders = new Map<AnalyticsRange, () => Promise<SiteAnalytics | n
 export async function getSiteAnalytics(range: AnalyticsRange): Promise<SiteAnalytics | null> {
   let reader = analyticsReaders.get(range);
   if (!reader) {
-    reader = cached(() => readSiteAnalytics(range), ["admin", "dashboard", "analytics", String(range)], { tags: ["admin-dashboard"], revalidate: 60 });
+    reader = cached(() => analytics.read(range), ["admin", "dashboard", "analytics", String(range)], { tags: ["admin-dashboard"], revalidate: 60 });
     analyticsReaders.set(range, reader);
   }
   try {

@@ -38,6 +38,9 @@ importers:
       '@sahan-sac/ai-core':
         specifier: workspace:*
         version: link:packages/ai-core
+      '@sahan-sac/analytics-kit':
+        specifier: workspace:*
+        version: link:packages/analytics-kit
       '@sahan-sac/auth-kit':
         specifier: workspace:*
         version: link:packages/auth-kit
@@ -296,6 +299,24 @@ importers:
       '@types/node':
         specifier: ^22
         version: 22.20.4
+      tsup:
+        specifier: ^8.3.5
+        version: 8.5.1(jiti@2.7.0)(postcss@8.5.28)(supports-color@7.2.0)(tsx@4.23.15)(typescript@5.9.3)(yaml@2.9.1)
+      tsx:
+        specifier: ^4.23.15
+        version: 4.23.15
+      typescript:
+        specifier: ^5.6.3
+        version: 5.9.3
+
+  packages/analytics-kit:
+    devDependencies:
+      '@types/node':
+        specifier: ^22
+        version: 22.20.4
+      '@upstash/redis':
+        specifier: ^1.38.4
+        version: 1.39.0
       tsup:
         specifier: ^8.3.5
         version: 8.5.1(jiti@2.7.0)(postcss@8.5.28)(supports-color@7.2.0)(tsx@4.23.15)(typescript@5.9.3)(yaml@2.9.1)

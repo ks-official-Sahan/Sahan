@@ -33,6 +33,7 @@
     "@radix-ui/react-icons": "^1.3.0",
     "@radix-ui/react-slot": "^1.1.0",
     "@sahan-sac/ai-core": "workspace:*",
+    "@sahan-sac/analytics-kit": "workspace:*",
     "@sahan-sac/auth-kit": "workspace:*",
     "@sahan-sac/blog-kit": "workspace:*",
     "@sahan-sac/chat-kit": "workspace:*",
