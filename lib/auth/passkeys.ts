@@ -23,13 +23,16 @@ const production = process.env.NODE_ENV === "production";
 // The apex and its www twin both serve the site; the relying party is the apex.
 const apex = site.hostname.replace(/^www\./, "");
 
+/** The relying party id; the client compares it with its own address before offering a passkey. */
+export const PASSKEY_RP_ID = production ? apex : "localhost";
+
 export const passkeys = createPasskeys({
   adapter: authAdapter,
   mfa,
   authSecret: AUTH_SECRET,
   audit: (event, tx) => (tx ? audit(event, reposFor(tx)) : auditSafe(event)),
   rpName: SiteMetadata.title,
-  rpID: production ? apex : "localhost",
+  rpID: PASSKEY_RP_ID,
   origin: production ? [`https://${apex}`, `https://www.${apex}`] : ["http://localhost:3000", "http://localhost:3001"],
   // Passwordless challenges: one Redis key each, taken once (DEL count).
   challengeStore: {
