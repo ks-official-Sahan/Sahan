@@ -84,7 +84,7 @@ Browser -> Vercel CDN -> proxy.ts (every non-static path)
 | M7 (Fixed in #23) | `lib/data/prisma/posts.ts:6-27` | List summaries select full `contentText` to cut a 200-char excerpt. Large pages risk the 2 MB cache item limit (then a silent miss on every request). | Store `excerpt` at write time and drop `contentText` from `SUMMARY_SELECT`. |
 | M8 (Fixed in #15) | `lib/actions/works.ts:114-115,183-184` | `organization: x \|\| undefined` makes Prisma skip the field, so a project's organization and URL can never be cleared. | Map `""` to `null`. Check the other collections for the same pattern. |
 | M9 (Fixed in #17) | `lib/actions/works.ts` (collections) | Edits to published rows go live immediately with no `updatedAt` guard (last write wins). | Add `updateIfUnchanged`. Optionally add a draft layer. |
-| M10 (guard in #16; revision open) | `lib/actions/blog.ts:430-449` | Status changes are unconditional and write no revision. | Guard on `updatedAt` and record a revision. |
+| M10 (Fixed: guard in #16; status history in the audit log, linked from History in #43) | `lib/actions/blog.ts:430-449` | Status changes are unconditional and write no revision. | Guard on `updatedAt` and record a revision. |
 | M11 (Fixed in #23) | `lib/actions/blog.ts` (slug edit) | A changed slug leaves the old URL as a 404 (no slug history or redirects). | Add a `PostSlugHistory` table with a 308 redirect in the post route. |
 | M12 | `prisma/schema.prisma`; `package.json` | `db push` only, no migration history. The "one DRAFT + one PUBLISHED per block" rule is enforced in code only. | Adopt `prisma migrate` with a CI diff check, and add a partial unique index. |
 | M13 (Fixed in #16) | `lib/admin/audit.ts`; `lib/actions/blog.ts` | The audit row stores full post bodies before and after (up to about 200 KB each) on top of revisions. | Omit body fields from the audit row (revisions hold them) or audit a diff. |
@@ -153,7 +153,7 @@ Browser -> Vercel CDN -> proxy.ts (every non-static path)
 - M3: 5-minute publish cron or `publishAt`-aware revalidate.
 - M4 and M5: CDN tags, ETag/304, query-param allowlist, `trustProxy`. (Done in #16 and #42.)
 - M7: stored excerpt. (Done in #23.)
-- M9 and M10: concurrency guards on collections and status changes.
+- M9 and M10: concurrency guards on collections and status changes. (Done in #16, #17 and #43. A status change keeps the content, so it is recorded in the audit log in the same transaction rather than as a content revision; the post's History card links to it.)
 - M13: audit without body fields.
 - Settings tags in "Clear cache".
 
