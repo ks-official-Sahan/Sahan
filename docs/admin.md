@@ -44,12 +44,21 @@ The admin panel is hidden behind two independent gates, both enforced in
 `proxy.ts` before any page renders:
 
 1. **Unlock.** `/admin` answers a 404-shaped "locked" page to anyone without
-   a valid unlock cookie. Get one by visiting
-   `https://<site>/admin?secret=<ADMIN_LOGIN_UNLOCK_SECRET>` once — the query
-   string is stripped and a signed, httpOnly cookie is set for 2 hours.
-   Unlock attempts are rate-limited per IP; repeated wrong secrets lock you
-   out for a while. With `ADMIN_LOGIN_UNLOCK_SECRET` unset this gate is off:
+   a valid unlock cookie (signed, httpOnly, 2 hours). Two ways to get one:
+   - a **sign-in link** (below), the everyday way;
+   - the **break-glass form** at `ADMIN_UNLOCK_PATH`, for when no valid link
+     is at hand (expired, email down). Type `ADMIN_LOGIN_UNLOCK_SECRET` into
+     its password field (or let a password manager fill it; it is saved for
+     the username `admin-unlock`). The form POSTs, so the secret never lands
+     in a URL, browser history, address-bar suggestions or request logs.
+   Both are rate-limited per IP; repeated wrong secrets lock you out for a
+   while. With `ADMIN_LOGIN_UNLOCK_SECRET` unset this gate is off:
    `/admin/login` is public and only the sign-in gate below applies.
+
+   The old `https://<site>/admin?secret=<ADMIN_LOGIN_UNLOCK_SECRET>` link
+   works only while `ADMIN_UNLOCK_PATH` is unset, and logs a warning each
+   time. It leaves the secret in browser history and logs: set
+   `ADMIN_UNLOCK_PATH`, then rotate `ADMIN_LOGIN_UNLOCK_SECRET`.
 2. **Sign in.** Once unlocked, `/admin/login` is a normal email + password
    form (plus MFA if the account has it turned on, from `/admin/account`).
    A wrong password does not reveal whether the email exists.

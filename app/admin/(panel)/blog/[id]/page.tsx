@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 
 import { blogAiEnabled, blogAiImagesEnabled } from "@/lib/ai/availability";
+import { auditQueryString } from "@/lib/admin/audit-filters";
 import { hasPermission, requirePermission } from "@/lib/auth/dal";
 import { repos } from "@/lib/data";
 import { SiteMetadata } from "@/config/site";
@@ -41,6 +42,10 @@ export default async function EditBlogPostPage({ params }: { params: Promise<{ i
   const canDelete = hasPermission(user, "deleteBlog");
   const siteUrl = new URL(SiteMetadata.siteUrl).host;
   const canUseAi = hasPermission(user, "generateAI") && blogAiEnabled();
+  // Status changes live in the audit log, not in revisions (RevisionHistoryCard).
+  const activityHref = hasPermission(user, "viewAuditLogs")
+    ? `/admin/audit${auditQueryString({ entityType: "Post", entityId: post.id })}`
+    : undefined;
 
   // A restore writes a "restore" revision; keying the editor on the newest
   // one remounts it with the restored fields. An ordinary save never changes
@@ -81,7 +86,7 @@ export default async function EditBlogPostPage({ params }: { params: Promise<{ i
         historyPanel={
           <>
             <ShareLinkCard postId={post.id} />
-            <RevisionHistoryCard postId={post.id} revisions={revisions} />
+            <RevisionHistoryCard postId={post.id} revisions={revisions} activityHref={activityHref} />
           </>
         }
         post={{

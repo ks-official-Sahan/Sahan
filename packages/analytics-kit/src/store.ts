@@ -2,9 +2,9 @@ import { createHash, randomBytes } from "node:crypto";
 
 import type { Redis } from "@upstash/redis";
 
-import { lastDays, RETENTION_DAYS, utcDay, type AnalyticsRange, type Device } from "./classify";
+import { dayIn, lastDays, RETENTION_DAYS, validTimeZone, type AnalyticsRange, type Device } from "./classify";
 
-// First-party analytics on Redis. Per UTC day:
+// First-party analytics on Redis. Per day (UTC, or the `timeZone` option's calendar):
 //   a:{day}:n  hash    pv, d:<device>, b:<browser>, o:<os>, c:<country>
 //   a:{day}:u  HLL     daily visitor ids (unique visitors, ~0.8% error)
 //   a:{day}:p  zset    path -> views
@@ -61,6 +61,14 @@ export interface AnalyticsStoreOptions {
   /** Prepended to every key, so one Redis can serve several apps ("myapp:"). */
   prefix?: string;
   log?: AnalyticsLogger;
+  /**
+   * IANA zone whose calendar days the counts are bucketed by (default UTC),
+   * so "today" on the dashboard is the owner's today. The daily visitor salt
+   * rotates on the same boundary, so one visitor is one id per bucket.
+   * Changing it later starts the new boundary from then on; past days keep
+   * the boundary they were written with.
+   */
+  timeZone?: string;
 }
 
 export interface AnalyticsStore {
@@ -143,6 +151,12 @@ export function createAnalyticsStore(options: AnalyticsStoreOptions): AnalyticsS
   const redisOf = () => (typeof options.redis === "function" ? options.redis() : options.redis);
   const key = (...parts: string[]) => `${prefix}a:${parts.join(":")}`;
   const ttl = RETENTION_DAYS * 86_400;
+  let timeZone = options.timeZone?.trim() || undefined;
+  if (timeZone && !validTimeZone(timeZone)) {
+    options.log?.warn("analytics timeZone is not a known IANA zone; using UTC", { timeZone });
+    timeZone = undefined;
+  }
+  const today = (now: number, offset = 0) => dayIn(now, offset, timeZone);
   // One salt per day per process; every process agrees through SET NX.
   let salt: { day: string; value: string } | null = null;
 
@@ -163,7 +177,7 @@ export function createAnalyticsStore(options: AnalyticsStoreOptions): AnalyticsS
     async visitorId(ip, userAgent, now = Date.now()) {
       const redis = redisOf();
       if (!redis) return null;
-      const daySalt = await dailySalt(redis, utcDay(now));
+      const daySalt = await dailySalt(redis, today(now));
       if (!daySalt) return null;
       return createHash("sha256").update(`${daySalt}\n${ip}\n${userAgent}`).digest("hex").slice(0, 16);
     },
@@ -171,7 +185,7 @@ export function createAnalyticsStore(options: AnalyticsStoreOptions): AnalyticsS
     async record(view, now = Date.now()) {
       const redis = redisOf();
       if (!redis) return;
-      const day = utcDay(now);
+      const day = today(now);
       const [n, u, p, r, live] = [key(day, "n"), key(day, "u"), key(day, "p"), key(day, "r"), key("live")];
       try {
         const pipe = redis
@@ -205,8 +219,8 @@ export function createAnalyticsStore(options: AnalyticsStoreOptions): AnalyticsS
     async read(range, now = Date.now()) {
       const redis = redisOf();
       if (!redis) return null;
-      const days = lastDays(now, range);
-      const previous = lastDays(now, range, range).filter((day) => day >= utcDay(now, RETENTION_DAYS));
+      const days = lastDays(now, range, 0, timeZone);
+      const previous = lastDays(now, range, range, timeZone).filter((day) => day >= today(now, RETENTION_DAYS));
       const nonce = randomBytes(6).toString("hex");
       const [pagesTmp, refsTmp] = [key("tmp", nonce, "p"), key("tmp", nonce, "r")];
 

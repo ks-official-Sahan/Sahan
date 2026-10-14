@@ -16,6 +16,9 @@ import {
   type SecurityState,
 } from "@/lib/actions/security";
 import { toast } from "@/lib/admin/toast";
+import { passkeyErrorMessage, unsupportedReason } from "@/lib/auth/passkey-browser";
+
+import { usePasskeySupport, usePreparedOptions } from "../auth/use-passkey";
 
 const idle: SecurityState = { ok: false, error: null, message: null };
 
@@ -89,7 +92,7 @@ function RecoveryCodes({ codes, onDone }: { codes: string[]; onDone: () => void 
       <p className="text-sm text-muted-foreground">
         Each one signs you in once if you lose your authenticator app or passkey. Keep them somewhere safe, like a password manager.
       </p>
-      <ol className="grid grid-cols-2 gap-2 font-mono text-sm sm:grid-cols-5">
+      <ol className="grid grid-cols-2 gap-2 font-mono text-sm s640:grid-cols-5">
         {codes.map((code) => (
           <li key={code} className="rounded border border-border bg-background px-2 py-1 text-center">
             {code}
@@ -184,28 +187,54 @@ function AuthenticatorApp({ enabled, onCodes }: { enabled: boolean; onCodes: (co
   );
 }
 
-function Passkeys({ list, onCodes }: { list: PasskeyView[]; onCodes: (codes: string[]) => void }) {
+type RegistrationOptions = Extract<Awaited<ReturnType<typeof passkeyRegistrationOptionsAction>>, { ok: true }>;
+const UNREACHABLE = "Could not reach the server. Check your connection and try again.";
+
+function Passkeys({ list, onCodes, rpId }: { list: PasskeyView[]; onCodes: (codes: string[]) => void; rpId: string }) {
   const [name, setName] = useState("");
   const [result, setResult] = useState<SecurityState>(idle);
   const [pending, start] = useTransition();
+  const support = usePasskeySupport(rpId);
   useResult(result, onCodes);
+  // Options are fetched before the tap so the prompt opens inside it (iOS
+  // Safari drops the tap's user activation behind a network round trip).
+  const prepared = usePreparedOptions<RegistrationOptions>(support === "ready" ? "register" : null, async () => {
+    const options = await passkeyRegistrationOptionsAction();
+    return options.ok ? options : null;
+  });
 
   function add() {
+    const ready = prepared.take();
     start(async () => {
-      const options = await passkeyRegistrationOptionsAction();
-      if (!options.ok) {
-        setResult({ ...idle, error: options.error });
-        return;
-      }
       try {
-        const response = await startRegistration({ optionsJSON: options.options as Parameters<typeof startRegistration>[0]["optionsJSON"] });
-        setResult(await verifyPasskeyRegistrationAction({ challengeId: options.challengeId, response, name }));
-        setName("");
-      } catch {
-        setResult({ ...idle, error: "The passkey prompt was closed or is not available on this device." });
+        await register(ready);
+      } finally {
+        prepared.refresh();
       }
     });
   }
+
+  async function register(ready: RegistrationOptions | null) {
+    let options = ready;
+    if (!options) {
+      const fetched = await passkeyRegistrationOptionsAction().catch(() => null);
+      if (!fetched) return setResult({ ...idle, error: UNREACHABLE });
+      if (!fetched.ok) return setResult({ ...idle, error: fetched.error });
+      options = fetched;
+    }
+    let response: Awaited<ReturnType<typeof startRegistration>>;
+    try {
+      response = await startRegistration({ optionsJSON: options.options as Parameters<typeof startRegistration>[0]["optionsJSON"] });
+    } catch (failure) {
+      return setResult({ ...idle, error: passkeyErrorMessage(failure, rpId, "add") });
+    }
+    const challengeId = options.challengeId;
+    const verified = await verifyPasskeyRegistrationAction({ challengeId, response, name }).catch(() => null);
+    setResult(verified ?? { ...idle, error: UNREACHABLE });
+    if (verified?.ok) setName("");
+  }
+
+  const blocked = support !== null && support !== "ready" ? unsupportedReason(support, rpId) : null;
 
   return (
     <Row title="Passkeys" status={list.length === 0 ? "None" : `${list.length} added`}>
@@ -221,7 +250,7 @@ function Passkeys({ list, onCodes }: { list: PasskeyView[]; onCodes: (codes: str
                   {passkey.lastUsed ? `, last used ${passkey.lastUsed}` : ", not used yet"}
                 </p>
               </div>
-              <div className="w-full sm:w-auto">
+              <div className="w-full s640:w-auto">
                 <ConfirmWithPassword label="Remove" action={removePasskeyAction} hidden={{ id: passkey.id }} onCodes={onCodes} />
               </div>
             </li>
@@ -233,23 +262,35 @@ function Passkeys({ list, onCodes }: { list: PasskeyView[]; onCodes: (codes: str
           <span>Name (optional)</span>
           <input value={name} onChange={(event) => setName(event.target.value)} maxLength={60} placeholder="Work laptop" className={fieldClass} />
         </label>
-        <button type="button" onClick={add} disabled={pending} className={buttonVariants.small}>
+        <button type="button" onClick={add} disabled={pending || blocked !== null} className={buttonVariants.small}>
           <Pending pending={pending} idle="Add a passkey" busy="Waiting..." />
         </button>
       </div>
+      {blocked ? <p className="text-sm text-muted-foreground">{blocked}</p> : null}
       <ErrorLine state={result} />
     </Row>
   );
 }
 
-export default function SecurityFactors({ totp, passkeys, recoveryCodesLeft }: { totp: boolean; passkeys: PasskeyView[]; recoveryCodesLeft: number }) {
+export default function SecurityFactors({
+  totp,
+  passkeys,
+  recoveryCodesLeft,
+  rpId,
+}: {
+  totp: boolean;
+  passkeys: PasskeyView[];
+  recoveryCodesLeft: number;
+  /** The passkey relying party (lib/auth/passkeys.ts). */
+  rpId: string;
+}) {
   const [codes, setCodes] = useState<string[] | null>(null);
   const strong = totp || passkeys.length > 0;
   return (
     <div className="space-y-4">
       {codes ? <RecoveryCodes codes={codes} onDone={() => setCodes(null)} /> : null}
       <AuthenticatorApp enabled={totp} onCodes={setCodes} />
-      <Passkeys list={passkeys} onCodes={setCodes} />
+      <Passkeys list={passkeys} onCodes={setCodes} rpId={rpId} />
       {strong ? (
         <Row title="Recovery codes" status={`${recoveryCodesLeft} left`}>
           <p className="text-sm text-muted-foreground">

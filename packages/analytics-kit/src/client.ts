@@ -11,6 +11,17 @@ export function trackingAllowed(): boolean {
 
 let lastPath: string | null = null;
 let sentFirst = false;
+let ignoredPath: string | null = null;
+
+/**
+ * Marks `path` as not a page view: call it from a not-found (404) page, so
+ * mistyped and stale URLs never reach "Top pages". It may run before or
+ * after trackPageView in the same render: the view is sent a microtask
+ * later and checked then.
+ */
+export function ignorePageView(path: string): void {
+  ignoredPath = path;
+}
 
 export interface TrackOptions {
   /** The collect endpoint. Default "/api/collect". */
@@ -25,13 +36,16 @@ export interface TrackOptions {
 export function trackPageView(path: string, options: TrackOptions = {}): void {
   if (!path || path === lastPath || !trackingAllowed()) return;
   lastPath = path;
-  const body = JSON.stringify({ p: path, r: sentFirst ? undefined : document.referrer });
-  sentFirst = true;
-  fetch(options.endpoint ?? "/api/collect", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body,
-    keepalive: true,
-    credentials: "omit",
-  }).catch(() => {});
+  queueMicrotask(() => {
+    if (path === ignoredPath) return;
+    const body = JSON.stringify({ p: path, r: sentFirst ? undefined : document.referrer });
+    sentFirst = true;
+    fetch(options.endpoint ?? "/api/collect", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body,
+      keepalive: true,
+      credentials: "omit",
+    }).catch(() => {});
+  });
 }

@@ -3,6 +3,7 @@ import { after } from "next/server";
 import { createCollectHandler } from "@sahan-sac/analytics-kit/collect";
 
 import { analytics } from "@/lib/analytics/store";
+import { authKit } from "@/lib/auth/kit-config";
 import { limit } from "@/lib/cache/ratelimit";
 import { getEnv } from "@/lib/env";
 import { log } from "@/lib/log";
@@ -23,7 +24,9 @@ function hostOf(url: string | undefined): string | null {
 
 const collect = createCollectHandler({
   store: analytics,
-  clientIp: (request) => clientIp(request.headers),
+  // The same proxy trust as the rest of the app, so the visitor id hashes the
+  // visitor's address, not a proxy's (every visitor would merge into one).
+  clientIp: (request) => clientIp(request.headers, authKit.trustProxy),
   siteHosts: [hostOf(process.env.SITE_URL)],
   allow: async (visitor) => (await limit("collect:visitor", visitor)).ok,
   defer: (task) => after(task),
