@@ -25,12 +25,18 @@ export function unlockFormPath(raw: string | undefined): string | null {
 /** Largest POST body read from the form; the secret is short. */
 export const UNLOCK_FORM_MAX_BYTES = 2048;
 
-/** Headers for the form page: never cached, indexed, framed or referred on. */
+/**
+ * Headers for the form page: never cached, indexed or framed, and never
+ * referred to another site. The referrer policy is `same-origin`, not
+ * `no-referrer`: under `no-referrer` a browser sends `Origin: null` on the
+ * form's own POST (Fetch spec, "append a request Origin header"), which the
+ * proxy's same-origin check refuses, so every unlock attempt came back 404.
+ */
 export const UNLOCK_FORM_HEADERS: Readonly<Record<string, string>> = {
   "Content-Type": "text/html; charset=utf-8",
   "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
   "X-Robots-Tag": "noindex, nofollow, nocache",
-  "Referrer-Policy": "no-referrer",
+  "Referrer-Policy": "same-origin",
   "X-Frame-Options": "DENY",
   "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'",
 };
@@ -44,7 +50,7 @@ export function unlockFormHtml({ action, failed }: { action: string; failed: boo
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex, nofollow">
-  <meta name="referrer" content="no-referrer">
+  <meta name="referrer" content="same-origin">
   <title>Unlock</title>
   <style>
     :root{color-scheme:light dark;--bg:#fafafa;--card:#fff;--fg:#0a0a0a;--muted:#525252;--border:#e5e5e5;--accent:#0a0a0a;--accent-fg:#fafafa;--error:#b91c1c}

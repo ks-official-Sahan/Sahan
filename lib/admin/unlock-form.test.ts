@@ -28,7 +28,8 @@ test("the form posts a password field to its own path and never puts the secret 
 
 test("the page is never cached, indexed, framed or referred on", () => {
   assert.match(UNLOCK_FORM_HEADERS["Cache-Control"], /no-store/);
-  assert.equal(UNLOCK_FORM_HEADERS["Referrer-Policy"], "no-referrer");
+  // no-referrer makes the browser send Origin: null on the form's POST, which fails the origin check.
+  assert.equal(UNLOCK_FORM_HEADERS["Referrer-Policy"], "same-origin");
   assert.match(UNLOCK_FORM_HEADERS["Content-Security-Policy"], /form-action 'self'/);
   assert.match(UNLOCK_FORM_HEADERS["Content-Security-Policy"], /frame-ancestors 'none'/);
 });
