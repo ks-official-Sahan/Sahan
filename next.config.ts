@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 
 import { SECURITY_HEADERS } from "./lib/security/headers";
+import { deliveryPatterns, storageAccountsFromEnv } from "./packages/media-kit/src/accounts";
 import { buildPublicCsp } from "./lib/security/public-csp";
 
 const dev = process.env.NODE_ENV !== "production";
@@ -68,19 +69,14 @@ const nextConfig: NextConfig = {
         port: "",
         pathname: "/**",
       },
-      // Only this site's own Cloudinary cloud. Without a cloud name there are
-      // no Cloudinary images to serve, and a "**" fallback would let the
-      // optimizer fetch from any Cloudinary account.
-      ...(process.env.CLOUDINARY_CLOUD_NAME
-        ? [
-            {
-              protocol: "https" as const,
-              hostname: "res.cloudinary.com",
-              port: "",
-              pathname: `/${process.env.CLOUDINARY_CLOUD_NAME}/**`,
-            },
-          ]
-        : []),
+      // Only this site's own media accounts: each Cloudinary cloud's path and
+      // each bucket's public base. A "**" fallback would let the optimizer
+      // fetch from anyone's account on a shared host.
+      ...deliveryPatterns(storageAccountsFromEnv(process.env).accounts).map((pattern) => ({
+        protocol: "https" as const,
+        port: "",
+        ...pattern,
+      })),
     ],
   },
   experimental: {

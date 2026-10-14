@@ -91,13 +91,17 @@ export function mediaRepo(client: DbClient): MediaRepo {
     create(input) {
       return client.mediaAsset.create({ data: input });
     },
-    async existsByPublicId(provider, publicId) {
-      const row = await client.mediaAsset.findUnique({ where: { provider_publicId: { provider, publicId } }, select: { id: true } });
+    async existsByPublicId(provider, accountId, publicId) {
+      const row = await client.mediaAsset.findUnique({ where: { provider_accountId_publicId: { provider, accountId, publicId } }, select: { id: true } });
       return row !== null;
+    },
+    async bytesByAccount() {
+      const groups = await client.mediaAsset.groupBy({ by: ["accountId"], where: { provider: { not: "LOCAL" } }, _sum: { sizeBytes: true } });
+      return Object.fromEntries(groups.map((group) => [group.accountId, group._sum.sizeBytes ?? 0]));
     },
     async createIfMissing(input) {
       await client.mediaAsset.upsert({
-        where: { provider_publicId: { provider: input.provider, publicId: input.publicId } },
+        where: { provider_accountId_publicId: { provider: input.provider, accountId: input.accountId ?? "cloudinary", publicId: input.publicId } },
         create: input,
         update: {},
       });

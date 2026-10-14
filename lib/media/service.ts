@@ -1,13 +1,16 @@
 import "server-only";
 
-import { MEDIA_CONFIG, getMediaKind } from "@sahan-sac/media-kit/config";
-import type { CloudinaryClient } from "@sahan-sac/media-kit/cloudinary";
+import { LEGACY_ACCOUNT_ID } from "@sahan-sac/media-kit/accounts";
+import { contentTypeFor, getMediaKind } from "@sahan-sac/media-kit/config";
+import { withFailover } from "@sahan-sac/media-kit/storage";
 import { validateMediaUpload, validateMediaMetadata } from "@sahan-sac/media-kit/validation";
 
 import { audit } from "@/lib/admin/audit";
 import { repos, withTx, type Repos } from "@/lib/data";
 import { log } from "@/lib/log";
+import { fileStore } from "@/lib/media/files";
 import { MEDIA_UPLOAD_FOLDER } from "@/lib/media/folder";
+import { candidatesFor, findAccount, forgetUsage, markFull, providerOf } from "@/lib/media/storage";
 import { normalizeTags } from "@/lib/media/tags";
 
 const IMAGE_MIME_FORMATS: Record<string, string> = {
@@ -23,7 +26,8 @@ export interface RegisterUploadInput {
   publicId: string;
   folder: string;
   alt?: string;
-  cloudinaryClient: CloudinaryClient;
+  /** The storage account the browser uploaded to; omitted means the legacy Cloudinary account. */
+  accountId?: string;
 }
 
 export interface UpdateMediaInput {
@@ -47,74 +51,60 @@ export interface RecordUsageInput {
   field: string;
 }
 
-// Register an uploaded asset from Cloudinary: fetch metadata, validate, create DB row.
-// If validation fails, delete the asset from Cloudinary and return error.
+// Register a file the browser uploaded to one storage account: read what is
+// really stored there, validate it, create the DB row. A file that fails
+// validation is deleted from that account again.
 // Alt text is required for images and must be set immediately after upload (validated by recordMediaUsage).
 export async function registerUpload(
   input: RegisterUploadInput,
   actor: { id: string; email: string }
 ): Promise<{ ok: false; error: string } | { ok: true; asset: { id: string; url: string } }> {
-  const { publicId, folder, alt, cloudinaryClient } = input;
+  const { publicId, folder, alt } = input;
+  const account = findAccount(input.accountId ?? LEGACY_ACCOUNT_ID);
+  if (!account) return { ok: false, error: "That storage account is not configured on this server." };
+  const store = fileStore(account);
+  const provider = providerOf(account);
+  const discard = async (error: string) => {
+    await store.remove(publicId).catch((cleanupError: unknown) => log.warn("media register cleanup failed", { accountId: account.id, publicId, error: String(cleanupError) }));
+    return { ok: false as const, error };
+  };
 
   try {
-    // Fetch asset metadata from Cloudinary Admin API
-    const cloudinaryAsset = await cloudinaryClient.getAsset(publicId);
-    if (!cloudinaryAsset) {
-      return { ok: false, error: "Asset not found in Cloudinary. Upload may have failed." };
-    }
+    const stored = await store.inspect(publicId);
+    if (!stored) return { ok: false, error: "The uploaded file was not found in the media store. The upload may have failed." };
 
-    // Validate folder matches upload folder (safety check)
-    if (cloudinaryAsset.folder !== MEDIA_UPLOAD_FOLDER) {
-      await cloudinaryClient.deleteAsset(publicId);
-      return { ok: false, error: `File uploaded to wrong folder: ${cloudinaryAsset.folder}` };
-    }
+    // The file must be in the upload folder, and the caller must say so too.
+    if (stored.folder !== MEDIA_UPLOAD_FOLDER) return discard(`File uploaded to wrong folder: ${stored.folder}`);
+    if (folder !== MEDIA_UPLOAD_FOLDER) return discard("Folder parameter does not match the stored folder");
 
-    // Validate folder parameter matches
-    if (folder !== MEDIA_UPLOAD_FOLDER) {
-      await cloudinaryClient.deleteAsset(publicId);
-      return { ok: false, error: `Folder parameter does not match Cloudinary folder` };
-    }
-
-    // Determine media kind and validate type and size
     let mediaKind;
     try {
-      mediaKind = getMediaKind(cloudinaryAsset.format);
+      mediaKind = getMediaKind(stored.format);
     } catch {
-      await cloudinaryClient.deleteAsset(publicId);
-      return { ok: false, error: `File type .${cloudinaryAsset.format} is not supported` };
+      return discard(`File type .${stored.format} is not supported`);
     }
 
-    const validation = validateMediaUpload(
-      `file.${cloudinaryAsset.format}`,
-      cloudinaryAsset.bytes,
-      folder
-    );
-    if (!validation.ok) {
-      await cloudinaryClient.deleteAsset(publicId);
-      const errorMsg = validation.errors?.[0]?.message || "File validation failed";
-      return { ok: false, error: errorMsg };
-    }
+    const validation = validateMediaUpload(`file.${stored.format}`, stored.bytes, folder);
+    if (!validation.ok) return discard(validation.errors?.[0]?.message || "File validation failed");
 
     const metadataValidation = validateMediaMetadata(alt, undefined, mediaKind);
-    if (!metadataValidation.ok) {
-      await cloudinaryClient.deleteAsset(publicId);
-      return { ok: false, error: metadataValidation.errors?.[0]?.message || "Alt text is required for images." };
-    }
+    if (!metadataValidation.ok) return discard(metadataValidation.errors?.[0]?.message || "Alt text is required for images.");
 
-    // Create the asset record and its audit row atomically: Cloudinary work
-    // (fetch, validate, and any cleanup delete above) is already done by this
-    // point, so nothing here can leave an audit row for an upload that did
-    // not actually get registered.
+    // Create the asset record and its audit row atomically: the store work
+    // (inspect, validate, and any cleanup delete above) is already done by
+    // this point, so nothing here can leave an audit row for an upload that
+    // did not actually get registered.
     const asset = await withTx(async (tx) => {
       const created = await tx.media.create({
-        provider: "CLOUDINARY",
+        provider,
+        accountId: account.id,
         kind: mediaKind,
         publicId,
-        url: cloudinaryAsset.secure_url,
-        format: cloudinaryAsset.format,
-        width: cloudinaryAsset.width,
-        height: cloudinaryAsset.height,
-        sizeBytes: cloudinaryAsset.bytes,
+        url: stored.url,
+        format: stored.format,
+        width: stored.width,
+        height: stored.height,
+        sizeBytes: stored.bytes,
         alt: alt || (mediaKind === "IMAGE" ? "" : null), // Empty string for image, null for document
         folder,
         createdById: actor.id,
@@ -126,7 +116,7 @@ export async function registerUpload(
           actor,
           entityType: "MediaAsset",
           entityId: created.id,
-          after: { publicId, format: cloudinaryAsset.format, sizeBytes: cloudinaryAsset.bytes },
+          after: { accountId: account.id, publicId, format: stored.format, sizeBytes: stored.bytes },
         },
         tx
       );
@@ -134,23 +124,24 @@ export async function registerUpload(
       return created;
     });
 
+    forgetUsage();
     return { ok: true, asset: { id: asset.id, url: asset.url } };
   } catch (error) {
-    log.error("media register failed", { publicId, error: error instanceof Error ? error.message : String(error) });
-    // The file is already in Cloudinary. Delete it only when no row owns it:
-    // a unique violation means one does, and so may a transaction that
+    log.error("media register failed", { accountId: account.id, publicId, error: error instanceof Error ? error.message : String(error) });
+    // The file is already stored. Delete it only when no row owns it: a
+    // unique violation means one does, and so may a transaction that
     // committed before the connection failed, or an earlier registration of
-    // the same publicId (getAsset failing before any write). When the check
+    // the same file (inspect failing before any write). When the check
     // itself fails, keep the file: an orphan is cheaper than a broken asset.
     const owned =
       (error as { code?: unknown } | null)?.code === "P2002" ||
-      (await repos.media.existsByPublicId("CLOUDINARY", publicId).catch(() => true));
+      (await repos.media.existsByPublicId(provider, account.id, publicId).catch(() => true));
     if (!owned) {
-      const deleted = await cloudinaryClient.deleteAsset(publicId).catch((cleanupError: unknown) => {
-        log.warn("media register cleanup failed", { publicId, error: String(cleanupError) });
+      const deleted = await store.remove(publicId).catch((cleanupError: unknown) => {
+        log.warn("media register cleanup failed", { accountId: account.id, publicId, error: String(cleanupError) });
         return null;
       });
-      if (deleted === false) log.warn("media register cleanup failed", { publicId, error: "Cloudinary refused the delete" });
+      if (deleted === false) log.warn("media register cleanup failed", { accountId: account.id, publicId, error: "The store refused the delete" });
     }
     return { ok: false, error: "Failed to register uploaded media" };
   }
@@ -163,13 +154,13 @@ export interface RegisterGeneratedImageInput {
   alt: string;
   title?: string;
   folder: string;
-  cloudinaryClient: CloudinaryClient;
 }
 
 /**
- * Uploads an AI-generated image (already in memory, never a browser file) to
- * Cloudinary and registers it as a MediaAsset, the same way registerUpload()
- * does for a widget upload — so a generated image is a real, reusable media
+ * Stores an AI-generated image (already in memory, never a browser file) on
+ * the first storage account that takes it, moving on past full or failing
+ * accounts, and registers it as a MediaAsset the same way registerUpload()
+ * does for a browser upload, so a generated image is a real, reusable media
  * asset with required alt text, not a one-off URL the post alone knows
  * about.
  */
@@ -178,72 +169,81 @@ export async function registerGeneratedImage(
   actor: { id: string; email: string }
 ): Promise<{ ok: false; error: string } | { ok: true; asset: { id: string; url: string } }> {
   const format = IMAGE_MIME_FORMATS[input.mimeType.toLowerCase()];
-  if (!format) return { ok: false, error: `Unsupported image type: ${input.mimeType}` };
+  const contentType = format ? contentTypeFor(format) : null;
+  if (!format || !contentType) return { ok: false, error: `Unsupported image type: ${input.mimeType}` };
 
   const altValidation = validateMediaMetadata(input.alt, input.title, "IMAGE");
   if (!altValidation.ok) {
     return { ok: false, error: altValidation.errors?.[0]?.message || "Invalid alt text" };
   }
 
-  let buffer: Buffer;
+  let bytes: Buffer;
   try {
-    buffer = Buffer.from(input.base64, "base64");
+    bytes = Buffer.from(input.base64, "base64");
   } catch {
     return { ok: false, error: "The generated image data was invalid." };
   }
 
-  const sizeValidation = validateMediaUpload(`generated.${format}`, buffer.length, input.folder);
+  const sizeValidation = validateMediaUpload(`generated.${format}`, bytes.length, input.folder);
   if (!sizeValidation.ok) {
     return { ok: false, error: sizeValidation.errors?.[0]?.message || "Generated image failed validation" };
   }
 
-  const uploaded = await input.cloudinaryClient.uploadBase64({
-    dataUri: `data:${input.mimeType};base64,${input.base64}`,
-    folder: input.folder,
-  });
-  if (!uploaded) return { ok: false, error: "Uploading the generated image to the media store failed." };
+  let placed;
+  try {
+    placed = await withFailover(await candidatesFor(bytes.length), (account) => fileStore(account).put({ bytes, format, contentType, folder: input.folder }), {
+      onFull: (account) => markFull(account),
+      onProblem: (message, meta) => log.warn(message, meta),
+    });
+  } catch (error) {
+    log.error("generated image upload failed", { error: error instanceof Error ? error.message : String(error) });
+    return { ok: false, error: "Uploading the generated image to the media store failed." };
+  }
+  const { account, value: stored } = placed;
 
   // Create the row and its audit entry atomically so a rolled-back write
   // never leaves an audit row behind, matching registerUpload()'s transaction
-  // above. If that fails, the Cloudinary upload is removed again rather than
-  // left as an orphan no MediaAsset row points at.
+  // above. If that fails, the stored file is removed again rather than left
+  // as an orphan no MediaAsset row points at.
   let asset: { id: string; url: string };
   try {
     asset = await withTx(async (tx) => {
-    const created = await tx.media.create({
-      provider: "CLOUDINARY",
-      kind: "IMAGE",
-      publicId: uploaded.public_id,
-      url: uploaded.secure_url,
-      format: uploaded.format || format,
-      width: uploaded.width,
-      height: uploaded.height,
-      sizeBytes: uploaded.bytes || buffer.length,
-      alt: input.alt,
-      title: input.title || null,
-      folder: input.folder,
-      createdById: actor.id,
+      const created = await tx.media.create({
+        provider: providerOf(account),
+        accountId: account.id,
+        kind: "IMAGE",
+        publicId: stored.publicId,
+        url: stored.url,
+        format: stored.format || format,
+        width: stored.width,
+        height: stored.height,
+        sizeBytes: stored.bytes,
+        alt: input.alt,
+        title: input.title || null,
+        folder: input.folder,
+        createdById: actor.id,
+      });
+
+      await audit(
+        {
+          action: "media.ai_generated",
+          actor,
+          entityType: "MediaAsset",
+          entityId: created.id,
+          after: { accountId: account.id, publicId: stored.publicId, format: created.format, sizeBytes: created.sizeBytes },
+        },
+        tx
+      );
+
+      return created;
     });
-
-    await audit(
-      {
-        action: "media.ai_generated",
-        actor,
-        entityType: "MediaAsset",
-        entityId: created.id,
-        after: { publicId: uploaded.public_id, format: created.format, sizeBytes: created.sizeBytes },
-      },
-      tx
-    );
-
-    return created;
-  });
   } catch (error) {
     log.error("register generated image failed", { error: error instanceof Error ? error.message : String(error) });
-    await input.cloudinaryClient.deleteAsset(uploaded.public_id);
+    await fileStore(account).remove(stored.publicId).catch(() => false);
     return { ok: false, error: "The image uploaded but could not be saved to the media library." };
   }
 
+  forgetUsage();
   return { ok: true, asset: { id: asset.id, url: asset.url } };
 }
 
@@ -348,6 +348,7 @@ export async function deleteMedia(mediaId: string, actor: { id: string; email: s
   if (outcome.kind === "in_use") {
     return { ok: false, error: "This media is used elsewhere and cannot be deleted", usages: outcome.usages };
   }
+  forgetUsage();
   return { ok: true };
 }
 

@@ -225,9 +225,42 @@ export function describeAccount(account: StorageAccount): {
   return { id: account.id, provider: account.provider, slot: account.slot, capBytes: account.capBytes, readOnly: account.readOnly, where };
 }
 
-/** https hosts delivered files load from, for next.config remotePatterns and CSP img-src. */
+/** https hosts delivered files load from, for CSP img-src. */
 export function deliveryHosts(accounts: readonly StorageAccount[]): string[] {
   const hosts = new Set<string>();
   for (const account of accounts) hosts.add(account.provider === "cloudinary" ? "res.cloudinary.com" : new URL(account.publicUrl).host);
   return [...hosts];
+}
+
+/**
+ * Host and path pattern per account, for next.config images.remotePatterns:
+ * each Cloudinary cloud's own path and each bucket's public base, so the
+ * image optimizer never fetches from anyone else's account on a shared host.
+ */
+export function deliveryPatterns(accounts: readonly StorageAccount[]): Array<{ hostname: string; pathname: string }> {
+  return accounts.map((account) => {
+    if (account.provider === "cloudinary") return { hostname: "res.cloudinary.com", pathname: `/${account.cloudName}/**` };
+    const base = new URL(account.publicUrl);
+    return { hostname: base.host, pathname: `${base.pathname.replace(/\/$/, "")}/**` };
+  });
+}
+
+/**
+ * The URL objects in a bucket live under. AWS's own endpoint uses the
+ * bucket's host (virtual-hosted style); R2 and custom S3-compatible
+ * endpoints use the path.
+ */
+export function bucketApiBase(account: BucketAccount): string {
+  const aws = account.provider === "s3" && account.endpoint === `https://s3.${account.region}.amazonaws.com`;
+  return aws ? `https://${account.bucket}.s3.${account.region}.amazonaws.com` : `${account.endpoint}/${account.bucket}`;
+}
+
+/** https origins a browser sends uploads to, for CSP connect-src. */
+export function uploadOrigins(accounts: readonly StorageAccount[]): string[] {
+  const origins = new Set<string>();
+  for (const account of accounts) {
+    if (account.readOnly) continue;
+    origins.add(account.provider === "cloudinary" ? "https://api.cloudinary.com" : new URL(bucketApiBase(account)).origin);
+  }
+  return [...origins];
 }

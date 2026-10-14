@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { describeAccount, deliveryHosts, LEGACY_ACCOUNT_ID, storageAccountsFromEnv, type BucketAccount, type StorageAccount } from "./accounts";
+import { deliveryHosts, deliveryPatterns, describeAccount, LEGACY_ACCOUNT_ID, storageAccountsFromEnv, uploadOrigins, type BucketAccount, type StorageAccount } from "./accounts";
 import { deleteObject, headObject, newObjectKey, objectApiUrl, objectPublicUrl, presignBucketUpload, putObject } from "./bucket";
 import { classifyFailure, StorageError, uploadCandidates, withFailover } from "./storage";
 
@@ -51,6 +51,14 @@ test("accounts come in slot order, with the legacy CLOUDINARY_* account first", 
   assert.equal(r2.capBytes, 10 * 1024 ** 3);
   assert.equal(accounts[3].readOnly, true);
   assert.deepEqual(deliveryHosts(accounts), ["res.cloudinary.com", "media.example.com", "cdn.example.com"]);
+  assert.deepEqual(deliveryPatterns(accounts), [
+    { hostname: "res.cloudinary.com", pathname: "/legacy-cloud/**" },
+    { hostname: "res.cloudinary.com", pathname: "/cloud-two/**" },
+    { hostname: "media.example.com", pathname: "/**" },
+    { hostname: "cdn.example.com", pathname: "/archive/**" },
+  ]);
+  // The read-only archive takes no uploads, so the browser never connects to it.
+  assert.deepEqual(uploadOrigins(accounts), ["https://api.cloudinary.com", `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`]);
 });
 
 test("a slot that takes the legacy id replaces the CLOUDINARY_* account, so it can be moved", () => {

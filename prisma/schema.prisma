@@ -40,6 +40,8 @@ enum MediaKind {
 enum MediaProvider {
   LOCAL
   CLOUDINARY
+  S3
+  R2
 }
 
 enum InquiryStatus {
@@ -531,9 +533,15 @@ model PostSlugRedirect {
 model MediaAsset {
   id          String        @id @default(cuid())
   provider    MediaProvider @default(CLOUDINARY)
+  // The storage account holding the file (MEDIA_ACCOUNT_<n>_ID, or
+  // "cloudinary" for the CLOUDINARY_* account). Serving and deleting go to
+  // this account only. Ignored for LOCAL assets.
+  accountId   String        @default("cloudinary")
   kind        MediaKind     @default(IMAGE)
-  // Absolute Cloudinary URL, or a /works/... path for LOCAL assets.
+  // Absolute delivery URL (Cloudinary, or the bucket's public URL), or a
+  // /works/... path for LOCAL assets.
   url         String
+  // Cloudinary public_id, or the object key in an S3/R2 bucket.
   publicId    String?
   format      String
   width       Int?
@@ -550,7 +558,8 @@ model MediaAsset {
   usages     MediaUsage[]
   postCovers Post[]       @relation("PostCover")
 
-  @@unique([provider, publicId])
+  @@unique([provider, accountId, publicId])
+  @@index([accountId])
   @@index([folder, createdAt])
   // The library's keyset order (createdAt desc, id desc).
   @@index([createdAt, id])

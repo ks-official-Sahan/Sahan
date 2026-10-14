@@ -289,14 +289,14 @@ describe("trashPurgeJob", () => {
     const deletedFiles: string[] = [];
     const result = await trashPurgeJob(
       client,
-      async (publicId) => {
-        if (publicId === "refused") throw new Error("nope");
-        deletedFiles.push(publicId);
+      async (file) => {
+        if (file.publicId === "refused") throw new Error("nope");
+        deletedFiles.push(`${file.accountId}:${file.publicId}`);
       },
       now
     );
     assert.equal(result.deleted, 2);
-    assert.deepEqual(deletedFiles, ["ok"]);
+    assert.deepEqual(deletedFiles, ["cloudinary:ok"]);
     assert.deepEqual(removed, [["post", "img"]]);
     assert.equal(created.length, 1);
   });

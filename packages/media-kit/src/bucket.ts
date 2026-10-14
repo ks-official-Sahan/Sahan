@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
 
-import type { BucketAccount } from "./accounts";
+import { bucketApiBase, type BucketAccount } from "./accounts";
 import { presignS3Url, signS3Request } from "./sigv4";
 import { classifyFailure, StorageError } from "./storage";
 
@@ -23,13 +23,9 @@ const scope = (account: BucketAccount) => ({ region: account.region });
 /** Path segments encoded for a URL; `/` kept. */
 const encodeKey = (key: string) => key.split("/").map(encodeURIComponent).join("/");
 
-/**
- * The API URL of an object. AWS's own endpoint uses the bucket's host
- * (virtual-hosted style); R2 and custom S3-compatible endpoints use the path.
- */
+/** The API URL of an object (see bucketApiBase for the two URL styles). */
 export function objectApiUrl(account: BucketAccount, key: string): string {
-  const aws = account.provider === "s3" && account.endpoint === `https://s3.${account.region}.amazonaws.com`;
-  return aws ? `https://${account.bucket}.s3.${account.region}.amazonaws.com/${encodeKey(key)}` : `${account.endpoint}/${account.bucket}/${encodeKey(key)}`;
+  return `${bucketApiBase(account)}/${encodeKey(key)}`;
 }
 
 /** Where the object is served from. */

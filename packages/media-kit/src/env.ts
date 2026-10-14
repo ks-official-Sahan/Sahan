@@ -20,6 +20,8 @@ export const mediaEnvSchema = z.object({
   CLOUDINARY_API_SECRET: text,
   CLOUDINARY_URL: text,
   MEDIA_SIGNING_SECRET: text,
+  /** Seconds an account answering "full" is left out of new uploads (default 6 hours, minimum 60). */
+  MEDIA_FULL_TTL_S: text,
 });
 
 export type MediaEnv = z.infer<typeof mediaEnvSchema>;

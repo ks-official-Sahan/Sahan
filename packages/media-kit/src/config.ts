@@ -26,6 +26,25 @@ export const MEDIA_CONFIG = {
   allowedQualities: [70, 75, 80, 85, 90, 95] as const,
 } as const;
 
+const CONTENT_TYPES: Record<string, string> = {
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  png: "image/png",
+  webp: "image/webp",
+  avif: "image/avif",
+  gif: "image/gif",
+  pdf: "application/pdf",
+};
+
+/**
+ * The Content-Type a file of `format` is stored and served with, or null for
+ * a format the library does not take. Chosen from the extension, never from
+ * the browser's own guess, so a bucket never serves a file as something else.
+ */
+export function contentTypeFor(format: string): string | null {
+  return CONTENT_TYPES[format.toLowerCase()] ?? null;
+}
+
 export function getMediaKind(format: string): MediaKind {
   const lower = format.toLowerCase();
   if (IMAGE_FORMATS.includes(lower as (typeof IMAGE_FORMATS)[number])) return "IMAGE";
