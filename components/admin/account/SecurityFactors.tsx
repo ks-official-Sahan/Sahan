@@ -198,32 +198,40 @@ function Passkeys({ list, onCodes, rpId }: { list: PasskeyView[]; onCodes: (code
   useResult(result, onCodes);
   // Options are fetched before the tap so the prompt opens inside it (iOS
   // Safari drops the tap's user activation behind a network round trip).
-  const takeOptions = usePreparedOptions<RegistrationOptions>(support === "ready" ? "register" : null, async () => {
+  const prepared = usePreparedOptions<RegistrationOptions>(support === "ready" ? "register" : null, async () => {
     const options = await passkeyRegistrationOptionsAction();
     return options.ok ? options : null;
   });
 
   function add() {
-    const ready = takeOptions();
+    const ready = prepared.take();
     start(async () => {
-      let options = ready;
-      if (!options) {
-        const fetched = await passkeyRegistrationOptionsAction().catch(() => null);
-        if (!fetched) return setResult({ ...idle, error: UNREACHABLE });
-        if (!fetched.ok) return setResult({ ...idle, error: fetched.error });
-        options = fetched;
-      }
-      let response: Awaited<ReturnType<typeof startRegistration>>;
       try {
-        response = await startRegistration({ optionsJSON: options.options as Parameters<typeof startRegistration>[0]["optionsJSON"] });
-      } catch (failure) {
-        return setResult({ ...idle, error: passkeyErrorMessage(failure, rpId, "add") });
+        await register(ready);
+      } finally {
+        prepared.refresh();
       }
-      const challengeId = options.challengeId;
-      const verified = await verifyPasskeyRegistrationAction({ challengeId, response, name }).catch(() => null);
-      setResult(verified ?? { ...idle, error: UNREACHABLE });
-      if (verified?.ok) setName("");
     });
+  }
+
+  async function register(ready: RegistrationOptions | null) {
+    let options = ready;
+    if (!options) {
+      const fetched = await passkeyRegistrationOptionsAction().catch(() => null);
+      if (!fetched) return setResult({ ...idle, error: UNREACHABLE });
+      if (!fetched.ok) return setResult({ ...idle, error: fetched.error });
+      options = fetched;
+    }
+    let response: Awaited<ReturnType<typeof startRegistration>>;
+    try {
+      response = await startRegistration({ optionsJSON: options.options as Parameters<typeof startRegistration>[0]["optionsJSON"] });
+    } catch (failure) {
+      return setResult({ ...idle, error: passkeyErrorMessage(failure, rpId, "add") });
+    }
+    const challengeId = options.challengeId;
+    const verified = await verifyPasskeyRegistrationAction({ challengeId, response, name }).catch(() => null);
+    setResult(verified ?? { ...idle, error: UNREACHABLE });
+    if (verified?.ok) setName("");
   }
 
   const blocked = support !== null && support !== "ready" ? unsupportedReason(support, rpId) : null;

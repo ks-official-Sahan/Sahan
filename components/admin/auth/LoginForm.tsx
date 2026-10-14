@@ -198,14 +198,14 @@ export default function LoginForm({
   // A failed passkey, or repeated wrong codes, opens the other ways by themselves.
   const listOpen = others.length > 0 && (picking || (Boolean(error) && (active === "passkey" || failures >= FAILURES_BEFORE_OPTIONS)));
 
-  const takeSignInOptions = usePreparedOptions<PreparedSignIn>(
+  const signInOptions = usePreparedOptions<PreparedSignIn>(
     challengeId && active === "passkey" && support === "ready" ? challengeId : null,
     async () => {
       const options = challengeId ? await passkeySignInOptions(challengeId) : null;
       return options?.ok ? options : null;
     }
   );
-  const takePasswordlessOptions = usePreparedOptions<unknown>(passkeySignIn && !challengeId && support === "ready" ? "passwordless" : null, async () => {
+  const passwordlessOptions = usePreparedOptions<unknown>(passkeySignIn && !challengeId && support === "ready" ? "passwordless" : null, async () => {
     const options = await passwordlessSignInOptions();
     return options.ok ? options.options : null;
   });
@@ -218,48 +218,64 @@ export default function LoginForm({
   // Prepared options let the prompt open inside the tap itself; only when none
   // are ready does the tap fetch them first.
   function verifyWithPasskey(id: string) {
-    const ready = takeSignInOptions();
+    const ready = signInOptions.take();
     startPasskey(async () => {
-      let prepared = ready;
-      if (!prepared) {
-        const fetched = await reach(() => passkeySignInOptions(id));
-        if (!fetched) return passkeyFailed(UNREACHABLE);
-        if (!fetched.ok) return passkeyFailed(fetched.error);
-        prepared = fetched;
-      }
-      let response: Awaited<ReturnType<typeof startAuthentication>>;
       try {
-        response = await startAuthentication({ optionsJSON: prepared.options as PasskeyOptions });
-      } catch (failure) {
-        return passkeyFailed(passkeyErrorMessage(failure, rpId, "sign-in"));
+        await attemptPasskey(id, ready);
+      } finally {
+        signInOptions.refresh();
       }
-      const passkeyChallengeId = prepared.passkeyChallengeId;
-      // Redirects on success; returns a state only when something went wrong.
-      const next = await reach(() => completePasskeySignIn({ challengeId: id, passkeyChallengeId, response, callbackUrl }));
-      if (!next) return passkeyFailed(UNREACHABLE);
-      setPasskey(next);
-      if (next.error && next.challengeId) setFailures((count) => count + 1);
     });
   }
 
+  async function attemptPasskey(id: string, ready: PreparedSignIn | null) {
+    let prepared = ready;
+    if (!prepared) {
+      const fetched = await reach(() => passkeySignInOptions(id));
+      if (!fetched) return passkeyFailed(UNREACHABLE);
+      if (!fetched.ok) return passkeyFailed(fetched.error);
+      prepared = fetched;
+    }
+    let response: Awaited<ReturnType<typeof startAuthentication>>;
+    try {
+      response = await startAuthentication({ optionsJSON: prepared.options as PasskeyOptions });
+    } catch (failure) {
+      return passkeyFailed(passkeyErrorMessage(failure, rpId, "sign-in"));
+    }
+    const passkeyChallengeId = prepared.passkeyChallengeId;
+    // Redirects on success; returns a state only when something went wrong.
+    const next = await reach(() => completePasskeySignIn({ challengeId: id, passkeyChallengeId, response, callbackUrl }));
+    if (!next) return passkeyFailed(UNREACHABLE);
+    setPasskey(next);
+    if (next.error && next.challengeId) setFailures((count) => count + 1);
+  }
+
   function signInWithPasskeyOnly() {
-    const ready = takePasswordlessOptions();
+    const ready = passwordlessOptions.take();
     startPasskey(async () => {
-      let options = ready;
-      if (!options) {
-        const fetched = await reach(() => passwordlessSignInOptions());
-        if (!fetched) return setPasskey({ error: UNREACHABLE, at: clock() });
-        if (!fetched.ok) return setPasskey({ error: fetched.error, at: clock() });
-        options = fetched.options;
-      }
-      let response: Awaited<ReturnType<typeof startAuthentication>>;
       try {
-        response = await startAuthentication({ optionsJSON: options as PasskeyOptions });
-      } catch (failure) {
-        return setPasskey({ error: passkeyErrorMessage(failure, rpId, "sign-in"), at: clock() });
+        await attemptPasswordless(ready);
+      } finally {
+        passwordlessOptions.refresh();
       }
-      setPasskey((await reach(() => completePasswordlessSignIn({ response, callbackUrl }))) ?? { error: UNREACHABLE, at: clock() });
     });
+  }
+
+  async function attemptPasswordless(ready: unknown) {
+    let options = ready;
+    if (!options) {
+      const fetched = await reach(() => passwordlessSignInOptions());
+      if (!fetched) return setPasskey({ error: UNREACHABLE, at: clock() });
+      if (!fetched.ok) return setPasskey({ error: fetched.error, at: clock() });
+      options = fetched.options;
+    }
+    let response: Awaited<ReturnType<typeof startAuthentication>>;
+    try {
+      response = await startAuthentication({ optionsJSON: options as PasskeyOptions });
+    } catch (failure) {
+      return setPasskey({ error: passkeyErrorMessage(failure, rpId, "sign-in"), at: clock() });
+    }
+    setPasskey((await reach(() => completePasswordlessSignIn({ response, callbackUrl }))) ?? { error: UNREACHABLE, at: clock() });
   }
 
   function choose(choice: Choice) {
