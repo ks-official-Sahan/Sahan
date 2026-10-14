@@ -130,8 +130,10 @@ function MethodBadge({ choice }: { choice: Choice }) {
 /**
  * Signing in: the password, then, for an account with a second factor, one
  * method at a time (the one used last on this browser, else the strongest
- * that works here) with "Try another way" for the others and recovery codes
- * as the last resort. A passkey is only offered where it can work: WebAuthn,
+ * that works here) with "Try another way" for the others. Recovery codes are
+ * never the method on screen by default: they join "Try another way" after
+ * FAILURES_BEFORE_OPTIONS wrong attempts, or at once when no other method
+ * works on this device. A passkey is only offered where it can work: WebAuthn,
  * a secure page, and the relying party's own address. With `passkeySignIn`, a
  * passkey alone can sign in from the first step. The step's state is the
  * result of the last action, so a reload starts again from the password.
@@ -192,11 +194,15 @@ export default function LoginForm({
         ? chosen
         : state.emailSent && methods?.email
           ? "email"
-          : (fallback ?? (methods?.recovery ? "recovery" : undefined));
+          : fallback;
 
-  const others: Choice[] = [...offered.filter((method) => method !== active), ...(methods?.recovery && active !== "recovery" ? (["recovery"] as const) : [])];
-  // A failed passkey, or repeated wrong codes, opens the other ways by themselves.
-  const listOpen = others.length > 0 && (picking || (Boolean(error) && (active === "passkey" || failures >= FAILURES_BEFORE_OPTIONS)));
+  // Recovery codes are the last resort: offered after repeated failures, or
+  // when nothing else works here (so the owner is never locked out).
+  const nothingWorks = offered.length === 0;
+  const recoveryOffered = Boolean(methods?.recovery) && active !== "recovery" && (nothingWorks || failures >= FAILURES_BEFORE_OPTIONS);
+  const others: Choice[] = [...offered.filter((method) => method !== active), ...(recoveryOffered ? (["recovery"] as const) : [])];
+  // A failed passkey, repeated wrong codes, or no usable method opens the other ways by themselves.
+  const listOpen = others.length > 0 && (picking || nothingWorks || (Boolean(error) && (active === "passkey" || failures >= FAILURES_BEFORE_OPTIONS)));
 
   const signInOptions = usePreparedOptions<PreparedSignIn>(
     challengeId && active === "passkey" && support === "ready" ? challengeId : null,
@@ -309,7 +315,9 @@ export default function LoginForm({
             : "We will email a 6 digit code to your address."
           : active === "recovery"
             ? "Enter one of your recovery codes. Each one works once."
-            : "None of this account's sign-in methods works here.";
+            : methods?.recovery
+              ? "None of this account's sign-in methods works on this device. Use a recovery code below."
+              : "None of this account's sign-in methods works on this device.";
 
   return (
     <div className="rounded-lg border border-border bg-card p-6 text-card-foreground">

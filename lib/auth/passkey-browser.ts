@@ -85,3 +85,23 @@ export function passkeyErrorMessage(error: unknown, rpId: string, ceremony: Cere
 
 /** Server challenges live MFA_TTL_MINUTES (5); options older than this are fetched again. */
 export const PREPARED_OPTIONS_MAX_AGE_MS = 4 * 60_000;
+
+/** Each configured domain as a relying party id (apex, no www, no port), primary first. */
+export function relyingParties(origins: readonly string[]): string[] {
+  const ids = origins.flatMap((value) => {
+    try {
+      const url = new URL(value);
+      // Only https counts: WebAuthn needs a secure context.
+      return url.protocol === "https:" ? [url.hostname.toLowerCase().replace(/^www\./, "")] : [];
+    } catch {
+      return [];
+    }
+  });
+  return [...new Set(ids)];
+}
+
+/** The relying party for a request's host: its own configured domain, or null. */
+export function relyingPartyForHost(host: string | null | undefined, ids: readonly string[]): string | null {
+  const name = host?.trim().toLowerCase().replace(/:\d+$/, "").replace(/^www\./, "");
+  return name && ids.includes(name) ? name : null;
+}

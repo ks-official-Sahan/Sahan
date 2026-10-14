@@ -17,6 +17,11 @@ import { challengeStatus, MFA_MAX_ATTEMPTS, MFA_TTL_MINUTES, newChallengeId } fr
 // Passkeys (WebAuthn). Second-step challenges live in mfa_challenges; a
 // passwordless one has no user yet, so it lives in `challengeStore`.
 // Passkeys are discoverable, so the browser's account picker names the user.
+//
+// A site served on several domains (a primary and backups) lists each as a
+// relying party: WebAuthn ties a passkey to the domain it was created on, so
+// each domain has its own passkeys. A ceremony runs for the domain the caller
+// names (when it is listed) and verification accepts any listed domain.
 
 export type { AuthenticationResponseJSON, RegistrationResponseJSON };
 
@@ -36,8 +41,12 @@ export interface PasskeysDeps {
   audit: (event: AuditEvent, tx?: unknown) => Promise<void>;
   /** Shown by the browser when creating a passkey, for example the site name. */
   rpName: string;
-  /** The site's registrable domain, for example "example.com". */
-  rpID: string;
+  /**
+   * The site's registrable domain, for example "example.com", or several
+   * (primary first). With several, each ceremony may name the one it runs on;
+   * an unlisted or missing name falls back to the first.
+   */
+  rpID: string | readonly string[];
   /** The exact origin(s) the ceremony runs on, for example "https://example.com". */
   origin: string | string[];
   /**
@@ -65,9 +74,23 @@ function sameHash(a: string, b: string): boolean {
   return left.length === right.length && timingSafeEqual(left, right);
 }
 
+/** Which listed relying party a ceremony runs for. */
+export interface CeremonyOptions {
+  rpID?: string | null;
+}
+
 export function createPasskeys(deps: PasskeysDeps) {
-  const { adapter, mfa, authSecret, audit, rpName, rpID, origin } = deps;
+  const { adapter, mfa, authSecret, audit, rpName, origin } = deps;
   const lib: WebAuthnLib = deps.lib ?? simple;
+  const rpIDs = [...new Set((typeof deps.rpID === "string" ? [deps.rpID] : deps.rpID).map((id) => id.trim().toLowerCase()).filter(Boolean))];
+  if (rpIDs.length === 0) throw new Error("createPasskeys: rpID needs at least one domain.");
+  /** The relying party for one ceremony: the named one when listed, else the first. Never an unlisted domain. */
+  const rpFor = (options: CeremonyOptions = {}) => {
+    const wanted = options.rpID?.trim().toLowerCase();
+    return wanted && rpIDs.includes(wanted) ? wanted : rpIDs[0];
+  };
+  /** What a response may be bound to: any listed relying party. */
+  const expectedRPID = rpIDs.length === 1 ? rpIDs[0] : rpIDs;
 
   /** Stores a ceremony challenge; older open ones of the same purpose stop working. */
   async function storeChallenge(userId: string, purpose: MfaPurpose, challenge: string): Promise<string> {
@@ -102,11 +125,11 @@ export function createPasskeys(deps: PasskeysDeps) {
   }
 
   /** Options for navigator.credentials.create(), plus the challenge id to send back. */
-  async function registrationOptions(actor: Actor): Promise<{ challengeId: string; options: PublicKeyCredentialCreationOptionsJSON }> {
+  async function registrationOptions(actor: Actor, ceremony: CeremonyOptions = {}): Promise<{ challengeId: string; options: PublicKeyCredentialCreationOptionsJSON }> {
     const existing = await adapter.listPasskeys(actor.id);
     const options = await lib.generateRegistrationOptions({
       rpName,
-      rpID,
+      rpID: rpFor(ceremony),
       userName: actor.email,
       userDisplayName: actor.name ?? actor.email,
       userID: new TextEncoder().encode(actor.id),
@@ -131,7 +154,7 @@ export function createPasskeys(deps: PasskeysDeps) {
     if (!expectedChallenge) return { ok: false, reason: "expired" };
     let verification: Awaited<ReturnType<WebAuthnLib["verifyRegistrationResponse"]>>;
     try {
-      verification = await lib.verifyRegistrationResponse({ response: input.response, expectedChallenge, expectedOrigin: origin, expectedRPID: rpID, requireUserVerification: false });
+      verification = await lib.verifyRegistrationResponse({ response: input.response, expectedChallenge, expectedOrigin: origin, expectedRPID, requireUserVerification: false });
     } catch {
       return { ok: false, reason: "invalid" };
     }
@@ -161,11 +184,12 @@ export function createPasskeys(deps: PasskeysDeps) {
   }
 
   /** Options for navigator.credentials.get() during the sign-in step, limited to the user's passkeys. */
-  async function authenticationOptions(userId: string): Promise<{ challengeId: string; options: PublicKeyCredentialRequestOptionsJSON } | null> {
+  async function authenticationOptions(userId: string, ceremony: CeremonyOptions = {}): Promise<{ challengeId: string; options: PublicKeyCredentialRequestOptionsJSON } | null> {
     const passkeys = await adapter.listPasskeys(userId);
     if (passkeys.length === 0) return null;
+    // Every passkey is listed: the browser itself skips those made for another domain.
     const options = await lib.generateAuthenticationOptions({
-      rpID,
+      rpID: rpFor(ceremony),
       userVerification: "preferred",
       allowCredentials: passkeys.map((passkey) => ({ id: passkey.id, transports: passkey.transports as never })),
     });
@@ -198,7 +222,7 @@ export function createPasskeys(deps: PasskeysDeps) {
           response: input.response,
           expectedChallenge,
           expectedOrigin: origin,
-          expectedRPID: rpID,
+          expectedRPID,
           credential: { id: passkey.id, publicKey: new Uint8Array(Buffer.from(passkey.publicKey, "base64url")), counter: passkey.counter, transports: passkey.transports as never },
           requireUserVerification: false,
         });
@@ -217,9 +241,9 @@ export function createPasskeys(deps: PasskeysDeps) {
    * list (the browser offers every discoverable passkey for this site) and
    * user verification required, so the passkey proves both steps.
    */
-  async function passwordlessOptions(): Promise<PublicKeyCredentialRequestOptionsJSON> {
+  async function passwordlessOptions(ceremony: CeremonyOptions = {}): Promise<PublicKeyCredentialRequestOptionsJSON> {
     if (!deps.challengeStore) throw new Error("createPasskeys: passwordless sign-in needs challengeStore.");
-    const options = await lib.generateAuthenticationOptions({ rpID, userVerification: "required" });
+    const options = await lib.generateAuthenticationOptions({ rpID: rpFor(ceremony), userVerification: "required" });
     await deps.challengeStore.put(passwordlessKey(options.challenge), MFA_TTL_MINUTES * 60);
     return options;
   }
@@ -246,7 +270,7 @@ export function createPasskeys(deps: PasskeysDeps) {
         response,
         expectedChallenge: async (challenge) => (taken = await store.take(passwordlessKey(challenge))),
         expectedOrigin: origin,
-        expectedRPID: rpID,
+        expectedRPID,
         credential: { id: passkey.id, publicKey: new Uint8Array(Buffer.from(passkey.publicKey, "base64url")), counter: passkey.counter, transports: passkey.transports as never },
         requireUserVerification: true,
       });

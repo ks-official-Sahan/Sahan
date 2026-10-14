@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { passkeyErrorMessage, passkeySupportFor, unsupportedReason } from "./passkey-browser";
+import { passkeyErrorMessage, passkeySupportFor, relyingParties, relyingPartyForHost, unsupportedReason } from "./passkey-browser";
 
 const ready = { secure: true, webauthn: true, hostname: "example.com" };
 
@@ -32,4 +32,18 @@ test("WebAuthnError codes and DOMException names map to specific messages", () =
 test("anything unknown gets a generic message, never a throw", () => {
   assert.match(passkeyErrorMessage(null, "example.com", "sign-in"), /could not be used/);
   assert.match(passkeyErrorMessage(new Error("boom"), "example.com", "add"), /could not be added/);
+});
+
+test("relying parties come from https site domains only, apex first, without repeats", () => {
+  const ids = relyingParties(["https://www.sahansachintha.com", "https://sahansachintha.vercel.app/", "http://insecure.example", "not a url", "https://sahansachintha.com:443"]);
+  assert.deepEqual(ids, ["sahansachintha.com", "sahansachintha.vercel.app"]);
+});
+
+test("a request's host maps to its own configured domain, never an unlisted one", () => {
+  const ids = ["sahansachintha.com", "sahansachintha.vercel.app"];
+  assert.equal(relyingPartyForHost("sahansachintha.vercel.app", ids), "sahansachintha.vercel.app");
+  assert.equal(relyingPartyForHost("WWW.SahanSachintha.com:443", ids), "sahansachintha.com");
+  assert.equal(relyingPartyForHost("sahan-git-feature-x.vercel.app", ids), null);
+  assert.equal(relyingPartyForHost("evil.sahansachintha.vercel.app.example", ids), null);
+  assert.equal(relyingPartyForHost(null, ids), null);
 });

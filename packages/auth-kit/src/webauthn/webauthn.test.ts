@@ -169,3 +169,61 @@ test("passwordless: refused without user verification, for an unknown credential
   assert.deepEqual(await h.passkeys.verifyPasswordless(passwordlessAssertion("never-issued", 1, "mine", h.user.id)), { ok: false, reason: "invalid" });
   assert.deepEqual(await h.passkeys.verifyPasswordless(passwordlessAssertion(challenge, 1, "unknown", h.user.id)), { ok: false, reason: "invalid" });
 });
+
+test("several domains: each ceremony runs for the domain it names, never an unlisted one, and verification accepts any listed domain", async () => {
+  const adapter = new FakeAdapter();
+  const user = adapter.addUser({ email: "owner@example.com", passwordHash: "x", role: "DEVELOPER", name: "Owner" });
+  const mfa = createMfa({
+    adapter,
+    authSecret: SECRET,
+    limit: async () => ({ ok: true }),
+    sendEmail: async () => ({ ok: true }),
+    audit: async () => undefined,
+    claimOnce: async () => true,
+    renderMfaCode: ({ code }) => ({ subject: "c", html: code, text: code }),
+  });
+  const seen: { generated: string[]; expected: unknown[] } = { generated: [], expected: [] };
+  let issued = "";
+  const lib = {
+    async generateRegistrationOptions(options: { rpID: string }) {
+      seen.generated.push(options.rpID);
+      issued = `reg-${Math.random()}`;
+      return { challenge: issued } as never;
+    },
+    async generateAuthenticationOptions(options: { rpID: string }) {
+      seen.generated.push(options.rpID);
+      issued = `auth-${Math.random()}`;
+      return { challenge: issued } as never;
+    },
+    async verifyRegistrationResponse(options: { response: { challenge: string }; expectedChallenge: (c: string) => boolean; expectedRPID: unknown }) {
+      seen.expected.push(options.expectedRPID);
+      return { verified: options.expectedChallenge(options.response.challenge), registrationInfo: { credential: { id: "cred-1", publicKey: new Uint8Array([1]), counter: 0 }, credentialDeviceType: "singleDevice", credentialBackedUp: false } } as never;
+    },
+    async verifyAuthenticationResponse() {
+      return { verified: false } as never;
+    },
+  } as unknown as PasskeysDeps["lib"];
+  const passkeys = createPasskeys({
+    adapter,
+    mfa,
+    authSecret: SECRET,
+    audit: async () => undefined,
+    rpName: "Sahan",
+    rpID: ["example.com", "Example.vercel.app", "example.com"],
+    origin: ["https://example.com", "https://example.vercel.app"],
+    lib,
+    challengeStore: { put: async () => undefined, take: async () => true },
+  });
+
+  await passkeys.registrationOptions(user, { rpID: "evil.example" });
+  await passkeys.registrationOptions(user);
+  await passkeys.passwordlessOptions({ rpID: "EXAMPLE.VERCEL.APP" });
+  // A newer registration challenge closes the older ones, so this one goes last.
+  const backup = await passkeys.registrationOptions(user, { rpID: "example.vercel.app" });
+  assert.deepEqual(seen.generated, ["example.com", "example.com", "example.vercel.app", "example.vercel.app"]);
+
+  const result = await passkeys.verifyRegistration(user, { challengeId: backup.challengeId, response: { challenge: "stale" } as never, name: "x" });
+  assert.equal(result.ok, false);
+  assert.deepEqual(seen.expected.at(-1), ["example.com", "example.vercel.app"]);
+  assert.throws(() => createPasskeys({ adapter, mfa, authSecret: SECRET, audit: async () => undefined, rpName: "x", rpID: [" "], origin: "https://x" }), /at least one domain/);
+});

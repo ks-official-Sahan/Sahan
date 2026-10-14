@@ -9,7 +9,7 @@ import { authorizeAction } from "@/lib/actions/guard";
 import { confirmPassword } from "@/lib/auth/confirm-password";
 import type { AuthUser } from "@/lib/auth/dal";
 import { beginTotpSetup, confirmTotpSetup, factorsOf, issueRecoveryCodes, removeTotp } from "@/lib/auth/mfa";
-import { passkeys } from "@/lib/auth/passkeys";
+import { passkeys, requestRelyingParty } from "@/lib/auth/passkeys";
 import { invalidateUserSessionState, revokeUserSessions } from "@/lib/auth/session-store";
 import { repos } from "@/lib/data";
 import { hasStrongFactor, otpauthUri } from "@sahan-sac/auth-kit/mfa";
@@ -141,7 +141,7 @@ export async function passkeyRegistrationOptionsAction(): Promise<PasskeyRegistr
   const access = await authorizeAction(null, OPTIONS);
   if (!access.ok) return { ok: false, error: access.error };
   try {
-    const created = await passkeys.registrationOptions(access.user);
+    const created = await passkeys.registrationOptions(access.user, { rpID: await requestRelyingParty() });
     return { ok: true, challengeId: created.challengeId, options: created.options };
   } catch {
     return { ok: false, error: UNEXPECTED };

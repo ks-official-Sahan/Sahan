@@ -4,7 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import LoginForm from "@/components/admin/auth/LoginForm";
 import { hasValidUnlock } from "@/lib/admin/unlock-request";
 import { getOptionalUser } from "@/lib/auth/dal";
-import { PASSKEY_RP_ID, passkeySignInEnabled } from "@/lib/auth/passkeys";
+import { passkeySignInEnabled, requestRelyingParty } from "@/lib/auth/passkeys";
 import { safeCallbackUrl } from "@/lib/auth/safe-callback-url";
 
 // The proxy only lets this page render for a visitor who holds the unlock cookie
@@ -44,7 +44,7 @@ export default async function LoginPage({
       callbackUrl={target}
       notice={Object.hasOwn(NOTICES, key) ? NOTICES[key] : null}
       passkeySignIn={await passkeySignInEnabled()}
-      rpId={PASSKEY_RP_ID}
+      rpId={await requestRelyingParty()}
     />
   );
 }

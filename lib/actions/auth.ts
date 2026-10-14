@@ -22,7 +22,7 @@ import {
   type VerifyResult,
 } from "@/lib/auth/mfa";
 import { MFA_TTL_MINUTES, normalizeCode } from "@/lib/auth/mfa-rules";
-import { passkeys, passkeySignInEnabled } from "@/lib/auth/passkeys";
+import { passkeys, passkeySignInEnabled, requestRelyingParty } from "@/lib/auth/passkeys";
 import { safeCallbackUrl } from "@/lib/auth/safe-callback-url";
 import { revokeSession } from "@/lib/auth/session-store";
 import { limit } from "@/lib/cache/ratelimit";
@@ -201,7 +201,7 @@ export async function passkeySignInOptions(challengeId: string): Promise<Passkey
   const open = await ticket(challengeId);
   if (!open) return { ok: false, error: EXPIRED };
   if (!open.methods.passkey) return { ok: false, error: "No passkey is set up for this account." };
-  const created = await passkeys.authenticationOptions(open.owner.userId);
+  const created = await passkeys.authenticationOptions(open.owner.userId, { rpID: await requestRelyingParty() });
   return created ? { ok: true, passkeyChallengeId: created.challengeId, options: created.options } : { ok: false, error: "No passkey is set up for this account." };
 }
 
@@ -253,7 +253,7 @@ export type PasswordlessOptionsResult = { ok: true; options: unknown } | { ok: f
 export async function passwordlessSignInOptions(): Promise<PasswordlessOptionsResult> {
   const refused = await passwordlessAllowed();
   if (refused) return { ok: false, error: refused };
-  return { ok: true, options: await passkeys.passwordlessOptions() };
+  return { ok: true, options: await passkeys.passwordlessOptions({ rpID: await requestRelyingParty() }) };
 }
 
 /** Verifies a passwordless passkey assertion and starts the session for the passkey's owner. */
