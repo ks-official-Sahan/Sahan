@@ -111,3 +111,121 @@ jobs:
 
       - name: Run package runtime suites
         run: pnpm --filter "./packages/*" run test
+
+  # End-to-end suite (e2e/*.spec.ts, playwright.config.ts) against a production
+  # build on a throwaway Neon branch. The app talks to Postgres through Neon's
+  # WebSocket driver, so a plain Postgres service container cannot stand in.
+  # Needs the NEON_API_KEY secret and the NEON_PROJECT_ID variable; without
+  # them (forks, or before they are added) the job skips instead of failing.
+  # The branch is deleted when the job ends, pass or fail.
+  e2e:
+    name: End-to-end (Playwright)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    env:
+      HAS_NEON: ${{ secrets.NEON_API_KEY != '' && vars.NEON_PROJECT_ID != '' }}
+      NEON_BRANCH: ci-e2e-${{ github.run_id }}-${{ github.run_attempt }}
+      CI: "true"
+      E2E_PORT: "3100"
+      SITE_URL: http://localhost:3100
+      AUTH_URL: http://localhost:3100
+      AUTH_TRUST_HOST: "true"
+      ADMIN_UNLOCK_PATH: /ci-e2e-unlock-form
+
+    steps:
+      - name: Skip notice
+        if: env.HAS_NEON != 'true'
+        run: echo "::notice::e2e skipped - set the NEON_API_KEY secret and NEON_PROJECT_ID variable to run it."
+
+      - name: Checkout
+        if: env.HAS_NEON == 'true'
+        uses: actions/checkout@v7
+
+      - name: Setup pnpm
+        if: env.HAS_NEON == 'true'
+        uses: pnpm/action-setup@v6
+        with:
+          version: 9
+
+      - name: Setup Node
+        if: env.HAS_NEON == 'true'
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: "pnpm"
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        if: env.HAS_NEON == 'true'
+        run: pnpm install --frozen-lockfile
+
+      - name: Create Neon branch
+        if: env.HAS_NEON == 'true'
+        id: neon
+        uses: neondatabase/create-branch-action@v6
+        with:
+          project_id: ${{ vars.NEON_PROJECT_ID }}
+          branch_name: ${{ env.NEON_BRANCH }}
+          api_key: ${{ secrets.NEON_API_KEY }}
+          database: ${{ vars.NEON_DATABASE || 'neondb' }}
+          role: ${{ vars.NEON_ROLE || 'neondb_owner' }}
+
+      # Throwaway secrets for this run only, masked in the log. The database URL
+      # targets the sahan_test schema on the new branch, never the live site.
+      - name: Configure run environment
+        if: env.HAS_NEON == 'true'
+        env:
+          BRANCH_DB_URL: ${{ steps.neon.outputs.db_url }}
+        run: |
+          set -euo pipefail
+          secret() { local value; value="$(openssl rand -hex 24)"; echo "::add-mask::$value"; echo "$value"; }
+          case "$BRANCH_DB_URL" in *\?*) sep="&" ;; *) sep="?" ;; esac
+          db_url="${BRANCH_DB_URL}${sep}schema=sahan_test"
+          echo "::add-mask::$db_url"
+          {
+            echo "DATABASE_URL=$db_url"
+            echo "AUTH_SECRET=$(secret)"
+            echo "INTERNAL_SIGNING_SECRET=$(secret)"
+            echo "ADMIN_LOGIN_UNLOCK_SECRET=$(secret)"
+            echo "E2E_PASSWORD=E2e-$(secret)"
+          } >> "$GITHUB_ENV"
+
+      # --force-reset drops and recreates only the sahan_test schema, on the
+      # branch created above; the live database is never touched.
+      - name: Prepare database
+        if: env.HAS_NEON == 'true'
+        run: |
+          pnpm exec prisma db push --force-reset
+          pnpm db:seed
+          pnpm e2e:fixtures
+
+      # After the fixtures: the sitemap and post pages are prerendered (ISR).
+      - name: Build
+        if: env.HAS_NEON == 'true'
+        run: pnpm build
+
+      - name: Install Playwright browser
+        if: env.HAS_NEON == 'true'
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Run e2e suite
+        if: env.HAS_NEON == 'true'
+        run: pnpm e2e
+
+      - name: Upload Playwright report
+        if: failure() && env.HAS_NEON == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report
+          path: .tmp-e2e/
+          retention-days: 7
+
+      - name: Delete Neon branch
+        if: always() && env.HAS_NEON == 'true' && steps.neon.outcome != 'skipped'
+        uses: neondatabase/delete-branch-action@v3
+        with:
+          project_id: ${{ vars.NEON_PROJECT_ID }}
+          branch: ${{ env.NEON_BRANCH }}
+          api_key: ${{ secrets.NEON_API_KEY }}
