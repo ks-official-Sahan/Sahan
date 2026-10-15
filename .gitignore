@@ -39,6 +39,8 @@ next-env.d.ts
 **/.prisma-test/
 # scripts/verify-package-artifacts.mjs scratch (removed on exit)
 .tmp-package-artifacts-*/
+# Playwright e2e output (playwright.config.ts)
+.tmp-e2e/
 # packages/auth-kit/node_modules
 # Package build output (published from CI)
 packages/*/dist
