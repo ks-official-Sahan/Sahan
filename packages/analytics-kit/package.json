@@ -1,6 +1,6 @@
 {
   "name": "@sahan-sac/analytics-kit",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "First-party, cookie-free page analytics on Upstash Redis: a Web-standard collect handler (Request => Response) with bot, Do Not Track and Global Privacy Control filtering, daily-salted anonymous visitor ids (no IP or user agent stored), one-round-trip reads for views, unique visitors, top pages, referrers, devices, browsers, systems and countries, and a framework-free browser beacon.",
   "license": "Apache-2.0",
   "repository": {
