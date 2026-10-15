@@ -109,6 +109,11 @@ try {
         private: true,
         type: "module",
         dependencies: consumerDependencies,
+        // A package depending on a sibling (blog-kit on ai-core) resolves it to
+        // the tarball packed above, not the registry: in a release PR the new
+        // sibling version is not published yet.
+        resolutions: consumerDependencies,
+        pnpm: { overrides: consumerDependencies },
         devDependencies: {
           "@auth/core": "0.41.3",
           "@types/node": "^22.0.0",
