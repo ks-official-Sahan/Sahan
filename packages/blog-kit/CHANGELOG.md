@@ -1,5 +1,13 @@
 # @sahan-sac/blog-kit
 
+## 0.4.0
+
+### Patch Changes
+
+- Updated dependencies [1570cf6]
+- Updated dependencies [396e692]
+  - @sahan-sac/ai-core@0.4.0
+
 ## 0.3.1
 
 ### Patch Changes
