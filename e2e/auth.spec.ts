@@ -8,7 +8,9 @@ test("a wrong password is refused with a generic message", async ({ page }) => {
   await page.locator('input[name="email"]').fill(E2E_USERS.editor.email);
   await page.locator('input[name="password"]').fill("Wrong-password-e2e-1");
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
-  await expect(page.getByRole("alert")).toBeVisible();
+  // The same text for an unknown email and a wrong password (lib/actions/auth.ts),
+  // so the form never reveals whether an account exists.
+  await expect(page.getByRole("alert")).toHaveText("The email or password is not correct.");
   await expect(page).toHaveURL(/\/admin\/login/);
 });
 
