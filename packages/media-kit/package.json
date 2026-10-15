@@ -1,6 +1,6 @@
 {
   "name": "@sahan-sac/media-kit",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Headless media layer for Cloudinary, AWS S3 and Cloudflare R2: multi-account registry with ordered failover, upload/format validation, HMAC and SigV4 signing, delivery URL transforms, a browser upload client, and a typed CloudinaryClient. Framework-agnostic; the DB-backed service and audit trail stay in the app.",
   "license": "Apache-2.0",
   "repository": {
