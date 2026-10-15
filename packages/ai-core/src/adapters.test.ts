@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { BUILTIN_ADAPTERS, chainPlan, checkChain, checkProvider, configuredOrder, omniRouteBaseUrl, providerStatuses, realProviders, type ProviderAdapter } from "./adapters";
+import { BUILTIN_ADAPTERS, chainPlan, checkChain, checkProvider, configuredOrder, isFreeRoute, omniRouteBaseUrl, omniRouteModel, providerStatuses, realProviders, type ProviderAdapter } from "./adapters";
 import { parseAiEnv, type EnvSource } from "./env";
 import type { ModelPrompt } from "./guard";
 import { anthropicOutcome, createAiHealth, createAiService, type AiProvider } from "./providers";
@@ -206,11 +206,32 @@ test("OmniRoute: free, first in the default order, on only with a valid gateway 
       { status: 200, headers: { "content-type": "application/json" } }
     );
   };
-  const [blog] = realProviders(env({ OMNIROUTE_BASE_URL: "https://gw.example.com", BLOG_OMNIROUTE_MODEL: "auto/best-coding" }), "blog", fakeFetch);
+  const [blog] = realProviders(env({ OMNIROUTE_BASE_URL: "https://gw.example.com", BLOG_OMNIROUTE_MODEL: "openrouter/meta-llama/llama-3.3-70b-instruct:free" }), "blog", fakeFetch);
   assert.deepEqual(await blog.generate(PROMPT), { ok: true, text: "OK" });
   const [chat] = realProviders(env({ OMNIROUTE_BASE_URL: "https://gw.example.com" }), "chat", fakeFetch);
   await chat.generate(PROMPT);
   assert.equal(calls[0].url, "https://gw.example.com/v1/chat/completions");
-  assert.deepEqual(calls.map((call) => call.model), ["auto/best-coding", "auto/best-free"]);
+  assert.deepEqual(calls.map((call) => call.model), ["openrouter/meta-llama/llama-3.3-70b-instruct:free", "auto/best-free"]);
   assert.equal(calls[1].auth, "Bearer none");
+});
+
+test("OmniRoute stays free even with AI_ALLOW_PAID: a paid route needs OMNIROUTE_ALLOW_PAID too, and then runs last", () => {
+  assert.ok(isFreeRoute("auto/best-free") && isFreeRoute("groq/x:free") && isFreeRoute("combo/FREE"));
+  assert.ok(!isFreeRoute("auto/best") && !isFreeRoute("openai/gpt-5") && !isFreeRoute("freebies"));
+
+  const base = { OMNIROUTE_BASE_URL: "https://gw.example.com", GEMINI_API_KEY: FAKE, BLOG_OMNIROUTE_MODEL: "openai/gpt-5" };
+  // A paid override is replaced by the free default, whatever AI_ALLOW_PAID says.
+  for (const source of [base, { ...base, AI_ALLOW_PAID: "true" }, { ...base, OMNIROUTE_ALLOW_PAID: "true" }]) {
+    assert.equal(omniRouteModel(env(source), "blog"), "auto/best-free");
+    assert.deepEqual(names(realProviders(env(source), "blog")), ["omniroute", "gemini"]);
+    assert.equal(providerStatuses(env(source), "blog").find((status) => status.id === "omniroute")?.paid, false);
+  }
+
+  // Both switches on: the paid route is used, counts as paid for that purpose only, and runs last.
+  const paid = env({ ...base, AI_ALLOW_PAID: "true", OMNIROUTE_ALLOW_PAID: "true" });
+  assert.equal(omniRouteModel(paid, "blog"), "openai/gpt-5");
+  const blog = realProviders(paid, "blog");
+  assert.deepEqual(blog.map((provider) => [provider.name, Boolean(provider.lastResort)]), [["omniroute", true], ["gemini", false]]);
+  assert.equal(omniRouteModel(paid, "chat"), "auto/best-free");
+  assert.equal(Boolean(realProviders(paid, "chat")[0].lastResort), false);
 });

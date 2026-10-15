@@ -171,7 +171,7 @@ const AI_VARS: Record<string, string> = {
   openrouter: "OPENROUTER_API_KEY. Free models only, unless OPENROUTER_ALLOW_PAID_MODELS=true.",
   "openrouter-2": "OPENROUTER_API_KEY_2: a second OpenRouter key, tried after the first.",
   nvidia: "NVIDIA_API_KEY.",
-  omniroute: "OMNIROUTE_BASE_URL (your self-hosted OmniRoute gateway, https) and OMNIROUTE_API_KEY (a gateway key from its dashboard). Free only: model auto/best-free unless OMNIROUTE_MODEL says otherwise.",
+  omniroute: "OMNIROUTE_BASE_URL (your self-hosted OmniRoute gateway, https) and OMNIROUTE_API_KEY (a gateway key from its dashboard). Free only: model auto/best-free, or an OMNIROUTE_MODEL free route (-free, :free). Paid routes need OMNIROUTE_ALLOW_PAID and AI_ALLOW_PAID.",
   groq: "GROQ_API_KEY (free plan, no card).",
   mistral: "MISTRAL_API_KEY. Free plan may train on prompts, so chat uses it only when AI_PROVIDER_ORDER_CHAT lists it.",
   cloudflare: "CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_AI_API_TOKEN (Workers AI read). 10,000 free neurons a day.",
