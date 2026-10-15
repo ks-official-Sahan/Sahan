@@ -1,5 +1,12 @@
 # @sahan-sac/blog-kit
 
+## 0.5.0
+
+### Patch Changes
+
+- Updated dependencies [c0127d5]
+  - @sahan-sac/ai-core@0.5.0
+
 ## 0.4.0
 
 ### Patch Changes
