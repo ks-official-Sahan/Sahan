@@ -47,14 +47,16 @@ interface Pg {
   end(): Promise<void>;
 }
 
-const IDENTIFIER = /^[A-Za-z_][A-Za-z0-9_]{0,62}$/;
+// The schema is always used double-quoted (`SET search_path TO "<name>"`), so a
+// hyphen is safe (`admin-panel`); a quote or anything else is refused.
+const IDENTIFIER = /^[A-Za-z_][A-Za-z0-9_-]{0,62}$/;
 
 /**
  * The schema to work in: `--schema <name>`, else the URL's Prisma-style
  * `schema` parameter, else null (the server's search_path). A shared database
  * holds other projects' tables, so the target is always printed first.
  */
-function targetSchema(argv: readonly string[]): string | null {
+export function targetSchema(argv: readonly string[]): string | null {
   const flagged = argv[argv.indexOf("--schema") + 1];
   const fromUrl = process.env.DATABASE_URL ? URL.parse(process.env.DATABASE_URL)?.searchParams.get("schema") : null;
   const schema = (argv.includes("--schema") ? flagged : fromUrl) || null;
