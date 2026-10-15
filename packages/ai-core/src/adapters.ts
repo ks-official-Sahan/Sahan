@@ -57,6 +57,8 @@ const need = (env: AiEnv, ...names: Array<keyof AiEnv>): string[] => names.filte
  * writes long JSON, so it gets the larger model; chat gets the faster one.
  */
 export const FREE_TEXT_MODELS = {
+  // OmniRoute's own alias: its "best free" combo, which only routes to free providers.
+  omniroute: { blog: "auto/best-free", chat: "auto/best-free" },
   groq: { blog: "openai/gpt-oss-120b", chat: "openai/gpt-oss-20b" },
   mistral: { blog: "mistral-medium-latest", chat: "mistral-small-latest" },
   cloudflare: { blog: "@cf/openai/gpt-oss-120b", chat: "@cf/openai/gpt-oss-20b" },
@@ -99,6 +101,26 @@ function compatibleAdapter(spec: {
   };
 }
 
+/**
+ * OMNIROUTE_BASE_URL as the gateway's `/v1` base, or null when unset or unsafe.
+ * https only, except plain http on localhost for a gateway on the same machine;
+ * never credentials in the URL.
+ */
+export function omniRouteBaseUrl(env: AiEnv): string | null {
+  const raw = env.OMNIROUTE_BASE_URL?.trim();
+  if (!raw) return null;
+  try {
+    const url = new URL(raw);
+    const local = /^(?:localhost|127\.0\.0\.1|\[::1\])$/.test(url.hostname);
+    if (url.username || url.password) return null;
+    if (!(url.protocol === "https:" || (url.protocol === "http:" && local))) return null;
+    const base = `${url.origin}${url.pathname.replace(/\/+$/, "")}`;
+    return base.endsWith("/v1") ? base : `${base}/v1`;
+  } catch {
+    return null;
+  }
+}
+
 const openRouterAdapter = (id: string, keyVar: "OPENROUTER_API_KEY" | "OPENROUTER_API_KEY_2"): ProviderAdapter => ({
   id,
   label: id === "openrouter" ? "OpenRouter" : "OpenRouter (second key)",
@@ -117,6 +139,25 @@ const openRouterAdapter = (id: string, keyVar: "OPENROUTER_API_KEY" | "OPENROUTE
 });
 
 export const BUILTIN_ADAPTERS: readonly ProviderAdapter[] = [
+  {
+    // OmniRoute: a self-hosted gateway that pools many providers' free tiers
+    // behind one OpenAI-compatible endpoint and fails over between them. First
+    // in the default order, so it leads whenever its address is set. Free only:
+    // the default model is its auto/best-free combo.
+    id: "omniroute",
+    label: "OmniRoute (self-hosted gateway)",
+    paid: () => false,
+    missing: (env) => (omniRouteBaseUrl(env) ? [] : ["OMNIROUTE_BASE_URL"]),
+    create: ({ env, purpose, fetch }) =>
+      openAiCompatibleProvider({
+        name: "omniroute",
+        // A gateway may run without keys; the header must still be well formed.
+        apiKey: env.OMNIROUTE_API_KEY || "none",
+        baseUrl: omniRouteBaseUrl(env)!,
+        model: modelFor(env, "OMNIROUTE", purpose, FREE_TEXT_MODELS.omniroute),
+        fetch,
+      }),
+  },
   {
     id: "gemini",
     label: "Gemini",

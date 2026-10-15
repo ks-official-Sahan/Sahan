@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { BUILTIN_ADAPTERS, chainPlan, checkChain, checkProvider, configuredOrder, providerStatuses, realProviders, type ProviderAdapter } from "./adapters";
+import { BUILTIN_ADAPTERS, chainPlan, checkChain, checkProvider, configuredOrder, omniRouteBaseUrl, providerStatuses, realProviders, type ProviderAdapter } from "./adapters";
 import { parseAiEnv, type EnvSource } from "./env";
 import type { ModelPrompt } from "./guard";
 import { anthropicOutcome, createAiHealth, createAiService, type AiProvider } from "./providers";
@@ -182,4 +182,35 @@ test("free tiers call their own endpoints with a model per purpose", async () =>
     { url: "https://api.mistral.ai/v1/chat/completions", model: "mistral-medium-latest" },
     { url: "https://api.cloudflare.com/client/v4/accounts/acc%201/ai/v1/chat/completions", model: "@cf/openai/gpt-oss-120b" },
   ]);
+});
+
+test("OmniRoute: free, first in the default order, on only with a valid gateway address, best-free model by default", async () => {
+  const keys = { GEMINI_API_KEY: FAKE, OMNIROUTE_BASE_URL: "https://gateway.example.com", OMNIROUTE_API_KEY: FAKE };
+  assert.deepEqual(names(realProviders(env(keys), "chat")), ["omniroute", "gemini"]);
+  assert.ok(realProviders(env(keys), "blog").every((provider) => !provider.lastResort));
+  // A key alone does nothing: the gateway's address turns it on.
+  assert.deepEqual(providerStatuses(env({ OMNIROUTE_API_KEY: FAKE }), "chat").find((status) => status.id === "omniroute")?.missing, ["OMNIROUTE_BASE_URL"]);
+
+  assert.equal(omniRouteBaseUrl(env({ OMNIROUTE_BASE_URL: "https://gw.example.com/" })), "https://gw.example.com/v1");
+  assert.equal(omniRouteBaseUrl(env({ OMNIROUTE_BASE_URL: "https://gw.example.com/v1/" })), "https://gw.example.com/v1");
+  assert.equal(omniRouteBaseUrl(env({ OMNIROUTE_BASE_URL: "http://localhost:20128" })), "http://localhost:20128/v1");
+  assert.equal(omniRouteBaseUrl(env({ OMNIROUTE_BASE_URL: "http://gw.example.com" })), null);
+  assert.equal(omniRouteBaseUrl(env({ OMNIROUTE_BASE_URL: "https://user:pw@gw.example.com" })), null);
+  assert.equal(omniRouteBaseUrl(env({ OMNIROUTE_BASE_URL: "not a url" })), null);
+
+  const calls: Array<{ url: string; model: unknown; auth: string | null }> = [];
+  const fakeFetch: typeof fetch = async (input, init) => {
+    calls.push({ url: String(input), model: JSON.parse(String(init?.body)).model, auth: new Headers(init?.headers).get("authorization") });
+    return new Response(
+      JSON.stringify({ id: "x", object: "chat.completion", created: 0, model: "m", choices: [{ index: 0, message: { role: "assistant", content: "OK" }, finish_reason: "stop" }], usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 } }),
+      { status: 200, headers: { "content-type": "application/json" } }
+    );
+  };
+  const [blog] = realProviders(env({ OMNIROUTE_BASE_URL: "https://gw.example.com", BLOG_OMNIROUTE_MODEL: "auto/best-coding" }), "blog", fakeFetch);
+  assert.deepEqual(await blog.generate(PROMPT), { ok: true, text: "OK" });
+  const [chat] = realProviders(env({ OMNIROUTE_BASE_URL: "https://gw.example.com" }), "chat", fakeFetch);
+  await chat.generate(PROMPT);
+  assert.equal(calls[0].url, "https://gw.example.com/v1/chat/completions");
+  assert.deepEqual(calls.map((call) => call.model), ["auto/best-coding", "auto/best-free"]);
+  assert.equal(calls[1].auth, "Bearer none");
 });
