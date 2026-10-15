@@ -57,6 +57,8 @@ const schema = z.object({ ...aiEnvSchema.shape, DATABASE_URL: z.string() });
 | `OPENROUTER_BASE_URL`, `OPENROUTER_ALLOW_PAID_MODELS` | OpenRouter API, `false` | OpenRouter settings |
 | `OPENAI_API_KEY`, `OPENAI_BASE_URL` | unset, OpenAI API | OpenAI (paid); the base URL also points it at any OpenAI-compatible gateway |
 | `ANTHROPIC_API_KEY`, `ANTHROPIC_BASE_URL` | unset, Anthropic API | Anthropic Messages API over REST (paid) |
+| `OMNIROUTE_BASE_URL`, `OMNIROUTE_API_KEY` | unset | Your self-hosted [OmniRoute](https://github.com/diegosouzapw/OmniRoute) gateway (https, or http on localhost; `/v1` added when missing) and its gateway key. Free only and first in the default order when set. Model `auto/best-free`; override with `OMNIROUTE_MODEL` or `BLOG_`/`CHAT_` variants. An override must be a free route (ends `-free` or `:free`), or the free default replaces it |
+| `OMNIROUTE_ALLOW_PAID` | `false` | Lets an OmniRoute override name a paid route. `AI_ALLOW_PAID` alone never does; both must be on, and the paid route then runs as a last resort |
 | `GROQ_API_KEY` | unset | Groq free plan (no card). Models `openai/gpt-oss-120b` (blog) and `openai/gpt-oss-20b` (chat); override with `GROQ_MODEL` or `BLOG_`/`CHAT_` variants |
 | `MISTRAL_API_KEY` | unset | Mistral free (Experiment) plan, which may train on prompts. Blog chain only, unless `AI_PROVIDER_ORDER_CHAT` lists `mistral` |
 | `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_AI_API_TOKEN` | unset | Cloudflare Workers AI, 10,000 free neurons a day. Models `@cf/openai/gpt-oss-120b` / `-20b`; override with `CLOUDFLARE_AI_MODEL` |

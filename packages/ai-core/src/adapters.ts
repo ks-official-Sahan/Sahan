@@ -37,8 +37,11 @@ export interface ProviderAdapter {
    * AI_PROVIDER_ORDER(_BLOG|_CHAT) still adds it anywhere it is listed.
    */
   readonly defaultPurposes?: readonly TextPurpose[];
-  /** Costs money: runs only with AI_ALLOW_PAID. */
-  paid(env: AiEnv): boolean;
+  /**
+   * Costs money: runs only with AI_ALLOW_PAID. `purpose` is set when the
+   * answer can differ per purpose; without it, true when any purpose is paid.
+   */
+  paid(env: AiEnv, purpose?: TextPurpose): boolean;
   /** Env variable names still missing; empty means configured. Never values. */
   missing(env: AiEnv): string[];
   create(context: AdapterContext): AiProvider;
@@ -57,6 +60,8 @@ const need = (env: AiEnv, ...names: Array<keyof AiEnv>): string[] => names.filte
  * writes long JSON, so it gets the larger model; chat gets the faster one.
  */
 export const FREE_TEXT_MODELS = {
+  // OmniRoute's own alias: its "best free" combo, which only routes to free providers.
+  omniroute: { blog: "auto/best-free", chat: "auto/best-free" },
   groq: { blog: "openai/gpt-oss-120b", chat: "openai/gpt-oss-20b" },
   mistral: { blog: "mistral-medium-latest", chat: "mistral-small-latest" },
   cloudflare: { blog: "@cf/openai/gpt-oss-120b", chat: "@cf/openai/gpt-oss-20b" },
@@ -99,6 +104,44 @@ function compatibleAdapter(spec: {
   };
 }
 
+/**
+ * OMNIROUTE_BASE_URL as the gateway's `/v1` base, or null when unset or unsafe.
+ * https only, except plain http on localhost for a gateway on the same machine;
+ * never credentials in the URL.
+ */
+export function omniRouteBaseUrl(env: AiEnv): string | null {
+  const raw = env.OMNIROUTE_BASE_URL?.trim();
+  if (!raw) return null;
+  try {
+    const url = new URL(raw);
+    const local = /^(?:localhost|127\.0\.0\.1|\[::1\])$/.test(url.hostname);
+    if (url.username || url.password) return null;
+    if (!(url.protocol === "https:" || (url.protocol === "http:" && local))) return null;
+    const base = `${url.origin}${url.pathname.replace(/\/+$/, "")}`;
+    return base.endsWith("/v1") ? base : `${base}/v1`;
+  } catch {
+    return null;
+  }
+}
+
+/** An OmniRoute model id that names a free route: `auto/best-free`, `<provider>/<model>:free`. */
+export function isFreeRoute(model: string): boolean {
+  return /[-:/]free$/i.test(model.trim());
+}
+
+/**
+ * The OmniRoute model for a purpose. Free only by default: an override that is
+ * not a free route counts only with OMNIROUTE_ALLOW_PAID and AI_ALLOW_PAID both
+ * on; otherwise the free default replaces it, so the gateway keeps answering
+ * for free instead of dropping out of the chain.
+ */
+export function omniRouteModel(env: AiEnv, purpose: TextPurpose): string {
+  const model = modelFor(env, "OMNIROUTE", purpose, FREE_TEXT_MODELS.omniroute);
+  return isFreeRoute(model) || (env.OMNIROUTE_ALLOW_PAID && paidAllowed(env)) ? model : FREE_TEXT_MODELS.omniroute[purpose];
+}
+
+const PURPOSES: readonly TextPurpose[] = ["blog", "chat"];
+
 const openRouterAdapter = (id: string, keyVar: "OPENROUTER_API_KEY" | "OPENROUTER_API_KEY_2"): ProviderAdapter => ({
   id,
   label: id === "openrouter" ? "OpenRouter" : "OpenRouter (second key)",
@@ -117,6 +160,26 @@ const openRouterAdapter = (id: string, keyVar: "OPENROUTER_API_KEY" | "OPENROUTE
 });
 
 export const BUILTIN_ADAPTERS: readonly ProviderAdapter[] = [
+  {
+    // OmniRoute: a self-hosted gateway that pools many providers' free tiers
+    // behind one OpenAI-compatible endpoint and fails over between them. First
+    // in the default order, so it leads whenever its address is set. Free only
+    // unless OMNIROUTE_ALLOW_PAID (see omniRouteModel); a paid route then
+    // counts as paid, so it runs as a last resort like any paid provider.
+    id: "omniroute",
+    label: "OmniRoute (self-hosted gateway)",
+    paid: (env, purpose) => (purpose ? [purpose] : PURPOSES).some((each) => !isFreeRoute(omniRouteModel(env, each))),
+    missing: (env) => (omniRouteBaseUrl(env) ? [] : ["OMNIROUTE_BASE_URL"]),
+    create: ({ env, purpose, fetch }) =>
+      openAiCompatibleProvider({
+        name: "omniroute",
+        // A gateway may run without keys; the header must still be well formed.
+        apiKey: env.OMNIROUTE_API_KEY || "none",
+        baseUrl: omniRouteBaseUrl(env)!,
+        model: omniRouteModel(env, purpose),
+        fetch,
+      }),
+  },
   {
     id: "gemini",
     label: "Gemini",
@@ -272,13 +335,13 @@ export function providerStatuses(env: AiEnv, purpose: TextPurpose, adapters: rea
       continue;
     }
     const missing = adapter.missing(env);
-    const paid = adapter.paid(env);
+    const paid = adapter.paid(env, purpose);
     const state: AdapterState = missing.length ? "not_configured" : paid && !paidAllowed(env) ? "needs_paid" : "active";
     statuses.push({ id, label: adapter.label, paid, state, missing, ...(state === "active" ? { position: position++ } : {}) });
   }
   for (const adapter of adapters) {
     if (!ids.includes(adapter.id)) {
-      statuses.push({ id: adapter.id, label: adapter.label, paid: adapter.paid(env), state: "not_in_order", missing: adapter.missing(env) });
+      statuses.push({ id: adapter.id, label: adapter.label, paid: adapter.paid(env, purpose), state: "not_in_order", missing: adapter.missing(env) });
     }
   }
   return statuses;
@@ -381,6 +444,6 @@ export function realProviders(
     // Explicit order: the operator's sequence stands. Default: paid ones go last.
     return explicit
       ? { name: provider.name, generate: provider.generate, priority: index }
-      : { name: provider.name, generate: provider.generate, lastResort: adapter.paid(env) || provider.lastResort };
+      : { name: provider.name, generate: provider.generate, lastResort: adapter.paid(env, purpose) || provider.lastResort };
   });
 }

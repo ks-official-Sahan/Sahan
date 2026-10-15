@@ -50,6 +50,16 @@ export const aiEnvSchema = z.object({
   OPENROUTER_ALLOW_PAID_MODELS: flag,
   GEMINI_API_KEY: text,
   NVIDIA_API_KEY: text,
+  // OmniRoute (./adapters): a self-hosted gateway pooling free tiers. The
+  // address turns it on; the key is a gateway key from its dashboard.
+  OMNIROUTE_BASE_URL: text,
+  OMNIROUTE_API_KEY: text,
+  OMNIROUTE_MODEL: text,
+  BLOG_OMNIROUTE_MODEL: text,
+  CHAT_OMNIROUTE_MODEL: text,
+  // Lets an OmniRoute model override name a paid route; AI_ALLOW_PAID must be
+  // on as well. Off: only free routes (`-free`, `:free`) are ever sent.
+  OMNIROUTE_ALLOW_PAID: flag,
   // More free tiers (./adapters). Groq: free plan, no card. Mistral: free
   // Experiment plan, which may train on prompts, so it joins the chat chain
   // only when AI_PROVIDER_ORDER_CHAT lists it. Cloudflare Workers AI: 10,000
