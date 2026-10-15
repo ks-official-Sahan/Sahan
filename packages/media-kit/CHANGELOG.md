@@ -2,10 +2,6 @@
 
 ## 0.3.0
 
-### Patch Changes
-
-- Every export also has a `default` condition, so a CommonJS loader such as Next.js's `next.config.ts` can `require` it (Node 20.19+/22.12+ load the ESM build through `require(esm)`): `next.config.ts` can build `images.remotePatterns` from `@sahan-sac/media-kit/accounts`.
-
 ### Minor Changes
 
 - 35bc5c3: Add multi-provider storage: AWS S3 and Cloudflare R2 next to Cloudinary, up to 10 accounts per provider in one priority order.
