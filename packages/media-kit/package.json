@@ -68,51 +68,63 @@
     "exports": {
       ".": {
         "types": "./dist/index.d.ts",
-        "import": "./dist/index.js"
+        "import": "./dist/index.js",
+        "default": "./dist/index.js"
       },
       "./config": {
         "types": "./dist/config.d.ts",
-        "import": "./dist/config.js"
+        "import": "./dist/config.js",
+        "default": "./dist/config.js"
       },
       "./validation": {
         "types": "./dist/validation.d.ts",
-        "import": "./dist/validation.js"
+        "import": "./dist/validation.js",
+        "default": "./dist/validation.js"
       },
       "./signature": {
         "types": "./dist/signature.d.ts",
-        "import": "./dist/signature.js"
+        "import": "./dist/signature.js",
+        "default": "./dist/signature.js"
       },
       "./delivery": {
         "types": "./dist/delivery.d.ts",
-        "import": "./dist/delivery.js"
+        "import": "./dist/delivery.js",
+        "default": "./dist/delivery.js"
       },
       "./cloudinary": {
         "types": "./dist/cloudinary.d.ts",
-        "import": "./dist/cloudinary.js"
+        "import": "./dist/cloudinary.js",
+        "default": "./dist/cloudinary.js"
       },
       "./upload-client": {
         "types": "./dist/upload-client.d.ts",
-        "import": "./dist/upload-client.js"
+        "import": "./dist/upload-client.js",
+        "default": "./dist/upload-client.js"
       },
       "./env": {
         "types": "./dist/env.d.ts",
-        "import": "./dist/env.js"
+        "import": "./dist/env.js",
+        "default": "./dist/env.js"
       },
       "./accounts": {
         "types": "./dist/accounts.d.ts",
-        "import": "./dist/accounts.js"
+        "import": "./dist/accounts.js",
+        "default": "./dist/accounts.js"
       },
       "./storage": {
         "types": "./dist/storage.d.ts",
-        "import": "./dist/storage.js"
+        "import": "./dist/storage.js",
+        "default": "./dist/storage.js"
       },
       "./bucket": {
         "types": "./dist/bucket.d.ts",
-        "import": "./dist/bucket.js"
+        "import": "./dist/bucket.js",
+        "default": "./dist/bucket.js"
       },
       "./sigv4": {
         "types": "./dist/sigv4.d.ts",
-        "import": "./dist/sigv4.js"
+        "import": "./dist/sigv4.js",
+        "default": "./dist/sigv4.js"
       },
       "./package.json": "./package.json"
     }
