@@ -2,7 +2,7 @@ import "server-only";
 
 import { randomUUID } from "node:crypto";
 
-import { kv } from "@/lib/cache/redis";
+import { getRedis, kv, REDIS_PREFIX } from "@/lib/cache/redis";
 import { runtimeSchema } from "@/lib/db/url";
 import { log } from "@/lib/log";
 
@@ -18,8 +18,12 @@ import { deleteStoredBackups, listStoredBackups, objectKey, writeObject } from "
 
 const LOCK_KEY = "backup:lock";
 const STATUS_KEY = "backup:last";
-/** Longer than any run can take; a crashed run frees the lock by itself. */
-const LOCK_SECONDS = 15 * 60;
+/**
+ * Short, because a release can be lost (a crash, or the KV falling back to
+ * memory after one slow Redis reply) and the lock then simply expires. A
+ * live run renews it every two minutes, so a long run never outlives it.
+ */
+const LOCK_SECONDS = 6 * 60;
 const STATUS_SECONDS = 90 * 24 * 60 * 60;
 /** An unfinished backup older than this is a crashed run's leftovers. */
 const STALE_INCOMPLETE_MS = 24 * 60 * 60 * 1000;
@@ -40,12 +44,58 @@ export interface BackupStatus {
   error?: string;
 }
 
+/**
+ * The lock and the last status go straight to Redis when it is configured.
+ * The shared kv falls back to memory for 30 s after one slow reply (1.5 s),
+ * and a lock released or a status written there is invisible to the next run
+ * (a stuck "Another backup is already running"). Memory only when Redis is off.
+ */
+const RELEASE_IF_OWNER = 'if redis.call("get", KEYS[1]) == ARGV[1] then return redis.call("del", KEYS[1]) else return 0 end';
+const RENEW_IF_OWNER = 'if redis.call("get", KEYS[1]) == ARGV[1] then return redis.call("expire", KEYS[1], tonumber(ARGV[2])) else return 0 end';
+/** How often a running backup renews its lock: well inside LOCK_SECONDS. */
+const RENEW_EVERY_MS = (LOCK_SECONDS / 3) * 1000;
+
+const state = {
+  async acquire(token: string): Promise<boolean> {
+    const redis = getRedis();
+    if (!redis) return kv.set(LOCK_KEY, token, { nx: true, ttlSeconds: LOCK_SECONDS });
+    return (await redis.set(REDIS_PREFIX + LOCK_KEY, token, { nx: true, ex: LOCK_SECONDS })) !== null;
+  },
+  /** Deletes the lock only while it is still this run's (one atomic step on Redis). */
+  async release(token: string): Promise<void> {
+    const redis = getRedis();
+    if (!redis) {
+      if ((await kv.get<string>(LOCK_KEY)) === token) await kv.del(LOCK_KEY);
+      return;
+    }
+    await redis.eval(RELEASE_IF_OWNER, [REDIS_PREFIX + LOCK_KEY], [token]);
+  },
+  /** Pushes the lock's expiry out again while this run still owns it. */
+  async renew(token: string): Promise<void> {
+    const redis = getRedis();
+    if (!redis) {
+      if ((await kv.get<string>(LOCK_KEY)) === token) await kv.expire(LOCK_KEY, LOCK_SECONDS);
+      return;
+    }
+    await redis.eval(RENEW_IF_OWNER, [REDIS_PREFIX + LOCK_KEY], [token, String(LOCK_SECONDS)]);
+  },
+  async save(status: BackupStatus): Promise<void> {
+    const redis = getRedis();
+    if (!redis) await kv.set(STATUS_KEY, status, { ttlSeconds: STATUS_SECONDS });
+    else await redis.set(REDIS_PREFIX + STATUS_KEY, status, { ex: STATUS_SECONDS });
+  },
+  async read(): Promise<BackupStatus | null> {
+    const redis = getRedis();
+    return redis ? redis.get<BackupStatus>(REDIS_PREFIX + STATUS_KEY) : kv.get<BackupStatus>(STATUS_KEY);
+  },
+};
+
 export function currentBackupConfig(env: Record<string, string | undefined> = process.env): BackupConfigResult {
   return backupConfigFromEnv(env, runtimeSchema(env));
 }
 
 export async function lastBackupStatus(): Promise<BackupStatus | null> {
-  return kv.get<BackupStatus>(STATUS_KEY).catch(() => null);
+  return state.read().catch(() => null);
 }
 
 const message = (error: unknown) => (error instanceof Error ? error.message : String(error));
@@ -59,8 +109,15 @@ export async function runBackup(trigger: BackupTrigger, options: { timeoutMs?: n
 
   const token = randomUUID();
   // Redis down: run anyway. A rare overlap costs a duplicate backup, never data.
-  const locked = await kv.set(LOCK_KEY, token, { nx: true, ttlSeconds: LOCK_SECONDS }).catch(() => true);
+  const locked = await state.acquire(token).catch(() => true);
   if (!locked) return { ok: false, trigger, at, durationMs: 0, error: "Another backup is already running." };
+
+  // Renewed while the run is alive, so the lock never expires under a slow
+  // run; a crashed process stops renewing and the lock expires by itself.
+  const renewal = setInterval(() => {
+    state.renew(token).catch((error) => log.warn("backup lock renewal failed", { error: message(error) }));
+  }, RENEW_EVERY_MS);
+  renewal.unref?.();
 
   let status: BackupStatus;
   try {
@@ -88,11 +145,11 @@ export async function runBackup(trigger: BackupTrigger, options: { timeoutMs?: n
     log.error("backup failed", { trigger, error: message(error) });
     status = { ok: false, trigger, at, durationMs: 0, error: message(error) };
   } finally {
-    const held = await kv.get<string>(LOCK_KEY).catch(() => null);
-    if (held === token) await kv.del(LOCK_KEY).catch(() => 0);
+    clearInterval(renewal);
+    await state.release(token).catch((error) => log.warn("backup lock release failed; it expires by itself", { error: message(error) }));
   }
   status.durationMs = Date.now() - started;
-  await kv.set(STATUS_KEY, status, { ttlSeconds: STATUS_SECONDS }).catch(() => false);
+  await state.save(status).catch((error) => log.warn("backup status not saved", { error: message(error) }));
   return status;
 }
 
