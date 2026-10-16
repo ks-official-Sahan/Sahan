@@ -16,6 +16,8 @@ import { type BackupDb, qualified, type Query, readSchema } from "./sql";
 const FETCH_ROWS = 1000;
 /** Uploads running while later tables are read. */
 const UPLOADS_IN_FLIGHT = 6;
+/** Sealed bytes waiting to upload at once: one table at the size limit, so memory never holds more than about two. */
+const PENDING_UPLOAD_BYTES = 256 * 1024 * 1024;
 /**
  * Uncompressed bytes one table may hold. Each table is compressed in memory
  * before upload; past this the backup stops with a clear error instead of
@@ -79,33 +81,45 @@ export async function exportBackup(db: BackupDb, config: BackupConfig, deps: Exp
       const schema = await readSchema(query, config.schema);
       if (schema.tables.size === 0) throw new Error(`Schema "${config.schema}" has no tables; refusing to write an empty backup`);
       const written: ManifestTable[] = [];
-      // Uploads run while the next tables are read; at most UPLOADS_IN_FLIGHT at once.
+      // Uploads run while the next tables are read, bounded by count and by
+      // bytes. They are always settled before the transaction ends, even when a
+      // read fails, so no upload outlives the run that started it.
       const uploads = new Set<Promise<void>>();
       const failures: unknown[] = [];
+      let pendingBytes = 0;
       const upload = async (name: string, body: Buffer) => {
-        while (uploads.size >= UPLOADS_IN_FLIGHT) await Promise.race(uploads);
+        while (uploads.size > 0 && (uploads.size >= UPLOADS_IN_FLIGHT || pendingBytes + body.length > PENDING_UPLOAD_BYTES)) await Promise.race(uploads);
+        pendingBytes += body.length;
         const running: Promise<void> = deps
           .put(id, tableObjectName(name), body, "application/octet-stream")
           .catch((error: unknown) => void failures.push(error))
-          .finally(() => uploads.delete(running));
+          .finally(() => {
+            pendingBytes -= body.length;
+            uploads.delete(running);
+          });
         uploads.add(running);
       };
       const tables = [...schema.tables].sort(([a], [b]) => (a < b ? -1 : 1)).filter(([name]) => !excluded.has(name));
-      for (const [index, [name, columns]] of tables.entries()) {
-        if (failures.length > 0) break;
-        const { gz, rows } = await dumpTable(query, config.schema, name, `backup_rows_${index}`);
-        const sealed = seal(gz, config.key, id, name);
-        await upload(name, sealed);
-        written.push({
-          name,
-          object: tableObjectName(name),
-          rows,
-          bytes: sealed.length,
-          sha256: createHash("sha256").update(gz).digest("hex"),
-          columns: columns.map((column) => [column.name, column.type]),
-        });
+      try {
+        for (const [index, [name, columns]] of tables.entries()) {
+          if (failures.length > 0) break;
+          const { gz, rows } = await dumpTable(query, config.schema, name, `backup_rows_${index}`);
+          const sealed = seal(gz, config.key, id, name);
+          await upload(name, sealed);
+          written.push({
+            name,
+            object: tableObjectName(name),
+            rows,
+            bytes: sealed.length,
+            sha256: createHash("sha256").update(gz).digest("hex"),
+            columns: columns.map((column) => [column.name, column.type]),
+          });
+        }
+      } finally {
+        // A read error thrown above stays the error; upload failures are only
+        // reported when the reads all succeeded.
+        await Promise.allSettled(uploads);
       }
-      await Promise.all(uploads);
       if (failures.length > 0) throw failures[0];
       return { tables: written, postgres: server_version };
     },
