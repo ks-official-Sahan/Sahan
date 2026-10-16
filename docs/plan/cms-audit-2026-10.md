@@ -49,6 +49,11 @@ fully, 4 partially and 4 not at all:
 
 ## 2. Hot path (delivery)
 
+As audited on 2026-10-10, before #62 and M6. Since M6 the path is: page
+prerendered with Cache Components (`cacheLife` 300/3600 s) -> `cached()`: one
+`use cache` scope -> Redis read-through (data and tag generations in one
+pipelined round trip, #62) -> Prisma repos -> Neon.
+
 ```
 Browser -> Vercel CDN -> proxy.ts (every non-static path)
         -> page (ISR 300/3600 s) or /api/content/v1 (s-maxage=60, swr=300)
