@@ -1,5 +1,11 @@
 # @sahan-sac/media-kit
 
+## 0.4.0
+
+### Minor Changes
+
+- 261dbc3: Bucket helpers `listObjects` (one ListObjectsV2 page, with prefixes and a continuation token) and `getObject` (an object's bytes, or null when it is missing), signed like the existing HEAD, PUT and DELETE calls.
+
 ## 0.3.1
 
 ### Patch Changes
