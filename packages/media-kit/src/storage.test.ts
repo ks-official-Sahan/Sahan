@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { deliveryHosts, deliveryPatterns, describeAccount, LEGACY_ACCOUNT_ID, storageAccountsFromEnv, uploadOrigins, type BucketAccount, type StorageAccount } from "./accounts";
-import { deleteObject, headObject, newObjectKey, objectApiUrl, objectPublicUrl, presignBucketUpload, probeBucket, putObject } from "./bucket";
+import { deleteObject, getObject, headObject, listObjects, newObjectKey, objectApiUrl, objectPublicUrl, parseObjectListing, presignBucketUpload, probeBucket, putObject } from "./bucket";
 import { classifyFailure, StorageError, uploadCandidates, withFailover } from "./storage";
 
 const R2_ACCOUNT_ID = "0123456789abcdef0123456789abcdef";
@@ -224,4 +224,42 @@ test("a bucket probe tells a missing bucket, refused keys and a write-only key a
     throw new TypeError("fetch failed");
   }) as typeof fetch;
   assert.equal(await probeBucket(r2, down), "unavailable");
+});
+
+test("listObjects: one signed ListObjectsV2 page with prefixes, entities decoded and a continuation token", async () => {
+  const urls: string[] = [];
+  const body = `<?xml version="1.0"?><ListBucketResult><IsTruncated>true</IsTruncated>
+<Contents><Key>backups/a&amp;b/manifest.json</Key><LastModified>2026-10-15T02:20:00.000Z</LastModified><Size>512</Size></Contents>
+<CommonPrefixes><Prefix>backups/2026-10-14/</Prefix></CommonPrefixes>
+<NextContinuationToken>tok/1</NextContinuationToken></ListBucketResult>`;
+  const fakeFetch = (async (input: string | URL | Request, init?: RequestInit) => {
+    urls.push(String(input));
+    assert.ok(String((init?.headers as Record<string, string>).authorization).startsWith("AWS4-HMAC-SHA256"));
+    return new Response(body, { status: 200 });
+  }) as typeof fetch;
+
+  const page = await listObjects(r2, { prefix: "backups/", delimiter: "/", continuationToken: "tok/0", maxKeys: 5000 }, fakeFetch);
+  assert.deepEqual(page, {
+    objects: [{ key: "backups/a&b/manifest.json", bytes: 512, lastModified: "2026-10-15T02:20:00.000Z" }],
+    prefixes: ["backups/2026-10-14/"],
+    nextToken: "tok/1",
+  });
+  const query = new URL(urls[0]).searchParams;
+  assert.equal(query.get("list-type"), "2");
+  assert.equal(query.get("continuation-token"), "tok/0");
+  assert.equal(query.get("max-keys"), "1000", "capped at the S3 page size");
+  assert.equal(parseObjectListing("<ListBucketResult><IsTruncated>false</IsTruncated></ListBucketResult>").nextToken, null);
+});
+
+test("getObject: bytes on 200, null on 404, a classified StorageError otherwise", async () => {
+  const fakeFetch = (async (input: string | URL | Request) => {
+    const url = String(input);
+    if (url.endsWith("/missing")) return new Response("<Error><Code>NoSuchKey</Code></Error>", { status: 404 });
+    if (url.endsWith("/broken")) return new Response("oops", { status: 500 });
+    return new Response(new Uint8Array([7, 8, 9]), { status: 200 });
+  }) as typeof fetch;
+
+  assert.deepEqual(await getObject(r2, "backups/x", fakeFetch), new Uint8Array([7, 8, 9]));
+  assert.equal(await getObject(r2, "backups/missing", fakeFetch), null);
+  await assert.rejects(getObject(r2, "backups/broken", fakeFetch), (error: unknown) => error instanceof StorageError);
 });
