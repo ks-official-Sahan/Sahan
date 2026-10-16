@@ -28,10 +28,13 @@ cached reads that use the changed collection.
    `DATABASE_URL` is set. `MAINTENANCE_BYPASS_SECRET`,
    `ADMIN_LOGIN_UNLOCK_SECRET`, `MEDIA_SIGNING_SECRET` and `CRON_SECRET` are
    optional: each feature is off while its secret is unset.
-4. Apply the checked-in Prisma schema to the dedicated `sahan` schema with
-   `pnpm db:push`. This repository does not keep Prisma migration history;
-   review the proposed schema changes before accepting them. Never point
-   `DATABASE_URL` at a shared schema.
+4. Apply the committed migrations (`prisma/migrations/`) to the dedicated
+   `sahan` schema with `pnpm db:migrate` (`prisma migrate deploy`: it only
+   applies pending migrations, never resets). Never point `DATABASE_URL` at
+   a shared schema. To change the schema: edit `prisma/schema.prisma`, run
+   `pnpm db:migration <name>`, review the SQL it writes, commit it, then
+   `pnpm db:migrate`. CI applies every migration to a fresh schema and fails
+   when the result differs from `schema.prisma`.
 5. To initialize the works collections from the checked-in defaults, run
    `pnpm db:seed-collections`. It is idempotent and fills only empty
    collections. It seeds projects, experience, services and skills; review

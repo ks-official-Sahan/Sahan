@@ -1,5 +1,5 @@
 // End-to-end fixtures: test accounts and posts the specs rely on.
-// Run after `pnpm db:push` and `pnpm db:seed` (which creates the roles), and
+// Run after `pnpm db:migrate` and `pnpm db:seed` (which creates the roles), and
 // before `pnpm build` (the build prerenders the sitemap and post pages):
 //   pnpm e2e:fixtures
 // Idempotent. Refuses any database schema but `sahan_test`, so it can never

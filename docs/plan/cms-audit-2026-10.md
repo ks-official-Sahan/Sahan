@@ -86,7 +86,7 @@ Browser -> Vercel CDN -> proxy.ts (every non-static path)
 | M9 (Fixed in #17) | `lib/actions/works.ts` (collections) | Edits to published rows go live immediately with no `updatedAt` guard (last write wins). | Add `updateIfUnchanged`. Optionally add a draft layer. |
 | M10 (Fixed: guard in #16; status history in the audit log, linked from History in #43) | `lib/actions/blog.ts:430-449` | Status changes are unconditional and write no revision. | Guard on `updatedAt` and record a revision. |
 | M11 (Fixed in #23) | `lib/actions/blog.ts` (slug edit) | A changed slug leaves the old URL as a 404 (no slug history or redirects). | Add a `PostSlugHistory` table with a 308 redirect in the post route. |
-| M12 | `prisma/schema.prisma`; `package.json` | `db push` only, no migration history. The "one DRAFT + one PUBLISHED per block" rule is enforced in code only. | Adopt `prisma migrate` with a CI diff check, and add a partial unique index. |
+| M12 (Fixed: baseline `0_init`, `db:migration`/`db:migrate`, CI drift check) | `prisma/schema.prisma`; `package.json` | `db push` only, no migration history. The "one DRAFT + one PUBLISHED per block" rule is enforced in code only. | Adopt `prisma migrate` with a CI diff check, and add a partial unique index. |
 | M13 (Fixed in #16) | `lib/admin/audit.ts`; `lib/actions/blog.ts` | The audit row stores full post bodies before and after (up to about 200 KB each) on top of revisions. | Omit body fields from the audit row (revisions hold them) or audit a diff. |
 
 ### Low
@@ -170,7 +170,7 @@ Browser -> Vercel CDN -> proxy.ts (every non-static path)
 
 **P3, architecture:**
 - M6: drop the Redis read-through on Vercel and migrate `unstable_cache` to `use cache` / `cacheTag` / `cacheLife`.
-- M12: `prisma migrate` with committed history.
+- M12: `prisma migrate` with committed history. (Done: baseline `0_init`, CI applies migrations and fails on drift.)
 - Observability: Server-Timing on content routes, cache hit/miss counters, p95 dashboards, request IDs. (Server-Timing with per-request Redis hit/miss and load counts in #22; Vercel's `x-vercel-id` already identifies each request in its logs, and p95 lives in Vercel Observability.)
 - Co-locate the Vercel region with Neon. (Done in #22: Neon is us-east-1, functions pinned to `iad1` in vercel.json.)
 - e2e suite for login, editing, publishing and the content API.

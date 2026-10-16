@@ -203,12 +203,16 @@ jobs:
           put ADMIN_LOGIN_UNLOCK_SECRET "$(openssl rand -hex 24)"
           put E2E_PASSWORD "E2e-$(openssl rand -hex 24)"
 
-      # --force-reset drops and recreates only the sahan_test schema, on the
-      # branch created above; the live database is never touched.
+      # Drops only the sahan_test schema, on the branch created above (the live
+      # database is never touched), then applies every committed migration.
+      # The diff fails the job (exit code 2) when the migrations do not add up
+      # to prisma/schema.prisma.
       - name: Prepare database
         if: env.HAS_NEON == 'true'
         run: |
-          pnpm exec prisma db push --force-reset
+          echo 'DROP SCHEMA IF EXISTS "sahan_test" CASCADE;' | pnpm exec prisma db execute --stdin
+          pnpm exec prisma migrate deploy
+          pnpm exec prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --exit-code
           pnpm db:seed
           pnpm e2e:fixtures
 
