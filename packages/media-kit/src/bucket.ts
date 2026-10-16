@@ -134,3 +134,71 @@ export async function deleteObject(account: BucketAccount, key: string, fetchFn:
   if (response.status === 204 || response.status === 200 || response.status === 404) return true;
   return fail(account, response, "DELETE");
 }
+
+/** One object in a listing. */
+export interface ListedObject {
+  key: string;
+  bytes: number;
+  lastModified: string;
+}
+
+/** One page of a ListObjectsV2 listing. */
+export interface ObjectListing {
+  objects: ListedObject[];
+  /** Key prefixes up to the delimiter ("folders"), when one was given. */
+  prefixes: string[];
+  /** Pass back as `continuationToken` for the next page; null on the last. */
+  nextToken: string | null;
+}
+
+const XML_ENTITIES: Record<string, string> = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'" };
+const unescapeXml = (value: string) => value.replace(/&(amp|lt|gt|quot|apos);/g, (_, name: string) => XML_ENTITIES[name]);
+const tagText = (xml: string, tag: string) => {
+  const match = new RegExp(`<${tag}>([^<]*)</${tag}>`).exec(xml);
+  return match ? unescapeXml(match[1]) : null;
+};
+
+/** Parses a ListObjectsV2 response body. Exported for tests. */
+export function parseObjectListing(xml: string): ObjectListing {
+  const objects = [...xml.matchAll(/<Contents>([\s\S]*?)<\/Contents>/g)].map(([, block]) => ({
+    key: tagText(block, "Key") ?? "",
+    bytes: Number(tagText(block, "Size") ?? 0),
+    lastModified: tagText(block, "LastModified") ?? "",
+  }));
+  const prefixes = [...xml.matchAll(/<CommonPrefixes>([\s\S]*?)<\/CommonPrefixes>/g)].map(([, block]) => tagText(block, "Prefix") ?? "");
+  const truncated = tagText(xml, "IsTruncated") === "true";
+  return { objects: objects.filter((object) => object.key), prefixes: prefixes.filter(Boolean), nextToken: truncated ? tagText(xml, "NextContinuationToken") : null };
+}
+
+/**
+ * One page (up to 1000 keys) of the objects under `prefix`, in key order.
+ * With a `delimiter` (usually "/"), keys below the next delimiter are rolled
+ * up into `prefixes`, so a caller can list "folders" without every file.
+ */
+export async function listObjects(
+  account: BucketAccount,
+  input: { prefix?: string; delimiter?: string; continuationToken?: string; maxKeys?: number } = {},
+  fetchFn: FetchFn = fetch
+): Promise<ObjectListing> {
+  const query = new URLSearchParams({ "list-type": "2" });
+  if (input.prefix) query.set("prefix", input.prefix);
+  if (input.delimiter) query.set("delimiter", input.delimiter);
+  if (input.continuationToken) query.set("continuation-token", input.continuationToken);
+  if (input.maxKeys) query.set("max-keys", String(Math.min(Math.max(1, Math.trunc(input.maxKeys)), 1000)));
+  const url = `${bucketApiBase(account)}?${query}`;
+  const response = await call(account, url, { method: "GET", headers: signS3Request({ method: "GET", url, credentials: credentials(account), scope: scope(account) }) }, fetchFn);
+  if (!response.ok) return fail(account, response, "LIST");
+  return parseObjectListing(await response.text());
+}
+
+/**
+ * The bytes of an object, or null when it is not there. Reads the whole body
+ * into memory, so it is meant for objects of a known, bounded size.
+ */
+export async function getObject(account: BucketAccount, key: string, fetchFn: FetchFn = fetch): Promise<Uint8Array | null> {
+  const url = objectApiUrl(account, key);
+  const response = await call(account, url, { method: "GET", headers: signS3Request({ method: "GET", url, credentials: credentials(account), scope: scope(account) }) }, fetchFn);
+  if (response.status === 404) return null;
+  if (!response.ok) return fail(account, response, "GET");
+  return new Uint8Array(await response.arrayBuffer());
+}
