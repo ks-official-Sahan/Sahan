@@ -5,7 +5,9 @@
 // picks it through the adapter option (see lib/db/prisma.ts). Other schemas in
 // that database belong to other projects: never read, alter or drop them.
 //
-// Use `prisma db push` only. Never `migrate reset` or `--force-reset`.
+// Change it through migrations: edit this file, `pnpm db:migration <name>`,
+// review and commit prisma/migrations/*, then `pnpm db:migrate`. Never
+// `db push`, `migrate dev` or `migrate reset` against the live database.
 // Design record: docs/plan/admin-cms-adr.md, section 7.
 
 generator client {
