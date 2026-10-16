@@ -15,7 +15,11 @@ interface ResendPayload {
   subject: string;
   html: string;
   text: string;
+  tags?: { name: string; value: string }[];
 }
+
+/** Resend tag values allow only ASCII letters, digits, `_` and `-`. */
+const tagValue = (value: string) => value.replace(/[^A-Za-z0-9_-]/g, "_");
 
 export interface ResendClient {
   emails: {
@@ -66,6 +70,10 @@ export function createResendProvider(config: ResendConfig, client?: ResendClient
           subject: message.subject,
           html: message.html,
           text: message.text,
+          tags: [
+            { name: "category", value: tagValue(message.category) },
+            ...(message.ref ? [{ name: "ref", value: tagValue(message.ref) }] : []),
+          ],
         });
         if (error) return classifyResendError(error);
         return { ok: true, messageId: data?.id };

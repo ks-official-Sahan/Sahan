@@ -2,6 +2,7 @@ import "server-only";
 
 import type { RoleName } from "@/lib/auth/permissions";
 import type { UserListItem, UserPage, UserQuery } from "@/lib/data/users";
+import type { RefStatus } from "@/lib/data/email-deliveries";
 import { repos } from "@/lib/data";
 
 // Reads for the users screen. Rules live in rules.ts; changes are made by the
@@ -25,6 +26,8 @@ export interface PendingInvite {
   createdAt: Date;
   expiresAt: Date;
   createdByEmail: string | null;
+  /** Latest delivery of the invitation email; null when it was not emailed or not tracked. */
+  delivery: RefStatus | null;
 }
 
 /** Invitations that can still be accepted. */
@@ -34,6 +37,11 @@ export async function listPendingInvites(): Promise<PendingInvite[]> {
     ...new Set(rows.map((row) => row.createdById).filter((id): id is string => Boolean(id))),
   ]);
   const byId = new Map(creators.map((user) => [user.id, user.email]));
+  // One query for every row's email status. A failure (before the tracking
+  // migration, for instance) shows no status rather than breaking the list.
+  const deliveries = await repos.emailDeliveries
+    .latestByRefs(rows.map((row) => `invite:${row.id}`))
+    .catch(() => new Map<string, RefStatus>());
   return rows.map((row) => ({
     id: row.id,
     email: row.email,
@@ -41,6 +49,7 @@ export async function listPendingInvites(): Promise<PendingInvite[]> {
     createdAt: row.createdAt,
     expiresAt: row.expiresAt,
     createdByEmail: row.createdById ? (byId.get(row.createdById) ?? null) : null,
+    delivery: deliveries.get(`invite:${row.id}`) ?? null,
   }));
 }
 

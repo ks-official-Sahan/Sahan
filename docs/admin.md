@@ -421,6 +421,40 @@ are not opened. With the chatbot off,
 the site widget is not rendered, `/api/chat` answers 503, and
 `/admin/chatbot` says why.
 
+## Email providers and delivery tracking
+
+Mail goes out through the first provider that accepts it: **Brevo API**, then
+**Resend**, then **Brevo SMTP**. **Settings → Email routing** picks a primary
+and secondary provider; `EMAIL_PROVIDER_ORDER` does the same from the
+environment, and the setting wins. Providers that are not configured are
+skipped. A provider that fails for account reasons (bad key, no credits, rate
+limit, unverified sender) hands the message to the next one.
+
+The Brevo API is skipped for the rest of the UTC day after `BREVO_DAILY_LIMIT`
+sends (default 300, the free plan), so the daily allowance never bounces
+mail. The counter lives in Redis.
+
+**Admin → Emails** (developers) lists every send: masked recipient, subject,
+type, the provider that took it, how many fallbacks it needed, and its
+status. Open a row for the providers tried and the webhook events. Open
+invitations on **Users** show their email status too. History older than 90
+days is pruned by the daily housekeeping cron.
+
+Statuses move past *Sent* only with webhooks:
+
+1. **Resend:** Webhooks → Add endpoint →
+   `https://<site>/api/webhooks/email/resend`, events `email.*`. Copy the
+   signing secret into `RESEND_WEBHOOK_SECRET`.
+2. **Brevo:** Transactional → Settings → Webhooks (or `POST /v3/webhooks`
+   with `type: "transactional"`) → URL `https://<site>/api/webhooks/email/brevo`,
+   authentication **Bearer** with a random token (`openssl rand -hex 32`).
+   Put the same token in `BREVO_WEBHOOK_TOKEN`. One webhook covers mail sent
+   through both the Brevo API and Brevo SMTP.
+
+Without the secret or token, the route answers 404. Both routes are exempt
+from the origin check and maintenance mode because they authenticate the
+caller themselves.
+
 ## Media storage accounts
 
 Uploads can go to several accounts: up to 10 each of Cloudinary, AWS S3 and

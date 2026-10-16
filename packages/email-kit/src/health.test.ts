@@ -19,6 +19,10 @@ const env = (overrides: Partial<ProviderEnv> = {}): ProviderEnv => ({
   EMAIL_HOST_PASSWORD: "smtp_secret_value",
   DEFAULT_FROM_EMAIL: "sender@example.com",
   EMAIL_SENDER_USER: undefined,
+  BREVO_API_KEY: undefined,
+  BREVO_SENDER_EMAIL: undefined,
+  BREVO_SENDER_NAME: undefined,
+  EMAIL_BREVO_API_KEY: undefined,
   ...overrides,
 });
 

@@ -1,4 +1,4 @@
-import { providerOrder, type EmailConfig } from "./config";
+import { providerOrder, type EmailConfig, type OrderableProvider } from "./config";
 import type { ProviderName } from "./types";
 
 // What the settings screen shows about email: which providers are usable and in
@@ -9,6 +9,7 @@ export interface EmailHealth {
   mode: EmailConfig["mode"];
   order: ProviderName[];
   canSend: boolean;
+  brevoApi: { configured: boolean; from: string | null };
   resend: { configured: boolean; from: string | null };
   smtp: { configured: boolean; host: string | null; port: number | null };
   brevoApiKey: boolean;
@@ -18,9 +19,9 @@ export interface EmailHealth {
 
 export function emailHealth(
   config: EmailConfig,
-  options: { production: boolean; brevoApiKey: boolean }
+  options: { production: boolean; brevoApiKey: boolean; preferred?: readonly OrderableProvider[] }
 ): EmailHealth {
-  const order = providerOrder(config, options.production);
+  const order = providerOrder(config, options.production, options.preferred);
   const warnings: string[] = [];
 
   if (config.mode === "capture" && options.production) {
@@ -35,8 +36,9 @@ export function emailHealth(
 
   // "Resend needs ..." style notes only matter for a provider that is in use or expected.
   const problems = config.problems.filter((problem) => {
-    if (config.mode === "resend") return !problem.startsWith("SMTP");
-    if (config.mode === "brevo-smtp") return !problem.startsWith("Resend");
+    if (config.mode === "brevo-api") return problem.startsWith("Brevo API");
+    if (config.mode === "resend") return problem.startsWith("Resend");
+    if (config.mode === "brevo-smtp") return problem.startsWith("SMTP");
     if (config.mode === "capture") return false;
     return true;
   });
@@ -46,6 +48,7 @@ export function emailHealth(
     mode: config.mode,
     order,
     canSend: order.length > 0,
+    brevoApi: { configured: config.brevoApi !== null, from: config.brevoApi?.from ?? null },
     resend: { configured: config.resend !== null, from: config.resend?.from ?? null },
     smtp: {
       configured: config.smtp !== null,

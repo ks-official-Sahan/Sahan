@@ -29,11 +29,13 @@ export async function sendAccountEmail(input: {
   /** Called once for the original and, when a copy is due, once with `{ copy: true }`. */
   render: (options: { copy?: boolean }) => Rendered;
   category: EmailCategory;
+  /** Delivery-tracking key for the original, such as `invite:<id>`; the redacted copy carries none. */
+  ref?: string;
   actor?: SendOptions["actor"];
 }): Promise<SendResult> {
-  const { to, category, actor } = input;
+  const { to, category, ref, actor } = input;
   const rendered = input.render({});
-  const sent = await sendEmail({ to, subject: rendered.subject, html: rendered.html, text: rendered.text, category }, { actor });
+  const sent = await sendEmail({ to, subject: rendered.subject, html: rendered.html, text: rendered.text, category, ref }, { actor });
   // Only a delivered original gets a copy, and only after the response, so the
   // copy never slows the action down or changes what it reports.
   if (sent.ok) {

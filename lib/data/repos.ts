@@ -3,6 +3,7 @@ import type { AuthTokenRepo } from "./auth-tokens";
 import type { ChatRepo, ChatTrainingRepo } from "./chat";
 import type { ExperienceRepo, ProjectRepo, ServiceGroupRepo, ServiceRepo, SkillGroupRepo, SkillRepo } from "./collections";
 import type { ContentBlockRepo } from "./content";
+import type { EmailDeliveryRepo } from "./email-deliveries";
 import type { InquiryRepo } from "./inquiries";
 import type { DashboardRepo, MaintenanceRepo } from "./maintenance";
 import type { MediaRepo } from "./media";
@@ -27,6 +28,7 @@ export interface Repos {
   chatTraining: ChatTrainingRepo;
   contentBlocks: ContentBlockRepo;
   dashboard: DashboardRepo;
+  emailDeliveries: EmailDeliveryRepo;
   experiences: ExperienceRepo;
   inquiries: InquiryRepo;
   maintenance: MaintenanceRepo;

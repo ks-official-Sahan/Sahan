@@ -42,5 +42,5 @@ export async function GET(request: NextRequest) {
   }
 
   const diagnostics = await getBrevoDiagnostics({ messageId, email });
-  return json({ health: getEmailHealth(), diagnostics });
+  return json({ health: await getEmailHealth(), diagnostics });
 }

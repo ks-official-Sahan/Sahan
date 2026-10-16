@@ -165,6 +165,7 @@ describe("isMaintenanceExempt (proxy decision helper)", () => {
   test("cron routes are always exempt", () => {
     assert.equal(isMaintenanceExempt("/api/cron", false), true);
     assert.equal(isMaintenanceExempt("/api/cron/blog-publish", false), true);
+    assert.equal(isMaintenanceExempt("/api/webhooks/email/resend", false), true);
   });
 
   test("the health route is exempt, so the domain probe sees the site as up", () => {

@@ -172,6 +172,10 @@ export async function updateEmailRoutingAction(_previous: ActionState, formData:
     notificationEmail: textOrUndefined(formData, "notificationEmail"),
     autoReplyEnabled: checkbox(formData, "autoReplyEnabled"),
     authCopyEnabled: checkbox(formData, "authCopyEnabled"),
+    // Primary then secondary; "default" or a repeat leaves that slot to the default order.
+    providerOrder: [...new Set([formData.get("primaryProvider"), formData.get("secondaryProvider")])].filter(
+      (value): value is string => typeof value === "string" && value !== "" && value !== "default"
+    ),
   });
   if (!parsed.success) return fail("Could not save email routing.", fieldErrorsFrom(parsed.error.issues));
 

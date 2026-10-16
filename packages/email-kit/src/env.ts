@@ -37,13 +37,44 @@ const port = text.transform((value, ctx) => {
   return parsed;
 });
 
-export const EMAIL_PROVIDERS = ["auto", "resend", "brevo-smtp", "capture"] as const;
+export const EMAIL_PROVIDERS = ["auto", "brevo-api", "resend", "brevo-smtp", "capture"] as const;
+
+/** Providers that can appear in EMAIL_PROVIDER_ORDER (capture is for tests only). */
+export const ORDERABLE_PROVIDERS = ["brevo-api", "resend", "brevo-smtp"] as const;
+
+const order = list.pipe(z.array(z.enum(ORDERABLE_PROVIDERS)));
+
+/** A positive whole number, or undefined. */
+const count = text.transform((value, ctx) => {
+  if (value === undefined) return undefined;
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 0) {
+    ctx.addIssue({ code: "custom", message: "must be a whole number" });
+    return z.NEVER;
+  }
+  return parsed;
+});
 
 const provider = text.transform((value) => (value ?? "auto").toLowerCase()).pipe(z.enum(EMAIL_PROVIDERS));
 
 export const emailEnvSchema = z.object({
-  /** auto (every configured provider, Resend first), resend, brevo-smtp, or capture (tests; refused in production). */
+  /**
+   * auto (every configured provider: Brevo API, then Resend, then Brevo SMTP),
+   * one provider name to use only that one, or capture (tests; refused in production).
+   */
   EMAIL_PROVIDER: provider,
+  /**
+   * auto mode only: providers to try first, comma separated, such as
+   * "resend,brevo-api". Configured providers left out follow in the default order.
+   */
+  EMAIL_PROVIDER_ORDER: order,
+  /** Brevo transactional API key. Falls back to EMAIL_BREVO_API_KEY. */
+  BREVO_API_KEY: text,
+  /** Sender for the Brevo API; must be a verified Brevo sender. Falls back to DEFAULT_FROM_EMAIL. */
+  BREVO_SENDER_EMAIL: text,
+  BREVO_SENDER_NAME: text,
+  /** Sends per UTC day before the Brevo API is skipped for the next provider. Default 300 (free plan); 0 turns the check off. */
+  BREVO_DAILY_LIMIT: count,
   RESEND_API_KEY: text,
   RESEND_SENDER_EMAIL: text,
   RESEND_SENDER_NAME: text,
@@ -54,6 +85,10 @@ export const emailEnvSchema = z.object({
   EMAIL_HOST_PASSWORD: text,
   DEFAULT_FROM_EMAIL: text,
   EMAIL_SENDER_USER: text,
+  /** Resend webhook signing secret (whsec_...), for delivery tracking. */
+  RESEND_WEBHOOK_SECRET: text,
+  /** Bearer token set on the Brevo transactional webhook, for delivery tracking. */
+  BREVO_WEBHOOK_TOKEN: text,
   /** Read only: Brevo delivery diagnostics. */
   EMAIL_BREVO_API_KEY: text,
   /** Addresses that get a redacted copy of account emails (invites, resets): the copy never carries the link. */

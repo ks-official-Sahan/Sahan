@@ -7,6 +7,7 @@ import { chatRepo, chatTrainingRepo } from "./chat";
 import type { DbClient } from "./client";
 import { experienceRepo, projectRepo, serviceGroupRepo, serviceRepo, skillGroupRepo, skillRepo } from "./collections";
 import { contentBlockRepo } from "./content";
+import { emailDeliveryRepo } from "./email-deliveries";
 import { inquiryRepo } from "./inquiries";
 import { dashboardRepo, maintenanceRepo } from "./maintenance";
 import { mediaRepo } from "./media";
@@ -30,6 +31,7 @@ export function createRepos(client: DbClient): Repos {
     chatTraining: chatTrainingRepo(client),
     contentBlocks: contentBlockRepo(client),
     dashboard: dashboardRepo(client),
+    emailDeliveries: emailDeliveryRepo(client),
     experiences: experienceRepo(client),
     inquiries: inquiryRepo(client),
     maintenance: maintenanceRepo(client),

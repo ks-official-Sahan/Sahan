@@ -93,8 +93,9 @@ export async function inviteUser(_previous: ActionState, formData: FormData): Pr
 
   const { token, hash } = createToken(authSecret());
   const expiresAt = new Date(Date.now() + INVITE_TTL_HOURS * 3600 * 1000);
+  let inviteId: string;
   try {
-    await withTx(async (tx) => {
+    inviteId = await withTx(async (tx) => {
       // One open invitation per address: a new one replaces the old link.
       // Never cancel an invitation for a role this actor could not have sent.
       await tx.authTokens.revokeOpenInvitesTo(parsed.data.email, { roles: roles.assignable(actor.role), createdById: actor.id });
@@ -116,6 +117,7 @@ export async function inviteUser(_previous: ActionState, formData: FormData): Pr
         },
         tx
       );
+      return created.id;
     });
   } catch {
     return fail(UNEXPECTED);
@@ -135,6 +137,7 @@ export async function inviteUser(_previous: ActionState, formData: FormData): Pr
     render: (options) =>
       invite({ inviterName: actor.name ?? actor.email, role: parsed.data.role, url: link, expiresHours: INVITE_TTL_HOURS, signInUrl }, options),
     category: "invite",
+    ref: `invite:${inviteId}`,
     actor,
   }).catch(() => ({ ok: false as const }));
   if (!sent.ok) {
@@ -525,6 +528,7 @@ export async function sendReset(_previous: ActionState, formData: FormData): Pro
       to: target.email,
       render: (options) => passwordReset({ name: target.name, url, expiresMinutes: RESET_TTL_MINUTES, signInUrl }, options),
       category: "password-reset",
+      ref: `reset:${row.id}`,
       actor: access.user,
     });
     if (!sent.ok) {

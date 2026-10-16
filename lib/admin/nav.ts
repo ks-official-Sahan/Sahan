@@ -55,6 +55,7 @@ export const ADMIN_NAV: readonly AdminNavItem[] = [
   { href: "/admin/sessions", label: "Sessions", icon: "wifi", permission: "viewSessions", group: "access" },
   { href: "/admin/audit", label: "Audit log", icon: "history-circle", permission: "viewAuditLogs", group: "access" },
   { href: "/admin/settings", label: "Settings", icon: "gear", permission: "manageSettings", group: "system" },
+  { href: "/admin/emails", label: "Emails", icon: "send", permission: "manageSettings", group: "system" },
   { href: "/admin/webhooks", label: "Webhooks", icon: "plug-connected", permission: "manageSettings", group: "system" },
   { href: "/admin/backups", label: "Backups", icon: "save", permission: "manageSettings", group: "system" },
   { href: "/admin/account", label: "Account", icon: "user", permission: null, group: "account" },

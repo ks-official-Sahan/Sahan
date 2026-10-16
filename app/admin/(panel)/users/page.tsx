@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import SignInLinkCard from "@/components/admin/account/SignInLinkCard";
+import DeliveryStatusBadge from "@/components/admin/email/DeliveryStatusBadge";
 import EmptyState from "@/components/admin/ui/EmptyState";
 import { badgeClass, cardClass, tableClass, tdClass, thClass } from "@/components/admin/ui/styles";
 import { CreateUserForm, InviteForm, InviteRowActions } from "@/components/admin/users/UserForms";
@@ -220,6 +221,9 @@ export default async function UsersPage({ searchParams }: { searchParams: Promis
                     Expires
                   </th>
                   <th scope="col" className={thClass}>
+                    Email
+                  </th>
+                  <th scope="col" className={thClass}>
                     <span className="sr-only">Actions</span>
                   </th>
                 </tr>
@@ -233,6 +237,13 @@ export default async function UsersPage({ searchParams }: { searchParams: Promis
                     </td>
                     <td className={tdClass}>{invite.createdByEmail ?? "Unknown"}</td>
                     <td className={tdClass}>{formatDateTime(invite.expiresAt)}</td>
+                    <td className={tdClass}>
+                      {invite.delivery ? (
+                        <DeliveryStatusBadge status={invite.delivery.status} title={`Updated ${formatDateTime(invite.delivery.at)}`} />
+                      ) : (
+                        <span className="text-xs text-muted-foreground">Not emailed</span>
+                      )}
+                    </td>
                     <td className={`${tdClass} text-right`}>
                       {hasPermission(actor, "inviteUser") && roles.includes(invite.role) ? (
                         <InviteRowActions inviteId={invite.id} email={invite.email} />
