@@ -23,7 +23,8 @@
     "db:seed-blog": "node --env-file-if-exists=.env.local --conditions=react-server --import tsx prisma/seed-blog.ts",
     "e2e": "playwright test",
     "e2e:fixtures": "node --env-file-if-exists=.env.local --conditions=react-server --import tsx e2e/fixtures.ts",
-    "db:backup": "node --env-file-if-exists=.env.local --conditions=react-server --import tsx scripts/backup.ts"
+    "db:backup": "node --env-file-if-exists=.env.local --conditions=react-server --import tsx scripts/backup.ts",
+    "db:upgrade-check": "node --env-file-if-exists=.env.local --import tsx scripts/pg-upgrade-check.ts"
   },
   "dependencies": {
     "@ai-sdk/openai": "^4.0.71",
