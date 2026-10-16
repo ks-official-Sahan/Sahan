@@ -4,10 +4,55 @@ import ActionForm, { Field, SubmitButton } from "@/components/admin/ui/ActionFor
 import { updateEmailRoutingAction } from "@/lib/actions/settings";
 import type { EmailRouting } from "@/lib/settings/schema";
 
+const PROVIDERS = [
+  { value: "brevo-api", label: "Brevo API" },
+  { value: "resend", label: "Resend" },
+  { value: "brevo-smtp", label: "Brevo SMTP" },
+] as const;
+
+function ProviderSelect({ name, label, value, hint }: { name: string; label: string; value: string | undefined; hint: string }) {
+  return (
+    <label className="block space-y-1 text-sm">
+      <span className="font-medium">{label}</span>
+      <select
+        name={name}
+        defaultValue={value ?? "default"}
+        aria-describedby={`${name}-hint`}
+        className="block h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+      >
+        <option value="default">Default order</option>
+        {PROVIDERS.map((provider) => (
+          <option key={provider.value} value={provider.value}>
+            {provider.label}
+          </option>
+        ))}
+      </select>
+      <span id={`${name}-hint`} className="block text-xs text-muted-foreground">
+        {hint}
+      </span>
+    </label>
+  );
+}
+
 /** `copyRecipients`: how many addresses EMAIL_CC holds (the addresses stay on the server). */
 export default function EmailRoutingForm({ value, copyRecipients }: { value: EmailRouting; copyRecipients: number }) {
   return (
     <ActionForm action={updateEmailRoutingAction} className="space-y-4">
+      <fieldset className="grid gap-4 sm:grid-cols-2">
+        <legend className="mb-2 text-sm font-medium">Sending order</legend>
+        <ProviderSelect
+          name="primaryProvider"
+          label="Primary provider"
+          value={value.providerOrder?.[0]}
+          hint="Tried first. On failure or at the daily limit, the next one is tried."
+        />
+        <ProviderSelect
+          name="secondaryProvider"
+          label="Secondary provider"
+          value={value.providerOrder?.[1]}
+          hint="Default order: Brevo API, Resend, then Brevo SMTP. Unconfigured providers are skipped."
+        />
+      </fieldset>
       <Field label="Inbox email (optional override)" name="inboxEmail" type="email" defaultValue={value.inboxEmail} />
       <Field
         label="Notification email (optional override)"

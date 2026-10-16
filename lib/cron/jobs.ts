@@ -158,24 +158,42 @@ export async function auditPruneJob(
 /** The daily audit-prune schedule: old audit rows and surplus post revisions, pruned together. */
 export async function housekeepingPruneJob(
   options: { retentionDays?: number } = {}
-): Promise<{ deleted: number; auditRows: number; revisions: number; sectionVersions: number; trash: number; webhooks: number; error?: string }> {
-  const [auditResult, revisionResult, sectionResult, trashResult, webhookResult] = await Promise.all([
+): Promise<{ deleted: number; auditRows: number; revisions: number; sectionVersions: number; trash: number; webhooks: number; emails: number; error?: string }> {
+  const [auditResult, revisionResult, sectionResult, trashResult, webhookResult, emailResult] = await Promise.all([
     auditPruneJob(options),
     revisionPruneJob(),
     sectionPruneJob(),
     trashPurgeJob(),
     webhookRetryJob(),
+    emailDeliveryPruneJob(),
   ]);
-  const error = auditResult.error ?? revisionResult.error ?? sectionResult.error ?? trashResult.error ?? webhookResult.error;
+  const error = auditResult.error ?? revisionResult.error ?? sectionResult.error ?? trashResult.error ?? webhookResult.error ?? emailResult.error;
   return {
-    deleted: auditResult.deleted + revisionResult.deleted + sectionResult.deleted + trashResult.deleted + webhookResult.deleted,
+    deleted:
+      auditResult.deleted + revisionResult.deleted + sectionResult.deleted + trashResult.deleted + webhookResult.deleted + emailResult.deleted,
     auditRows: auditResult.deleted,
     revisions: revisionResult.deleted,
     sectionVersions: sectionResult.deleted,
     trash: trashResult.deleted,
     webhooks: webhookResult.retried,
+    emails: emailResult.deleted,
     ...(error ? { error } : {}),
   };
+}
+
+/** Email delivery history kept for the delivery log, in days. */
+export const EMAIL_DELIVERY_KEEP_DAYS = 90;
+
+/** Deletes email delivery rows (and their events) older than EMAIL_DELIVERY_KEEP_DAYS. */
+export async function emailDeliveryPruneJob(
+  client: Pick<Repos, "emailDeliveries"> = repos,
+  now = Date.now()
+): Promise<{ deleted: number; error?: string }> {
+  try {
+    return { deleted: await client.emailDeliveries.pruneBefore(new Date(now - EMAIL_DELIVERY_KEEP_DAYS * 24 * 60 * 60 * 1000)) };
+  } catch (error) {
+    return { deleted: 0, error: error instanceof Error ? error.message : String(error) };
+  }
 }
 
 export type WebhookRetryDb = Pick<Repos, "webhooks">;

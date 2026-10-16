@@ -68,6 +68,7 @@ export async function requestPasswordResetAction(_previous: ActionState, formDat
           to: email,
           render: (options) => passwordReset({ name: user.name, url, expiresMinutes: RESET_TTL_MINUTES, signInUrl }, options),
           category: "password-reset",
+          ref: `reset:${row.id}`,
           actor: { id: user.id, email },
         });
         if (!sent.ok) await repos.authTokens.revoke(row.id);

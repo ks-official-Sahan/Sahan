@@ -48,6 +48,9 @@ const isAdminPage = (pathname: string) => pathname === "/admin" || pathname.star
 const isAdminApi = (pathname: string) => pathname === "/api/admin" || pathname.startsWith("/api/admin/");
 const isCron = (pathname: string) => pathname === "/api/cron" || pathname.startsWith("/api/cron/");
 const isApi = (pathname: string) => pathname === "/api" || pathname.startsWith("/api/");
+// Provider callbacks (Resend, Brevo): server to server, no Origin header;
+// each route authenticates its caller by signature or token.
+const isSignedWebhook = (pathname: string) => pathname.startsWith("/api/webhooks/");
 
 /** Same 404 as any unknown URL: the rewrite target matches no route. */
 function locked(request: NextRequest): NextResponse {
@@ -218,7 +221,7 @@ export async function proxy(request: NextRequest) {
 
   const adminPage = isAdminPage(pathname);
   const adminApi = isAdminApi(pathname);
-  const cronPath = isCron(pathname);
+  const machinePath = isCron(pathname) || isSignedWebhook(pathname);
 
   const now = Date.now();
   const bypassKeys = bypassKeysFromEnv();
@@ -229,7 +232,7 @@ export async function proxy(request: NextRequest) {
   // /api (not cron). Runs before maintenance mode so it also covers public
   // API routes like /api/contact and /api/chat, which otherwise return
   // inside the maintenance block below and never reach this check.
-  if (UNSAFE_METHODS.has(request.method) && (adminPage || adminApi || (isApi(pathname) && !cronPath))) {
+  if (UNSAFE_METHODS.has(request.method) && (adminPage || adminApi || (isApi(pathname) && !machinePath))) {
     const allowed = isAllowedOrigin(request.headers.get("origin"), {
       hosts: [request.headers.get("host"), request.headers.get("x-forwarded-host")],
       siteUrl: process.env.SITE_URL,

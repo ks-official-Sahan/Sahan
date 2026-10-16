@@ -1,4 +1,5 @@
 import { EmailGuardError, prepareMessage } from "./guards";
+import type { ProviderQuota } from "./quota";
 import type { Attempt, EmailMessage, EmailProvider, ProviderOutcome, SendResult } from "./types";
 
 // The facade behind sendEmail(): validate, try providers in order, stop at the
@@ -16,15 +17,44 @@ export interface EmailAuditEvent {
   meta: Record<string, unknown>;
 }
 
+/**
+ * One row per send for delivery tracking (see ./tracking). Unlike the audit
+ * event it carries the recipient, masked, so a developer can tell sends apart.
+ */
+export interface DeliveryRecord {
+  ok: boolean;
+  category: EmailMessage["category"];
+  ref?: string;
+  provider: SendResult["provider"];
+  providerMessageId?: string;
+  /** `j***@example.com` for the first recipient. */
+  recipient: string;
+  recipients: number;
+  subject: string;
+  errorClass?: string;
+  attempts: Attempt[];
+}
+
 export interface EmailServiceDeps {
   providers: readonly EmailProvider[];
   audit(event: EmailAuditEvent): Promise<void>;
+  /** Skips a provider that reached its daily limit (./quota). */
+  quota?: ProviderQuota;
+  /** Stores the delivery record. Failures are swallowed: tracking never blocks mail. */
+  track?(record: DeliveryRecord): Promise<void>;
   timeoutMs?: number;
   now?: () => number;
 }
 
 export interface SendOptions {
   actor?: { id?: string | null; email?: string | null } | null;
+}
+
+/** `jane@example.com` to `j***@example.com`. */
+export function maskAddress(address: string): string {
+  const at = address.lastIndexOf("@");
+  if (at <= 0) return "***";
+  return `${address[0]}***${address.slice(at)}`;
 }
 
 async function withTimeout(promise: Promise<ProviderOutcome>, ms: number): Promise<ProviderOutcome> {
@@ -93,6 +123,10 @@ export function createEmailService(deps: EmailServiceDeps) {
     let result: SendResult | null = null;
 
     for (const provider of deps.providers) {
+      if (deps.quota && !(await deps.quota.allow(provider.name).catch(() => true))) {
+        attempts.push({ provider: provider.name, ok: false, errorClass: "quota_reached", ms: 0 });
+        continue;
+      }
       const started = now();
       let outcome: ProviderOutcome;
       try {
@@ -103,6 +137,7 @@ export function createEmailService(deps: EmailServiceDeps) {
       const ms = now() - started;
 
       if (outcome.ok) {
+        await deps.quota?.record(provider.name).catch(() => undefined);
         attempts.push({ provider: provider.name, ok: true, messageId: outcome.messageId, ms });
         result = { ok: true, provider: provider.name, messageId: outcome.messageId, attempts };
         break;
@@ -119,6 +154,22 @@ export function createEmailService(deps: EmailServiceDeps) {
       attempts,
     };
     await record(message, final, recipients, options);
+    if (deps.track) {
+      await deps
+        .track({
+          ok: final.ok,
+          category: prepared.category,
+          ref: prepared.ref,
+          provider: final.provider,
+          providerMessageId: final.messageId,
+          recipient: maskAddress(prepared.to[0] ?? ""),
+          recipients,
+          subject: prepared.subject,
+          errorClass: final.errorClass,
+          attempts,
+        })
+        .catch(() => undefined);
+    }
     return final;
   }
 

@@ -62,9 +62,11 @@ pass: `docs/plan/admin-cms-security-review.md`.
   as pre-sanitized. Any new field that stores HTML needs to go through it on
   both sides, not just one.
 - **Origin/CSRF checks in `proxy.ts` cover every unsafe-method `/api/*`
-  request except `/api/cron/*`**, not just `/admin` and `/api/admin`. A new
-  public `POST`/`PUT`/`PATCH`/`DELETE` route is covered automatically by the
-  `isApi(pathname) && !cronPath` check — don't add a route-local origin
+  request except `/api/cron/*` and `/api/webhooks/*`**, not just `/admin` and
+  `/api/admin`. Those two are machine callers: cron checks `CRON_SECRET`, and
+  every `/api/webhooks/*` route must verify its provider's signature or token
+  before reading the payload. A new public `POST`/`PUT`/`PATCH`/`DELETE`
+  route is covered automatically by the `isApi(pathname) && !machinePath` check — don't add a route-local origin
   check unless it needs something the shared one doesn't (see
   `app/api/contact/route.ts`/`app/api/chat/route.ts` for the additional
   rate-limit checks those two carry on top of the shared origin check).

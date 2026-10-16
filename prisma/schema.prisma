@@ -109,7 +109,7 @@ model User {
   posts             Post[]
   postRevisions     PostRevision[]
   auditLogs         AuditLog[]
-  assignedInquiries Inquiry[]      @relation("InquiryAssignee")
+  assignedInquiries Inquiry[]            @relation("InquiryAssignee")
 
   @@index([role])
   @@map("users")
@@ -281,6 +281,53 @@ model AuditLog {
   @@index([action])
   @@index([entityType, entityId])
   @@map("audit_logs")
+}
+
+// One row per email sent (or refused), for the developer's delivery log and
+// the invite list. The status moves forward with provider webhooks
+// (@sahan-sac/email-kit/tracking nextStatus). The recipient is masked
+// (j***@example.com); the body is never stored.
+model EmailDelivery {
+  id                String               @id @default(cuid())
+  // Provider that accepted it: brevo-api, resend, brevo-smtp, capture; null when none did.
+  provider          String?
+  providerMessageId String?
+  category          String
+  // The app's own key, such as invite:<authTokenId>.
+  ref               String?
+  recipient         String
+  recipients        Int                  @default(1)
+  subject           String
+  status            String
+  errorClass        String?
+  // Every provider tried, in order: { provider, ok, errorClass, status, ms }.
+  attempts          Json
+  lastEventAt       DateTime?
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+  events            EmailDeliveryEvent[]
+
+  @@unique([provider, providerMessageId])
+  @@index([ref])
+  // The delivery log's keyset cursor, newest first.
+  @@index([createdAt, id])
+  @@index([status])
+  @@map("email_deliveries")
+}
+
+// Webhook events per delivery, oldest first, for the delivery detail view.
+model EmailDeliveryEvent {
+  id         String        @id @default(cuid())
+  deliveryId String
+  delivery   EmailDelivery @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
+  type       String
+  status     String
+  detail     String?
+  at         DateTime
+  createdAt  DateTime      @default(now())
+
+  @@index([deliveryId, at])
+  @@map("email_delivery_events")
 }
 
 // Operational switches (maintenance, feature flags, allowlist). Editable by

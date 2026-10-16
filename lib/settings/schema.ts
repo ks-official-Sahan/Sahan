@@ -1,4 +1,5 @@
 import { CHAT_TONES } from "@sahan-sac/chat-kit/types";
+import { ORDERABLE_PROVIDERS } from "@sahan-sac/email-kit/env";
 import { z } from "zod";
 
 // Settings schema with zod validation and defaults. Each key can be stored or
@@ -60,6 +61,10 @@ export const emailRoutingSchema = z.object({
   // Send a redacted copy (no links) of account emails to EMAIL_CC. Off has no
   // effect while EMAIL_CC is empty (lib/email/account-mail.ts).
   authCopyEnabled: z.boolean().default(true),
+  // Providers to try first (primary, then secondary). Configured providers
+  // left out follow in the default order: Brevo API, Resend, Brevo SMTP.
+  // Empty: EMAIL_PROVIDER_ORDER, then the default (lib/email/index.ts).
+  providerOrder: z.array(z.enum(ORDERABLE_PROVIDERS)).max(3).default([]),
 });
 export type EmailRouting = z.infer<typeof emailRoutingSchema>;
 

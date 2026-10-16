@@ -84,6 +84,14 @@ const list = (value: string | readonly string[] | undefined): string[] =>
   value === undefined ? [] : typeof value === "string" ? [value] : [...value];
 
 /** Validates a message and returns the normalised form providers receive. */
+const REF = /^[A-Za-z0-9:_.-]{1,120}$/;
+
+/** A ref travels as a provider tag and a header, so it is limited to safe characters. */
+function assertRef(ref: string): string {
+  if (!REF.test(ref)) throw new EmailGuardError("bad_ref", "ref has characters outside A-Z a-z 0-9 : _ . -");
+  return ref;
+}
+
 export function prepareMessage(message: EmailMessage): PreparedMessage {
   const to = list(message.to).map((address) => assertAddress(address, "recipient"));
   const cc = list(message.cc).map((address) => assertAddress(address, "cc"));
@@ -112,5 +120,6 @@ export function prepareMessage(message: EmailMessage): PreparedMessage {
     text: message.text,
     category: message.category,
     replyTo: message.replyTo === undefined ? undefined : assertAddress(message.replyTo, "reply-to"),
+    ref: message.ref === undefined ? undefined : assertRef(message.ref),
   };
 }

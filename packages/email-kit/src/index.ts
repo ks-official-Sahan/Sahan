@@ -11,7 +11,10 @@ export * from "./health";
 export * from "./layout";
 export * from "./recipients";
 export * from "./brevo-diagnostics";
+export * from "./quota";
+export * from "./tracking";
 export * from "./providers/capture";
-// Resend and SMTP live at their own subpaths (`./providers/resend`,
-// `./providers/brevo-smtp`): each needs its SDK (`resend`, `nodemailer`),
-// and an app installs only the ones it sends with.
+// Resend, Brevo API and SMTP live at their own subpaths (`./providers/resend`,
+// `./providers/brevo-api`, `./providers/brevo-smtp`). Resend and SMTP need
+// their SDKs (`resend`, `nodemailer`), so an app installs only the ones it
+// sends with; the Brevo API provider needs nothing beyond fetch.

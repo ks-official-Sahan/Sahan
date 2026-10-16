@@ -130,7 +130,7 @@ export async function getEmailHealth() {
   try {
     // The same typed env and rules as the settings screen (lib/email).
     const { getEmailHealth: emailHealthNow } = await import("@/lib/email");
-    return emailHealthNow();
+    return await emailHealthNow();
   } catch (err) {
     log.error("email health check failed", { error: String(err) });
     return null;

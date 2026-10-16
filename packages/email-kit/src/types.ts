@@ -12,7 +12,7 @@ export const EMAIL_CATEGORIES = [
 
 export type EmailCategory = (typeof EMAIL_CATEGORIES)[number];
 
-export type ProviderName = "resend" | "brevo-smtp" | "capture";
+export type ProviderName = "brevo-api" | "resend" | "brevo-smtp" | "capture";
 
 /** What callers pass in. Addresses are bare (`name@example.com`). */
 export interface EmailMessage {
@@ -24,6 +24,12 @@ export interface EmailMessage {
   text: string;
   category: EmailCategory;
   replyTo?: string;
+  /**
+   * The app's own key for what this mail is about, such as `invite:<id>`.
+   * Stored with the delivery record and sent as a provider tag, so webhook
+   * events find their way back to the invite, reset or contact form.
+   */
+  ref?: string;
 }
 
 /** The same message after validation: arrays, trimmed, no header injection. */
@@ -36,6 +42,7 @@ export interface PreparedMessage {
   text: string;
   category: EmailCategory;
   replyTo?: string;
+  ref?: string;
 }
 
 export type ProviderOutcome =

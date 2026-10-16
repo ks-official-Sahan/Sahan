@@ -18,6 +18,10 @@ const env = (overrides: Partial<ProviderEnv> = {}): ProviderEnv => ({
   EMAIL_HOST_PASSWORD: "smtp-pass",
   DEFAULT_FROM_EMAIL: "Sahan <sender@example.com>",
   EMAIL_SENDER_USER: undefined,
+  BREVO_API_KEY: undefined,
+  BREVO_SENDER_EMAIL: undefined,
+  BREVO_SENDER_NAME: undefined,
+  EMAIL_BREVO_API_KEY: undefined,
   ...overrides,
 });
 
@@ -75,4 +79,33 @@ test("nothing configured gives no provider", () => {
     env({ RESEND_API_KEY: undefined, EMAIL_HOST: undefined, EMAIL_HOST_USER: undefined })
   );
   assert.deepEqual(providerOrder(config, true), []);
+});
+
+test("the Brevo API comes first in auto mode, SMTP stays last", () => {
+  const config = emailConfigFromEnv(env({ BREVO_API_KEY: "fake-brevo-key", BREVO_SENDER_EMAIL: "mail@example.com", BREVO_SENDER_NAME: "Sahan" }));
+  assert.deepEqual(config.brevoApi, { apiKey: "fake-brevo-key", from: '"Sahan" <mail@example.com>' });
+  assert.deepEqual(providerOrder(config, true), ["brevo-api", "resend", "brevo-smtp"]);
+});
+
+test("the Brevo API falls back to EMAIL_BREVO_API_KEY and DEFAULT_FROM_EMAIL", () => {
+  const config = emailConfigFromEnv(env({ EMAIL_BREVO_API_KEY: "fake-brevo-key" }));
+  assert.equal(config.brevoApi?.from, '"Sahan" <sender@example.com>');
+});
+
+test("EMAIL_PROVIDER_ORDER moves providers to the front; a setting wins over it", () => {
+  const brevo = { BREVO_API_KEY: "fake-brevo-key" };
+  const config = emailConfigFromEnv(env({ ...brevo, EMAIL_PROVIDER_ORDER: ["resend"] }));
+  assert.deepEqual(providerOrder(config, true), ["resend", "brevo-api", "brevo-smtp"]);
+  assert.deepEqual(providerOrder(config, true, ["brevo-smtp", "brevo-api"]), ["brevo-smtp", "brevo-api", "resend"]);
+});
+
+test("an unconfigured provider is dropped from the order", () => {
+  const config = emailConfigFromEnv(env({ EMAIL_PROVIDER_ORDER: ["brevo-api", "resend"] }));
+  assert.deepEqual(providerOrder(config, true), ["resend", "brevo-smtp"]);
+  assert.match(config.problems.join(), /Brevo API needs/);
+});
+
+test("EMAIL_PROVIDER=brevo-api uses only the Brevo API", () => {
+  const config = emailConfigFromEnv(env({ EMAIL_PROVIDER: "brevo-api", BREVO_API_KEY: "fake-brevo-key" }));
+  assert.deepEqual(providerOrder(config, true), ["brevo-api"]);
 });

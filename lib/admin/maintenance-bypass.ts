@@ -103,6 +103,8 @@ export function isMaintenanceExempt(pathname: string, hasBypassCookie: boolean):
   if (pathname === "/admin" || pathname.startsWith("/admin/")) return true;
   if (pathname === "/api/admin" || pathname.startsWith("/api/admin/")) return true;
   if (pathname === "/api/cron" || pathname.startsWith("/api/cron/")) return true;
+  // Provider webhooks (delivery events) keep arriving during maintenance.
+  if (pathname.startsWith("/api/webhooks/")) return true;
   // The domain probe (lib/site-url.ts) must see the site as up during maintenance too.
   if (pathname === "/api/health") return true;
   return false;
