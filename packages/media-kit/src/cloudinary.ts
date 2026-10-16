@@ -78,14 +78,16 @@ export class CloudinaryClient {
     return `Basic ${credentials}`;
   }
 
-  // Fetch asset metadata from Cloudinary Admin API
+  // Fetch asset metadata (Admin API: GET resources/image/upload/<public_id>).
+  // The delivery type segment is required: without it Cloudinary reads the
+  // first folder of the public id as the type and answers 404.
   async getAsset(publicId: string): Promise<CloudinaryAsset | null> {
     if (!this.apiKey || !this.apiSecret || !this.cloudName) {
       throw new Error("Cloudinary credentials not configured");
     }
 
     try {
-      const url = `https://api.cloudinary.com/v1_1/${this.cloudName}/resources/image/${publicId}`;
+      const url = `https://api.cloudinary.com/v1_1/${this.cloudName}/resources/image/upload/${publicId.split("/").map(encodeURIComponent).join("/")}`;
       const response = await this.fetchFn(url, {
         method: "GET",
         headers: {

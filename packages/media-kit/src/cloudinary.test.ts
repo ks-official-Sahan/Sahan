@@ -30,6 +30,17 @@ describe("CloudinaryClient", () => {
     for (const call of calls) assert(call.signal instanceof AbortSignal, "request missing AbortSignal");
   });
 
+  it("getAsset reads the upload delivery type and encodes each path segment", async () => {
+    const urls: string[] = [];
+    const fetchFn: FetchFn = (async (url: string) => {
+      urls.push(url);
+      return jsonResponse({ public_id: "sahan/a b", secure_url: "https://res.cloudinary.com/x.png" });
+    }) as FetchFn;
+    const asset = await new CloudinaryClient({ ...CONFIG, fetch: fetchFn }).getAsset("sahan/a b");
+    assert.equal(urls[0], `https://api.cloudinary.com/v1_1/${CONFIG.cloudName}/resources/image/upload/sahan/a%20b`);
+    assert.equal(asset?.public_id, "sahan/a b");
+  });
+
   it("deleteAsset returns true for deleted and not_found, false on non-OK", async () => {
     const deleted = new CloudinaryClient({
       ...CONFIG,
