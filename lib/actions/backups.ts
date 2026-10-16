@@ -6,7 +6,7 @@ import { authorizeAction } from "@/lib/actions/guard";
 import type { ActionState } from "@/lib/actions/state";
 import { done, fail } from "@/lib/actions/state";
 import { auditSafe } from "@/lib/admin/audit";
-import { runBackup } from "@/lib/backup/run";
+import { NOT_CONFIGURED, runBackup } from "@/lib/backup/run";
 
 // "Back up now" on /admin/backups. Same gate as the site's other operational
 // settings (manageSettings). A backup changes no rows, so its audit row is
@@ -20,6 +20,8 @@ export async function runBackupAction(_previous: ActionState, _formData: FormDat
   if (!auth.ok) return fail(auth.error);
 
   const status = await runBackup("manual");
+  // Nothing was attempted (the button is disabled in that state anyway): no audit row.
+  if (!status.ok && status.error?.startsWith(NOT_CONFIGURED)) return fail(status.error);
   await auditSafe({
     action: status.ok ? "backup.created" : "backup.failed",
     actor: auth.user,
