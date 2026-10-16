@@ -4,6 +4,7 @@ import type { DeliveryEvent } from "@sahan-sac/email-kit/tracking";
 
 import { repos } from "@/lib/data";
 import { log } from "@/lib/log";
+import { readBodyText } from "@/lib/security/read-body";
 
 // Shared tail of the provider webhooks (app/api/webhooks/email/*): read the
 // body with a size cap, then apply each verified event to its delivery.
@@ -14,10 +15,7 @@ export const MAX_WEBHOOK_BYTES = 256 * 1024;
 
 /** The raw body, or null when it is larger than MAX_WEBHOOK_BYTES. */
 export async function readCappedBody(request: Request): Promise<string | null> {
-  const declared = Number(request.headers.get("content-length") ?? "0");
-  if (declared > MAX_WEBHOOK_BYTES) return null;
-  const text = await request.text();
-  return Buffer.byteLength(text) > MAX_WEBHOOK_BYTES ? null : text;
+  return readBodyText(request, MAX_WEBHOOK_BYTES);
 }
 
 /**
