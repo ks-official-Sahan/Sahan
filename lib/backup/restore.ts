@@ -120,7 +120,7 @@ export async function restoreBackup(db: BackupDb, manifest: Manifest, data: Map<
       let sequencesReset = 0;
       for (const name of order) {
         const sequences = await query<{ column_name: string; sequence: string | null }>(
-          `SELECT a.attname AS column_name, pg_get_serial_sequence($1::text, a.attname) AS sequence
+          `SELECT a.attname::text AS column_name, pg_get_serial_sequence($1::text, a.attname) AS sequence
              FROM pg_attribute a
             WHERE a.attrelid = $1::text::regclass AND a.attnum > 0 AND NOT a.attisdropped`,
           [qualified(schema, name)]

@@ -28,7 +28,8 @@ export const prismaBackupDb: BackupDb = {
       {
         isolationLevel: snapshot ? Prisma.TransactionIsolationLevel.RepeatableRead : Prisma.TransactionIsolationLevel.ReadCommitted,
         timeout: timeoutMs,
-        maxWait: 10_000,
+        // A suspended Neon compute takes a few seconds to wake.
+        maxWait: 20_000,
       }
     );
   },

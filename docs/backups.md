@@ -26,7 +26,7 @@ S3-compatible bucket kept only for backups. Code: `lib/backup/`.
 - On demand: Admin > Backups > Back up now (needs the `manageSettings`
   permission; audited as `backup.created` or `backup.failed`), or
   `pnpm db:backup run`.
-- One run at a time (a Redis lock, freed automatically after 15 minutes).
+- One run at a time (a Redis lock, freed automatically after 6 minutes).
 
 Retention keeps the newest `BACKUP_RETENTION_DAILY` (14), plus the newest
 backup of each of the last `BACKUP_RETENTION_WEEKLY` (8) ISO weeks and

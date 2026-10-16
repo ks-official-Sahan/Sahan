@@ -39,10 +39,14 @@ export interface SchemaInfo {
   foreignKeys: [string, string][];
 }
 
-/** Tables, columns and in-schema foreign keys of `schema`, in two queries. */
+/**
+ * Tables, columns and in-schema foreign keys of `schema`, in two queries.
+ * Catalog names are cast to text: Prisma's raw queries cannot decode the
+ * `name` type (PGlite can, so only a real run shows it).
+ */
 export async function readSchema(query: Query, schema: string): Promise<SchemaInfo> {
   const columns = await query<{ table_name: string; column_name: string; type: string; generated: boolean; identity_always: boolean }>(
-    `SELECT c.relname AS table_name, a.attname AS column_name, format_type(a.atttypid, a.atttypmod) AS type,
+    `SELECT c.relname::text AS table_name, a.attname::text AS column_name, format_type(a.atttypid, a.atttypmod) AS type,
             a.attgenerated <> '' AS generated, a.attidentity = 'a' AS identity_always
        FROM pg_attribute a
        JOIN pg_class c ON c.oid = a.attrelid
@@ -53,7 +57,7 @@ export async function readSchema(query: Query, schema: string): Promise<SchemaIn
   );
   // One statement at a time: a transaction's connection runs queries in order anyway.
   const keys = await query<{ child: string; parent: string }>(
-    `SELECT src.relname AS child, dst.relname AS parent
+    `SELECT src.relname::text AS child, dst.relname::text AS parent
        FROM pg_constraint k
        JOIN pg_class src ON src.oid = k.conrelid
        JOIN pg_namespace sn ON sn.oid = src.relnamespace
