@@ -26,7 +26,6 @@ export async function generateSitemaps(): Promise<Array<{ id: string }>> {
 // lib/cache/plan.ts carry SITEMAP_PATHS, which revalidates every file under
 // /sitemaps along with the /sitemap.xml index, and the files' reads are cached
 // under blog:list. `id` is a promise in this Next version.
-export const revalidate = 300;
 
 export default async function sitemap({ id: idPromise }: { id: Promise<string> }): Promise<MetadataRoute.Sitemap> {
   const id = await idPromise;

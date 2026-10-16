@@ -18,7 +18,6 @@ import { generateFullPost } from "@sahan-sac/blog-kit/helpers";
 // (docs/plan/admin-cms-adr.md, Step 12). Returns every field the blog editor
 // form has (title, excerpt, topic, tags, SEO, body) from one AI call.
 
-export const dynamic = "force-dynamic";
 // Vercel Hobby allows at most 60 s; the AI chain stops at 50 s (lib/ai/blog.ts).
 export const maxDuration = 60;
 

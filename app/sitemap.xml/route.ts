@@ -8,7 +8,6 @@ import { sitemapIds } from "@/lib/seo/sitemap";
 // which is why the files live one segment down.) It reads the same cached id
 // list as the files, invalidated with blog:list.
 
-export const revalidate = 300;
 
 const escapeXml = (value: string): string =>
   value
