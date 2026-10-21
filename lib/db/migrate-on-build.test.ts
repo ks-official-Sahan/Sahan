@@ -33,6 +33,7 @@ test("targets: primary first, backup only when set, direct URLs win", () => {
   );
   const direct = targets({ DATABASE_URL: "postgresql://u:p@ep-a-pooler.r.neon.tech/db", DIRECT_DATABASE_URL: "postgresql://u:p@other/db" });
   assert.equal(direct[0].url, "postgresql://u:p@other/db");
+  assert.deepEqual(targets({ DIRECT_DATABASE_URL: "postgresql://u:p@other/db", BACKUP_DIRECT_DATABASE_URL: "postgresql://u:p@b/db" }), []);
 });
 
 test("isLockTimeout spots Prisma's advisory lock failure", () => {

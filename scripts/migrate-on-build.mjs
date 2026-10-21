@@ -57,10 +57,12 @@ export function directUrl(source) {
 /** Databases to migrate, primary first. */
 export function targets(env) {
   const list = [];
-  const primary = env.DIRECT_DATABASE_URL || env.DATABASE_URL;
-  if (primary) list.push({ name: "primary", url: env.DIRECT_DATABASE_URL || directUrl(primary) });
-  const backup = env.BACKUP_DIRECT_DATABASE_URL || env.BACKUP_DATABASE_URL;
-  if (backup) list.push({ name: "backup", url: env.BACKUP_DIRECT_DATABASE_URL || directUrl(backup) });
+  // A DIRECT_* URL only overrides how a configured database is reached; it
+  // never adds a target on its own.
+  if (env.DATABASE_URL) list.push({ name: "primary", url: env.DIRECT_DATABASE_URL || directUrl(env.DATABASE_URL) });
+  if (env.BACKUP_DATABASE_URL) {
+    list.push({ name: "backup", url: env.BACKUP_DIRECT_DATABASE_URL || directUrl(env.BACKUP_DATABASE_URL) });
+  }
   return list;
 }
 
