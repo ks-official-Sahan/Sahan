@@ -27,8 +27,17 @@ const SPREAD_SCHEMAS: Record<string, readonly string[]> = {
 // Variables read directly from process.env, never through lib/env.ts's typed
 // schema, because the code that reads them runs somewhere lib/env.ts's
 // `server-only` import cannot load (proxy.ts, which must stay edge/runtime
-// agnostic and cannot pull in the database-adjacent parts of the app).
-const OUTSIDE_SCHEMA = new Set(["TRUSTED_PROXY_HOPS", "NODE_ENV"]);
+// agnostic and cannot pull in the database-adjacent parts of the app), or
+// scripts/migrate-on-build.mjs, which runs before the app is built at all.
+// Prefixes cover families read by their own loaders: scripts/backup.ts reads
+// BACKUP_*, media-kit reads numbered MEDIA_ACCOUNT_<n>_* slots, and NEON_* are
+// for CI and operator tooling only.
+const OUTSIDE_SCHEMA = new Set([
+  "TRUSTED_PROXY_HOPS",
+  "NODE_ENV",
+  "MIGRATE_ON_BUILD",
+]);
+const OUTSIDE_SCHEMA_PATTERN = /^(BACKUP_|MEDIA_ACCOUNT_\d+_|NEON_)/;
 
 function namesFromEnvTs(): Set<string> {
   const source = readFileSync(`${root}lib/env.ts`, "utf8");
@@ -69,7 +78,7 @@ const exampleNames = namesFromEnvExample();
 
 const missingFromExample = [...schemaNames].filter((name) => !exampleNames.has(name)).sort();
 const extraInExample = [...exampleNames]
-  .filter((name) => !schemaNames.has(name) && !OUTSIDE_SCHEMA.has(name))
+  .filter((name) => !schemaNames.has(name) && !OUTSIDE_SCHEMA.has(name) && !OUTSIDE_SCHEMA_PATTERN.test(name))
   .sort();
 
 let ok = true;

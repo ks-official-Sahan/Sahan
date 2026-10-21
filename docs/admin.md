@@ -34,7 +34,8 @@ cached reads that use the changed collection.
    a shared schema. To change the schema: edit `prisma/schema.prisma`, run
    `pnpm db:migration <name>`, review the SQL it writes, commit it, then
    `pnpm db:migrate`. CI applies every migration to a fresh schema and fails
-   when the result differs from `schema.prisma`.
+   when the result differs from `schema.prisma`. Production applies them on
+   its own at build time; see "Migrations on deploy".
 5. To initialize the works collections from the checked-in defaults, run
    `pnpm db:seed-collections`. It is idempotent and fills only empty
    collections. It seeds projects, experience, services and skills; review
@@ -339,6 +340,33 @@ open on an unknown IP rather than locking everyone out — see the ADR's R22).
 the app. `true` is not a number and is ignored, so it trusts nothing. Never
 set it on a deployment that is reachable without going through your proxy,
 or callers can forge their IP.
+
+### Migrations on deploy
+
+Vercel and Hostinger build straight from a push to `master`, so no workflow
+runs between the merge and the deploy. `pnpm build` therefore starts with
+`scripts/migrate-on-build.mjs`, which runs `prisma migrate deploy` before
+`next build`:
+
+| Where | `MIGRATE_ON_BUILD` | Migrates |
+| --- | --- | --- |
+| Vercel Production | unset | yes |
+| Vercel Preview | unset | no; set `true` in the Preview scope only when previews get their own database branch |
+| Hostinger | `true` (set it there) | yes |
+| Local, CI | unset | no |
+| Anywhere | `false` | no, the escape hatch |
+
+It migrates `DATABASE_URL`, then `BACKUP_DATABASE_URL` when set, each through
+a direct (non-pooler) connection. A failed migration fails the build, so the
+running deployment keeps serving. When Vercel and Hostinger build at once,
+Prisma's advisory lock serializes them: the second waits, retries, and finds
+nothing pending.
+
+The migration runs while the previous deployment is still live, so every
+migration must work with the code that is already deployed:
+expand first (add a nullable column, a new table), ship the code that uses
+it, and contract (drop or rename) in a later release. A rename in one step
+breaks the live site for the length of the build.
 
 ### Upgrade note: `__Host-` cookies
 
