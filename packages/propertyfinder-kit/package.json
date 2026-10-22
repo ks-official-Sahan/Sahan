@@ -1,0 +1,109 @@
+{
+  "name": "@sahan-sac/propertyfinder-kit",
+  "version": "0.1.0",
+  "description": "Property Finder (Atlas API) for server apps: typed client with token auth and retries, listing and lead transforms, webhook payload parsing, and an optional Redis cache layer that turns itself off when Redis is not configured. Framework-agnostic; persistence stays in the app.",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ks-official-Sahan/Sahan.git",
+    "directory": "packages/propertyfinder-kit"
+  },
+  "keywords": [
+    "propertyfinder",
+    "real-estate",
+    "dubai",
+    "listings"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "engines": {
+    "node": ">=20"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./types": "./src/types.ts",
+    "./leads-types": "./src/leads-types.ts",
+    "./listing-content": "./src/listing-content.ts",
+    "./location": "./src/location.ts",
+    "./location-format": "./src/location-format.ts",
+    "./related": "./src/related.ts",
+    "./webhook-payload": "./src/webhook-payload.ts",
+    "./transform": "./src/transform.ts",
+    "./client": "./src/client.ts",
+    "./cache": "./src/cache.ts",
+    "./package.json": "./package.json"
+  },
+  "types": "./src/index.ts",
+  "main": "./src/index.ts",
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.build.json",
+    "test": "node ../../scripts/test-package.mjs --conditions=react-server",
+    "prepack": "npm run build && npm run test"
+  },
+  "devDependencies": {
+    "@types/node": "^22",
+    "tsup": "^8.3.5",
+    "tsx": "^4.23.15",
+    "typescript": "^5.6.3"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/",
+    "types": "./dist/index.d.ts",
+    "main": "./dist/index.js",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "import": "./dist/index.js"
+      },
+      "./types": {
+        "types": "./dist/types.d.ts",
+        "import": "./dist/types.js"
+      },
+      "./leads-types": {
+        "types": "./dist/leads-types.d.ts",
+        "import": "./dist/leads-types.js"
+      },
+      "./listing-content": {
+        "types": "./dist/listing-content.d.ts",
+        "import": "./dist/listing-content.js"
+      },
+      "./location": {
+        "types": "./dist/location.d.ts",
+        "import": "./dist/location.js"
+      },
+      "./location-format": {
+        "types": "./dist/location-format.d.ts",
+        "import": "./dist/location-format.js"
+      },
+      "./related": {
+        "types": "./dist/related.d.ts",
+        "import": "./dist/related.js"
+      },
+      "./webhook-payload": {
+        "types": "./dist/webhook-payload.d.ts",
+        "import": "./dist/webhook-payload.js"
+      },
+      "./transform": {
+        "types": "./dist/transform.d.ts",
+        "import": "./dist/transform.js"
+      },
+      "./client": {
+        "types": "./dist/client.d.ts",
+        "import": "./dist/client.js"
+      },
+      "./cache": {
+        "types": "./dist/cache.d.ts",
+        "import": "./dist/cache.js"
+      },
+      "./package.json": "./package.json"
+    }
+  }
+}
