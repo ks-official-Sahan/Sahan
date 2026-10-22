@@ -259,7 +259,7 @@ export function transformPFListing(
     bedrooms: resolveBedrooms(listing.bedrooms),
     bathrooms: resolveBathrooms(listing.bathrooms),
     space_sqft: sizeSqft,
-    space_display: sizeSqft ? `${sizeSqft.toLocaleString()} sqft` : undefined,
+    space_display: sizeSqft ? `${sizeSqft.toLocaleString("en-AE")} sqft` : undefined,
     image_url: heroImage,
     description,
     source: "pf",
@@ -332,10 +332,12 @@ export function transformPFListings(
   listings: PFListing[],
   resolveLocation: LocationResolver,
   images: ImageUrlTransforms = {},
+  /** Called with listings the API returned that are not live; the package never logs. */
+  onRejected?: (rejected: { id: string; stage?: string; isLive?: boolean }[]) => void,
 ): AppProperty[] {
   // The API already sends filter[state]=live, so every listing here should be
-  // active.  We keep a belt-and-suspenders check but log any rejections so
-  // discrepancies between PF dashboard counts and our count are visible.
+  // active. We keep a belt-and-suspenders check and hand any rejections to
+  // onRejected, so discrepancies with the PF dashboard count stay visible.
   const active: PFListing[] = [];
   const rejected: { id: string; stage?: string; isLive?: boolean }[] = [];
 
@@ -350,16 +352,7 @@ export function transformPFListings(
     }
   }
 
-  if (rejected.length > 0) {
-    console.warn(
-      `[PF Transform] Dropped ${rejected.length} listings that passed API filter[state]=live but failed client-side liveness check:`,
-      rejected,
-    );
-  }
-
-  console.info(
-    `[PF Transform] ${listings.length} from API → ${active.length} active (${rejected.length} dropped)`,
-  );
+  if (rejected.length > 0) onRejected?.(rejected);
 
   return active.map((l) => transformPFListing(l, resolveLocation(l), images));
 }

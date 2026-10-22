@@ -70,7 +70,8 @@ export function extractLeadIngestPayload(
   event: PFWebhookEvent,
 ): Record<string, unknown> {
   if (event.entity?.type === "lead" || event.payload) {
-    const payload = { ...(event.payload ?? {}) };
+    // Atlas sends payload; older events carry the lead in data.
+    const payload = { ...(event.payload ?? (event.data as Record<string, unknown> | undefined) ?? {}) };
     if (event.entity?.id != null && payload.id == null) {
       payload.id = event.entity.id;
     }

@@ -1,6 +1,6 @@
 {
   "name": "@sahan-sac/propertyfinder-kit",
-  "version": "0.1.0",
+  "version": "0.0.0",
   "description": "Property Finder (Atlas API) for server apps: typed client with token auth and retries, listing and lead transforms, webhook payload parsing, and an optional Redis cache layer that turns itself off when Redis is not configured. Framework-agnostic; persistence stays in the app.",
   "license": "Apache-2.0",
   "repository": {

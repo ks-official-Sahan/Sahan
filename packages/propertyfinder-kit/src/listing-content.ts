@@ -71,19 +71,24 @@ export function stripListingHtml(raw: string): string {
     .trim();
 }
 
+const SMALL_WORDS = new Set(["a", "an", "and", "at", "by", "for", "in", "of", "on", "or", "the", "to", "with"]);
+const UPPER_WORDS = new Map([["a/c", "A/C"], ["ac", "A/C"], ["bhk", "BHK"], ["bbq", "BBQ"], ["tv", "TV"], ["wifi", "WiFi"]]);
+
+/** Title case for amenity labels: small joining words stay lower case (never the first). */
 function titleCaseAmenity(label: string): string {
-  const cleaned = label.replace(/-/g, " ").trim();
+  const cleaned = label.trim();
   if (!cleaned) return "";
   return cleaned
     .split(/\s+/)
-    .map((w) =>
-      w.length <= 3 && !/^\d/.test(w)
-        ? w.toLowerCase()
-        : w.charAt(0).toUpperCase() + w.slice(1).toLowerCase(),
-    )
-    .join(" ")
-    .replace(/\bAc\b/gi, "A/C")
-    .replace(/\bBhk\b/gi, "BHK");
+    .map((word, index) => {
+      const lower = word.toLowerCase();
+      const fixed = UPPER_WORDS.get(lower);
+      if (fixed) return fixed;
+      if (index > 0 && SMALL_WORDS.has(lower)) return lower;
+      // Hyphenated words keep the hyphen: "built-in" -> "Built-in".
+      return lower.charAt(0).toUpperCase() + lower.slice(1);
+    })
+    .join(" ");
 }
 
 function dedupeLabels(items: string[]): string[] {

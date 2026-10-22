@@ -58,3 +58,25 @@ describe("normalizePropertyFinderWebhookEvent", () => {
     assert.equal(normalizePropertyFinderWebhookEvent({ id: "x" }), null);
   });
 });
+
+import { extractBuildingFromDescription } from "./location";
+
+describe("review fixes", () => {
+  it("keeps lead fields from legacy data when an entity has no payload", () => {
+    const record = extractLeadIngestPayload({ entity: { id: "lead-99", type: "lead" }, data: { sender: "x", status: "new" } } as never);
+    assert.deepEqual(record, { sender: "x", status: "new", id: "lead-99" });
+  });
+
+  it("reads digits 9 in building names and takes extra excluded openings", () => {
+    assert.equal(extractBuildingFromDescription("Marina 29 offers sea views"), "Marina 29");
+    assert.equal(extractBuildingFromDescription("Acme is a brokerage", ["Acme is"]), null);
+  });
+});
+
+import { normalizeAmenityList } from "./listing-content";
+
+describe("amenity labels", () => {
+  it("keeps curated labels intact", () => {
+    assert.deepEqual(normalizeAmenityList(["Central A/C", "Private Gym", "Built-in Wardrobes", "view of the sea"]), ["Built-in Wardrobes", "Central A/C", "Private Gym", "View of the Sea"]);
+  });
+});
