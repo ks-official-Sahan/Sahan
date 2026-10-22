@@ -268,7 +268,11 @@ export function createPropertyFinderClient(options: PropertyFinderClientOptions)
       );
     }
 
-    const data = (await res.json()) as PFTokenResponse;
+    const data = (await res.json()) as Partial<PFTokenResponse> | null;
+    // The cast is compile-time only: never cache a token the API did not send.
+    if (!data || typeof data.accessToken !== "string" || !data.accessToken || typeof data.expiresIn !== "number" || !Number.isFinite(data.expiresIn) || data.expiresIn <= 0) {
+      throw new Error("[PF Auth] Token response is missing accessToken or a positive expiresIn.");
+    }
 
     tokenCache = {
       token: data.accessToken,
