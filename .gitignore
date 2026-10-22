@@ -51,3 +51,6 @@ packages/*/dist
 .claude
 .cursor
 .ignore
+
+# Local tool caches
+**/graft/.cache/
