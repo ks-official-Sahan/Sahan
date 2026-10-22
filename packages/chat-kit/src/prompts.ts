@@ -9,6 +9,7 @@ import { guardUserMessage } from "./guard";
 import type { ChatbotConfig, ChatSite, ChatTone, ChatTurn } from "./types";
 
 function toneDescription(tone: ChatTone, site: ChatSite): string {
+  if (site.persona?.trim()) return site.persona.trim();
   const kind = site.kind ?? "site";
   switch (tone) {
     case "friendly":
@@ -37,14 +38,15 @@ export function buildChatPrompt(options: {
 
   const systemParts = [
     toneDesc,
-    `\n\n## Owner Identity (always refer to this person by name)`,
-    `\n- Full Name: ${site.authorFullName}`,
+    site.entity === "business"
+      ? `\n\n## Business Identity (you speak on behalf of this company)\n- Name: ${site.authorFullName}`
+      : `\n\n## Owner Identity (always refer to this person by name)\n- Full Name: ${site.authorFullName}`,
     `\n- Role: ${site.role}`,
     `\n- Company: ${site.company}`,
     `\n- Location: ${site.location}`,
     `\n- Email: ${site.email}`,
     `\n- WhatsApp: ${site.phoneDisplay}`,
-    `\n- GitHub: ${site.gitHubUrl}`,
+    site.gitHubUrl ? `\n- GitHub: ${site.gitHubUrl}` : "",
     `\n- ${kind.charAt(0).toUpperCase()}${kind.slice(1)}: ${site.siteUrl}`,
     `\n\n## Behavioral Rules`,
     `\nYou are answering a visitor question about ${site.authorFullName}'s ${kind} based only on the knowledge below.`,

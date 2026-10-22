@@ -3,6 +3,7 @@
 // bundles what it uses.
 export { CHAT_TONES, type ChatbotConfig, type ChatSite, type ChatTone, type ChatTurn } from "./types";
 export type { ChatMessageInput, ChatSessionInput, ChatStore } from "./adapter";
-export type { KnowledgeSource } from "./knowledge";
+export type { KnowledgeQuery, KnowledgeSource } from "./knowledge";
+export type { ChatContact } from "./lead";
 export type { RunChatDeps, RunChatInput, RunChatResult } from "./handler";
 export type { ChatSessionSummary } from "./session-summaries";

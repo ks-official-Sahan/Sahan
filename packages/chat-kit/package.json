@@ -27,6 +27,7 @@
     "./guard": "./src/guard.ts",
     "./visitor-cookie": "./src/visitor-cookie.ts",
     "./knowledge": "./src/knowledge.ts",
+    "./lead": "./src/lead.ts",
     "./handler": "./src/handler.ts",
     "./session-summaries": "./src/session-summaries.ts",
     "./package.json": "./package.json"
@@ -88,6 +89,10 @@
       "./knowledge": {
         "types": "./dist/knowledge.d.ts",
         "import": "./dist/knowledge.js"
+      },
+      "./lead": {
+        "types": "./dist/lead.d.ts",
+        "import": "./dist/lead.js"
       },
       "./handler": {
         "types": "./dist/handler.d.ts",
