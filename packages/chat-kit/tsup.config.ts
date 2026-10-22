@@ -12,6 +12,7 @@ export default defineConfig({
     "src/guard.ts",
     "src/visitor-cookie.ts",
     "src/knowledge.ts",
+    "src/lead.ts",
     "src/handler.ts",
     "src/session-summaries.ts",
   ],

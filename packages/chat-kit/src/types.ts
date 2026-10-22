@@ -22,7 +22,8 @@ export interface ChatSite {
   tagline: string;
   email: string;
   phoneDisplay: string;
-  gitHubUrl: string;
+  /** Shown when set; a business site usually has none. */
+  gitHubUrl?: string;
   siteUrl: string;
   description: string;
   /** What the assistant calls the site, e.g. "portfolio". Default "site". */
@@ -31,6 +32,14 @@ export interface ChatSite {
   scope?: string;
   /** How the assistant should format a site link, e.g. "[Project Name](/works) when referencing portfolio content". */
   linkExample?: string;
+  /**
+   * "person" (default): a personal site, the assistant speaks about its owner.
+   * "business": a company site, the assistant speaks for the company
+   * (authorFullName is the company name, role its line of business).
+   */
+  entity?: "person" | "business";
+  /** Replaces the tone-based opening line, e.g. "You are Acme's senior property advisor." */
+  persona?: string;
   /** Standing guidance from the owner (voice, facts, do and don't), appended after the fixed rules. Empty adds nothing. */
   guidance?: string;
 }
