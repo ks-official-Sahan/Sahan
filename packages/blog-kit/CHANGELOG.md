@@ -1,5 +1,11 @@
 # @sahan-sac/blog-kit
 
+## 0.6.0
+
+### Patch Changes
+
+- @sahan-sac/ai-core@0.6.0
+
 ## 0.5.0
 
 ### Patch Changes
