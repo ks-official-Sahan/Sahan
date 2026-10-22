@@ -9,6 +9,8 @@ export interface ChatContact {
 }
 
 const EMAIL = /[a-z0-9._%+-]+@[a-z0-9-]+(?:\.[a-z0-9-]+)*\.[a-z]{2,}/i;
+// Dates and times, cut out before phone matching.
+const DATE_OR_TIME = /\b\d{4}[-./]\d{1,2}[-./]\d{1,2}\b|\b\d{1,2}[-./]\d{1,2}[-./]\d{2,4}\b|\b\d{1,2}:\d{2}(?::\d{2})?\b/g;
 // A run of digits, optionally led by "+" or "00", allowing spaces, dots,
 // dashes or a bracketed area code between groups (E.164 is at most 15).
 const PHONE = /(?:\+|\b00)?\(?\d[\d\s().-]{6,22}\d\b/g;
@@ -18,10 +20,11 @@ export function extractContact(text: string): ChatContact {
   const contact: ChatContact = {};
   const email = text.match(EMAIL)?.[0];
   if (email) contact.email = email.toLowerCase();
-  for (const match of text.matchAll(PHONE)) {
+  // Dates ("2026-10-22") and times ("10:30") are cut out first, so a phone
+  // match can neither be a date nor run into one.
+  const candidates = text.replace(DATE_OR_TIME, " | ");
+  for (const match of candidates.matchAll(PHONE)) {
     const raw = match[0].trim();
-    // A date ("2026-10-22") is not a phone number.
-    if (/^\d{4}[-./]\d{1,2}[-./]\d{1,2}$/.test(raw)) continue;
     const digits = raw.replace(/\D/g, "");
     const international = raw.startsWith("+") || raw.startsWith("00");
     const number = raw.startsWith("00") ? digits.slice(2) : digits;

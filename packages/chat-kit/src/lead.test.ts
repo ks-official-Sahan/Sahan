@@ -17,6 +17,11 @@ describe("extractContact", () => {
   it("ignores dates and short numbers", () => {
     assert.deepEqual(extractContact("viewing on 2026-10-22 for 3 beds"), {});
   });
+
+  it("keeps dates and times out of a phone match", () => {
+    assert.equal(extractContact("0501234567 2026-10-22").phone, "0501234567");
+    assert.deepEqual(extractContact("2026-10-22 10:30"), {});
+  });
 });
 
 describe("rankByQuery", () => {
@@ -32,5 +37,10 @@ describe("rankByQuery", () => {
 
   it("drops stop words and reads follow-up history", () => {
     assert.deepEqual(queryTerms({ message: "cheaper ones?", history: ["villa in Downtown"] }), ["cheaper", "ones", "villa", "downtown"]);
+  });
+
+  it("uses the page path and matches canonically equivalent text", () => {
+    assert.deepEqual(queryTerms({ message: "what is this", page: { path: "/pricing" } }), ["pricing"]);
+    assert.deepEqual(rankByQuery(["tea", "cafe\u0301 latte"], "café", (s) => s, 1), ["cafe\u0301 latte"]);
   });
 });

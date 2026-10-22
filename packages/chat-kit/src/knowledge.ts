@@ -48,8 +48,8 @@ export async function buildKnowledge(
 /** The owner's identity, so the assistant always knows who it speaks for. */
 export function profileSection(site: ChatSite): string {
   return [
-    "### Owner Profile\n",
-    `- **Full Name:** ${site.authorFullName} (${site.author})\n`,
+    site.entity === "business" ? "### Business Profile\n" : "### Owner Profile\n",
+    `- **${site.entity === "business" ? "Name" : "Full Name"}:** ${site.authorFullName} (${site.author})\n`,
     `- **Role:** ${site.role}\n`,
     `- **Current Position:** ${site.company}\n`,
     `- **Location:** ${site.location}\n`,
@@ -76,7 +76,7 @@ const STOP_WORDS = new Set("a an and are at be by can do for from have how i in 
 
 /** Lowercase search terms of a query: words of 2+ letters or digits, stop words removed. */
 export function queryTerms(query: KnowledgeQuery | string): string[] {
-  const text = typeof query === "string" ? query : [query.message, ...(query.history ?? []).slice(-2), query.page?.title ?? ""].join(" ");
+  const text = typeof query === "string" ? query : [query.message, ...(query.history ?? []).slice(-2), query.page?.title ?? "", query.page?.path ?? ""].join(" ");
   const words = text.toLowerCase().normalize("NFKC").match(/[\p{L}\p{N}]{2,}/gu) ?? [];
   return [...new Set(words.filter((word) => !STOP_WORDS.has(word)))];
 }
@@ -93,7 +93,7 @@ export function rankByQuery<T>(items: readonly T[], query: KnowledgeQuery | stri
   if (terms.length === 0) return items.slice(0, limit);
   return items
     .map((item, index) => {
-      const haystack = text(item).toLowerCase();
+      const haystack = text(item).toLowerCase().normalize("NFKC");
       return { item, index, score: terms.reduce((sum, term) => sum + Number(haystack.includes(term)), 0) };
     })
     .sort((a, b) => b.score - a.score || a.index - b.index)
