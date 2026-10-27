@@ -164,7 +164,7 @@ export default function ManageUserSheet({
             <Section icon={<Icon name="lock" className="size-4 text-muted-foreground" />} title="Sign-in">
               {row.can.reset ? (
                 row.disabled ? (
-                  <p className="text-sm text-muted-foreground">Enable the account before sending a reset link.</p>
+                  <p className="text-sm text-muted-foreground">Enable the account before sending a reset link. A sign-in link can still be emailed.</p>
                 ) : (
                   <ActionForm action={sendReset}>
                     <input type="hidden" name="userId" value={row.id} />
@@ -172,13 +172,15 @@ export default function ManageUserSheet({
                       Email a password reset link
                     </SubmitButton>
                   </ActionForm>
-                  <ActionForm action={sendUserSignInLink}>
-                    <input type="hidden" name="userId" value={row.id} />
-                    <SubmitButton variant="secondary" pendingLabel="Sending...">
-                      Email a sign-in link
-                    </SubmitButton>
-                  </ActionForm>
                 )
+              ) : null}
+              {row.can.reset ? (
+                <ActionForm action={sendUserSignInLink}>
+                  <input type="hidden" name="userId" value={row.id} />
+                  <SubmitButton variant="secondary" pendingLabel="Sending...">
+                    Email a sign-in link
+                  </SubmitButton>
+                </ActionForm>
               ) : null}
               {row.can.signOut && row.activeSessions > 0 ? (
                 <ActionForm action={forceLogoutUser}>

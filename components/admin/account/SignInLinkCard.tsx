@@ -32,6 +32,7 @@ export default async function SignInLinkCard({ audience }: { audience: "self" | 
       />
       {audience === "self" ? (
         <ActionForm action={sendMySignInLink} className="mt-4">
+          <input type="hidden" name="link" value={link.url} />
           <SubmitButton variant="secondary" pendingLabel="Sending...">
             Email this link to me
           </SubmitButton>

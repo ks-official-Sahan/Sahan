@@ -30,6 +30,7 @@ import {
   checkDelete,
   checkInvite,
   checkReset,
+  checkSignInLink,
   checkSetDisabled,
   planBulk,
   type BulkPlan,
@@ -549,7 +550,7 @@ export async function sendUserSignInLink(_previous: ActionState, formData: FormD
   const roles = await getRoleCatalog();
   const target = await targetOf(formData);
   if (!target) return fail("That user does not exist.");
-  const verdict = checkReset({
+  const verdict = checkSignInLink({
     roles,
     actor: access.user,
     target: { id: target.id, role: target.role, disabled: Boolean(target.disabledAt) },

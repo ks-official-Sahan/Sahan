@@ -5,7 +5,7 @@ import { createRoleCatalog } from "@sahan-sac/auth-kit/rbac/roles";
 
 import { SYSTEM_ROLE_ROWS, type RoleName } from "@/lib/auth/permissions";
 
-import { checkChangeRole, checkDelete, checkInvite, checkReset, checkSetDisabled, planBulk, type Subject } from "./rules";
+import { checkChangeRole, checkDelete, checkInvite, checkReset, checkSetDisabled, checkSignInLink, planBulk, type Subject } from "./rules";
 
 const roles = createRoleCatalog(SYSTEM_ROLE_ROWS, "DEVELOPER");
 const actor = (role: RoleName, id = "actor") => ({ id, role });
@@ -89,6 +89,7 @@ test("no-op changes and resets for disabled users are refused", () => {
   assert.equal(checkSetDisabled({ roles, actor: dev, target: target("EDITOR", { disabled: true }), disabled: true, activeDevelopers: 2 }).ok, false);
   assert.equal(checkSetDisabled({ roles, actor: dev, target: target("EDITOR", { disabled: true }), disabled: false, activeDevelopers: 2 }).ok, true);
   assert.equal(checkReset({ roles, actor: dev, target: target("EDITOR", { disabled: true }), activeDevelopers: 2 }).ok, false);
+  assert.equal(checkSignInLink({ roles, actor: dev, target: target("EDITOR", { disabled: true }), activeDevelopers: 2 }).ok, true);
 });
 
 const person = (id: string, role: RoleName, disabled = false) => ({ id, role, disabled, email: `${id}@example.com` });

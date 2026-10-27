@@ -1,5 +1,11 @@
 # @sahan-sac/email-kit
 
+## 0.5.0
+
+### Minor Changes
+
+- A sign-in link can be prepared for an email, and the email package writes the message. A copy of that message leaves the link out.
+
 ## 0.4.0
 
 ### Minor Changes

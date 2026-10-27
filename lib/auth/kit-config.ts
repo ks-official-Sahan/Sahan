@@ -152,7 +152,7 @@ export const PERMISSION_INFO: Record<Permission, PermissionInfo> = {
   inviteUser: { group: "Users", label: "Invite users", description: "Send invitations." },
   manageUsers: { group: "Users", label: "Manage users", description: "Change roles, disable and enable users." },
   deleteUser: { group: "Users", label: "Delete users", description: "Delete user accounts." },
-  resetPassword: { group: "Users", label: "Reset passwords", description: "Send a password reset link to a user." },
+  resetPassword: { group: "Users", label: "Reset passwords", description: "Send a password reset link or a sign-in link to a user." },
   viewSessions: { group: "Security", label: "View sessions", description: "See signed-in sessions." },
   revokeSessions: { group: "Security", label: "Revoke sessions", description: "Sign out one session." },
   forceLogout: { group: "Security", label: "Force logout", description: "Sign out every session of a user you manage." },

@@ -16,7 +16,7 @@ import { hashPassword, verifyPassword } from "@/lib/auth/password";
 import { checkPassword } from "@/lib/auth/password-policy";
 import { invalidateSessionState, invalidateUserSessionState, revokeSession, revokeUserSessions } from "@/lib/auth/session-store";
 import { createToken, RESET_TTL_MINUTES } from "@/lib/auth/invite-token";
-import { emailLink, signInLink } from "@/lib/auth/links";
+import { acceptedSignInLink, emailLink } from "@/lib/auth/links";
 import { limit } from "@/lib/cache/ratelimit";
 import { repos, withTx } from "@/lib/data";
 import { formatDateTime } from "@/lib/admin/format";
@@ -362,12 +362,12 @@ export async function revokeOtherSessions(_previous: ActionState, _formData: For
   );
 }
 
-export async function sendMySignInLink(): Promise<ActionState> {
+export async function sendMySignInLink(_previous: ActionState, formData: FormData): Promise<ActionState> {
   const access = await authorizeAction(null, OPTIONS);
   if (!access.ok) return fail(access.error);
   if (!(await limit("invite:actor", access.user.id)).ok) return fail("You sent many links. Try again in an hour.");
-  const link = await signInLink();
-  if (!link.expiresAt) return fail("Sign-in links are off while the sign-in page is public.");
+  const link = await acceptedSignInLink(String(formData.get("link") ?? ""));
+  if (!link?.expiresAt) return fail("That sign-in link is no longer valid. Refresh the page and try again.");
   const sent = await sendAccountEmail({
     to: access.user.email,
     render: (options) =>
@@ -382,5 +382,5 @@ export async function sendMySignInLink(): Promise<ActionState> {
     entityType: "User",
     entityId: access.user.id,
   });
-  return done(`Sign-in link sent to ${access.user.email}.`);
+  return done(`Sign-in link sent to ${access.user.email}. It opens the sign-in page. A password is still required.`);
 }
