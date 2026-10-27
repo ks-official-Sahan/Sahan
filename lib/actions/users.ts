@@ -9,6 +9,7 @@ import { done, fail, fieldErrorsFrom, formValues, type ActionState } from "@/lib
 import { authorizeAction } from "@/lib/actions/guard";
 import { generatePassword } from "@/lib/admin/generate-password";
 import { INVITE_TTL_HOURS, RESET_TTL_MINUTES, createToken } from "@/lib/auth/invite-token";
+import { formatDateTime } from "@/lib/admin/format";
 import { accountLink, signInLink } from "@/lib/auth/links";
 import { checkPassword } from "@/lib/auth/password-policy";
 import { hashPassword } from "@/lib/auth/password";
@@ -18,7 +19,7 @@ import { invalidateSessionState, invalidateUserSessionState, revokeSessions, rev
 import { limit } from "@/lib/cache/ratelimit";
 import { repos, withTx } from "@/lib/data";
 import { sendAccountEmail } from "@/lib/email/account-mail";
-import { invite, passwordReset } from "@/lib/email/templates";
+import { invite, passwordReset, signInLinkMail } from "@/lib/email/templates";
 import { getEnv } from "@/lib/env";
 import type { UserRef } from "@/lib/data/users";
 import { log } from "@/lib/log";
@@ -540,6 +541,41 @@ export async function sendReset(_previous: ActionState, formData: FormData): Pro
   }
 
   return done(`Reset link sent to ${target.email}. It works once and lasts ${RESET_TTL_MINUTES} minutes.`);
+}
+
+export async function sendUserSignInLink(_previous: ActionState, formData: FormData): Promise<ActionState> {
+  const access = await authorizeAction("resetPassword");
+  if (!access.ok) return fail(access.error);
+  const roles = await getRoleCatalog();
+  const target = await targetOf(formData);
+  if (!target) return fail("That user does not exist.");
+  const verdict = checkReset({
+    roles,
+    actor: access.user,
+    target: { id: target.id, role: target.role, disabled: Boolean(target.disabledAt) },
+    activeDevelopers: await countActiveDevelopers(),
+  });
+  if (!verdict.ok) return fail(verdict.error);
+  if (!(await limit("invite:actor", access.user.id)).ok) return fail("You sent many links. Try again in an hour.");
+  const link = await signInLink();
+  if (!link.expiresAt) return fail("Sign-in links are off while the sign-in page is public.");
+  const sent = await sendAccountEmail({
+    to: target.email,
+    render: (options) =>
+      signInLinkMail({ name: target.name, url: link.url, validUntil: formatDateTime(link.expiresAt) }, options),
+    category: "security",
+    ref: `sign-in-link:${target.id}`,
+    actor: access.user,
+  });
+  if (!sent.ok) return fail("The sign-in link could not be emailed. Check the email settings and try again.");
+  await audit({
+    action: "auth.sign_in_link.sent",
+    actor: access.user,
+    entityType: "User",
+    entityId: target.id,
+    meta: { email: target.email },
+  });
+  return done(`Sign-in link sent to ${target.email}. It opens the sign-in page. A password is still required.`);
 }
 
 const BULK_MAX = 100;

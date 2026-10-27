@@ -53,6 +53,7 @@
     "./short-link-path": "./src/short-link-path.ts",
     "./constants": "./src/constants.ts",
     "./login-unlock": "./src/login-unlock.ts",
+    "./sign-in-link": "./src/sign-in-link.ts",
     "./unlock-request": "./src/unlock-request.ts",
     "./next-auth-types": "./src/next-auth-types.ts",
     "./security/ip": "./src/security/ip.ts",

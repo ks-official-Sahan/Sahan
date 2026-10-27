@@ -7,7 +7,7 @@ import Icon from "@/components/icons/Icon";
 import ActionForm, { ConfirmSubmitButton, Field, SubmitButton } from "@/components/admin/ui/ActionForm";
 import Sheet from "@/components/admin/ui/Sheet";
 import { badgeClass } from "@/components/admin/ui/styles";
-import { changeRole, deleteUser, sendReset, setDisabled } from "@/lib/actions/users";
+import { changeRole, deleteUser, sendReset, sendUserSignInLink, setDisabled } from "@/lib/actions/users";
 import { forceLogoutUser } from "@/lib/actions/sessions";
 import { ROLE_LABEL } from "@/lib/admin/roles";
 import type { RoleName } from "@/lib/auth/permissions";
@@ -170,6 +170,12 @@ export default function ManageUserSheet({
                     <input type="hidden" name="userId" value={row.id} />
                     <SubmitButton variant="secondary" pendingLabel="Sending...">
                       Email a password reset link
+                    </SubmitButton>
+                  </ActionForm>
+                  <ActionForm action={sendUserSignInLink}>
+                    <input type="hidden" name="userId" value={row.id} />
+                    <SubmitButton variant="secondary" pendingLabel="Sending...">
+                      Email a sign-in link
                     </SubmitButton>
                   </ActionForm>
                 )

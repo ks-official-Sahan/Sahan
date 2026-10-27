@@ -1,7 +1,8 @@
 import "server-only";
 
-import { loginUnlockEnabled, signInLinkDays, signSignInLink, unlockKeysFromEnv } from "@sahan-sac/auth-kit/login-unlock";
-import { accountLinkPath, emailLinkPath, signInLinkPath } from "@sahan-sac/auth-kit/short-link";
+import { loginUnlockEnabled, unlockKeysFromEnv } from "@sahan-sac/auth-kit/login-unlock";
+import { prepareSignInLink } from "@sahan-sac/auth-kit/sign-in-link";
+import { accountLinkPath, emailLinkPath } from "@sahan-sac/auth-kit/short-link";
 
 import { getEnv } from "@/lib/env";
 import { absoluteUrl } from "@/lib/site-url";
@@ -30,9 +31,6 @@ export interface SignInLink {
 export async function signInLink(next = "/admin", now = Date.now()): Promise<SignInLink> {
   const keys = loginUnlockEnabled() ? unlockKeysFromEnv() : null;
   if (!keys) return { url: await absoluteUrl(next), expiresAt: null };
-  const days = signInLinkDays(getEnv().ADMIN_SIGN_IN_LINK_DAYS);
-  return {
-    url: await absoluteUrl(signInLinkPath(signSignInLink(now, days, keys), next)),
-    expiresAt: new Date(now + days * 24 * 60 * 60 * 1000),
-  };
+  const prepared = prepareSignInLink({ now, days: getEnv().ADMIN_SIGN_IN_LINK_DAYS, keys, next });
+  return { url: await absoluteUrl(prepared.path), expiresAt: prepared.expiresAt };
 }
