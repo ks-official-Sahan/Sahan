@@ -37,3 +37,32 @@ test("only http(s) links are accepted, in either slot", () => {
   // A copy never renders the link, so it never fails on it either.
   assert.doesNotThrow(() => renderEmail("x", { ...content, button: { label: "x", url: "javascript:1" } }, { brand: "b", copy: true }));
 });
+
+test("theme tokens colour the button, link and canvas, and show an https logo", () => {
+  const { html } = renderEmail("Invite", content, {
+    brand: "Acme",
+    theme: { accent: "#0f766e", canvas: "#ecfeff", logoUrl: "https://cdn.example.com/logo.png" },
+  });
+  assert.match(html, /background:#0f766e;color:#ffffff/);
+  assert.match(html, /color:#0f766e;word-break:break-all/);
+  assert.match(html, /background:#ecfeff;/);
+  assert.match(html, /<img src="https:\/\/cdn\.example\.com\/logo\.png" alt="Acme"/);
+});
+
+test("invalid theme tokens fall back to the neutral layout instead of reaching the HTML", () => {
+  const { html } = renderEmail("Invite", content, {
+    brand: "Acme",
+    theme: { accent: "red;background:url(x)", canvas: "#fff", logoUrl: "http://cdn.example.com/logo.png" },
+  });
+  assert.match(html, /background:#18181b;color:#ffffff/);
+  assert.match(html, /background:#f4f4f5;/);
+  assert.doesNotMatch(html, /<img/);
+  assert.doesNotMatch(html, /url\(x\)/);
+});
+
+test("without a theme the output is unchanged", () => {
+  assert.equal(
+    renderEmail("Invite", content, { brand: "Acme" }).html,
+    renderEmail("Invite", content, { brand: "Acme", theme: {} }).html
+  );
+});

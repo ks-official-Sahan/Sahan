@@ -35,6 +35,7 @@
     "./providers/brevo-api": "./src/providers/brevo-api.ts",
     "./providers/resend": "./src/providers/resend.ts",
     "./providers/brevo-smtp": "./src/providers/brevo-smtp.ts",
+    "./providers/smtp": "./src/providers/smtp.ts",
     "./providers/capture": "./src/providers/capture.ts",
     "./package.json": "./package.json"
   },
@@ -92,6 +93,7 @@
       "./providers/brevo-api": { "types": "./dist/providers/brevo-api.d.ts", "import": "./dist/providers/brevo-api.js" },
       "./providers/resend": { "types": "./dist/providers/resend.d.ts", "import": "./dist/providers/resend.js" },
       "./providers/brevo-smtp": { "types": "./dist/providers/brevo-smtp.d.ts", "import": "./dist/providers/brevo-smtp.js" },
+      "./providers/smtp": { "types": "./dist/providers/smtp.d.ts", "import": "./dist/providers/smtp.js" },
       "./providers/capture": { "types": "./dist/providers/capture.d.ts", "import": "./dist/providers/capture.js" },
       "./package.json": "./package.json"
     }

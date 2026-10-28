@@ -54,6 +54,10 @@ Templates, the audit store and when to send stay in your app.
 import { createEmailService, emailConfigFromEnv, parseEmailEnv, providerOrder } from "@sahan-sac/email-kit";
 import { createResendProvider } from "@sahan-sac/email-kit/providers/resend"; // needs `resend`
 // SMTP: createSmtpProvider from "@sahan-sac/email-kit/providers/brevo-smtp" (needs `nodemailer`)
+// Any SMTP relay (Mailpit, self-hosted; AUTH optional; TLS required when production is true):
+//   createGenericSmtpProvider({ host, from, production }) from "@sahan-sac/email-kit/providers/smtp"
+// Brand tokens per send: renderEmail(subject, content, { brand, theme: { accent: "#0f766e", canvas, logoUrl } })
+//   (#rrggbb colours and an https logo; invalid values fall back to the neutral layout)
 
 const env = parseEmailEnv(process.env);
 const config = emailConfigFromEnv(env);

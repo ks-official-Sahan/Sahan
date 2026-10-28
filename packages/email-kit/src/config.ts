@@ -49,8 +49,9 @@ export interface SmtpConfig {
   secure: boolean;
   /** STARTTLS is mandatory (port 587 and other submission ports). */
   requireTLS: boolean;
-  user: string;
-  pass: string;
+  /** Leave both out for a relay that accepts mail without AUTH (a local Mailpit, a relay on a private network). */
+  user?: string;
+  pass?: string;
   from: string;
 }
 
