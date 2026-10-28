@@ -1,30 +1,29 @@
 import "server-only";
 
-import { getSetting, updateSetting } from "@/lib/settings/service";
+import { updateSetting } from "@/lib/settings/service";
 import { getProjects, getExperience } from "@/lib/collections";
-import { getRecentIndexablePosts } from "@/lib/blog/queries";
+import { getPostBySlug, getRecentIndexablePosts } from "@/lib/blog/queries";
 import { getPageContent } from "@/lib/cms/loaders";
 import { Projects } from "@/contents/projects";
 import { Experience } from "@/contents/experience";
 import { MySkills } from "@/contents/skills";
 import { Site, SiteMetadata } from "@/config/site";
 import type { AuthUser } from "@/lib/auth/dal";
-
-import { absoluteSiteUrl } from "./indexnow";
+import { isIndexableArticle, isIndexableProject } from "@/lib/seo/copy";
+import { siteUrl } from "@/lib/site-url";
 
 // llms.txt: a short, curated index in the llmstxt.org shape (H1, one-line
 // blockquote, `- [title](url): note` sections) that gives AI crawlers and
 // assistant agents a structured summary of the site — same purpose as a
 // sitemap, but written for language models instead of URL crawlers.
 //
-// Persisted in the `seo.llmsTxt` setting (not the filesystem — Vercel's
-// runtime filesystem is read-only outside /tmp, so writing to
-// public/llms.txt from a Server Action would throw on every deploy).
-// /llms.txt falls back to generating on the fly when nobody has regenerated
-// it yet, so it is never a 404 and never permanently stale by omission.
+// Persisted in the `seo.llmsTxt` setting when someone regenerates it from
+// the admin. The public route always generates, so an older saved copy cannot
+// keep sending readers to a host that does not resolve.
 
-function link(path: string, title: string, note?: string): string {
-  return `- [${title}](${absoluteSiteUrl(path)})${note ? `: ${note}` : ""}`;
+function link(origin: string, path: string, title: string, note?: string): string {
+  const url = !path || path === "/" ? origin : `${origin}${path.startsWith("/") ? path : `/${path}`}`;
+  return `- [${title}](${url})${note ? `: ${note}` : ""}`;
 }
 
 /** Same list format as link(), for an already-absolute (external) URL. */
@@ -56,6 +55,7 @@ const KEY_SKILL_NAMES = [
 
 /** Builds fresh llms.txt content from the same data sources the site itself renders. */
 export async function generateLlmsTxt(): Promise<string> {
+  const origin = await siteUrl();
   const [projects, experience, posts, about] = await Promise.all([
     getProjects(Projects),
     getExperience(Experience),
@@ -67,7 +67,7 @@ export async function generateLlmsTxt(): Promise<string> {
     getPageContent("about"),
   ]);
 
-  const featured = projects.filter((project) => project.featured);
+  const featured = projects.filter((project) => project.featured && isIndexableProject(project.status));
   const latestRole = experience.find((entry) => entry.current) ?? experience[0];
   const allSkillNames = new Set(
     MySkills.tabs.categories.flatMap((group) => group.skills.map((skill) => skill.name))
@@ -77,14 +77,14 @@ export async function generateLlmsTxt(): Promise<string> {
   const lines: string[] = [
     `# ${SiteMetadata.title}`,
     "",
-    `> ${SiteMetadata.description} Based in ${Site.location}.`,
+    `> ${SiteMetadata.description}`,
     "",
     "## Core pages",
-    link("", "Home", "overview, featured work, and current role"),
-    link("/about", "About", "background, skills, and experience timeline"),
-    link("/works", "Works", `${projects.length} projects across product, freelance, and contract work`),
-    link("/updates", "Updates", "blog posts and progress notes"),
-    link("/contact", "Contact", "get in touch"),
+    link(origin, "", "Home", "overview, featured work, and current role"),
+    link(origin, "/about", "About", "background, skills, and experience timeline"),
+    link(origin, "/works", "Works", `${projects.length} projects, each with its own page`),
+    link(origin, "/updates", "Updates", "articles and progress notes"),
+    link(origin, "/contact", "Contact", "get in touch"),
     "",
     "## Author",
     `${SiteMetadata.author} — ${Site.myRole} at ${Site.org}, based in ${Site.location}.`,
@@ -107,15 +107,34 @@ export async function generateLlmsTxt(): Promise<string> {
   if (featured.length > 0) {
     lines.push("## Featured projects");
     for (const project of featured) {
-      lines.push(link(`/works#${project.slug}`, project.title, project.tagline));
+      lines.push(link(origin, `/works/${project.slug}`, project.title, project.tagline));
     }
     lines.push("");
   }
 
-  if (posts.length > 0) {
+  const rest = projects.filter((project) => !project.featured && isIndexableProject(project.status));
+  if (rest.length > 0) {
+    lines.push("## More projects");
+    for (const project of rest) {
+      lines.push(link(origin, `/works/${project.slug}`, project.title, project.tagline));
+    }
+    lines.push("");
+  }
+
+  const substantial: typeof posts = [];
+  for (const post of posts) {
+    if (post.readMinutes > 2) {
+      substantial.push(post);
+      continue;
+    }
+    const full = await getPostBySlug(post.slug);
+    if (full && isIndexableArticle(full.contentText)) substantial.push(post);
+  }
+
+  if (substantial.length > 0) {
     lines.push("## Recent updates");
-    for (const post of posts) {
-      lines.push(link(`/updates/${post.slug}`, post.title, post.excerpt));
+    for (const post of substantial) {
+      lines.push(link(origin, `/updates/${post.slug}`, post.title, post.excerpt));
     }
     lines.push("");
   }
@@ -129,10 +148,8 @@ export async function generateLlmsTxt(): Promise<string> {
   return lines.join("\n");
 }
 
-/** Serves the persisted content, generating on the fly if never regenerated. */
+/** The public llms.txt. Always generated, so links follow the host that answers. */
 export async function getLlmsTxtContent(): Promise<string> {
-  const stored = await getSetting("seo.llmsTxt");
-  if (stored.content) return stored.content;
   return generateLlmsTxt();
 }
 

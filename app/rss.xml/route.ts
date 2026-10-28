@@ -2,6 +2,7 @@ import { cacheLife } from "next/cache";
 
 import { SiteMetadata } from "@/config/site";
 import { getRecentIndexablePosts } from "@/lib/blog/queries";
+import { siteUrl } from "@/lib/site-url";
 
 // RSS 2.0 feed of the last 20 published posts (docs/plan/admin-cms-adr.md,
 // Step 12). The feed is built in a "use cache" scope with the same 300 s
@@ -20,18 +21,19 @@ const escapeXml = (value: string): string =>
     .replace(/'/g, "&apos;");
 
 export async function GET() {
-  return new Response(await buildFeed(), {
+  const origin = await siteUrl();
+  return new Response(await buildFeed(origin), {
     headers: {
       "Content-Type": "application/rss+xml; charset=utf-8",
     },
   });
 }
 
-async function buildFeed(): Promise<string> {
+async function buildFeed(origin: string): Promise<string> {
   "use cache";
   cacheLife({ stale: 300, revalidate: 300, expire: 86_400 });
   const posts = await getRecentIndexablePosts(MAX_ITEMS);
-  const siteUrl = SiteMetadata.siteUrl;
+  const siteUrl = origin;
   const now = new Date().toUTCString();
   // The newest post, not the render time: an unchanged feed keeps the same date across regenerations.
   const lastBuildDate = posts[0]?.updatedAt ? new Date(posts[0].updatedAt).toUTCString() : now;

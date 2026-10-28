@@ -1,5 +1,5 @@
-import { SiteMetadata } from "@/config/site";
 import { sitemapIds } from "@/lib/seo/sitemap";
+import { siteUrl } from "@/lib/site-url";
 
 // Sitemap index at /sitemap.xml, the URL app/robots.ts advertises. With
 // generateSitemaps() (app/sitemaps/sitemap.ts) Next serves only the files
@@ -18,9 +18,9 @@ const escapeXml = (value: string): string =>
     .replace(/'/g, "&apos;");
 
 export async function GET() {
-  const ids = await sitemapIds();
+  const [ids, origin] = await Promise.all([sitemapIds(), siteUrl()]);
   const entries = ids
-    .map((id) => `  <sitemap>\n    <loc>${escapeXml(`${SiteMetadata.siteUrl}/sitemaps/sitemap/${id}.xml`)}</loc>\n  </sitemap>`)
+    .map((id) => `  <sitemap>\n    <loc>${escapeXml(`${origin}/sitemaps/sitemap/${id}.xml`)}</loc>\n  </sitemap>`)
     .join("\n");
   const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${entries}\n</sitemapindex>\n`;
   return new Response(xml, { headers: { "Content-Type": "application/xml; charset=utf-8" } });

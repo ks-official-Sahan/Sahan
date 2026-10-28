@@ -1,7 +1,8 @@
 import "server-only";
 
-import { loginUnlockEnabled, signInLinkDays, signSignInLink, unlockKeysFromEnv } from "@sahan-sac/auth-kit/login-unlock";
-import { accountLinkPath, emailLinkPath, signInLinkPath } from "@sahan-sac/auth-kit/short-link";
+import { loginUnlockEnabled, unlockKeysFromEnv, verifySignInLink } from "@sahan-sac/auth-kit/login-unlock";
+import { prepareSignInLink } from "@sahan-sac/auth-kit/sign-in-link";
+import { accountLinkPath, emailLinkPath, parseShortLink, signInLinkPath } from "@sahan-sac/auth-kit/short-link";
 
 import { getEnv } from "@/lib/env";
 import { absoluteUrl } from "@/lib/site-url";
@@ -30,9 +31,26 @@ export interface SignInLink {
 export async function signInLink(next = "/admin", now = Date.now()): Promise<SignInLink> {
   const keys = loginUnlockEnabled() ? unlockKeysFromEnv() : null;
   if (!keys) return { url: await absoluteUrl(next), expiresAt: null };
-  const days = signInLinkDays(getEnv().ADMIN_SIGN_IN_LINK_DAYS);
-  return {
-    url: await absoluteUrl(signInLinkPath(signSignInLink(now, days, keys), next)),
-    expiresAt: new Date(now + days * 24 * 60 * 60 * 1000),
-  };
+  const prepared = prepareSignInLink({ now, days: getEnv().ADMIN_SIGN_IN_LINK_DAYS, keys, next });
+  return { url: await absoluteUrl(prepared.path), expiresAt: prepared.expiresAt };
+}
+
+/** The link shown on Account, if it is still a sign-in link this server signed. The host is rebuilt. */
+export async function acceptedSignInLink(raw: string, now = Date.now()): Promise<SignInLink | null> {
+  let pathname = "";
+  let search = "";
+  try {
+    const url = new URL(raw);
+    pathname = url.pathname;
+    search = url.search;
+  } catch {
+    return null;
+  }
+  const parsed = parseShortLink(pathname, search);
+  if (parsed?.kind !== "signIn") return null;
+  const keys = loginUnlockEnabled() ? unlockKeysFromEnv() : null;
+  if (!keys || !verifySignInLink(parsed.code, now, keys)) return null;
+  const expiresAt = new Date(parseInt(parsed.code.split(".")[0], 36) * 1000);
+  if (Number.isNaN(expiresAt.getTime())) return null;
+  return { url: await absoluteUrl(signInLinkPath(parsed.code, parsed.next)), expiresAt };
 }

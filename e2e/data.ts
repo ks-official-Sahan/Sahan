@@ -9,7 +9,7 @@ export const E2E_POSTS = {
   published: {
     slug: "e2e-published-post",
     title: "E2E published post",
-    body: "This post is public, so the site and the content API list it.",
+    body: "This post is public, so the site and the content API list it. ".repeat(30),
     status: "PUBLISHED",
   },
   draft: {

@@ -25,7 +25,7 @@ const SUMMARY_SELECT = {
   author: { select: { name: true } },
 } as const;
 
-const REF_SELECT = { id: true, slug: true, publishAt: true, publishedAt: true, updatedAt: true } as const;
+const REF_SELECT = { id: true, slug: true, publishAt: true, publishedAt: true, updatedAt: true, readMinutes: true } as const;
 
 function publicPostAfter(field: "publishedAt" | "publishAt", cursor?: { publishedAt: Date; id: string }): Prisma.PostWhereInput {
   if (!cursor) return {};

@@ -7,7 +7,9 @@ import { SiteMetadata } from "@/config/site";
 import { getPageContent } from "@/lib/cms/loaders";
 import { getRecentPosts, getPostBySlug, postStaticParams, getPostRedirect, relatedPosts, type BlogPostView } from "@/lib/blog/queries";
 import { RSS_ALTERNATES } from "@/lib/metadata";
+import { documentTitle, isIndexableArticle, metaDescription } from "@/lib/seo/copy";
 import { jsonLdHtml } from "@/lib/seo/json-ld";
+import { siteUrl } from "@/lib/site-url";
 
 // One full post per published slug (docs/plan/admin-cms-adr.md, Step 12).
 // The post reads are cached for 300 s (lib/blog/queries.ts), the same window
@@ -24,9 +26,23 @@ export const instant = false;
 // rendered on its first request and cached from then on.
 export const generateStaticParams = postStaticParams;
 
-function postUrl(post: BlogPostView): string {
-  return `${SiteMetadata.siteUrl}/updates/${post.slug}`;
+/** Path on this site. An author-set canonical on our own hosts follows the live origin. */
+function canonicalPath(post: BlogPostView): string {
+  const local = `/updates/${post.slug}`;
+  if (!post.canonicalUrl) return local;
+  try {
+    const url = new URL(post.canonicalUrl);
+    const own =
+      url.hostname === "sahansachintha.com" ||
+      url.hostname === "www.sahansachintha.com" ||
+      url.hostname === "sahansachintha.vercel.app";
+    return own ? url.pathname || local : post.canonicalUrl;
+  } catch {
+    return local;
+  }
 }
+
+const STALE_COMPARISON = /gpt-4o|gemini 1\.5 pro/i;
 
 export async function generateMetadata({
   params,
@@ -37,23 +53,26 @@ export async function generateMetadata({
   const post = await getPostBySlug(slug);
   if (!post) return {};
 
-  const url = post.canonicalUrl || postUrl(post);
-  const title = post.seoTitle || post.title;
-  const description = post.seoDescription || post.excerpt || post.contentText.slice(0, 160);
+  const origin = await siteUrl();
+  const path = canonicalPath(post);
+  const chosenTitle = post.seoTitle && !STALE_COMPARISON.test(post.seoTitle) ? post.seoTitle : post.title;
+  const title = documentTitle(chosenTitle);
+  const description = metaDescription(post.seoDescription || post.excerpt || post.contentText);
   const author = post.authorName || SiteMetadata.author;
+  const thin = !isIndexableArticle(post.contentText);
 
   return {
-    title,
+    title: { absolute: title },
     description,
-    authors: [{ name: author, url: SiteMetadata.siteUrl }],
+    authors: [{ name: author, url: origin }],
     keywords: post.tags,
-    alternates: { canonical: url, types: RSS_ALTERNATES },
-    // Readable by visitors, kept out of search results; links still followed.
-    ...(post.noindex ? { robots: { index: false, follow: true } } : {}),
+    alternates: { canonical: path, types: RSS_ALTERNATES },
+    // Short notes stay on the site and in the feed. They are not articles.
+    ...(post.noindex || thin ? { robots: { index: false, follow: true } } : {}),
     openGraph: {
       type: "article",
       siteName: SiteMetadata.ogSiteName,
-      url,
+      url: path,
       title,
       description,
       authors: [author],
@@ -83,8 +102,9 @@ export async function generateMetadata({
 }
 
 /** BlogPosting plus its breadcrumb trail, the two entities answer engines read for an article. */
-function postJsonLd(post: BlogPostView) {
-  const url = postUrl(post);
+function postJsonLd(post: BlogPostView, origin: string) {
+  const path = canonicalPath(post);
+  const url = path.startsWith("/") ? `${origin}${path}` : path;
   const author = post.authorName || SiteMetadata.author;
   return [
     {
@@ -93,12 +113,12 @@ function postJsonLd(post: BlogPostView) {
       "@id": `${url}#article`,
       mainEntityOfPage: { "@type": "WebPage", "@id": url },
       headline: post.title,
-      description: post.seoDescription || post.excerpt,
+      description: metaDescription(post.seoDescription || post.excerpt || post.contentText),
       url,
       ...(post.publishedAt ? { datePublished: post.publishedAt } : {}),
       ...(post.updatedAt || post.publishedAt ? { dateModified: post.updatedAt || post.publishedAt } : {}),
-      author: { "@type": "Person", name: author, url: SiteMetadata.siteUrl },
-      publisher: { "@type": "Person", name: SiteMetadata.author, url: SiteMetadata.siteUrl },
+      author: { "@type": "Person", name: author, url: origin },
+      publisher: { "@type": "Person", name: SiteMetadata.author, url: origin },
       ...(post.coverUrl ? { image: post.coverUrl } : {}),
       articleSection: post.topic,
       keywords: post.tags.join(", "),
@@ -110,8 +130,8 @@ function postJsonLd(post: BlogPostView) {
       "@context": "https://schema.org",
       "@type": "BreadcrumbList",
       itemListElement: [
-        { "@type": "ListItem", position: 1, name: "Home", item: SiteMetadata.siteUrl },
-        { "@type": "ListItem", position: 2, name: "Updates", item: `${SiteMetadata.siteUrl}/updates` },
+        { "@type": "ListItem", position: 1, name: "Home", item: origin },
+        { "@type": "ListItem", position: 2, name: "Updates", item: `${origin}/updates` },
         { "@type": "ListItem", position: 3, name: post.title, item: url },
       ],
     },
@@ -120,7 +140,7 @@ function postJsonLd(post: BlogPostView) {
 
 export default async function UpdatePostPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const [post, posts, home] = await Promise.all([getPostBySlug(slug), getRecentPosts(50), getPageContent("home")]);
+  const [post, posts, home, origin] = await Promise.all([getPostBySlug(slug), getRecentPosts(50), getPageContent("home"), siteUrl()]);
   if (!post) {
     // A renamed post's old slug answers with a 308 to its current one.
     const target = await getPostRedirect(slug);
@@ -136,7 +156,7 @@ export default async function UpdatePostPage({ params }: { params: Promise<{ slu
 
   return (
     <div className="w-full overflow-hidden font-medium">
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdHtml(postJsonLd(post)) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdHtml(postJsonLd(post, origin)) }} />
       <PostArticle post={post} related={related} />
 
       <FinalCta content={home.finalCta} channels={home.channels} />

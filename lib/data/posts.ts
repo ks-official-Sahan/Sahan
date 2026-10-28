@@ -79,6 +79,8 @@ export interface PublishedPostRefRow {
   publishAt: Date | null;
   publishedAt: Date | null;
   updatedAt: Date;
+  /** Minutes at 200 words each. Two or fewer needs a word-count check before it is indexed. */
+  readMinutes: number;
 }
 
 export interface PublishedPostRow extends PublishedPostSummaryRow {

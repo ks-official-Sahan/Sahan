@@ -7,6 +7,7 @@ import { repos } from "@/lib/data";
 import { extractText, sanitizeRich } from "@/lib/cms/rich-text";
 import { log } from "@/lib/log";
 import { EXCERPT_CHARS } from "@/lib/blog/excerpt";
+import { isIndexableArticle } from "@/lib/seo/copy";
 import { isDue, visibleAhead } from "@/lib/blog/visibility";
 import { UpdatesContent } from "@/contents/updates";
 
@@ -358,15 +359,30 @@ const toIso = (value: Date | string | null): string | null => (value ? new Date(
 export async function getSitemapPostRefs(after?: PublicPostCursor): Promise<PostRef[]> {
   const cursor = dbCursor(after);
   const readRows = () => repos.posts.listIndexableRefs(SITEMAP_PAGE_SIZE, cursor);
-  const read = cursor ? readRows : cached(readRows, ["blog", "sitemap-first", "v1"], { tags: [TAGS.blogList], revalidate: 300 });
+  const read = cursor ? readRows : cached(readRows, ["blog", "sitemap-first", "v2"], { tags: [TAGS.blogList], revalidate: 300 });
   const rows = await loadOrNull(read, {
     onError: (error) => log.warn("sitemap post read failed during build, using defaults", { error: String(error) }),
   });
   if (rows && rows.length === 0 && !cursor && (await storedPostsExist())) return [];
   if (!rows || rows.length === 0) {
-    return cursor ? [] : defaultPosts().map((post) => ({ slug: post.slug, publishedAt: null, updatedAt: null }));
+    return cursor
+      ? []
+      : defaultPosts()
+          .filter((post) => isIndexableArticle(post.contentText))
+          .map((post) => ({ slug: post.slug, publishedAt: null, updatedAt: null }));
   }
-  return rows.map((row) => ({ slug: row.slug, publishedAt: toIso(row.publishAt ?? row.publishedAt), updatedAt: toIso(row.updatedAt) }));
+  const thin = new Set<string>();
+  await Promise.all(
+    rows
+      .filter((row) => row.readMinutes <= 2)
+      .map(async (row) => {
+        const post = await getPostBySlug(row.slug);
+        if (!post || !isIndexableArticle(post.contentText)) thin.add(row.slug);
+      })
+  );
+  return rows
+    .filter((row) => !thin.has(row.slug))
+    .map((row) => ({ slug: row.slug, publishedAt: toIso(row.publishAt ?? row.publishedAt), updatedAt: toIso(row.updatedAt) }));
 }
 
 /** A slug isValidPostSlug() rejects, so its page is a 404 without a lookup. */

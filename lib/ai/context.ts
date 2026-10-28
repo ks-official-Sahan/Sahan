@@ -7,6 +7,7 @@ import type { ChatSite } from "@sahan-sac/chat-kit/types";
 import { blogSite } from "@/lib/ai/blog-site";
 import { chatSite } from "@/lib/chatbot/site";
 import { log } from "@/lib/log";
+import { siteUrl } from "@/lib/site-url";
 import type { AiContextScope } from "@/lib/settings/schema";
 import { getSetting } from "@/lib/settings/service";
 
@@ -32,5 +33,5 @@ export async function blogSiteWithGuidance(scope: "blog" | "seo" = "blog"): Prom
 
 /** The chatbot's owner identity with the chatbot guidance attached. */
 export async function chatSiteWithGuidance(): Promise<ChatSite> {
-  return { ...chatSite, guidance: await aiGuidance("chatbot") };
+  return { ...chatSite, siteUrl: await siteUrl(), guidance: await aiGuidance("chatbot") };
 }

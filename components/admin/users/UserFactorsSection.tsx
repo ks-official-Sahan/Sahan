@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 
-import ActionForm, { ConfirmSubmitButton, Field } from "@/components/admin/ui/ActionForm";
+import ActionForm, { ConfirmSubmitButton } from "@/components/admin/ui/ActionForm";
+import { PasswordField } from "@/components/admin/ui/PasswordField";
 import type { ActionState } from "@/lib/actions/state";
 import { removeUserFactorAction, userFactorsAction, type UserFactorsResult } from "@/lib/actions/user-factors";
 import { formatDateTime } from "@/lib/admin/format";
@@ -84,7 +85,7 @@ export default function UserFactorsSection({ userId, email }: { userId: string; 
           <p className="text-xs text-muted-foreground">
             Removing an app or a passkey signs {email} out everywhere and emails them. Recovery codes go with the last app or passkey.
           </p>
-          <Field label="Your password" name="password" type="password" autoComplete="current-password" required maxLength={128} />
+          <PasswordField label="Your password" name="password" autoComplete="current-password" required maxLength={128} />
           <ConfirmSubmitButton variant="danger" pendingLabel="Removing..." confirmMessage={`Remove the selected sign-in method from ${email}?`}>
             Remove
           </ConfirmSubmitButton>

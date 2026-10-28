@@ -149,8 +149,8 @@ export async function generateFullPost(input: FullPostInput, deps: BlogAiDeps): 
   const excerpt = clampText(parsed.excerpt, 500);
   const topic = clampText(parsed.topic, 50);
   const tags = clampTags(parsed.tags);
-  const seoTitle = clampText(parsed.seoTitle, 70);
-  const seoDescription = clampText(parsed.seoDescription, 200);
+  const seoTitle = clampText(parsed.seoTitle, 60);
+  const seoDescription = clampText(parsed.seoDescription, 155);
 
   if ([title, content, excerpt, topic, seoTitle, seoDescription, ...tags].some((value) => looksLikeLeak(value))) {
     return { ok: false, error: "The AI response looked unsafe and was discarded. Try a different prompt." };

@@ -76,6 +76,11 @@ export function checkReset(context: Context): Check {
   return ok;
 }
 
+/** Emailing a sign-in link: same reach as managing, including a disabled account. */
+export function checkSignInLink(context: Context): Check {
+  return manage(context);
+}
+
 /** Inviting or creating a user with a role. */
 export function checkInvite(roles: RoleCatalog, actor: Person, role: RoleName): Check {
   if (!roles.assignable(actor.role).includes(role)) return refuse("You are not allowed to give that role.");
