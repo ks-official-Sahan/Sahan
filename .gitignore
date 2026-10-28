@@ -54,3 +54,6 @@ packages/*/dist
 
 # Local tool caches
 **/graft/.cache/
+
+sahansachintha.com-audit/
+sahansachintha.vercel.app-audit/

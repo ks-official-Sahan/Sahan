@@ -1,25 +1,26 @@
 import "server-only";
 
+import { Projects } from "@/contents/projects";
 import { getAllIndexablePosts } from "@/lib/blog/queries";
-import { SiteMetadata } from "@/config/site";
+import { getProjects } from "@/lib/collections";
+import { siteUrl } from "@/lib/site-url";
 
 // IndexNow: tells Bing and every other participating search engine about a
 // changed URL immediately, instead of waiting for the next crawl. Ported
 // from the same pattern in ValoremAdminPanel's lib/indexnow.ts, scoped down
-// to this site's actual routes (no per-project pages — projects live inline
-// on /works, matching app/sitemaps/sitemap.ts).
+// to this site's actual routes, including each project page under /works.
 //
 // The key doubles as the filename of its own proof file: public/<key>.txt
 // must contain exactly the key. IndexNow verifies ownership by fetching
 // https://<site>/<key>.txt and comparing it to the key in the ping payload.
 
-const SITE_ORIGIN = SiteMetadata.siteUrl.replace(/\/$/, "");
-
 const STATIC_ROUTES = ["", "/about", "/works", "/updates", "/contact"] as const;
 
-export function absoluteSiteUrl(path: string): string {
+export function absoluteSiteUrl(path: string, origin: string): string {
+  const base = origin.replace(/\/$/, "");
+  if (!path || path === "/") return base;
   const normalized = path.startsWith("/") ? path : `/${path}`;
-  return `${SITE_ORIGIN}${normalized}`;
+  return `${base}${normalized}`;
 }
 
 function indexNowKey(): string {
@@ -32,12 +33,12 @@ export function isIndexNowConfigured(): boolean {
 
 /** Every public URL this site actually serves: the static pages plus every published post. */
 export async function collectIndexableUrls(): Promise<string[]> {
-  const staticUrls = STATIC_ROUTES.map((route) => absoluteSiteUrl(route));
+  const [origin, posts, projects] = await Promise.all([siteUrl(), getAllIndexablePosts(), getProjects(Projects)]);
+  const staticUrls = STATIC_ROUTES.map((route) => absoluteSiteUrl(route, origin));
+  const projectUrls = projects.map((project) => absoluteSiteUrl(`/works/${project.slug}`, origin));
+  const postUrls = posts.map((post) => absoluteSiteUrl(`/updates/${post.slug}`, origin));
 
-  const posts = await getAllIndexablePosts();
-  const postUrls = posts.map((post) => absoluteSiteUrl(`/updates/${post.slug}`));
-
-  return [...new Set([...staticUrls, ...postUrls])];
+  return [...new Set([...staticUrls, ...projectUrls, ...postUrls])];
 }
 
 export interface IndexNowEndpointResult {
@@ -60,11 +61,12 @@ export async function pingIndexNowWithStatus(urls: string[]): Promise<IndexNowPi
   const unique = [...new Set(urls.map((url) => url.trim()).filter(Boolean))].slice(0, 10_000);
   if (unique.length === 0) return { configured: true, submitted: 0, endpoints: [] };
 
-  const host = new URL(SITE_ORIGIN).hostname;
+  const origin = (unique[0] ? new URL(unique[0]).origin : await siteUrl()).replace(/\/$/, "");
+  const host = new URL(origin).hostname;
   const body = JSON.stringify({
     host,
     key,
-    keyLocation: `${SITE_ORIGIN}/${key}.txt`,
+    keyLocation: `${origin}/${key}.txt`,
     urlList: unique,
   });
 
@@ -108,7 +110,7 @@ export async function checkIndexNowKeyFile(fetchImpl: typeof fetch = fetch): Pro
   if (!key) return { configured: false, ok: false, detail: "Not configured" };
 
   try {
-    const response = await fetchImpl(`${SITE_ORIGIN}/${key}.txt`, {
+    const response = await fetchImpl(`${await siteUrl()}/${key}.txt`, {
       cache: "no-store",
       signal: AbortSignal.timeout(8_000),
     });

@@ -1,8 +1,10 @@
-import { SiteMetadata } from "@/config/site";
+import { Projects } from "@/contents/projects";
 import { getSitemapPostRefs } from "@/lib/blog/queries";
 import { getPageLastModified } from "@/lib/cms/loaders";
 import type { CmsPage } from "@/lib/cms/registry";
+import { getProjects } from "@/lib/collections";
 import { sitemapIds, sitemapStart } from "@/lib/seo/sitemap";
+import { siteUrl } from "@/lib/site-url";
 import type { MetadataRoute } from "next";
 
 // One file per SITEMAP_PAGE_SIZE indexable posts at /sitemaps/sitemap/<id>.xml,
@@ -33,11 +35,13 @@ export default async function sitemap({ id: idPromise }: { id: Promise<string> }
   if (after === null) return [];
 
   const isFirst = after === undefined;
-  const [posts, lastModifiedByRoute] = await Promise.all([
+  const [posts, lastModifiedByRoute, projects, origin] = await Promise.all([
     getSitemapPostRefs(after),
     isFirst
       ? Promise.all(STATIC_ROUTES.map((route) => (route.page ? getPageLastModified(route.page) : Promise.resolve(null))))
       : Promise.resolve([] as Array<string | null>),
+    isFirst ? getProjects(Projects) : Promise.resolve([]),
+    siteUrl(),
   ]);
   const newestPostAt = posts[0]?.publishedAt ?? null;
 
@@ -45,7 +49,7 @@ export default async function sitemap({ id: idPromise }: { id: Promise<string> }
     ? STATIC_ROUTES.map((route, index) => {
         const lastModified = route.path === "/updates" ? newestPostAt : lastModifiedByRoute[index];
         return {
-          url: `${SiteMetadata.siteUrl}${route.path}`,
+          url: `${origin}${route.path}`,
           ...(lastModified ? { lastModified: new Date(lastModified) } : {}),
           changeFrequency: route.path === "" ? "weekly" : "monthly",
           priority: route.path === "" ? 1 : 0.7,
@@ -53,15 +57,21 @@ export default async function sitemap({ id: idPromise }: { id: Promise<string> }
       })
     : [];
 
+  const projectEntries: MetadataRoute.Sitemap = projects.map((project) => ({
+    url: `${origin}/works/${project.slug}`,
+    changeFrequency: "monthly",
+    priority: project.featured ? 0.8 : 0.6,
+  }));
+
   const postEntries: MetadataRoute.Sitemap = posts.map((post) => {
     const lastModified = post.updatedAt ?? post.publishedAt;
     return {
-      url: `${SiteMetadata.siteUrl}/updates/${post.slug}`,
+      url: `${origin}/updates/${post.slug}`,
       ...(lastModified ? { lastModified: new Date(lastModified) } : {}),
       changeFrequency: "monthly",
       priority: 0.6,
     };
   });
 
-  return [...staticEntries, ...postEntries];
+  return [...staticEntries, ...projectEntries, ...postEntries];
 }

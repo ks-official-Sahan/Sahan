@@ -28,7 +28,7 @@ export const Site = {
 export const SiteMetadata = {
   title: "Sahan Sachintha",
   description:
-    "Full-Stack Software Engineer building cross-platform products, dashboards, and web experiences.",
+    "Sahan Sachintha is a full-stack software engineer at Datalake Creative, building web and mobile products remotely from Sri Lanka.",
   author: "Sahan Sachintha",
   siteUrl: "https://sahansachintha.com",
   githubUsername: "ks-official-sahan",
@@ -39,23 +39,23 @@ export const SiteMetadata = {
 
 export const PageMetadata = {
   about: {
-    title: "About",
+    title: "Full-stack engineer in Sri Lanka",
     description:
-      "Sahan Sachintha is a full-stack software engineer who builds web and mobile products end to end. Read about his background, technical skills, and experience.",
+      "Sahan Sachintha is a full-stack software engineer at Datalake Creative. Read his background, skills, and the products he ships remotely from Sri Lanka.",
   },
   works: {
-    title: "Works",
+    title: "Web and mobile projects",
     description:
-      "App-store products, client websites, and the business systems behind them, including POS and inventory tools. Open any project for links and its story.",
+      "Web apps, mobile products, and client systems shipped by Sahan Sachintha, a full-stack software engineer at Datalake Creative. Each project has its own page.",
   },
   updates: {
-    title: "Updates",
+    title: "Engineering notes and releases",
     description:
-      "Release notes, personal notes, bug fixes, and new features from ongoing projects — a running log of what shipped and what changed, posted as progress happens.",
+      "Notes from Sahan Sachintha on shipping software: releases, data fetching, security, and the work behind the products at Datalake Creative.",
   },
   contact: {
-    title: "Contact",
+    title: "Start a software project",
     description:
-      "Get in touch about a project, an idea, or just to say hi. Reach out by email or WhatsApp — replies come from Sahan directly, never an automated bot.",
+      "Contact Sahan Sachintha about a web or mobile project. He replies by email or WhatsApp. He is a full-stack engineer at Datalake Creative.",
   },
 };
