@@ -12,10 +12,9 @@ import { jsonLdHtml } from "@/lib/seo/json-ld";
 import { siteUrl } from "@/lib/site-url";
 import type { Project } from "@/types/project";
 
-export const dynamicParams = true;
-
-export function generateStaticParams(): Array<{ slug: string }> {
-  return Projects.map((project) => ({ slug: project.slug }));
+export async function generateStaticParams(): Promise<Array<{ slug: string }>> {
+  const projects = await getProjects(Projects);
+  return projects.map((project) => ({ slug: project.slug }));
 }
 
 async function projectBySlug(slug: string): Promise<Project | undefined> {

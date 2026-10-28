@@ -31,7 +31,14 @@ async function packageDirectories() {
   const entries = await readdir(path.join(root, "packages"), { withFileTypes: true });
   const manifests = await Promise.all(entries.filter((entry) => entry.isDirectory()).map(async (entry) => {
     const dir = path.join(root, "packages", entry.name);
-    const manifest = JSON.parse(await readFile(path.join(dir, "package.json"), "utf8"));
+    let raw;
+    try {
+      raw = await readFile(path.join(dir, "package.json"), "utf8");
+    } catch (error) {
+      if (error && error.code === "ENOENT") return null;
+      throw error;
+    }
+    const manifest = JSON.parse(raw);
     return manifest.publishConfig?.exports ? { dir, manifest } : null;
   }));
   return manifests.filter(Boolean);
