@@ -1,7 +1,8 @@
 import { Site, SiteMetadata } from "@/config/site";
 import { jsonLdHtml } from "@/lib/seo/json-ld";
 
-const JsonLd = ({ origin = SiteMetadata.siteUrl }: { origin?: string }) => {
+const JsonLd = ({ origin }: { origin?: string }) => {
+  if (!origin) return null;
   const personJsonLd = {
     "@context": "https://schema.org",
     "@type": "Person",

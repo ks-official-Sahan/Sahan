@@ -9,7 +9,7 @@ import { Experience } from "@/contents/experience";
 import { MySkills } from "@/contents/skills";
 import { Site, SiteMetadata } from "@/config/site";
 import type { AuthUser } from "@/lib/auth/dal";
-import { isIndexableArticle } from "@/lib/seo/copy";
+import { isIndexableArticle, isIndexableProject } from "@/lib/seo/copy";
 import { siteUrl } from "@/lib/site-url";
 
 // llms.txt: a short, curated index in the llmstxt.org shape (H1, one-line
@@ -67,7 +67,7 @@ export async function generateLlmsTxt(): Promise<string> {
     getPageContent("about"),
   ]);
 
-  const featured = projects.filter((project) => project.featured);
+  const featured = projects.filter((project) => project.featured && isIndexableProject(project.status));
   const latestRole = experience.find((entry) => entry.current) ?? experience[0];
   const allSkillNames = new Set(
     MySkills.tabs.categories.flatMap((group) => group.skills.map((skill) => skill.name))
@@ -112,7 +112,7 @@ export async function generateLlmsTxt(): Promise<string> {
     lines.push("");
   }
 
-  const rest = projects.filter((project) => !project.featured);
+  const rest = projects.filter((project) => !project.featured && isIndexableProject(project.status));
   if (rest.length > 0) {
     lines.push("## More projects");
     for (const project of rest) {

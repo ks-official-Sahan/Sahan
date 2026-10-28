@@ -3,6 +3,7 @@ import { getSitemapPostRefs } from "@/lib/blog/queries";
 import { getPageLastModified } from "@/lib/cms/loaders";
 import type { CmsPage } from "@/lib/cms/registry";
 import { getProjects } from "@/lib/collections";
+import { isIndexableProject } from "@/lib/seo/copy";
 import { sitemapIds, sitemapStart } from "@/lib/seo/sitemap";
 import { siteUrl } from "@/lib/site-url";
 import type { MetadataRoute } from "next";
@@ -57,7 +58,7 @@ export default async function sitemap({ id: idPromise }: { id: Promise<string> }
       })
     : [];
 
-  const projectEntries: MetadataRoute.Sitemap = projects.map((project) => ({
+  const projectEntries: MetadataRoute.Sitemap = projects.filter((project) => isIndexableProject(project.status)).map((project) => ({
     url: `${origin}/works/${project.slug}`,
     changeFrequency: "monthly",
     priority: project.featured ? 0.8 : 0.6,

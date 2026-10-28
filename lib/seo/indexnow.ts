@@ -3,6 +3,7 @@ import "server-only";
 import { Projects } from "@/contents/projects";
 import { getAllIndexablePosts } from "@/lib/blog/queries";
 import { getProjects } from "@/lib/collections";
+import { isIndexableProject } from "@/lib/seo/copy";
 import { siteUrl } from "@/lib/site-url";
 
 // IndexNow: tells Bing and every other participating search engine about a
@@ -35,7 +36,7 @@ export function isIndexNowConfigured(): boolean {
 export async function collectIndexableUrls(): Promise<string[]> {
   const [origin, posts, projects] = await Promise.all([siteUrl(), getAllIndexablePosts(), getProjects(Projects)]);
   const staticUrls = STATIC_ROUTES.map((route) => absoluteSiteUrl(route, origin));
-  const projectUrls = projects.map((project) => absoluteSiteUrl(`/works/${project.slug}`, origin));
+  const projectUrls = projects.filter((project) => isIndexableProject(project.status)).map((project) => absoluteSiteUrl(`/works/${project.slug}`, origin));
   const postUrls = posts.map((post) => absoluteSiteUrl(`/updates/${post.slug}`, origin));
 
   return [...new Set([...staticUrls, ...projectUrls, ...postUrls])];

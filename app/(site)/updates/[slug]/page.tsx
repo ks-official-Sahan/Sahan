@@ -32,7 +32,10 @@ function canonicalPath(post: BlogPostView): string {
   if (!post.canonicalUrl) return local;
   try {
     const url = new URL(post.canonicalUrl);
-    const own = url.hostname === "sahansachintha.com" || url.hostname === "www.sahansachintha.com" || url.hostname.endsWith(".vercel.app");
+    const own =
+      url.hostname === "sahansachintha.com" ||
+      url.hostname === "www.sahansachintha.com" ||
+      url.hostname === "sahansachintha.vercel.app";
     return own ? url.pathname || local : post.canonicalUrl;
   } catch {
     return local;

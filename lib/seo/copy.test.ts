@@ -24,6 +24,18 @@ test("descriptions finish a sentence instead of a hard cut, and short lines name
   const short = metaDescription("How to connect a Property Finder webhook.");
   assert.ok(short.includes("Sahan Sachintha"));
   assert.ok(short.length <= 160, String(short.length));
+
+  const midWord =
+    "A clickable financial management demo designed for Evision IT: cash and receivables at a glance, one-tap invoices and payments, an approvals inbox and a full authoring surface for the team.";
+  const cut = metaDescription(midWord);
+  assert.ok(cut.length <= 160, cut);
+  assert.equal(cut.includes("authoring"), false);
+  assert.match(cut, /\sfull$/);
+
+  const withStatus = metaDescription(
+    "A personal finance app with an AI assistant that explains your money score. Not in the stores yet."
+  );
+  assert.match(withStatus, /Not in the stores yet/);
 });
 
 test("a log line under 300 words is not an indexable article", () => {

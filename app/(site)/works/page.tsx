@@ -3,6 +3,7 @@ import WorksPageView from "@/components/pages/WorksPageView";
 import { SiteMetadata } from "@/config/site";
 import { getPageContent } from "@/lib/cms/loaders";
 import { getProjects, getSkills } from "@/lib/collections";
+import { isIndexableProject } from "@/lib/seo/copy";
 import { jsonLdHtml } from "@/lib/seo/json-ld";
 import { siteUrl } from "@/lib/site-url";
 import React from "react";
@@ -20,7 +21,7 @@ const Works = async () => {
     "@context": "https://schema.org",
     "@type": "ItemList",
     name: `Projects by ${SiteMetadata.legalName}`,
-    itemListElement: projects.map((project, index) => ({
+    itemListElement: projects.filter((project) => isIndexableProject(project.status)).map((project, index) => ({
       "@type": "ListItem",
       position: index + 1,
       name: project.title,

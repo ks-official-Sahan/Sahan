@@ -7,6 +7,7 @@ import { Projects, teamOf } from "@/contents/projects";
 import { Site, SiteMetadata } from "@/config/site";
 import { getProjects } from "@/lib/collections";
 import { pageMetadata } from "@/lib/metadata";
+import { isIndexableProject } from "@/lib/seo/copy";
 import { jsonLdHtml } from "@/lib/seo/json-ld";
 import { siteUrl } from "@/lib/site-url";
 import type { Project } from "@/types/project";
@@ -30,10 +31,12 @@ export async function generateMetadata({
   const { slug } = await params;
   const project = await projectBySlug(slug);
   if (!project) return {};
-  return pageMetadata(`/works/${project.slug}`, {
+  const metadata = pageMetadata(`/works/${project.slug}`, {
     title: `${project.title}: ${project.tagline}`,
     description: project.description,
   });
+  if (isIndexableProject(project.status)) return metadata;
+  return { ...metadata, robots: { index: false, follow: true } };
 }
 
 export default async function ProjectPage({ params }: { params: Promise<{ slug: string }> }) {
@@ -42,25 +45,39 @@ export default async function ProjectPage({ params }: { params: Promise<{ slug: 
   if (!project) notFound();
 
   const url = `${origin}/works/${project.slug}`;
-  const jsonLd = {
-    "@context": "https://schema.org",
-    "@type": "CreativeWork",
-    name: project.title,
-    headline: project.tagline,
-    description: project.description,
-    url,
-    dateCreated: project.year,
-    image: project.image ? `${origin}${project.image.src}` : undefined,
-    author: {
-      "@type": "Person",
-      name: SiteMetadata.legalName,
-      url: origin,
-      jobTitle: Site.myRole,
+  const employer = project.organization ? teamOf(project) : "";
+  const building = project.status === "upcoming" || project.status === "unpublished";
+  const roleLine = employer ? `${project.role} at ${employer}` : project.role;
+  const jsonLd = [
+    {
+      "@context": "https://schema.org",
+      "@type": "CreativeWork",
+      name: project.title,
+      headline: project.tagline,
+      description: project.description,
+      url,
+      dateCreated: project.year,
+      image: project.image ? `${origin}${project.image.src}` : undefined,
+      author: {
+        "@type": "Person",
+        name: SiteMetadata.legalName,
+        url: origin,
+        jobTitle: Site.myRole,
+      },
+      ...(project.organization
+        ? { publisher: { "@type": "Organization", name: project.organization, url: project.organizationUrl } }
+        : {}),
     },
-    ...(project.organization
-      ? { publisher: { "@type": "Organization", name: project.organization, url: project.organizationUrl } }
-      : {}),
-  };
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      itemListElement: [
+        { "@type": "ListItem", position: 1, name: "Home", item: origin },
+        { "@type": "ListItem", position: 2, name: "Works", item: `${origin}/works` },
+        { "@type": "ListItem", position: 3, name: project.title, item: url },
+      ],
+    },
+  ];
 
   return (
     <article className="mx-auto w-full max-w-3xl px-5 py-16 font-medium s640:px-8">
@@ -82,10 +99,22 @@ export default async function ProjectPage({ params }: { params: Promise<{ slug: 
       <ProjectPreview project={project} priority className="mt-8 rounded-[20px] border border-bBORDERFADE" sizes="(min-width: 768px) 768px, 100vw" />
 
       <p className="mt-8 text-base leading-relaxed">
-        {SiteMetadata.legalName}, a {Site.myRole.toLowerCase()} at {Site.org}, {project.status === "upcoming" ? "is building" : "built"} {project.title} in {project.year} as {project.role}
-        {project.organization ? ` at ${teamOf(project)}` : ""}. He works remotely from Sri Lanka. This page is the project itself, separate from the catalog.
+        {SiteMetadata.legalName} {building ? "is building" : "built"} {project.title} in {project.year} as {roleLine}.
       </p>
       <p className="mt-4 text-base leading-relaxed opacity-80">{project.description}</p>
+
+      {project.tech && project.tech.length > 0 && (
+        <section className="mt-8">
+          <h2 className="text-sm font-semibold uppercase tracking-wide opacity-70">Stack</h2>
+          <ul className="mt-3 flex flex-wrap gap-2">
+            {project.tech.map((name) => (
+              <li key={name} className="rounded-full border border-bBORDERFADE bg-bCHIP px-3 py-1 text-sm">
+                {name}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {project.platforms && project.platforms.length > 0 && (
         <section className="mt-8">

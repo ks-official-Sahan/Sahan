@@ -12,7 +12,7 @@ import { createActiveUrlResolver, probeOrigin, siteUrlCandidates, type ActiveUrl
 
 const DEFAULT_SITE_URLS = [SiteMetadata.siteUrl, "https://sahansachintha.vercel.app"];
 // Bump the version when the probe rules change, so no older answer is reused.
-const SHARED_KEY = "site-url:active:v2";
+const SHARED_KEY = "site-url:active:v3";
 
 const globalForSite = globalThis as unknown as {
   sahanSiteUrl?: { key: string; resolver: ReturnType<typeof createActiveUrlResolver> };
