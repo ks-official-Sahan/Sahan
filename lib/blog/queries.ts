@@ -372,13 +372,19 @@ export async function getSitemapPostRefs(after?: PublicPostCursor): Promise<Post
           .map((post) => ({ slug: post.slug, publishedAt: null, updatedAt: null }));
   }
   const thin = new Set<string>();
+  const candidates = rows.filter((row) => row.readMinutes <= 2);
+  // Cap concurrent getPostBySlug reads (same pool shape as lib/webhooks/deliver.ts).
+  const THIN_CHECK_CONCURRENCY = 4;
+  let next = 0;
+  const checkThin = async () => {
+    while (next < candidates.length) {
+      const row = candidates[next++];
+      const post = await getPostBySlug(row.slug);
+      if (!post || !isIndexableArticle(post.contentText)) thin.add(row.slug);
+    }
+  };
   await Promise.all(
-    rows
-      .filter((row) => row.readMinutes <= 2)
-      .map(async (row) => {
-        const post = await getPostBySlug(row.slug);
-        if (!post || !isIndexableArticle(post.contentText)) thin.add(row.slug);
-      })
+    Array.from({ length: Math.min(THIN_CHECK_CONCURRENCY, candidates.length) }, () => checkThin())
   );
   return rows
     .filter((row) => !thin.has(row.slug))

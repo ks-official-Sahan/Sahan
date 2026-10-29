@@ -569,7 +569,8 @@ export async function sendUserSignInLink(_previous: ActionState, formData: FormD
     actor: access.user,
   });
   if (!sent.ok) return fail("The sign-in link could not be emailed. Check the email settings and try again.");
-  await audit({
+  // Link already emailed; an audit write failure must not report that as a failed send.
+  await auditSafe({
     action: "auth.sign_in_link.sent",
     actor: access.user,
     entityType: "User",
