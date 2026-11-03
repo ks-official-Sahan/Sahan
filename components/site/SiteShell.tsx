@@ -1,7 +1,5 @@
-import { useGSAP } from "@gsap/react";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
-import { gsap } from "gsap";
 
 import FloatingAudioSwitch from "@/components/common/FloatingAudioSwitch";
 import Footer from "@/components/foo/Footer";
@@ -9,8 +7,6 @@ import Navigation from "@/components/nav/Navigation";
 import JsonLd from "@/components/seo/JsonLd";
 import { ThemeProvider } from "@/components/theme/ThemeProvider";
 import { AudioProvider } from "@/context/AudioContext";
-
-gsap.registerPlugin(useGSAP);
 
 /**
  * Public site chrome: skip link, providers, navigation, audio switch,
