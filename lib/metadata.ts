@@ -6,8 +6,10 @@ import { documentTitle, metaDescription } from "@/lib/seo/copy";
 // is relative so the root layout's metadataBase (the host that actually
 // answers) makes it absolute. Next merges `alternates` shallowly, so every
 // segment that sets a canonical must repeat this or the feed link disappears.
+// A plain string, not [{ url, title }]: vinext (the Cloudflare build) renders
+// only string values here and throws on the descriptor array.
 export const RSS_ALTERNATES: NonNullable<Metadata["alternates"]>["types"] = {
-  "application/rss+xml": [{ url: "/rss.xml", title: `${SiteMetadata.author} — Updates` }],
+  "application/rss+xml": "/rss.xml",
 };
 
 export function pageMetadata(
