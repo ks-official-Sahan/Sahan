@@ -7,6 +7,7 @@ test("isDbUnavailable spots connection failures, including plain-object driver e
   assert.equal(isDbUnavailable({ code: "P1001" }), true);
   assert.equal(isDbUnavailable(new Error("read ECONNRESET")), true);
   assert.equal(isDbUnavailable({ name: "DriverAdapterError", cause: { kind: "postgres", message: "read ECONNRESET" } }), true);
+  assert.equal(isDbUnavailable({ type: "error", clientVersion: "7", error: Object.assign(new Error("connect"), { code: "ETIMEDOUT" }) }), true);
   assert.equal(isDbUnavailable(new Error("Your account or project has exceeded the compute time quota.")), true);
 });
 
