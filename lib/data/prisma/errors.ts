@@ -12,15 +12,15 @@ export function isNotFound(error: unknown): boolean {
 
 /**
  * Every message and code an error carries, its cause's included. Driver
- * adapter failures are not always `Error` instances (a reset socket surfaces
- * as a plain object), so reading only `error.message` would miss them.
+ * adapter failures are not always `Error` instances: a dropped Neon WebSocket
+ * surfaces as the socket's ErrorEvent, with the network error on `.error`.
  */
 export function describeError(error: unknown, depth = 0): string {
   if (error === null || error === undefined || depth > 2) return "";
   if (typeof error !== "object") return String(error);
-  const fields = error as { message?: unknown; code?: unknown; kind?: unknown; originalCode?: unknown; originalMessage?: unknown; cause?: unknown };
+  const fields = error as Record<"message" | "code" | "kind" | "originalCode" | "originalMessage" | "cause" | "error", unknown>;
   const own = [fields.message, fields.code, fields.kind, fields.originalCode, fields.originalMessage].filter((value) => typeof value === "string");
-  return [...own, describeError(fields.cause, depth + 1)].join(" ");
+  return [...own, describeError(fields.cause, depth + 1), describeError(fields.error, depth + 1)].join(" ");
 }
 
 /**

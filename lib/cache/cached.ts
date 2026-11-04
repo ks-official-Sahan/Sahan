@@ -27,7 +27,7 @@ import { kv } from "./redis";
 export const DEFAULT_REVALIDATE_SECONDS = 3600;
 
 /** Tries a fill makes before a connection-level database failure reaches the caller. */
-const FILL_ATTEMPTS = 3;
+const FILL_ATTEMPTS = 4;
 
 /** Upper bound on how long the Redis read-through layer may serve a value. */
 const REDIS_CACHE_CAP_SECONDS = 300;
@@ -141,13 +141,14 @@ function lifeFor(revalidate: number) {
  * connection would otherwise fail a production build. Query errors are
  * thrown at once.
  */
-export async function retryUnavailable<T>(load: () => Promise<T>, attempts = FILL_ATTEMPTS, waitMs = 300): Promise<T> {
+export async function retryUnavailable<T>(load: () => Promise<T>, attempts = FILL_ATTEMPTS, waitMs = 500): Promise<T> {
   for (let attempt = 1; ; attempt += 1) {
     try {
       return await load();
     } catch (error) {
       if (attempt >= attempts || !isDbUnavailable(error)) throw error;
-      await new Promise((resolve) => setTimeout(resolve, waitMs * attempt));
+      // 0.5 s, 1 s, 2 s: long enough for a dropped socket to be replaced.
+      await new Promise((resolve) => setTimeout(resolve, waitMs * 2 ** (attempt - 1)));
     }
   }
 }
