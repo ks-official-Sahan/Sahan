@@ -5,6 +5,7 @@ import { PrismaNeon } from "@prisma/adapter-neon";
 import { PrismaClient } from "@prisma/client";
 import ws from "ws";
 
+import { describeError } from "@/lib/data/prisma/errors";
 import { log } from "@/lib/log";
 
 import { readSources, runOnSources, SourceBreaker } from "./failover";
@@ -49,7 +50,7 @@ function breaker(): SourceBreaker {
 }
 
 const onTrip = (source: DbSource, error: unknown) =>
-  log.warn("database unavailable for reads, using the next source", { source, error: String(error) });
+  log.warn("database unavailable for reads, using the next source", { source, error: describeError(error) || String(error) });
 
 /** Runs a read on the first source that answers (replica, primary, then backup when enabled). */
 function runRead<T>(operation: (client: PrismaClient) => Promise<T>): Promise<T> {
