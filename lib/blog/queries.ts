@@ -3,7 +3,7 @@ import "server-only";
 import { cached } from "@/lib/cache/cached";
 import { loadOrNull } from "@/lib/cache/fallback";
 import { isValidPostSlug, TAGS } from "@/lib/cache/tags";
-import { repos } from "@/lib/data";
+import { readRepos, repos } from "@/lib/data";
 import { extractText, sanitizeRich } from "@/lib/cms/rich-text";
 import { log } from "@/lib/log";
 import { EXCERPT_CHARS } from "@/lib/blog/excerpt";
@@ -166,7 +166,7 @@ function toView(row: FullPostRow): BlogPostView {
 // drops rows not yet due on every cache fill (lib/blog/visibility.ts), so a
 // Redis copy filled before a post was due still shows it once it is.
 function cachedPost(slug: string) {
-  return cached((): Promise<FullPostRow | null> => repos.posts.findPublished(slug, visibleAhead()), ["blog", "post", slug, "v2"], {
+  return cached((): Promise<FullPostRow | null> => readRepos.posts.findPublished(slug, visibleAhead()), ["blog", "post", slug, "v2"], {
     tags: [TAGS.blogPost(slug)],
     revalidate: 300,
     select: (row) => (row && isDue(row) ? row : null),
@@ -177,7 +177,7 @@ function cachedPost(slug: string) {
 // slug is answered from it, so crawlers probing random /updates/<slug> or
 // /api/content/v1/posts/<slug> URLs never reach the database or create a
 // cache entry per guess.
-const cachedPublicSlugs = cached(() => repos.posts.listPublicSlugs(visibleAhead()), ["blog", "public-slugs", "v2"], {
+const cachedPublicSlugs = cached(() => readRepos.posts.listPublicSlugs(visibleAhead()), ["blog", "public-slugs", "v2"], {
   tags: [TAGS.blogList],
   revalidate: 300,
   select: (rows) => rows.filter((row) => isDue(row)),
@@ -185,7 +185,7 @@ const cachedPublicSlugs = cached(() => repos.posts.listPublicSlugs(visibleAhead(
 
 // Rows of any status. Drafts never touch the blog:list tag, so the first
 // draft in an empty table shows up here within the 300 s revalidate window.
-const cachedPostRowCount = cached(() => repos.posts.count(), ["blog", "row-count", "v1"], {
+const cachedPostRowCount = cached(() => readRepos.posts.count(), ["blog", "row-count", "v1"], {
   tags: [TAGS.blogList],
   revalidate: 300,
 });
@@ -262,7 +262,7 @@ async function getPostPage(
   const safeLimit = Math.max(1, Math.min(maxLimit, Math.trunc(limit)));
   const cursor = dbCursor(after);
   const read = cursor
-    ? async () => (await repos.posts.listPublishedPage(safeLimit + 1, cursor, indexableOnly)).filter((row) => isDue(row))
+    ? async () => (await readRepos.posts.listPublishedPage(safeLimit + 1, cursor, indexableOnly)).filter((row) => isDue(row))
     : cached(
         // Two reads at one instant: the page as it is now, and the posts that
         // become due within VISIBLE_AHEAD_MS (soonest first, so a crowd of
@@ -272,8 +272,8 @@ async function getPostPage(
         async () => {
           const now = new Date();
           const [due, upcoming] = await Promise.all([
-            repos.posts.listPublishedPage(safeLimit + 1, undefined, indexableOnly, now),
-            repos.posts.listUpcoming(now, visibleAhead(now.getTime()), safeLimit + 1, indexableOnly),
+            readRepos.posts.listPublishedPage(safeLimit + 1, undefined, indexableOnly, now),
+            readRepos.posts.listUpcoming(now, visibleAhead(now.getTime()), safeLimit + 1, indexableOnly),
           ]);
           return [...upcoming.reverse(), ...due];
         },
@@ -319,7 +319,7 @@ const cachedSitemapCursors = cached(
     const cursors: PublicPostCursor[] = [];
     let after: { publishedAt: Date; id: string } | undefined;
     for (;;) {
-      const rows = await repos.posts.listIndexableRefs(SITEMAP_PAGE_SIZE + 1, after);
+      const rows = await readRepos.posts.listIndexableRefs(SITEMAP_PAGE_SIZE + 1, after);
       const last = rows.length > SITEMAP_PAGE_SIZE ? rows[SITEMAP_PAGE_SIZE - 1] : undefined;
       const next = last ? cursorAfter(last) : null;
       if (!next) return cursors;
@@ -358,7 +358,7 @@ const toIso = (value: Date | string | null): string | null => (value ? new Date(
  */
 export async function getSitemapPostRefs(after?: PublicPostCursor): Promise<PostRef[]> {
   const cursor = dbCursor(after);
-  const readRows = () => repos.posts.listIndexableRefs(SITEMAP_PAGE_SIZE, cursor);
+  const readRows = () => readRepos.posts.listIndexableRefs(SITEMAP_PAGE_SIZE, cursor);
   const read = cursor ? readRows : cached(readRows, ["blog", "sitemap-first", "v2"], { tags: [TAGS.blogList], revalidate: 300 });
   const rows = await loadOrNull(read, {
     onError: (error) => log.warn("sitemap post read failed during build, using defaults", { error: String(error) }),
@@ -452,7 +452,7 @@ export async function getPostBySlug(slug: string, defaults?: BlogPostView[]): Pr
 
 // Old slugs left by renames (post_slug_redirects), with their posts' current
 // slugs. One small cached read, invalidated with blog:list like every list.
-const cachedSlugRedirects = cached(() => repos.posts.listSlugRedirects(), ["blog", "slug-redirects", "v1"], {
+const cachedSlugRedirects = cached(() => readRepos.posts.listSlugRedirects(), ["blog", "slug-redirects", "v1"], {
   tags: [TAGS.blogList],
   revalidate: 300,
 });

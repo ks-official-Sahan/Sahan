@@ -3,7 +3,7 @@ import "server-only";
 import { cached } from "@/lib/cache/cached";
 import { loadOrNull } from "@/lib/cache/fallback";
 import { TAGS } from "@/lib/cache/tags";
-import { repos } from "@/lib/data";
+import { readRepos } from "@/lib/data";
 import { log } from "@/lib/log";
 import type { Project } from "@/types/project";
 import type { ExperienceEntry } from "@/types/experience";
@@ -25,7 +25,7 @@ export type { PublicSkill, PublicSkillGroup } from "./skills";
 // ─── Projects ────────────────────────────────────────────────────────────────
 
 async function readProjects(): Promise<ProjectRow[]> {
-  const rows = await repos.projects.listPublished();
+  const rows = await readRepos.projects.listPublished();
   return rows.map((row) => ({
     ...row,
     links: (row.links as any[]) || [],
@@ -66,7 +66,7 @@ export async function getProjects(defaults: Project[]): Promise<Project[]> {
 // ─── Experience ──────────────────────────────────────────────────────────────
 
 async function readExperience(): Promise<ExperienceRow[]> {
-  const rows = await repos.experiences.listPublished();
+  const rows = await readRepos.experiences.listPublished();
   return rows as ExperienceRow[];
 }
 
@@ -101,7 +101,7 @@ export async function getExperience(defaults: ExperienceEntry[]): Promise<Experi
 }
 
 async function readServices() {
-  return repos.serviceGroups.listPublished();
+  return readRepos.serviceGroups.listPublished();
 }
 
 /** Returns null only when storage is unavailable; an empty stored collection stays empty. */
@@ -142,7 +142,7 @@ export async function getServices(): Promise<ServiceCategory[] | null> {
 }
 
 async function readSkills() {
-  return repos.skillGroups.listPublished();
+  return readRepos.skillGroups.listPublished();
 }
 
 /** Returns null only when storage is unavailable; an empty stored collection stays empty. */

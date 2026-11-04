@@ -5,6 +5,7 @@ import { describeAccount, storageAccountsFromEnv, type EnvSource, type StorageAc
 import { probeBucket, type BucketProbe } from "@sahan-sac/media-kit/bucket";
 
 import { repos } from "@/lib/data";
+import { dbDegraded, dbReadSources } from "@/lib/db/prisma";
 import { getEnv } from "@/lib/env";
 import { kvBackend, pingRedis } from "@/lib/cache/redis";
 import { log } from "@/lib/log";
@@ -51,7 +52,11 @@ async function pingUrl(fetchImpl: FetchLike, url: string, init: RequestInit): Pr
   }
 }
 
-const DATABASE = { name: "Database", group: "Core", hint: "DATABASE_URL. Checked with SELECT 1." } as const;
+const DATABASE = {
+  name: "Database",
+  group: "Core",
+  hint: "DATABASE_URL, with an optional read replica and read-only backup failover. Checked with SELECT 1.",
+} as const;
 const REDIS = { name: "Redis", group: "Core", hint: "UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN. Checked by writing and reading a 30 s probe key." } as const;
 const RESEND = { name: "Resend", group: "Email", hint: "RESEND_API_KEY. Checked against the domains API; a send-only key also counts as reachable." } as const;
 const BREVO = { name: "Brevo", group: "Email", hint: "EMAIL_BREVO_API_KEY. Checked against the account API." } as const;
@@ -68,7 +73,11 @@ export async function checkDatabase(): Promise<IntegrationStatus> {
   if (!configured) return { ...DATABASE, configured, reachable: null };
   try {
     await repos.maintenance.ping();
-    return { ...DATABASE, configured, reachable: true };
+    const reads = `Reads: ${dbReadSources().join(", ")}.`;
+    const hint = dbDegraded()
+      ? `${DATABASE.hint} ${reads} The primary is failing; reads skip it for now.`
+      : `${DATABASE.hint} ${reads}`;
+    return { ...DATABASE, hint, configured, reachable: true };
   } catch (err) {
     log.warn("integration health: database ping failed", { error: String(err) });
     return { ...DATABASE, configured, reachable: false };

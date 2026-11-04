@@ -367,6 +367,28 @@ the second waits, retries, and finds nothing pending.
 migrate script loads `.env` / `.env.local` itself (Next only loads them for
 `next build`, which runs after).
 
+### Read replicas and failover
+
+`lib/db/prisma.ts` exports two handles. `db` is the primary: every write,
+every transaction, the admin and auth use it. `dbRead` (and `readRepos` in
+`lib/data`) serves the public, cached reads: pages, feeds, the sitemap and the
+chatbot's knowledge. Its reads go, in order, to:
+
+1. `DATABASE_READONLY_REPLICA_URL`, a Neon read replica of the primary, when
+   it is a different endpoint (a URL that is the primary itself is ignored);
+2. `DATABASE_URL`;
+3. with `DB_FAILOVER=read-only` only, `BACKUP_DATABASE_READONLY_REPLICA_URL`
+   or `BACKUP_DATABASE_URL`.
+
+A source that fails with a connection-level error is skipped for 30 seconds.
+Writes never move to the backup, and nothing copies data from the backup back
+to the primary. Enable `DB_FAILOVER` only once the backup is kept in sync from
+the primary; until then it would serve an empty or stale copy.
+
+A Neon replica trails the primary by milliseconds, but a cache fill that
+lands inside that window keeps the old value until the next invalidation or
+revalidate. Code that reads back its own write uses `repos`, never `readRepos`.
+
 The migration runs while the previous deployment is still live, so every
 migration must work with the code that is already deployed:
 expand first (add a nullable column, a new table), ship the code that uses

@@ -53,6 +53,13 @@ const schema = z.object({
   // Data
   DATABASE_URL: text,
   DIRECT_DATABASE_URL: text,
+  // Read replica of DATABASE_URL for lag-tolerant public reads (lib/db/prisma.ts dbRead).
+  DATABASE_READONLY_REPLICA_URL: text,
+  // Second database: migrated after the primary; serves reads only with DB_FAILOVER=read-only.
+  BACKUP_DATABASE_URL: text,
+  BACKUP_DIRECT_DATABASE_URL: text,
+  BACKUP_DATABASE_READONLY_REPLICA_URL: text,
+  DB_FAILOVER: text,
   UPSTASH_REDIS_REST_URL: text,
   UPSTASH_REDIS_REST_TOKEN: text,
   // IANA zone for analytics day buckets (lib/analytics/store.ts), e.g. Asia/Colombo. Default UTC.

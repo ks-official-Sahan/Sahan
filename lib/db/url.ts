@@ -65,21 +65,50 @@ export function deriveCliUrl(env: Env): string | undefined {
   return url.toString();
 }
 
+/** A database the runtime can connect to, by the variable that holds its URL. */
+export type DbSource = "primary" | "replica" | "backup" | "backupReplica";
+
+const SOURCE_VARS: Record<DbSource, string> = {
+  primary: "DATABASE_URL",
+  replica: "DATABASE_READONLY_REPLICA_URL",
+  backup: "BACKUP_DATABASE_URL",
+  backupReplica: "BACKUP_DATABASE_READONLY_REPLICA_URL",
+};
+
+/** The URL of `source`, or undefined when its variable is unset. */
+export function sourceUrl(env: Env, source: DbSource): string | undefined {
+  return env[SOURCE_VARS[source]] || undefined;
+}
+
 /**
  * Pooled URL for the runtime driver. The schema travels through the adapter
  * option instead of the URL, and `channel_binding` is not supported over the
  * WebSocket driver, so both are removed.
  */
-export function runtimeConnectionString(env: Env): string | undefined {
-  if (!env.DATABASE_URL) return undefined;
-  const url = parse(env.DATABASE_URL);
-  if (!url) throw new Error("DATABASE_URL is not a valid URL");
+export function runtimeConnectionString(env: Env, source: DbSource = "primary"): string | undefined {
+  const value = sourceUrl(env, source);
+  if (!value) return undefined;
+  const url = parse(value);
+  if (!url) throw new Error(`${SOURCE_VARS[source]} is not a valid URL`);
   url.searchParams.delete("schema");
   url.searchParams.delete("channel_binding");
   return url.toString();
 }
 
-/** Schema for the runtime adapter, checked against the allowlist. */
-export function runtimeSchema(env: Env): string {
-  return assertAllowedSchema(schemaFromUrl(env.DATABASE_URL));
+/** Schema for the runtime adapter, checked against the allowlist. A source without one uses the primary's. */
+export function runtimeSchema(env: Env, source: DbSource = "primary"): string {
+  const own = sourceUrl(env, source);
+  const value = own && parse(own)?.searchParams.get("schema") ? own : env.DATABASE_URL;
+  return assertAllowedSchema(schemaFromUrl(value));
+}
+
+/**
+ * True when two URLs reach the same host and database, so one cannot stand in
+ * for the other. Pooler and direct hosts of one Neon endpoint count as one.
+ */
+export function sameDatabaseEndpoint(a: string, b: string): boolean {
+  const left = parse(a);
+  const right = parse(b);
+  if (!left || !right) return false;
+  return directHost(left.hostname) === directHost(right.hostname) && left.pathname === right.pathname;
 }

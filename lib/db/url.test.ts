@@ -6,6 +6,7 @@ import {
   directHost,
   runtimeConnectionString,
   runtimeSchema,
+  sameDatabaseEndpoint,
   schemaFromUrl,
 } from "./url";
 
@@ -90,4 +91,29 @@ test("runtimeSchema reads the schema and enforces the allowlist", () => {
   assert.equal(runtimeSchema({ DATABASE_URL: POOLED }), "sahan");
   assert.equal(runtimeSchema({}), "sahan");
   assert.throws(() => runtimeSchema({ DATABASE_URL: "postgresql://u:p@h/db?schema=public" }));
+});
+
+test("runtimeConnectionString can read BACKUP_DATABASE_URL", () => {
+  const backup =
+    "postgresql://u:p@ep-backup-pooler.us-east-1.aws.neon.tech/lakeview?sslmode=require&schema=sahan";
+  const url = new URL(runtimeConnectionString({ BACKUP_DATABASE_URL: backup }, "backup") as string);
+  assert.equal(url.hostname, "ep-backup-pooler.us-east-1.aws.neon.tech");
+  assert.equal(url.searchParams.get("schema"), null);
+});
+
+test("sameDatabaseEndpoint treats pooler and direct hosts as one endpoint", () => {
+  assert.equal(
+    sameDatabaseEndpoint(
+      "postgresql://u:p@ep-x-pooler.us-east-1.aws.neon.tech/lakeview",
+      "postgresql://u:p@ep-x.us-east-1.aws.neon.tech/lakeview"
+    ),
+    true
+  );
+  assert.equal(
+    sameDatabaseEndpoint(
+      "postgresql://u:p@ep-a.us-east-1.aws.neon.tech/lakeview",
+      "postgresql://u:p@ep-b.us-east-1.aws.neon.tech/lakeview"
+    ),
+    false
+  );
 });
