@@ -358,9 +358,14 @@ runs between the merge and the deploy. `pnpm build` therefore starts with
 
 It migrates `DATABASE_URL`, then `BACKUP_DATABASE_URL` when set, each through
 a direct (non-pooler) connection. A failed migration fails the build, so the
-running deployment keeps serving. When Vercel and Hostinger build at once,
-Prisma's advisory lock serializes them: the second waits, retries, and finds
-nothing pending.
+running deployment keeps serving. An unreachable database (a Neon compute
+that is restarting) is retried a few times, 10 seconds apart, first. When
+Vercel and Hostinger build at once, Prisma's advisory lock serializes them:
+the second waits, retries, and finds nothing pending.
+
+`MIGRATE_ON_BUILD=true` in `.env.local` is honoured for local builds: the
+migrate script loads `.env` / `.env.local` itself (Next only loads them for
+`next build`, which runs after).
 
 The migration runs while the previous deployment is still live, so every
 migration must work with the code that is already deployed:

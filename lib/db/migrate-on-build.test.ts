@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { decide, directUrl, isLockTimeout, isUnreachable, targets } from "../../scripts/migrate-on-build.mjs";
+import { decide, directUrl, isLockTimeout, isUnreachable, sameEndpoint, targets } from "../../scripts/migrate-on-build.mjs";
 
 test("migrates Vercel production builds only, unless the flag says otherwise", () => {
   assert.equal(decide({ VERCEL: "1", VERCEL_ENV: "production" }).run, true);
@@ -45,4 +45,27 @@ test("isUnreachable spots Prisma's can't-reach-server failure", () => {
   assert.equal(isUnreachable("Error: P1001: Can't reach database server at `ep-x.neon.tech:5432`"), true);
   assert.equal(isUnreachable("Error: P1002 Timed out trying to acquire a postgres advisory lock"), false);
   assert.equal(isUnreachable("P3009 migrate found failed migrations"), false);
+});
+
+test("isUnreachable retries a refused connection but not an exhausted quota", () => {
+  assert.equal(isUnreachable("Error: connect ECONNREFUSED 10.0.0.1:5432"), true);
+  // A quota does not come back within the retry window, so it fails at once.
+  assert.equal(isUnreachable("Database error. Code: `53000`. Message: `Your account or project has exceeded the quota.`"), false);
+});
+
+test("sameEndpoint ignores pooler suffix", () => {
+  assert.equal(
+    sameEndpoint(
+      "postgresql://u:p@ep-x-pooler.us-east-1.aws.neon.tech/lakeview",
+      "postgresql://u:p@ep-x.us-east-1.aws.neon.tech/lakeview"
+    ),
+    true
+  );
+  assert.equal(
+    sameEndpoint(
+      "postgresql://u:p@ep-a.us-east-1.aws.neon.tech/lakeview",
+      "postgresql://u:p@ep-b.us-east-1.aws.neon.tech/lakeview"
+    ),
+    false
+  );
 });

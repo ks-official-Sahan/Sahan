@@ -17,14 +17,19 @@
 // BACKUP_DATABASE_URL (or BACKUP_DIRECT_DATABASE_URL) when set. Each through
 // a direct connection: DDL and Prisma's advisory lock need one, not the pooler.
 //
-// Any failure fails the build, so the old deployment keeps serving.
+// Any failure fails the build, so the old deployment keeps serving. A lock
+// timeout or an unreachable database is retried first: a Neon compute that is
+// restarting refuses connections for a few seconds.
+//
 // Concurrent builds (Vercel and Hostinger at once) are safe: Prisma holds a
 // Postgres advisory lock, the loser retries, then finds nothing pending.
 //
 // Pure helpers are exported for tests. Never logs a URL or credential.
 
+import { existsSync, readFileSync } from "node:fs";
 import { spawn } from "node:child_process";
 import { createRequire } from "node:module";
+import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
 const TRUE = new Set(["1", "true", "yes", "on"]);
@@ -32,6 +37,30 @@ const FALSE = new Set(["0", "false", "no", "off"]);
 const RETRIES = 4;
 const LOCK_WAIT_MS = 15_000;
 const UNREACHABLE_WAIT_MS = 10_000;
+
+/** Load `.env` / `.env.local` into process.env without overriding existing keys (Vercel). */
+export function loadEnvFiles(cwd = process.cwd(), env = process.env) {
+  for (const name of [".env", ".env.local"]) {
+    const path = resolve(cwd, name);
+    if (!existsSync(path)) continue;
+    for (const line of readFileSync(path, "utf8").split(/\r?\n/)) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith("#")) continue;
+      const eq = trimmed.indexOf("=");
+      if (eq <= 0) continue;
+      const key = trimmed.slice(0, eq).trim();
+      if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(key) || env[key] !== undefined) continue;
+      let value = trimmed.slice(eq + 1).trim();
+      if (
+        (value.startsWith('"') && value.endsWith('"')) ||
+        (value.startsWith("'") && value.endsWith("'"))
+      ) {
+        value = value.slice(1, -1);
+      }
+      env[key] = value;
+    }
+  }
+}
 
 /** Whether this build should migrate, and why. */
 export function decide(env) {
@@ -53,6 +82,22 @@ export function directUrl(source) {
   url.hostname = [first.replace(/-pooler$/, ""), ...rest].join(".");
   url.searchParams.delete("channel_binding");
   return url.toString();
+}
+
+function directHost(hostname) {
+  const [first, ...rest] = hostname.split(".");
+  return [first.replace(/-pooler$/, ""), ...rest].join(".");
+}
+
+/** True when primary and backup resolve to the same host + database path. */
+export function sameEndpoint(primaryUrl, backupUrl) {
+  try {
+    const primary = new URL(primaryUrl);
+    const backup = new URL(backupUrl);
+    return directHost(primary.hostname) === directHost(backup.hostname) && primary.pathname === backup.pathname;
+  } catch {
+    return false;
+  }
 }
 
 /** Databases to migrate, primary first. */
@@ -78,7 +123,7 @@ export function isLockTimeout(output) {
  * failed two production deploys in a row before this retry existed.
  */
 export function isUnreachable(output) {
-  return /\bP1001\b|can't reach database server/i.test(output);
+  return /\bP1001\b|can't reach database server|ECONNREFUSED|ETIMEDOUT|ENOTFOUND/i.test(output);
 }
 
 function prismaBin() {
@@ -126,6 +171,10 @@ async function migrate(bin, target) {
 }
 
 async function main() {
+  // Next.js loads `.env.local` for `next build`; this script runs first via
+  // plain Node, so load the same files without overriding host-provided env.
+  loadEnvFiles();
+
   const decision = decide(process.env);
   if (!decision.run) {
     console.log(`[migrate-on-build] skipped: ${decision.reason}`);
@@ -133,6 +182,11 @@ async function main() {
   }
   const list = targets(process.env);
   if (list.length === 0) throw new Error("migrations requested but DATABASE_URL is not set");
+
+  if (process.env.DATABASE_URL && process.env.BACKUP_DATABASE_URL && sameEndpoint(process.env.DATABASE_URL, process.env.BACKUP_DATABASE_URL)) {
+    console.log("[migrate-on-build] warning: BACKUP_DATABASE_URL is the same endpoint as DATABASE_URL");
+  }
+
   console.log(`[migrate-on-build] ${decision.reason}: ${list.map((t) => t.name).join(", ")}`);
   const bin = prismaBin();
   for (const target of list) await migrate(bin, target);
