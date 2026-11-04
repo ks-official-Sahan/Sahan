@@ -2,6 +2,7 @@ import "server-only";
 
 import { SiteMetadata } from "@/config/site";
 import { getKv } from "@/lib/cache/redis";
+import { isBuildPhase } from "@/lib/db/state";
 import { getEnv } from "@/lib/env";
 import { createActiveUrlResolver, probeOrigin, siteUrlCandidates, type ActiveUrlStatus } from "@/lib/site/active-url";
 
@@ -50,6 +51,11 @@ export function siteOrigins(): string[] {
 
 /** The active site origin, without a trailing slash. */
 export function siteUrl(): Promise<string> {
+  // `next build` prerenders the root metadata, and the resolver reads the
+  // clock (its cache and the failover KV), which Cache Components reject
+  // there. A build also has no business probing live domains, so a
+  // prerendered page uses the first configured origin.
+  if (isBuildPhase()) return Promise.resolve(siteOrigins()[0]);
   return resolver().resolve();
 }
 
