@@ -29,8 +29,9 @@ import { pathToFileURL } from "node:url";
 
 const TRUE = new Set(["1", "true", "yes", "on"]);
 const FALSE = new Set(["0", "false", "no", "off"]);
-const LOCK_RETRIES = 4;
+const RETRIES = 4;
 const LOCK_WAIT_MS = 15_000;
+const UNREACHABLE_WAIT_MS = 10_000;
 
 /** Whether this build should migrate, and why. */
 export function decide(env) {
@@ -71,6 +72,15 @@ export function isLockTimeout(output) {
   return /advisory lock|P1002/i.test(output);
 }
 
+/**
+ * True for Prisma's "can't reach database server" failure. A Neon compute that
+ * is restarting refuses connections for a short time, and one such refusal
+ * failed two production deploys in a row before this retry existed.
+ */
+export function isUnreachable(output) {
+  return /\bP1001\b|can't reach database server/i.test(output);
+}
+
 function prismaBin() {
   try {
     return createRequire(import.meta.url).resolve("prisma/build/index.js");
@@ -102,11 +112,16 @@ async function migrate(bin, target) {
     console.log(`[migrate-on-build] ${target.name}: prisma migrate deploy (attempt ${attempt})`);
     const { ok, output } = await migrateOnce(bin, target.url);
     if (ok) return;
-    if (!isLockTimeout(output) || attempt >= LOCK_RETRIES) {
+    const locked = isLockTimeout(output);
+    if ((!locked && !isUnreachable(output)) || attempt >= RETRIES) {
       throw new Error(`${target.name} database migration failed`);
     }
-    console.log(`[migrate-on-build] ${target.name}: another build holds the migration lock, waiting`);
-    await new Promise((r) => setTimeout(r, LOCK_WAIT_MS));
+    console.log(
+      locked
+        ? `[migrate-on-build] ${target.name}: another build holds the migration lock, waiting`
+        : `[migrate-on-build] ${target.name}: database unreachable, waiting`,
+    );
+    await new Promise((r) => setTimeout(r, locked ? LOCK_WAIT_MS : UNREACHABLE_WAIT_MS));
   }
 }
 

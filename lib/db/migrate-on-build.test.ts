@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { decide, directUrl, isLockTimeout, targets } from "../../scripts/migrate-on-build.mjs";
+import { decide, directUrl, isLockTimeout, isUnreachable, targets } from "../../scripts/migrate-on-build.mjs";
 
 test("migrates Vercel production builds only, unless the flag says otherwise", () => {
   assert.equal(decide({ VERCEL: "1", VERCEL_ENV: "production" }).run, true);
@@ -39,4 +39,10 @@ test("targets: primary first, backup only when set, direct URLs win", () => {
 test("isLockTimeout spots Prisma's advisory lock failure", () => {
   assert.equal(isLockTimeout("Error: P1002 Timed out trying to acquire a postgres advisory lock"), true);
   assert.equal(isLockTimeout("P3009 migrate found failed migrations"), false);
+});
+
+test("isUnreachable spots Prisma's can't-reach-server failure", () => {
+  assert.equal(isUnreachable("Error: P1001: Can't reach database server at `ep-x.neon.tech:5432`"), true);
+  assert.equal(isUnreachable("Error: P1002 Timed out trying to acquire a postgres advisory lock"), false);
+  assert.equal(isUnreachable("P3009 migrate found failed migrations"), false);
 });
