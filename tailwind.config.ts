@@ -62,6 +62,12 @@ const config = {
       },
     },
     extend: {
+      // Geist (lib/fonts.ts) for everything narrative, Geist Mono for the
+      // technical layer: eyebrows, IDs, code. Fallbacks match the metrics.
+      fontFamily: {
+        sans: ["var(--font-geist)", ...defaultTheme.fontFamily.sans],
+        mono: ["var(--font-geist-mono)", ...defaultTheme.fontFamily.mono],
+      },
       screens: {
         portrait: { raw: "(orientation: portrait)" },
         landscape: { raw: "(orientation: landscape)" },

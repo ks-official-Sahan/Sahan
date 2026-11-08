@@ -7,7 +7,9 @@ const FloatingAudioSwitch = () => {
   const { isPlaying, toggleAudio } = useAudio(); // Get audio state and actions from context
 
   return (
-    <div className="fixed bottom-8 right-10 z-[2000]">
+    // Hidden on phones: it stacked with the chat button over page content,
+    // and background audio is the least useful thing to load on a small screen.
+    <div className="fixed bottom-8 right-10 z-[2000] hidden s640:block">
       <div className="flex items-center gap-4">
         <div className="text-[12px] font-medium opacity-80 ">
           AUDIO{" "}

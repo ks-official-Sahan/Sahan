@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import "@/style/globals.css";
 
-import { poppins } from "@/lib/fonts";
+import { geist, geistMono } from "@/lib/fonts";
 import { Site, SiteMetadata } from "@/config/site";
 import { documentTitle, metaDescription } from "@/lib/seo/copy";
 import { siteUrl } from "@/lib/site-url";
@@ -64,7 +64,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${poppins.className} antialiased relative`}>{children}</body>
+      <body className={`${geist.variable} ${geistMono.variable} font-sans antialiased relative`}>{children}</body>
     </html>
   );
 }

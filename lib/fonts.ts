@@ -6,16 +6,22 @@ import localFont from "next/font/local";
 // flaky network or a blocked build host changed the site's typography.
 // next/font/local reads the files from the repo instead: same preload,
 // font-display and size-adjusted fallback, no network.
+//
+// Geist and Geist Mono are variable fonts: one file per family covers every
+// weight. The design caps display type at 600 (docs/design.md).
 
-export const poppins = localFont({
-  src: [
-    { path: "../app/fonts/poppins-latin-400-normal.woff2", weight: "400", style: "normal" },
-    { path: "../app/fonts/poppins-latin-500-normal.woff2", weight: "500", style: "normal" },
-    { path: "../app/fonts/poppins-latin-600-normal.woff2", weight: "600", style: "normal" },
-    { path: "../app/fonts/poppins-latin-700-normal.woff2", weight: "700", style: "normal" },
-  ],
+export const geist = localFont({
+  src: "../app/fonts/geist-latin-wght-normal.woff2",
+  weight: "100 900",
   display: "swap",
-  variable: "--font-poppins",
+  variable: "--font-geist",
+});
+
+export const geistMono = localFont({
+  src: "../app/fonts/geist-mono-latin-wght-normal.woff2",
+  weight: "100 900",
+  display: "swap",
+  variable: "--font-geist-mono",
 });
 
 export const righteous = localFont({

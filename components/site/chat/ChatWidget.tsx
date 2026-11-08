@@ -114,7 +114,7 @@ export default function ChatWidget({ enabled, config, siteUrl }: ChatWidgetProps
   };
 
   return (
-    <div className="fixed bottom-20 right-10 z-50 flex flex-col items-end s768:bottom-20 s768:right-10">
+    <div className="fixed bottom-4 right-4 z-50 flex flex-col items-end s640:bottom-20 s640:right-10">
       {/* Panel: scales in from the trigger, never from scale(0) (see
           style/globals.css's .press/.lift for the same easing convention).
           Kept mounted so the exit transition can play instead of unmounting

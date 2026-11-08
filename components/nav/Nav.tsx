@@ -12,7 +12,7 @@ const NavBar = ({ title, currentPath, opened, toggle }: NavBarProps) => {
     <nav className="flex items-center justify-between w-full relative ">
       {/* LEFT */}
       <div className="z-[50]">
-        <Link href={"/"} className="font-bold uppercase text-xl text-green-500">
+        <Link href={"/"} className="font-semibold uppercase text-xl text-green-500">
           {title}
         </Link>
       </div>
@@ -48,7 +48,7 @@ const NavBar = ({ title, currentPath, opened, toggle }: NavBarProps) => {
         <ThemeSwitch />
         <Link
           href="/contact"
-          className="md:hidden text-[14px] font-semibold dark:text-black text-white bg-[#19cf31] dark:bg-[#91FF00] h-[37px] px-[20px] rounded-[15px] flex justify-center items-center"
+          className="press md:hidden flex h-9 items-center justify-center rounded-full border border-bBORDERFADE bg-foreground px-4 text-sm font-medium text-background transition-opacity hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-bICON"
         >
           Let&apos;s Talk
         </Link>

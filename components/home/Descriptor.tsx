@@ -13,7 +13,7 @@ interface DescriptorProps {
 }
 
 const Descriptor = ({ item, isOpen, onToggle, index }: DescriptorProps) => {
-  const { icon, question, answer } = item;
+  const { question, answer } = item;
   // Ids stay 1-based, as they were when each question carried its own number.
   const position = index + 1;
 
@@ -29,11 +29,10 @@ const Descriptor = ({ item, isOpen, onToggle, index }: DescriptorProps) => {
           className="flex w-full items-center justify-between gap-4 p-5 text-left"
         >
           <span className="flex items-center gap-[14px]">
-            <span
-              aria-hidden="true"
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] border border-bBORDER_SHADE"
-            >
-              {icon}
+            {/* A mono index instead of a coloured marker per question: one
+                accent colour across the site (docs/design.md). */}
+            <span aria-hidden="true" className="w-6 shrink-0 font-mono text-xs tabular-nums opacity-50">
+              {String(position).padStart(2, "0")}
             </span>
             <span className="font-medium">{question}</span>
           </span>
