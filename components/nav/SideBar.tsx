@@ -110,7 +110,7 @@ const SideBar = ({ currentPath, title, opened, close }: SideBarProps) => {
         }}
       >
         <div className="flex items-center justify-between p-4">
-          <span className="text-lg font-bold uppercase text-green-500">{title}</span>
+          <span className="text-lg font-semibold uppercase text-green-500">{title}</span>
           <button
             ref={closeButtonRef}
             type="button"

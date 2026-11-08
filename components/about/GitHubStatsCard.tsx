@@ -13,7 +13,7 @@ interface GitHubStatsCardProps {
 
 const Stat = ({ label, value }: { label: string; value: number | null }) => (
   <div className="flex flex-col items-center">
-    <div className="text-[22px] font-bold">
+    <div className="text-[22px] font-semibold">
       {value !== null ? value.toLocaleString("en-US") : "—"}
     </div>
     <div className="text-[11px] uppercase tracking-wide opacity-60">

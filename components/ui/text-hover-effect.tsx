@@ -89,7 +89,7 @@ export const TextHoverEffect = ({ text }: { text: string }) => {
         textAnchor="middle"
         dominantBaseline="middle"
         strokeWidth="0.8"
-        className="font-[helvetica] font-bold stroke-neutral-200 dark:stroke-neutral-800 fill-transparent text-7xl  "
+        className="font-[helvetica] font-semibold stroke-neutral-200 dark:stroke-neutral-800 fill-transparent text-7xl  "
         style={{ opacity: hovered ? 0.9 : 0.4 }}
       >
         {text}
@@ -100,7 +100,7 @@ export const TextHoverEffect = ({ text }: { text: string }) => {
         textAnchor="middle"
         dominantBaseline="middle"
         strokeWidth="0.3"
-        className="stroke-draw font-[helvetica] font-bold fill-transparent text-7xl   stroke-neutral-200 dark:stroke-neutral-800"
+        className="stroke-draw font-[helvetica] font-semibold fill-transparent text-7xl   stroke-neutral-200 dark:stroke-neutral-800"
       >
         {text}
       </text>
@@ -112,7 +112,7 @@ export const TextHoverEffect = ({ text }: { text: string }) => {
         stroke="url(#textGradient)"
         strokeWidth="0.3"
         mask="url(#textMask)"
-        className="font-[helvetica] font-bold fill-transparent text-7xl  "
+        className="font-[helvetica] font-semibold fill-transparent text-7xl  "
       >
         {text}
       </text>

@@ -133,6 +133,18 @@
   body {
     @apply bg-background text-foreground;
   }
+
+  /* Display type: Geist at 600 at most, tracked tighter as it grows
+     (Vercel/Linear: about -0.04em at hero size, neutral at body size).
+     Components that set their own tracking keep it. */
+  h1,
+  h2 {
+    letter-spacing: -0.035em;
+  }
+  h3,
+  h4 {
+    letter-spacing: -0.015em;
+  }
 }
 
 @layer utilities {

@@ -32,7 +32,7 @@ export default function Sidebar({
           className="flex items-center gap-2 rounded-md px-2 py-1.5 text-base font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           {collapsed ? (
-            <span className="grid size-7 place-items-center rounded bg-[#91FF00] text-sm font-bold text-black">S</span>
+            <span className="grid size-7 place-items-center rounded bg-[#91FF00] text-sm font-semibold text-black">S</span>
           ) : (
             <>
               Sahan
