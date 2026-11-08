@@ -5,7 +5,7 @@ import { buildKnowledge, profileSection, trainingSection, type KnowledgeSource }
 import { cached } from "@/lib/cache/cached";
 import { loadOrNull } from "@/lib/cache/fallback";
 import { TAGS } from "@/lib/cache/tags";
-import { repos } from "@/lib/data";
+import { readRepos } from "@/lib/data";
 import { log } from "@/lib/log";
 import { getRecentPosts } from "@/lib/blog/queries";
 import { getPageContent } from "@/lib/cms/loaders";
@@ -95,7 +95,7 @@ async function siteContent(): Promise<string> {
 }
 
 async function trainingEntries(): Promise<string> {
-  const entries = await repos.chatTraining.listActive(50);
+  const entries = await readRepos.chatTraining.listActive(50);
   return trainingSection(entries);
 }
 

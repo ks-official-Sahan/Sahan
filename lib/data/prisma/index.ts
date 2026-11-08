@@ -1,4 +1,4 @@
-import { db } from "@/lib/db/prisma";
+import { db, dbRead } from "@/lib/db/prisma";
 
 import type { Repos, TxOptions } from "../repos";
 import { auditRepo } from "./audit";
@@ -55,6 +55,13 @@ export function createRepos(client: DbClient): Repos {
 
 /** Repositories on the shared client. `db` is a lazy proxy, so this does not connect. */
 export const repos: Repos = createRepos(db);
+
+/**
+ * Repositories whose reads may come from a read replica (lib/db/prisma.ts
+ * dbRead): for public, cached, lag-tolerant reads only. Writes through them
+ * still reach the primary. Never use them to read back this request's writes.
+ */
+export const readRepos: Repos = createRepos(dbRead);
 
 /** Repositories on a transaction client that auth-kit's adapter handed over. */
 export const reposFor = (tx: unknown): Repos => createRepos(tx as DbClient);

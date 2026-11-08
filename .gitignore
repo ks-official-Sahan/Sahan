@@ -56,3 +56,6 @@ packages/*/dist
 **/graft/.cache/
 sahansachintha.com-audit/
 sahansachintha.vercel.app-audit/
+
+# graphify graph output — regenerable, not committed (run /graphify).
+/graphify-out/

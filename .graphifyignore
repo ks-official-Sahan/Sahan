@@ -1,0 +1,50 @@
+# graphify: gitignore syntax. Merged AFTER .gitignore, so this file can only
+# exclude MORE (it cannot re-include something .gitignore drops). List only
+# tracked-but-noisy paths here; untracked build output is already covered by
+# .gitignore (.next, node_modules, packages/*/dist, ...).
+
+# Other tools' output — never index a graph of a graph
+graft/
+graphify-out/
+.tmp-*/
+*-audit/
+
+# Secrets and local config: graphify sends file content to an LLM
+.env*
+*.pem
+
+# Lockfiles, changelogs, licenses: high token cost, no architecture signal
+pnpm-lock.yaml
+**/CHANGELOG.md
+LICENSE*
+.changeset/
+
+# Static assets and generated artifacts
+public/
+*.min.*
+*.map
+*.tsbuildinfo
+**/__snapshots__/
+
+# Schema history: prisma/schema.prisma is the source of truth
+prisma/migrations/
+
+# Tests and build configs declare no symbols (describe/it calls, a default
+# config object), so each is a lone node that graphify warns about. Kept out
+# of the architecture graph (this file only affects graphify).
+# Re-export shims (lib/auth/password.ts = export * from "@sahan-sac/...") also
+# have no symbols but stay in: they carry the app -> package import edges.
+**/*.test.ts
+**/*.test.tsx
+**/*.spec.ts
+**/*.setup.ts
+e2e/
+**/tsup.config.ts
+**/prisma.config.ts
+**/drizzle.config.ts
+packages/auth-kit/bin/
+
+# CI and agent/editor config
+.github/
+.claude/
+.cursor/
