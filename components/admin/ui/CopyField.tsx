@@ -3,6 +3,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 
 import Icon from "@/components/icons/Icon";
+import { copyText } from "@/lib/admin/copy-text";
 import { toast } from "@/lib/admin/toast";
 import { cn } from "@/lib/utils";
 
@@ -33,23 +34,21 @@ export default function CopyField({
   const copied = copiedValue === value;
 
   async function copy(quiet = false) {
-    try {
-      await navigator.clipboard.writeText(value);
+    if (await copyText(value)) {
       setCopiedValue(value);
       if (!quiet) toast.success("Copied.");
-    } catch {
-      inputRef.current?.select();
-      if (!quiet) toast.error("Could not copy. The link is selected: copy it yourself.");
+      return;
     }
+    inputRef.current?.select();
+    if (!quiet) toast.error("Could not copy. The link is selected: copy it yourself.");
   }
 
   useEffect(() => {
     if (!autoCopy) return;
     // A copy outside a click may be refused; the button stays for that case.
-    navigator.clipboard?.writeText(value).then(
-      () => setCopiedValue(value),
-      () => undefined
-    );
+    void copyText(value).then((ok) => {
+      if (ok) setCopiedValue(value);
+    });
   }, [autoCopy, value]);
 
   return (
@@ -73,7 +72,7 @@ export default function CopyField({
           onClick={() => void copy()}
           className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-md border border-input bg-background px-3 text-sm font-medium transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-          {copied ? <Icon name="checked" className="text-emerald-600 dark:text-emerald-400" /> : <Icon name="copy" />}
+          {copied ? <Icon name="checked" className="pointer-events-none text-emerald-600 dark:text-emerald-400" /> : <Icon name="copy" className="pointer-events-none" />}
           {copied ? "Copied" : "Copy"}
         </button>
       </div>

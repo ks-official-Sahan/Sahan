@@ -19,6 +19,7 @@ export default defineConfig({
     "src/providers/brevo-api.ts",
     "src/providers/resend.ts",
     "src/providers/brevo-smtp.ts",
+    "src/providers/smtp.ts",
     "src/providers/capture.ts",
   ],
   format: ["esm"],

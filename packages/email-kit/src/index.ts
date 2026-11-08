@@ -9,6 +9,7 @@ export * from "./config";
 export * from "./service";
 export * from "./health";
 export * from "./layout";
+export * from "./sign-in-link-message";
 export * from "./recipients";
 export * from "./brevo-diagnostics";
 export * from "./quota";

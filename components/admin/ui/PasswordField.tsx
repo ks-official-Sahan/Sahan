@@ -3,6 +3,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 
 import Icon from "@/components/icons/Icon";
+import { copyText } from "@/lib/admin/copy-text";
 import { generatePassword } from "@/lib/admin/generate-password";
 import { toast } from "@/lib/admin/toast";
 import { cn } from "@/lib/utils";
@@ -68,13 +69,13 @@ export function PasswordInput({ id, name, generate = false, className, disabled,
   async function copy() {
     const value = ref.current?.value;
     if (!value) return;
-    try {
-      await navigator.clipboard.writeText(value);
+    if (await copyText(value)) {
       setCopied(true);
       toast.success("Password copied.");
-    } catch {
-      toast.error("Could not copy. Select the password and copy it yourself.");
+      return;
     }
+    ref.current?.select();
+    toast.error("Could not copy. Select the password and copy it yourself.");
   }
 
   const trailing = generate ? 3 : 1;
@@ -93,20 +94,21 @@ export function PasswordInput({ id, name, generate = false, className, disabled,
         className={cn(fieldClass, visible && "font-mono", trailing === 3 ? "pr-28" : "pr-11")}
         {...input}
       />
-      <div className="absolute inset-y-0 right-1 flex items-center gap-0.5">
+      <div className="absolute inset-y-0 right-1 z-10 flex items-center gap-0.5">
         {generate ? (
           <>
-            <button type="button" className={iconButton} onClick={fillGenerated} disabled={disabled} aria-label="Generate a strong password" title="Generate">
-              <Icon name="sparkles" className="size-[15px]" />
+            <button type="button" className={iconButton} onMouseDown={(event) => event.preventDefault()} onClick={fillGenerated} disabled={disabled} aria-label="Generate a strong password" title="Generate">
+              <Icon name="sparkles" className="pointer-events-none size-[15px]" />
             </button>
-            <button type="button" className={iconButton} onClick={copy} disabled={disabled} aria-label="Copy password" title="Copy">
-              {copied ? <Icon name="checked" className="size-[15px] text-emerald-600 dark:text-emerald-400" /> : <Icon name="copy" className="size-[15px]" />}
+            <button type="button" className={iconButton} onMouseDown={(event) => event.preventDefault()} onClick={copy} disabled={disabled} aria-label="Copy password" title="Copy">
+              {copied ? <Icon name="checked" className="pointer-events-none size-[15px] text-emerald-600 dark:text-emerald-400" /> : <Icon name="copy" className="pointer-events-none size-[15px]" />}
             </button>
           </>
         ) : null}
         <button
           type="button"
           className={iconButton}
+          onMouseDown={(event) => event.preventDefault()}
           onClick={() => setVisible((shown) => !shown)}
           disabled={disabled}
           aria-label={visible ? "Hide password" : "Show password"}
@@ -114,7 +116,7 @@ export function PasswordInput({ id, name, generate = false, className, disabled,
           aria-controls={inputId}
           title={visible ? "Hide" : "Show"}
         >
-          {visible ? <Icon name="eye-off" className="size-[15px]" /> : <Icon name="eye" className="size-[15px]" />}
+          {visible ? <Icon name="eye-off" className="pointer-events-none size-[15px]" /> : <Icon name="eye" className="pointer-events-none size-[15px]" />}
         </button>
       </div>
     </div>

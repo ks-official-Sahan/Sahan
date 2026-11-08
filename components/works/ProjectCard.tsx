@@ -68,7 +68,8 @@ const ProjectCard = ({ project, variant = "default", priority = false }: Project
   const close = () => dialogRef.current?.close();
 
   return (
-    <article
+      <article
+      id={project.slug}
       className={cn(
         "lift group flex h-full flex-col overflow-hidden rounded-[20px] border border-bBORDERFADE bg-bCARD",
         featured && "lg:flex-row"
@@ -89,7 +90,9 @@ const ProjectCard = ({ project, variant = "default", priority = false }: Project
               featured ? "text-2xl" : "text-lg"
             )}
           >
-            {project.title}
+            <Link href={`/works/${project.slug}`} className="hover:underline">
+              {project.title}
+            </Link>
           </h3>
           <p className="mt-1 text-sm opacity-70">{project.tagline}</p>
         </div>

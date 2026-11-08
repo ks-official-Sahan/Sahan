@@ -1,11 +1,13 @@
 import { ImageResponse } from "next/og";
 import { Site, SiteMetadata } from "@/config/site";
+import { siteUrl } from "@/lib/site-url";
 
 export const alt = SiteMetadata.description;
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
 export default async function OpengraphImage() {
+  const host = (await siteUrl()).replace("https://", "");
   return new ImageResponse(
     (
       <div
@@ -65,7 +67,7 @@ export default async function OpengraphImage() {
             display: "flex",
           }}
         >
-          {SiteMetadata.siteUrl.replace("https://", "")}
+          {host}
         </div>
       </div>
     ),

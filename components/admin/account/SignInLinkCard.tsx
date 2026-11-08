@@ -1,6 +1,8 @@
+import ActionForm, { SubmitButton } from "@/components/admin/ui/ActionForm";
 import CopyField from "@/components/admin/ui/CopyField";
 import { cardClass } from "@/components/admin/ui/styles";
 import { formatDateTime } from "@/lib/admin/format";
+import { sendMySignInLink } from "@/lib/actions/account";
 import { signInLink } from "@/lib/auth/links";
 
 /**
@@ -19,8 +21,8 @@ export default async function SignInLinkCard({ audience }: { audience: "self" | 
       </h2>
       <p className="mb-4 mt-1 text-sm text-muted-foreground">
         {audience === "self"
-          ? "Opens the sign-in page on a new device or browser. Bookmark it, or copy a fresh one here."
-          : "Send this to a team member who needs the sign-in page on a new device."}{" "}
+          ? "Opens the sign-in page on a new device or browser. Copy it, or email it to yourself."
+          : "Copy a link for a teammate, or open that person and email it to them."}{" "}
         It does not sign anyone in: a password (and MFA, when on) is still needed.
       </p>
       <CopyField
@@ -28,6 +30,14 @@ export default async function SignInLinkCard({ audience }: { audience: "self" | 
         label="Sign-in link"
         hint={`Works until ${formatDateTime(link.expiresAt)}. Every link stops working when the unlock secret is rotated.`}
       />
+      {audience === "self" ? (
+        <ActionForm action={sendMySignInLink} className="mt-4">
+          <input type="hidden" name="link" value={link.url} />
+          <SubmitButton variant="secondary" pendingLabel="Sending...">
+            Email this link to me
+          </SubmitButton>
+        </ActionForm>
+      ) : null}
     </section>
   );
 }

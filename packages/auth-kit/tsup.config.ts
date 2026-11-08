@@ -45,6 +45,7 @@ export default defineConfig({
     "src/short-link-path.ts",
     "src/constants.ts",
     "src/login-unlock.ts",
+    "src/sign-in-link.ts",
     "src/unlock-request.ts",
     "src/next-auth-types.ts",
     "src/security/ip.ts",

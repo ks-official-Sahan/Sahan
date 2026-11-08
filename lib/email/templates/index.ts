@@ -1,3 +1,4 @@
+import { signInLinkMessage } from "@sahan-sac/email-kit";
 import { oneLine, renderEmail as renderLayout, type EmailContent, type Rendered } from "@sahan-sac/email-kit/layout";
 
 import { SiteMetadata } from "@/config/site";
@@ -165,6 +166,13 @@ export function passwordReset(
     ...signInLater(input.signInUrl, "Sign in afterwards"),
     footnote: "If you did not ask for this, ignore this email; your password stays as it is.",
   }, options.copy);
+}
+
+export function signInLinkMail(
+  input: { name?: string | null; url: string; validUntil: string },
+  options: CopyOption = {},
+): Rendered {
+  return signInLinkMessage({ brand, name: input.name, url: input.url, validUntil: input.validUntil, copy: options.copy });
 }
 
 export function contactNotify(input: {

@@ -32,6 +32,39 @@ export interface RenderOptions {
    * recipient alone (whoever holds an invite or reset link owns the account).
    */
   copy?: boolean;
+  /**
+   * Per-send brand tokens, for a platform that mails on behalf of many brands. Every field is optional and the
+   * neutral defaults stay when one is left out or invalid. The caller owns contrast: white button text must
+   * read on `accent` (WCAG AA, 4.5:1).
+   */
+  theme?: EmailTheme;
+}
+
+export interface EmailTheme {
+  /** Button and link colour, `#rrggbb`. */
+  accent?: string;
+  /** Page background behind the card, `#rrggbb`. */
+  canvas?: string;
+  /** https logo shown above the heading, at most 40 px high. Its alt text is the brand. */
+  logoUrl?: string;
+}
+
+const DEFAULT_ACCENT = "#18181b";
+const DEFAULT_CANVAS = "#f4f4f5";
+const HEX = /^#[0-9a-f]{6}$/i;
+
+const colour = (value: string | undefined, fallback: string) =>
+  value !== undefined && HEX.test(value) ? value : fallback;
+
+/** An https logo URL, or null. A bad or plain-http URL is dropped instead of failing the send. */
+function logo(value: string | undefined): string | null {
+  if (value === undefined) return null;
+  try {
+    const url = safeUrl(value);
+    return url.startsWith("https:") ? url : null;
+  } catch {
+    return null;
+  }
 }
 
 export const COPY_NOTE =
@@ -46,7 +79,10 @@ export function oneLine(value: string, max = 80): string {
 const paragraphHtml = (value: string) => escapeHtml(value).replace(/\r\n|\r|\n/g, "<br>");
 
 export function renderEmail(subjectInput: string, content: EmailContent, options: RenderOptions): Rendered {
-  const { brand, copy = false } = options;
+  const { brand, copy = false, theme } = options;
+  const accent = colour(theme?.accent, DEFAULT_ACCENT);
+  const canvas = colour(theme?.canvas, DEFAULT_CANVAS);
+  const logoUrl = logo(theme?.logoUrl);
   const subject = copy ? oneLine(`Copy: ${subjectInput}`, 200) : subjectInput;
   const font = "font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
   const button = !copy && content.button ? { label: content.button.label, url: safeUrl(content.button.url) } : null;
@@ -56,11 +92,13 @@ export function renderEmail(subjectInput: string, content: EmailContent, options
 
   const html = [
     `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(subject)}</title></head>`,
-    `<body style="margin:0;padding:0;background:#f4f4f5;${font};color:#18181b">`,
+    `<body style="margin:0;padding:0;background:${canvas};${font};color:#18181b">`,
     `<span style="display:none;max-height:0;overflow:hidden;opacity:0">${escapeHtml(copy ? `Copy: ${content.preheader}` : content.preheader)}</span>`,
     `<div style="max-width:560px;margin:0 auto;padding:24px 16px">`,
     `<div style="background:#ffffff;border:1px solid #e4e4e7;border-radius:8px;padding:28px">`,
-    `<p style="margin:0 0 16px;font-size:13px;color:#71717a">${escapeHtml(brand)}</p>`,
+    logoUrl
+      ? `<p style="margin:0 0 16px"><img src="${escapeHtml(logoUrl)}" alt="${escapeHtml(brand)}" height="40" style="display:block;max-height:40px;width:auto;border:0"></p>`
+      : `<p style="margin:0 0 16px;font-size:13px;color:#71717a">${escapeHtml(brand)}</p>`,
     `<h1 style="margin:0 0 16px;font-size:20px;line-height:1.3">${escapeHtml(content.heading)}</h1>`,
     ...paragraphs.map(
       (paragraph) => `<p style="margin:0 0 14px;font-size:15px;line-height:1.55">${paragraphHtml(paragraph)}</p>`
@@ -74,10 +112,10 @@ export function renderEmail(subjectInput: string, content: EmailContent, options
           .join("")}</table>`
       : "",
     button
-      ? `<p style="margin:20px 0"><a href="${escapeHtml(button.url)}" style="display:inline-block;background:#18181b;color:#ffffff;text-decoration:none;padding:11px 20px;border-radius:6px;font-size:15px">${escapeHtml(button.label)}</a></p><p style="margin:0 0 14px;font-size:12px;color:#71717a;word-break:break-all">${escapeHtml(button.url)}</p>`
+      ? `<p style="margin:20px 0"><a href="${escapeHtml(button.url)}" style="display:inline-block;background:${accent};color:#ffffff;text-decoration:none;padding:11px 20px;border-radius:6px;font-size:15px">${escapeHtml(button.label)}</a></p><p style="margin:0 0 14px;font-size:12px;color:#71717a;word-break:break-all">${escapeHtml(button.url)}</p>`
       : "",
     secondary
-      ? `<p style="margin:0 0 14px;font-size:13px;line-height:1.5;color:#3f3f46">${escapeHtml(secondary.label)}: <a href="${escapeHtml(secondary.url)}" style="color:#18181b;word-break:break-all">${escapeHtml(secondary.url)}</a>${secondary.note ? `<br><span style="color:#71717a">${escapeHtml(secondary.note)}</span>` : ""}</p>`
+      ? `<p style="margin:0 0 14px;font-size:13px;line-height:1.5;color:#3f3f46">${escapeHtml(secondary.label)}: <a href="${escapeHtml(secondary.url)}" style="color:${accent};word-break:break-all">${escapeHtml(secondary.url)}</a>${secondary.note ? `<br><span style="color:#71717a">${escapeHtml(secondary.note)}</span>` : ""}</p>`
       : "",
     content.footnote
       ? `<p style="margin:16px 0 0;font-size:12px;line-height:1.5;color:#71717a">${paragraphHtml(content.footnote)}</p>`

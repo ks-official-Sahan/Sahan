@@ -64,7 +64,7 @@ async function siteContent(): Promise<string> {
       const meta = [project.role, project.organization, project.status].filter(Boolean).join(", ");
       const tech = project.tech?.length ? ` Tech: ${project.tech.slice(0, 10).join(", ")}.` : "";
       const link = project.links?.[0]?.url ? ` Link: ${project.links[0].url}` : "";
-      parts.push(`- **${project.title}** (${meta}): ${project.tagline}.${tech}${link}\n`);
+      parts.push(`- **${project.title}** (${meta}): ${project.tagline}.${tech}${link} Page: /works/${project.slug}\n`);
     }
   }
 
@@ -115,7 +115,7 @@ function loadKnowledge(): Promise<string> {
 export async function getKnowledge(): Promise<string | null> {
   return loadOrNull(
     // Bump the version when the knowledge format changes, so stale entries are not served.
-    cached(loadKnowledge, ["chatbot", "knowledge", "v4"], {
+    cached(loadKnowledge, ["chatbot", "knowledge", "v5"], {
       tags: [TAGS.chatbotKnowledge],
       revalidate: 3600,
     }),

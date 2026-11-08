@@ -18,6 +18,7 @@ import { limit } from "@/lib/cache/ratelimit";
 import { getKnowledge } from "@/lib/chatbot/knowledge";
 import { prismaChatStore as store } from "@/lib/chatbot/session";
 import { getEnv } from "@/lib/env";
+import { siteUrl } from "@/lib/site-url";
 import { log } from "@/lib/log";
 import { clientIp, UNKNOWN_IP } from "@/lib/security/ip";
 import { isAllowedOrigin } from "@/lib/security/origin";
@@ -225,7 +226,7 @@ export async function POST(request: NextRequest) {
         knowledge,
         config: chatbotConfig,
         site: await chatSiteWithGuidance(),
-        siteHostname: env.SITE_URL ? new URL(env.SITE_URL).hostname : "example.com",
+        siteHostname: new URL(await siteUrl()).hostname,
         extraHosts: ["wa.me", "t.me"],
       },
       { providers: realProviders(env, "chat"), health: sharedAiHealth, logger: log }

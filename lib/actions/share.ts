@@ -5,10 +5,10 @@ import type { ActionState } from "@/lib/actions/state";
 import { done, fail } from "@/lib/actions/state";
 import { audit } from "@/lib/admin/audit";
 import { deriveShareKey, SHARE_LINK_DAYS, shareExpiry, signShareToken, type ShareLinkDays } from "@/lib/blog/share-link";
-import { SiteMetadata } from "@/config/site";
 import { repos } from "@/lib/data";
 import { env } from "@/lib/env";
 import { log } from "@/lib/log";
+import { siteUrl } from "@/lib/site-url";
 
 // Creates a signed preview link for a post (lib/blog/share-link.ts). Anyone
 // who can edit posts can share one, the same people who can already read the
@@ -41,7 +41,7 @@ export async function createPostShareLinkAction(_previous: ActionState, formData
       meta: { days, expiresAt: new Date(expiresAt).toISOString() },
     });
     return done(`Preview link created. It works until ${dateFormat.format(expiresAt)} UTC.`, {
-      link: `${SiteMetadata.siteUrl}/preview/post/${post.id}?t=${token}`,
+      link: `${await siteUrl()}/preview/post/${post.id}?t=${token}`,
     });
   } catch (error) {
     log.error("share link failed", { error: error instanceof Error ? error.message : String(error) });

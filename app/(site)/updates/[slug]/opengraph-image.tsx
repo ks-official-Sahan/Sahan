@@ -4,6 +4,7 @@ import { cloudinaryImageUrl } from "@sahan-sac/media-kit/delivery";
 
 import { SiteMetadata } from "@/config/site";
 import { getPostBySlug, postStaticParams } from "@/lib/blog/queries";
+import { siteUrl } from "@/lib/site-url";
 
 // Per-post social card. Not a page — a sibling file-convention image next to
 // app/(site)/updates/[slug]/page.tsx (that page is owned by another stream;
@@ -30,7 +31,8 @@ export const generateStaticParams = postStaticParams;
 
 export default async function Image({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const post = await getPostBySlug(slug);
+  const [post, origin] = await Promise.all([getPostBySlug(slug), siteUrl()]);
+  const host = origin.replace("https://", "");
 
   if (post?.coverUrl) {
     return new ImageResponse(
@@ -101,7 +103,7 @@ export default async function Image({ params }: { params: Promise<{ slug: string
             display: "flex",
           }}
         >
-          {SiteMetadata.siteUrl.replace("https://", "")}/updates
+          {host}/updates
         </div>
       </div>
     ),

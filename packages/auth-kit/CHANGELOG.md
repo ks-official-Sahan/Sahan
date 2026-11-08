@@ -2,6 +2,12 @@
 
 All notable changes to this package are documented in this file.
 
+## 0.13.0
+
+### Minor Changes
+
+- A sign-in link can be prepared for an email, and the email package writes the message. A copy of that message leaves the link out.
+
 ## 0.12.1
 
 ### Patch Changes

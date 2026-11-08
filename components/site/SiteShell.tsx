@@ -30,12 +30,15 @@ gsap.registerPlugin(useGSAP);
  */
 export default function SiteShell({
   children,
+  origin,
 }: Readonly<{
   children: React.ReactNode;
+  /** Host that answers. Omitted on the 404, which stays free of awaits. */
+  origin?: string;
 }>) {
   return (
     <ThemeProvider enableSystem attribute="class" defaultTheme="dark">
-      <JsonLd />
+      <JsonLd origin={origin} />
       <a
         href="#main-content"
         className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[2000] focus:rounded-full focus:bg-[#91FF00] focus:px-4 focus:py-2 focus:text-black focus:outline-none"

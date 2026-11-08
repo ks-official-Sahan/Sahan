@@ -27,7 +27,7 @@ export interface SmtpTransport {
   }): Promise<SmtpInfo>;
 }
 
-export function createSmtpProvider(config: SmtpConfig, transport?: SmtpTransport): EmailProvider {
+export function createSmtpProvider(config: SmtpConfig, transport?: SmtpTransport, name: "brevo-smtp" | "smtp" = "brevo-smtp"): EmailProvider {
   const mailer: SmtpTransport =
     transport ??
     (nodemailer.createTransport({
@@ -35,14 +35,14 @@ export function createSmtpProvider(config: SmtpConfig, transport?: SmtpTransport
       port: config.port,
       secure: config.secure,
       requireTLS: config.requireTLS,
-      auth: { user: config.user, pass: config.pass },
+      ...(config.user !== undefined ? { auth: { user: config.user, pass: config.pass ?? "" } } : {}),
       connectionTimeout: 10_000,
       greetingTimeout: 10_000,
       socketTimeout: 20_000,
     }) as unknown as SmtpTransport);
 
   return {
-    name: "brevo-smtp",
+    name,
     async send(message: PreparedMessage): Promise<ProviderOutcome> {
       try {
         const info = await mailer.sendMail({

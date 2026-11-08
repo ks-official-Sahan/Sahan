@@ -12,7 +12,7 @@ export const EMAIL_CATEGORIES = [
 
 export type EmailCategory = (typeof EMAIL_CATEGORIES)[number];
 
-export type ProviderName = "brevo-api" | "resend" | "brevo-smtp" | "capture";
+export type ProviderName = "brevo-api" | "resend" | "brevo-smtp" | "smtp" | "capture";
 
 /** What callers pass in. Addresses are bare (`name@example.com`). */
 export interface EmailMessage {

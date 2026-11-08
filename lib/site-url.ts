@@ -1,5 +1,7 @@
 import "server-only";
 
+import { cacheLife, cacheTag, revalidateTag } from "next/cache";
+
 import { SiteMetadata } from "@/config/site";
 import { getKv } from "@/lib/cache/redis";
 import { getEnv } from "@/lib/env";
@@ -12,7 +14,7 @@ import { createActiveUrlResolver, probeOrigin, siteUrlCandidates, type ActiveUrl
 
 const DEFAULT_SITE_URLS = [SiteMetadata.siteUrl, "https://sahansachintha.vercel.app"];
 // Bump the version when the probe rules change, so no older answer is reused.
-const SHARED_KEY = "site-url:active:v2";
+const SHARED_KEY = "site-url:active:v3";
 
 const globalForSite = globalThis as unknown as {
   sahanSiteUrl?: { key: string; resolver: ReturnType<typeof createActiveUrlResolver> };
@@ -48,9 +50,27 @@ export function siteOrigins(): string[] {
   return siteUrlCandidates({ SITE_URLS: env.SITE_URLS, SITE_URL: env.SITE_URL }, DEFAULT_SITE_URLS);
 }
 
+/** Cache tag of the resolved origin; checkSiteUrls() purges it. */
+const SITE_URL_TAG = "site-url";
+
+// The resolution runs inside a "use cache" scope: the root metadata is
+// prerendered at build time, and Cache Components only allow the probe's
+// network calls and clock reads inside one. The build therefore probes the
+// domains too, and the prerendered canonicals use whichever answered. The
+// 5 minute life matches the probe's own TTL; an expire over 5 minutes keeps
+// it in the static shell. `candidates` is the key, so a changed SITE_URLS
+// list never reuses an answer for the old one.
+async function activeOrigin(candidates: string): Promise<string> {
+  "use cache";
+  cacheTag(SITE_URL_TAG);
+  cacheLife({ stale: 300, revalidate: 300, expire: 86_400 });
+  void candidates;
+  return resolver().resolve();
+}
+
 /** The active site origin, without a trailing slash. */
 export function siteUrl(): Promise<string> {
-  return resolver().resolve();
+  return activeOrigin(siteOrigins().join(" "));
 }
 
 export async function absoluteUrl(path: string): Promise<string> {
@@ -58,6 +78,8 @@ export async function absoluteUrl(path: string): Promise<string> {
 }
 
 /** Probes now, for the settings screen: which domain is active and which answered. */
-export function checkSiteUrls(): Promise<ActiveUrlStatus> {
-  return resolver().refresh();
+export async function checkSiteUrls(): Promise<ActiveUrlStatus> {
+  const status = await resolver().refresh();
+  revalidateTag(SITE_URL_TAG, "max");
+  return status;
 }

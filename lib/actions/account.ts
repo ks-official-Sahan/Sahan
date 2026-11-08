@@ -16,11 +16,13 @@ import { hashPassword, verifyPassword } from "@/lib/auth/password";
 import { checkPassword } from "@/lib/auth/password-policy";
 import { invalidateSessionState, invalidateUserSessionState, revokeSession, revokeUserSessions } from "@/lib/auth/session-store";
 import { createToken, RESET_TTL_MINUTES } from "@/lib/auth/invite-token";
-import { emailLink } from "@/lib/auth/links";
+import { acceptedSignInLink, emailLink } from "@/lib/auth/links";
 import { limit } from "@/lib/cache/ratelimit";
 import { repos, withTx } from "@/lib/data";
+import { formatDateTime } from "@/lib/admin/format";
 import { sendEmail } from "@/lib/email";
-import { emailChangeVerify, mfaToggled, passwordChanged, type Rendered } from "@/lib/email/templates";
+import { sendAccountEmail } from "@/lib/email/account-mail";
+import { emailChangeVerify, mfaToggled, passwordChanged, signInLinkMail, type Rendered } from "@/lib/email/templates";
 import { getEnv } from "@/lib/env";
 import { requestDetails } from "@/lib/security/request-device";
 
@@ -358,4 +360,27 @@ export async function revokeOtherSessions(_previous: ActionState, _formData: For
       ? `Ended ${ended.length} other ${ended.length === 1 ? "session" : "sessions"}.`
       : "No other sessions were open."
   );
+}
+
+export async function sendMySignInLink(_previous: ActionState, formData: FormData): Promise<ActionState> {
+  const access = await authorizeAction(null, OPTIONS);
+  if (!access.ok) return fail(access.error);
+  if (!(await limit("invite:actor", access.user.id)).ok) return fail("You sent many links. Try again in an hour.");
+  const link = await acceptedSignInLink(String(formData.get("link") ?? ""));
+  if (!link?.expiresAt) return fail("That sign-in link is no longer valid. Refresh the page and try again.");
+  const sent = await sendAccountEmail({
+    to: access.user.email,
+    render: (options) =>
+      signInLinkMail({ name: access.user.name, url: link.url, validUntil: formatDateTime(link.expiresAt) }, options),
+    category: "security",
+    actor: access.user,
+  });
+  if (!sent.ok) return fail("The sign-in link could not be emailed. Check the email settings and try again.");
+  await auditSafe({
+    action: "auth.sign_in_link.sent",
+    actor: access.user,
+    entityType: "User",
+    entityId: access.user.id,
+  });
+  return done(`Sign-in link sent to ${access.user.email}. It opens the sign-in page. A password is still required.`);
 }

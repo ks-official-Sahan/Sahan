@@ -12,6 +12,7 @@ test("candidates: SITE_URLS wins, else SITE_URL then the defaults; origins only,
   assert.deepEqual(siteUrlCandidates({ SITE_URL: "https://staging.example" }, [COM, APP]), ["https://staging.example", COM, APP]);
   // SITE_URLS sets the order; SITE_URL outside it stays, as the last backup.
   assert.deepEqual(siteUrlCandidates({ SITE_URLS: [`${APP}/x`, "ftp://bad", "not a url", APP], SITE_URL: COM }, [COM]), [APP, COM]);
+  assert.deepEqual(siteUrlCandidates({ SITE_URLS: [COM] }, [COM, APP]), [COM, APP]);
   // https only, except http on localhost; no credentials in a site address.
   assert.deepEqual(siteUrlCandidates({ SITE_URLS: ["http://sahansachintha.com", "http://localhost:3000", "https://user:pw@evil.example", APP] }, []), ["http://localhost:3000", APP]);
 });
@@ -50,7 +51,7 @@ test("resolver: the first healthy domain in order, cached, one probe for concurr
   assert.equal(await resolver.resolve(), COM); // the first one is back
 });
 
-test("resolver: none answering falls back to the first, briefly; a shared answer skips probing", async () => {
+test("resolver: none answering prefers the deployment host and does not cache it; a shared answer skips probing", async () => {
   let clock = 0;
   const stored: { value?: string; ttl?: number } = {};
   const resolver = createActiveUrlResolver({
@@ -65,8 +66,8 @@ test("resolver: none answering falls back to the first, briefly; a shared answer
       },
     },
   });
-  assert.equal(await resolver.resolve(), COM);
-  assert.deepEqual(stored, { value: COM, ttl: 60 });
+  assert.equal(await resolver.resolve(), APP);
+  assert.deepEqual(stored, {});
 
   const fromShared = createActiveUrlResolver({
     candidates: [COM, APP],

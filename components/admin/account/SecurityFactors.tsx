@@ -15,6 +15,7 @@ import {
   verifyPasskeyRegistrationAction,
   type SecurityState,
 } from "@/lib/actions/security";
+import { copyText } from "@/lib/admin/copy-text";
 import { toast } from "@/lib/admin/toast";
 import { passkeyErrorMessage, unsupportedReason } from "@/lib/auth/passkey-browser";
 
@@ -104,13 +105,8 @@ function RecoveryCodes({ codes, onDone }: { codes: string[]; onDone: () => void 
           type="button"
           className={buttonVariants.small}
           onClick={async () => {
-            try {
-              if (!navigator.clipboard) throw new Error("no clipboard");
-              await navigator.clipboard.writeText(text);
-              toast.success("Recovery codes copied.");
-            } catch {
-              toast.error("Copy failed. Select the codes and copy them by hand.");
-            }
+            if (await copyText(text)) toast.success("Recovery codes copied.");
+            else toast.error("Copy failed. Select the codes and copy them by hand.");
           }}
         >
           Copy

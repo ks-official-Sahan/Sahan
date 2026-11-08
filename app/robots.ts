@@ -1,5 +1,6 @@
-import { SiteMetadata } from "@/config/site";
 import type { MetadataRoute } from "next";
+
+import { siteUrl } from "@/lib/site-url";
 
 // AI crawlers/assistants that fetch pages to answer questions or train on the
 // open web. The owner wants the public site citable by AI search engines, so
@@ -20,7 +21,8 @@ const AI_CRAWLERS = [
   "Bytespider", // ByteDance: crawls for its AI products
 ];
 
-export default function robots(): MetadataRoute.Robots {
+export default async function robots(): Promise<MetadataRoute.Robots> {
+  const origin = await siteUrl();
   return {
     rules: [
       {
@@ -34,6 +36,6 @@ export default function robots(): MetadataRoute.Robots {
         disallow: "/api/",
       })),
     ],
-    sitemap: `${SiteMetadata.siteUrl}/sitemap.xml`,
+    sitemap: `${origin}/sitemap.xml`,
   };
 }

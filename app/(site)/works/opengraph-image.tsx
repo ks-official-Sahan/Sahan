@@ -1,6 +1,7 @@
 import { ImageResponse } from "next/og";
 
 import { PageMetadata, SiteMetadata } from "@/config/site";
+import { siteUrl } from "@/lib/site-url";
 
 // Static per-segment social card, no dynamic data — same design language as
 // the root app/opengraph-image.tsx, swapped to this page's own title and
@@ -12,6 +13,7 @@ export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
 export default async function Image() {
+  const host = (await siteUrl()).replace("https://", "");
   return new ImageResponse(
     (
       <div
@@ -71,7 +73,7 @@ export default async function Image() {
             display: "flex",
           }}
         >
-          {SiteMetadata.siteUrl.replace("https://", "")}/works
+          {host}/works
         </div>
       </div>
     ),

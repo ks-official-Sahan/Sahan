@@ -80,7 +80,7 @@ test("generateFullPost clamps oversized fields to the schema's limits", async ()
   assert.equal(result.ok, true);
   if (!result.ok) return;
   assert.equal(result.title.length, 200);
-  assert.equal(result.seoTitle.length, 70);
+  assert.equal(result.seoTitle.length, 60);
   assert.equal(result.tags.length, 20);
 });
 

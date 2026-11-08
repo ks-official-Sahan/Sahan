@@ -24,7 +24,9 @@ export function siteUrlCandidates(
   env: { SITE_URLS?: readonly string[]; SITE_URL?: string },
   defaults: readonly string[]
 ): string[] {
-  const listed = env.SITE_URLS?.length ? [...env.SITE_URLS, env.SITE_URL] : [env.SITE_URL, ...defaults];
+  // Defaults stay on the list even when SITE_URLS names one host, so a single
+  // preferred domain cannot hide the deployment that actually answers.
+  const listed = env.SITE_URLS?.length ? [...env.SITE_URLS, env.SITE_URL, ...defaults] : [env.SITE_URL, ...defaults];
   const origins = listed.flatMap((value) => {
     if (!value) return [];
     try {
@@ -99,10 +101,24 @@ export function createActiveUrlResolver(deps: ActiveUrlDeps) {
     const results = await Promise.all(deps.candidates.map((origin) => deps.probe(origin).catch((): ProbeResult => "down")));
     const checked = deps.candidates.map((origin, index) => ({ origin, state: results[index] }));
     const healthy = checked.find((entry) => entry.state === "healthy")?.origin;
-    const active = healthy ?? checked.find((entry) => entry.state === "reachable")?.origin ?? first;
-    const seconds = healthy ? ttl : fallbackTtl;
-    memory = { value: active, expires: now() + seconds * 1000 };
-    await deps.shared?.set(active, seconds).catch(() => undefined);
+    const reachable = checked.find((entry) => entry.state === "reachable")?.origin;
+    const vercel = checked.find((entry) => {
+      try {
+        return new URL(entry.origin).hostname === "sahansachintha.vercel.app";
+      } catch {
+        return false;
+      }
+    })?.origin;
+    const active = healthy ?? reachable ?? vercel ?? checked[checked.length - 1]?.origin ?? first;
+    // A host that did not answer is not remembered. Caching it would keep
+    // canonicals on a name that does not resolve.
+    if (healthy || reachable) {
+      const seconds = healthy ? ttl : fallbackTtl;
+      memory = { value: active, expires: now() + seconds * 1000 };
+      await deps.shared?.set(active, seconds).catch(() => undefined);
+    } else {
+      memory = null;
+    }
     return { active, checked };
   }
 
@@ -115,7 +131,7 @@ export function createActiveUrlResolver(deps: ActiveUrlDeps) {
   }
 
   async function resolve(): Promise<string> {
-    if (deps.candidates.length <= 1) return first;
+    if (deps.candidates.length === 0) return "";
     if (memory && memory.expires > now()) return memory.value;
     const shared = await deps.shared?.get().catch(() => null);
     if (shared && deps.candidates.includes(shared)) {
