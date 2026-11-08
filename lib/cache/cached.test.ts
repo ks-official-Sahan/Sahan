@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { purgeRedisTag, readThrough } from "./cached";
+import { purgeRedisTag, readThrough, retryUnavailable } from "./cached";
 import { MemoryKv } from "./memory";
 import { kv } from "./redis";
 
@@ -42,4 +42,33 @@ test("readThrough loads directly when Redis fails, and never throws for it", asy
     throw new Error("redis down");
   };
   assert.equal(await readThrough(broken, ["t", "x"], ["tag"], 60, async () => 42), 42);
+});
+
+test("retryUnavailable retries a dropped connection, not a query error", async () => {
+  let calls = 0;
+  const value = await retryUnavailable(
+    async () => {
+      calls += 1;
+      if (calls < 3) throw new Error("read ECONNRESET");
+      return "ok";
+    },
+    3,
+    0
+  );
+  assert.equal(value, "ok");
+  assert.equal(calls, 3);
+
+  let queries = 0;
+  await assert.rejects(
+    retryUnavailable(
+      async () => {
+        queries += 1;
+        throw Object.assign(new Error("unique"), { code: "P2002" });
+      },
+      3,
+      0
+    ),
+    /unique/
+  );
+  assert.equal(queries, 1);
 });

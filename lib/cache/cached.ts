@@ -3,7 +3,8 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import { cacheLife, cacheTag } from "next/cache";
 
-import { dbConfigured } from "@/lib/db/state";
+import { isDbUnavailable } from "@/lib/data";
+import { dbConfigured, isBuildPhase } from "@/lib/db/state";
 import { noteCache } from "@/lib/observability/timing";
 
 import type { Kv } from "./memory";
@@ -24,6 +25,13 @@ import { kv } from "./redis";
 
 /** Safety net: ISR revalidates at least this often even without a publish. */
 export const DEFAULT_REVALIDATE_SECONDS = 3600;
+
+/**
+ * Tries a fill makes before a connection-level database failure reaches the
+ * caller. A build retries harder: one failed prerender fails the deploy. At
+ * request time a real outage should reach the caller's fallback quickly.
+ */
+const fillAttempts = () => (isBuildPhase() ? 4 : 2);
 
 /** Upper bound on how long the Redis read-through layer may serve a value. */
 const REDIS_CACHE_CAP_SECONDS = 300;
@@ -130,6 +138,25 @@ function lifeFor(revalidate: number) {
   return { stale: Math.min(revalidate, 300), revalidate, expire: Math.max(revalidate * 2, 86_400) };
 }
 
+/**
+ * Retries a load that failed because the database could not answer (a reset
+ * socket, a compute waking up). An error thrown inside a "use cache" fill
+ * fails the whole prerender even when the caller catches it, so one dropped
+ * connection would otherwise fail a production build. Query errors are
+ * thrown at once.
+ */
+export async function retryUnavailable<T>(load: () => Promise<T>, attempts = fillAttempts(), waitMs = 500): Promise<T> {
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      return await load();
+    } catch (error) {
+      if (attempt >= attempts || !isDbUnavailable(error)) throw error;
+      // 0.5 s, 1 s, 2 s: long enough for a dropped socket to be replaced.
+      await new Promise((resolve) => setTimeout(resolve, waitMs * 2 ** (attempt - 1)));
+    }
+  }
+}
+
 async function cachedRun(id: string, args: unknown[]): Promise<unknown> {
   "use cache";
   const entry = registry.get(id);
@@ -137,7 +164,7 @@ async function cachedRun(id: string, args: unknown[]): Promise<unknown> {
   cacheTag(...entry.tags);
   if (entry.revalidate === false) cacheLife("max");
   else cacheLife(lifeFor(entry.revalidate));
-  const load = () => entry.load(...args);
+  const load = () => retryUnavailable(() => entry.load(...args));
   let value: unknown;
   if (entry.revalidate === false) {
     noteCache("load");
