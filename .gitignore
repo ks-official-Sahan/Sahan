@@ -59,3 +59,10 @@ sahansachintha.vercel.app-audit/
 
 # graphify graph output — regenerable, not committed (run /graphify).
 /graphify-out/
+
+# vinext / Cloudflare build output.
+/dist/
+.vinext/
+.cloudflare/
+.dev.vars
+.output/

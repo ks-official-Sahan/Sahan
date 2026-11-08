@@ -16,8 +16,12 @@ export { dbConfigured, isBuildPhase };
 
 // Node needs a WebSocket implementation for the Neon driver; Cloudflare
 // Workers (the vinext build) have a native one, and `ws` does not run there.
+// A Worker also cannot reuse a socket opened by another request (the request
+// hangs), so there plain queries go over stateless HTTP and a transaction's
+// WebSocket is closed after one use instead of returning to the pool.
 const onWorkers = typeof navigator !== "undefined" && navigator.userAgent === "Cloudflare-Workers";
-if (!onWorkers) neonConfig.webSocketConstructor = ws;
+if (onWorkers) neonConfig.poolQueryViaFetch = true;
+else neonConfig.webSocketConstructor = ws;
 
 const globalForDb = globalThis as unknown as {
   sahanDbClients?: Partial<Record<DbSource, PrismaClient>>;
@@ -28,7 +32,8 @@ function createClient(source: DbSource): PrismaClient {
   const connectionString = runtimeConnectionString(process.env, source);
   if (!connectionString) throw new Error(source === "primary" ? "DATABASE_URL is not set" : `no URL configured for the ${source} database`);
 
-  const adapter = new PrismaNeon({ connectionString }, { schema: runtimeSchema(process.env, source) });
+  const pool = onWorkers ? { connectionString, maxUses: 1, idleTimeoutMillis: 1 } : { connectionString };
+  const adapter = new PrismaNeon(pool, { schema: runtimeSchema(process.env, source) });
 
   return new PrismaClient({
     adapter,
